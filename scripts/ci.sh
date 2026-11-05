@@ -31,10 +31,13 @@ esac
 # fails naming it: a hang is a fail, never a run that does not end.
 CI_BUDGET_S="${CI_BUDGET_S:-2700}"
 CI_START=$SECONDS
+# The trace steps send their own output (stderr too) to /dev/null; the budget's
+# error goes to the gate's stderr, kept here as fd 3, so it is never swallowed.
+exec 3>&2
 within_budget() {
   local left=$(( CI_BUDGET_S - (SECONDS - CI_START) ))
   if [ "$left" -le 0 ]; then
-    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget before: $*" >&2
+    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget before: $*" >&3
     exit 1
   fi
   local rc=0
@@ -49,7 +52,7 @@ within_budget() {
     exit(($? & 127) ? 128 + ($? & 127) : $? >> 8);
   ' "$left" "$@" || rc=$?
   if [ "$rc" -eq 142 ]; then
-    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget ($((SECONDS - CI_START)) s) in: $*" >&2
+    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget ($((SECONDS - CI_START)) s) in: $*" >&3
     exit 1
   fi
   return "$rc"
