@@ -7,8 +7,9 @@ extends CanvasLayer
 ##             (GlobeMap; M opens it)
 ##   Ledger    what you own on the left, the story and your jobs on the right, each
 ##             with a waypoint button (InventoryPanel; I opens it)
-##   Game      the main story's chapter (issue #64), time of day, game speed,
-##             credits, the space fight switch, the home town's layout, new game
+##   Game      respawn (back where you started), the main story's chapter (issue
+##             #64), time of day, game speed, credits, the space fight switch, the
+##             home town's layout, new game
 ##   Player    the outfit from the kit pieces (CharacterBuilder, issue #48), then
 ##             god mode, heal, jetpack, teleport and guard debug
 ##   Standing  faction standing, each individual's trust / mood / tab, and every
@@ -111,6 +112,7 @@ func _build_tabs() -> void:
 	tabs.add_child(_map_tab())
 	tabs.add_child(_inventory_tab())
 	var game := _tab("Game")
+	_respawn_page(game)
 	_lan_page(game)
 	_saves_page(game)
 	_story_page(game)
@@ -975,6 +977,62 @@ func teleport(marker_id: String) -> bool:
 		p.call("align_to_ground", true)
 	else:
 		p.velocity = Vector3.ZERO
+	return true
+
+
+# ------------------------------------------------------------------ respawn
+
+## The Game page's first section: one button that puts you back where you started.
+## Greyed out (and saying why) while you are seated or down; story saves keep it.
+func _respawn_page(v: VBoxContainer) -> void:
+	_section(v, "Respawn")
+	var note := Label.new()
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(note)
+	var b := Button.new()
+	b.text = "Respawn where you started"
+	b.pressed.connect(func():
+		if respawn():
+			close())
+	_row(v, "", b)
+	_refreshers.append(func():
+		var why := respawn_blocked()
+		b.disabled = why != ""
+		note.text = why if why != "" else RESPAWN_NOTE)
+
+
+const RESPAWN_NOTE := "Stuck? Back to where the game started you: the pit, beside your ship. Nothing is lost or reset."
+
+
+## Why respawn() would refuse right now, "" when it would not.
+func respawn_blocked() -> String:
+	var p = _player()
+	if p == null or demo.town == null:
+		return "There is nowhere to respawn here."
+	if p.piloting:
+		return "Get out of the ship or speeder first."
+	if p.is_downed:
+		return "You are down; you will wake in the pit on your own."
+	return ""
+
+
+## Back where you started: the town's spawn marker (the pit, beside your ship), the
+## same spot a new game and a wake up in the pit use. Your primary ship is brought
+## to its pad as on any wake up (ShipPilot.woke_in_pit). Not while seated (ship or
+## speeder) nor while downed (the garrison's wake up, and its fee, comes first).
+## A story save keeps it: it gives nothing, it only gets a stuck player out.
+func respawn() -> bool:
+	if respawn_blocked() != "":
+		return false
+	var p = _player()
+	p.global_position = demo.town.spawn_pos() + Vector3(0, 0.05, 0)
+	if p.has_method("align_to_ground"):
+		p.call("align_to_ground", true)
+	else:
+		p.velocity = Vector3.ZERO
+	var pl = demo.get("pilot")
+	if pl != null and is_instance_valid(pl):
+		pl.woke_in_pit()
 	return true
 
 

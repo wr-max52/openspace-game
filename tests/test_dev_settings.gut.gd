@@ -87,6 +87,27 @@ func test_teleport_moves_player_to_marker() -> void:
 	assert_false(town.dev_settings.teleport("no_such_marker"))
 
 
+func test_respawn_puts_player_back_at_the_start() -> void:
+	var town = _town()
+	var p: DevSettingsPanel = town.dev_settings
+	var start: Vector3 = town.town.spawn_pos()
+	assert_true(p.teleport("cantina_door"))
+	assert_gt(town._player.global_position.distance_to(start), 1.0, "walked away from the start")
+	assert_eq(p.respawn_blocked(), "")
+	assert_true(p.respawn())
+	assert_almost_eq(town._player.global_position.x, start.x, 0.01)
+	assert_almost_eq(town._player.global_position.z, start.z, 0.01)
+	town._player.piloting = true
+	assert_ne(p.respawn_blocked(), "", "says why while seated")
+	assert_false(p.respawn(), "not from a ship or speeder seat")
+	town._player.piloting = false
+	town._player.is_downed = true
+	assert_false(p.respawn(), "not while downed: the pit wake up comes first")
+	town._player.is_downed = false
+	WorldState.new_game(WorldState.STORY)
+	assert_true(p.respawn(), "a story save keeps respawn")
+
+
 func test_known_flags_cover_content_conditions() -> void:
 	var town = _town()
 	WorldState.set_flag("my_custom")

@@ -2,6 +2,15 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Respawn button in the game menu (2026-11-08)
+
+- **F11, Game page, first section: Respawn where you started.** It puts you
+  back where the game started you (the pit, beside your ship), closes the menu
+  and brings your own ship to its pad, as when you wake in the pit. Nothing is
+  lost or reset; it is there for when you are stuck.
+- Greyed out, saying why, while you sit in a ship or speeder or are down.
+  Story saves keep it: it gives nothing.
+
 ## Make your own stall keeper and send it in (issue #147, 2026-11-08)
 
 - **8 of the port market's 12 stall keepers can be made yours.** The ones who
