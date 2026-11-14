@@ -2,6 +2,33 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-14 — Open-space cruise and a sun-centred system (issues #575, #576)
+
+- **Cruise is one multiplier in the one flight model.** `AtmoFlight.cruise`
+  multiplies `air_scale()`; it is 1 in every planet's scene and only moves when
+  the ground is open space's. It rises no faster than `cruise_ease_in` and
+  lets go by distance to the nearest bubble (`cruise_ease_out`), and her speed
+  is scaled down with it, so she crosses a bubble at today's edge speed without
+  a braking rule. Per ship: `cruise_mult` (set so every ship tops out near
+  1,170 m/s, the courier still fastest) and `cruise_turn_scale`. Alternative: a
+  key or a jump drive. Rejected: the issue asks for automatic, and a jump skips
+  the flight.
+- **The system is a tree in data.** `near` may be `sun`: home and the giant
+  orbit it, Grit Station orbits home, Cinder Station the giant. Home's port is
+  still the system frame's origin, so no planet's own scene moved and old saves
+  load where they were; the sun sits at home's centre less home's `at`. The sun
+  is not a place: the chart's centre and open space's origin, nothing else.
+- **Distances come from trip times.** `space.trips` holds the bands (a moon to
+  its planet 20-30 s of open space, planet to planet 50-70 s) and
+  `test_star_system` flies the courier on the real flight model to check them.
+  The planets kept their bearings from the port, further out: the moon and the
+  giant now look about 5 degrees wide from the port (were about 11 and 13).
+- **Open space's origin is the sun**, the middle of the system, so a ship out
+  there is never more than ~57 km from it (it would be up to ~94 km from home's
+  port). Alternative: a floating origin that moves the planet balls. Not done:
+  it touches the ship, camera, labels, sky frame and LAN positions for a few
+  millimetres of float error; KNOWN_ISSUES has it.
+
 ## 2026-11-05 — Open space is its own place (issue #573)
 
 - **The bug.** "Space" was the home planet's whole scene: every planet was near

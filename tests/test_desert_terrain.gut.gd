@@ -186,7 +186,7 @@ func test_town_demo_builds_the_desert() -> void:
 			for z in [-9.0, 0.0, 9.0]:
 				assert_almost_eq(sp.elevation(sp.map_dir(r.get_center().x + x, r.get_center().y + z)), y,
 					0.001, "merchant and customer positions share flat ground")
-	assert_eq(d.view_far(), 20000.0, "the home planet: the whole ball")
+	assert_eq(d.view_far(), maxf(20000.0, d.sky_reach()), "the home planet: the whole ball, and every other planet whole (issue #576)")
 	var off = TownDemo.new()
 	off.use_look = false
 	off.lookdev_mode = true

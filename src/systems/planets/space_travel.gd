@@ -68,7 +68,8 @@ func setup(ship_pilot, neighbours: Array, with_looks: bool) -> void:
 			self_handoff = PlanetGen.handoff_altitude(str(me.get("type", "")))
 		var here := PlanetGen.system_port(here_id)
 		if here != Vector3.INF:
-			_open_body = { "id": PlanetGen.open_space_id(), "offset": -here, "name": "", "at": -here, "radius": 0.0 }
+			var open_port := PlanetGen.system_port(PlanetGen.open_space_id()) - here    # issue #576: the sun
+			_open_body = { "id": PlanetGen.open_space_id(), "offset": open_port, "name": "", "at": open_port, "radius": 0.0 }
 	var eye := _eye()
 	var near_ok := float(PlanetGen.space_cfg().get("real_ball_within", 6000.0))
 	for n in neighbours:

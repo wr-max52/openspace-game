@@ -1706,16 +1706,14 @@ func view_far() -> float:
 	var far := 12000.0 if terrain != null or platform != null else 4000.0
 	if terrain is PlanetTerrain:
 		far = 4.0 * (terrain as PlanetTerrain).sphere.radius   # the whole ball, from orbit too
-	return maxf(far, sky_giant_reach())
+	return maxf(far, sky_reach())
 
 
-## How far the camera must see to show the real ringed giant (and its ring) in
-## this planet's sky, or 0 when there is none (PlanetGen: replaces_sky_painting).
-func sky_giant_reach() -> float:
+## How far the camera must see to show every other planet (and the giant's ring)
+## in this place's sky, whole (issue #576: at its true place, however far).
+func sky_reach() -> float:
 	var out := 0.0
 	for n in planet.get("neighbours", []):
-		if not bool(n.get("sky_giant", false)):
-			continue
 		var reach := float(n.radius) * maxf(1.0, float((n.get("ring", {}) as Dictionary).get("outer", 1.0)))
 		out = maxf(out, ((n.at as Vector3).length() + reach) * 1.05)
 	return out

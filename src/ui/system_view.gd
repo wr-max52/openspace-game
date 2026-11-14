@@ -4,6 +4,8 @@ extends Control
 ## (map -z up, as the globe's port faces you), each where it really hangs
 ## (GlobeMap.system: one frame for them all, the home planet's), drawn its true
 ## size against the distances, with a faint orbit round the planet it is near.
+## Issue #576: centred on the sun (a drawn disc, "sun" in the look's "system"),
+## the planets' orbits round it and each moon's round its planet.
 ## The Remnant cruiser too, over its planet. You show as on the globe (a green
 ## triangle pointing the way you look), wherever you are: on a planet, in its
 ## sky or out between them; the other LAN players as blue dots.
@@ -25,6 +27,7 @@ const MARGIN := 34.0                     ## px kept clear round the fitted chart
 
 var bodies: Array = []                  ## GlobeMap.system
 var cruiser := Vector3.INF              ## the Remnant cruiser (system frame), INF = none
+var sun := Vector3.INF                  ## issue #576: the sun (system frame), INF = none
 var cruiser_label := ""
 var player := Vector3.INF               ## you (system frame), INF = not known
 var heading := Vector2.ZERO             ## the way you look, (x, z) in the system frame (ZERO = none)
@@ -86,6 +89,11 @@ func extents() -> Rect2:
 		first = false
 	if cruiser != Vector3.INF:
 		box = box.expand(Vector2(cruiser.x, cruiser.z))
+	if sun.is_finite():
+		# Issue #576: the same either side of the sun, so the sun is the chart's centre.
+		var c := Vector2(sun.x, sun.z)
+		var half := (box.position - c).abs().max((box.end - c).abs())
+		box = Rect2(c - half, half * 2.0)
 	return box
 
 
@@ -204,6 +212,12 @@ func _draw() -> void:
 	var ink := GlobeView.ink_color()
 	var font := get_theme_default_font()
 	_draw_orbits(Color(ink, float(lk.get("orbit_alpha", 0.2))))
+	if sun.is_finite():
+		var sl: Dictionary = lk.get("sun", {})
+		var sr := float(sl.get("radius_px", 9.0))
+		var sc := Color(str(sl.get("color", "#ffd88a")))
+		draw_circle(project(sun), sr * 1.9, Color(sc, float(sl.get("glow_alpha", 0.18))))
+		draw_circle(project(sun), sr, sc)
 	var t := GlobeView.pulse()
 	var goal_col := Color(str(GlobeMap.look().get("goal", {}).get("color", "#ffd84a")))
 	for b in bodies:
@@ -243,14 +257,22 @@ func _draw_orbits(col: Color) -> void:
 		var near := str(b.get("near", ""))
 		if near == "":
 			continue
+		if near == PlanetGen.sun_id():
+			if sun.is_finite():
+				_orbit(project(sun), project(sun).distance_to(project(b.centre)), col)
+			continue
 		for p in bodies:
 			if str(p.id) == near:
 				var c := project(p.centre)
-				var r := c.distance_to(project(b.centre))
-				var n := clampi(int(r * 0.25), 48, 256)
-				for k in n:                          # dashed: every other stroke
-					if k % 2 == 0:
-						draw_arc(c, r, TAU * k / n, TAU * (k + 1) / n, 3, col, 1.0, true)
+				_orbit(c, c.distance_to(project(b.centre)), col)
+
+
+## A dashed circle (every other stroke) of r px round c.
+func _orbit(c: Vector2, r: float, col: Color) -> void:
+	var n := clampi(int(r * 0.25), 48, 256)
+	for k in n:
+		if k % 2 == 0:
+			draw_arc(c, r, TAU * k / n, TAU * (k + 1) / n, 3, col, 1.0, true)
 
 
 ## A planet: its disc in its colour, lit from the top left, its rim in its dark

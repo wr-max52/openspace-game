@@ -579,6 +579,7 @@ func _refresh_system(centre: bool) -> void:
 	system_view.bodies = GlobeMap.system()
 	system_view.here = here
 	system_view.cruiser = GlobeMap.system_cruiser()
+	system_view.sun = PlanetGen.system_sun()
 	system_view.cruiser_label = str(GlobeMap.kind_cfg("cruiser").get("label", ""))
 	system_view.player = Vector3.INF
 	system_view.heading = Vector2.ZERO

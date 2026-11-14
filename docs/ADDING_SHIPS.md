@@ -51,7 +51,10 @@ Every new id also goes in `content/core/manifest.json` under `ships`, `weapons`,
 A ship the player flies around the port also needs an `atmosphere` block (copy the
 interceptor's): `max_speed` and `boost_speed` near the ground (m/s), `min_speed`
 (0 = it hovers), `accel`, `boost_time` / `boost_recharge`; `edge_speed_mult` (how
-much faster at the edge of space) and `speed_curve`; `climb_drag` (speed lost
+much faster at the edge of space) and `speed_curve`; `cruise_mult` (issue #575: how
+much faster again out in open space, eased in and let go before each planet, so
+set it to bring the ship's edge speed near the fleet's ~1,170 m/s) and
+`cruise_turn_scale` (its turn rates at full cruise); `climb_drag` (speed lost
 straight up); `liftoff_height` / `liftoff_speed`; `land_max_agl`, `land_descent`,
 `land_slow`, `land_brake`, `touchdown_speed`; `crash_speed`; `body_radius` (for
 hitting things) and `clearance` (origin to belly; taken from the model when there

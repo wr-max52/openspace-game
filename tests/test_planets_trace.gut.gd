@@ -27,7 +27,7 @@ func test_the_station_hangs_in_the_ports_sky() -> void:
 	assert_eq(t.get("HOME_TOWN"), "port_town", "the port is still the hand-built town")
 	assert_eq(t.get("HOME_NEIGHBOURS"), "grit_station")
 	assert_ne(str(t.get("STATION_NAME_IN_PORT_SKY", "")), "")
-	assert_between(float(t.get("STATION_DISTANCE_FROM_PAD_KM", 0)), 8.0, 20.0, "a nearby hop")
+	assert_between(float(t.get("STATION_DISTANCE_FROM_PAD_KM", 0)), 25.0, 40.0, "a short hop (issue #576: 20-30 s of open space at cruise)")
 
 
 func test_flying_into_it_travels() -> void:
