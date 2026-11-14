@@ -2,6 +2,24 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-14 — The merge gate is "it starts, and the key moments are smooth" (issue #545)
+
+- **The rule.** `scripts/ci.sh` answers two questions and nothing else: does the
+  game start (the main scene, look on, an empty user folder: the New Game menu,
+  Enter, Story; then the next launch from that save), and do the key moments stay
+  smooth (town walk, desert walk, pit to space and back, planet to planet, each
+  with its 50 ms budget). The IP scan stays because it is absolute and cheap.
+  Every step also fails on a script error in its log, since a release build
+  crashes where a debug build only logs (the v1.6.4 first-launch crash).
+- **30 minutes**, enforced; a hang is a fail.
+- **The other ~165 test scripts stay** in `tests/` and run with
+  `scripts/test_all.sh`. They are each system's own checks; they no longer block
+  a merge. Alternative: delete them. Rejected (owner's pick): they are cheap to
+  keep and useful when changing the system they cover.
+- **The boot trace plays with a real save folder** (`scenes/boot_trace.gd`), so
+  it refuses to run unless `ci.sh` has pointed HOME at an empty temp folder
+  (`BOOT_HOME`); a player's saves are never touched.
+
 ## 2026-11-05 — Open space is its own place (issue #573)
 
 - **The bug.** "Space" was the home planet's whole scene: every planet was near
@@ -1475,7 +1493,8 @@ there; between planets, past every bubble, it is open space, its own place.)
 
 - **CI is a local shell script (`scripts/ci.sh`), not GitHub Actions.** Decision from
   the product owner: local-only repo. The script runs GUT headless and exits
-  non-zero on any failure. If a remote host is wanted later, the same GUT command is
+  non-zero on any failure. (Since 2026-11-14 it runs only the boot, frame-budget
+  and IP checks; see that entry.) If a remote host is wanted later, the same GUT command is
   the body of a GitHub Action.
 
 - **IP-neutral data layer at `content/core/`, loaded at runtime.** This is the load

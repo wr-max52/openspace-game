@@ -36,10 +36,18 @@ GitHub link was not opened in a browser.
   all show at the base size. Stall keepers keep theirs (`look_scale`); fixing it
   for everyone resizes characters across the game, so it is left for its own issue.
 
-## After issue #545, the CI gate green (2026-11-05)
+## After issue #545, the CI gate green (2026-11-05, trimmed 2026-11-14)
 
-**Checked:** `./scripts/ci.sh` end to end on the Mac (Godot 4.7.2), inside its
-new 45-minute budget. Most of what was red came from the home planet building
+**The gate now (2026-11-14):** `./scripts/ci.sh` checks only that the game
+starts (first launch through the New Game menu, then the next launch from the
+save) and that the key moments stay smooth (town walk, desert walk, pit to space
+and back, port to open space to the moon and home), plus the IP scan, inside 30
+minutes. Every other test runs with `./scripts/test_all.sh` (45 minutes) and no
+longer blocks a merge, so a red there is a system's own problem to fix when that
+system is next touched. The notes below are from the full run on 2026-11-05.
+
+**Checked:** the full suite (now `./scripts/test_all.sh`) end to end on the Mac
+(Godot 4.7.2), inside its 45-minute budget. Most of what was red came from the home planet building
 the round port (3a6017d) while the traces and tests still used the square port's
 numbers; they now read the town's own data (its gate, pit, tower, routes).
 
@@ -66,7 +74,8 @@ numbers; they now read the town's own data (its gate, pit, tower, routes).
   up: the exit spot (5.5 m to the side) only checks the town's boxes, and hulls
   now follow the model (f41a420). You are still in the pit.
 - **The natives trace aborts on quit** (`recursive_mutex lock failed` in the
-  engine) after writing its trace; the gate does not read trace exit codes.
+  engine) after writing its trace; `test_all.sh` does not read trace exit codes
+  (the gate does, and the natives trace is not in it).
 - **m13 (the jetpack trace) is still disabled**; it hung before this issue and
   was not looked at here.
 - **Frame budgets sit near the line** (40 to 49 ms against 50) in the combat and
