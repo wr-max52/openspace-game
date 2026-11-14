@@ -2,6 +2,181 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Make your own stall keeper and send it in (issue #147, 2026-11-08)
+
+- **8 of the port market's 12 stall keepers can be made yours.** The ones who
+  sell nothing show **[E] Make this stall keeper yours**. It opens the NPC
+  builder (the game pauses): their look from the kit (the same pieces as the
+  player's character builder, no Remnant armour), height, build, voice, what is
+  on the counter, their name or just a trade, temperament, how much they say,
+  their side in the war, who they are, their past, how they speak, who in town
+  they know, a secret, and the lines they say with no AI model.
+- **Try them out** puts them behind the counter to talk to. **Back to the
+  builder** over the chat box goes back. Nothing of a try-out is saved; what you
+  make is kept as a draft for that stall.
+- **Open pull request on GitHub** opens GitHub with their file filled in: sign
+  in, Propose new file, Create pull request. **Export file** saves it to the
+  Desktop. Once merged, everyone meets them at that stall in the next build.
+- **They just talk.** They see the same town as everyone (the briefing, the
+  market's news at once, the rest by gossip), give no jobs and sell nothing.
+- **The first one is in:** Marla Teague, a potter, at one of the market's stalls.
+- How it works and the file's fields: `docs/ADDING_STALL_KEEPERS.md`.
+
+## Bug fix: taking a job moves the waypoint to it (2026-11-05)
+
+- **After a waypoint was set on the story in the Ledger, taking a smuggling run
+  left the pointer on "Ask Oda about the drop"** and never moved it to the drop.
+  A Ledger pin holds the pointer for as long as its job has something to point
+  at, and the story always does on the home planet. Taking any job now clears
+  the pin, so the pointer goes back to the most urgent job (the drop comes
+  before the story).
+
+## New version is 1.6.4 (2026-11-05)
+
+- Share builds are now **OpenSpace V1.6.4**. Everything below, down to "New
+  version is 1.6.3", is in it.
+
+## Bug fix: share builds carry Oda's persona again (2026-11-05)
+
+- **With AI characters on, the cantina owner talks like herself in a
+  downloaded build.** Her persona text
+  (`content/core/dialogue/cantina_owner_persona.txt`) was left out of the V1.6.3
+  share builds. Godot packs resources and imported files by itself, but a plain
+  `.txt` ships only when the export preset's `include_filter` names it, and both
+  presets had none. So her AI prompt was built without the persona, and every
+  log repeated "missing text". Both presets now include `content/*.txt`.
+- **Checked:** a pack exported from the macOS Share preset has the file, and
+  booting the town from it logs no missing text (the V1.6.3 pack logged it
+  dozens of times a boot). Nothing else the game reads was missing: every other
+  file in `content/` is JSON, which ships as a resource.
+- **`tests/test_share_build.gut.gd`** fails if a file under `content/` that Godot
+  does not pack by itself is not covered by both presets' `include_filter`.
+
+## Bug fix: the first launch no longer crashes when you pick a game (2026-11-05)
+
+- **Picking Story or Free Roam with Enter or Space on a first launch crashed
+  the downloaded game.** Picking reloads the town, which takes the New game
+  menu out of the scene at once. The menu then asked for its viewport (now
+  null) to mark the key as used. The editor and debug builds only logged
+  that, but the exported game is a release build and segfaulted. A restart
+  worked because the save from the first try was there, so the menu did not
+  open again. The menu now marks the key as used before it picks
+  (`src/ui/new_game_menu.gd`).
+- **Checked on the real build.** With the V1.6.3 Mac release template and an
+  empty save folder, choosing Free Roam with Down and Enter crashed every run
+  with the V1.6.3 pack. With a pack exported from this branch, 3 of 3 runs
+  reached Free Roam and kept running. Clicking a choice with the mouse never
+  crashed.
+
+## The station's rooms: textured and filled (2026-11-05)
+
+Every room aboard the ringed giant's station except the favela has new surfaces
+and more in it. All of it is drawn by the station's own shader, so there is
+nothing new to load or compile, and each floor draws only a few more meshes.
+
+- **The upper homes' suites.** A marble foyer and plank floors, wood panelling
+  with a brass rail under a fabric wall, tufted velvet booths and sofas, rugs
+  with borders, marble bar and table tops, lit water in the aquarium. New in
+  each: a dining table under pendant lamps, a sofa round a wall screen,
+  bookcases, a reading nook, pictures on the walls, plants, statues round the
+  dance floor, a hot tub and loungers by the window, drapes at the glass. The
+  chandeliers hang lower, and the walkway has a carpet runner.
+- **The engine deck.** Tread plate floors with hazard lines, pipe runs along
+  the walls and a railed catwalk with a ladder in every room. The reactors have
+  coolant tanks piped to their crowns. The cargo holds have pallet racks, a
+  loader, a gantry crane and drums. The pump rooms have tanks along the walls
+  and a manifold up the window. The workshops have tool cabinets, a lathe, a
+  drill press, a welding cart, a parts rack, and a speeder up on a lift. Crates
+  and drums stand along the walkway.
+- **The Remnant's deck.** Each room has its own floor: tread plate, rubber
+  matting, carpet or tile. The bunk rooms gain card tables, reading lights and
+  a rifle rack, with their lockers now round the window. The armouries have
+  armour on stands and ammunition racks in the cage. The commander's office has
+  bookcases, a conference table, a drinks cabinet, a globe and armchairs. The
+  mess has four long tables with trays, a serving counter with hot food under
+  glass, and a kitchen behind it. The control room has computer racks along its
+  walls.
+- **The markets.** Stone flags underfoot, dark tiles round the walkway, stock
+  piled behind the stalls, lamp posts and planters along the walkway, and
+  banners hung from the ceiling.
+- **The top floor.** The main tower's top floor, empty until now, is dressed.
+  Its bridge has the cruiser's control room inside the door, then four arcs of
+  crew desks facing the window and a railed command dais by the glass. Two
+  cantinas each have a long bar of lit bottles, velvet booths, round tables and
+  a stage with spotlights and a drum kit. Two barracks are rows of bunks. Two
+  observation lounges have sofas facing the window, bookcases, a telescope and a
+  grand piano. The garden has trees in raised beds, a pond with a fountain,
+  benches, and racks of crops under grow lights. Nobody works there yet: the
+  people come with the rest of issue #314.
+- **Fixed:** the suites' wall panelling and the bunk rooms' lockers used to run
+  out through the window glass at the rooms' far corners.
+
+## Share builds leave the docs stills out (2026-11-05, issue #533)
+
+- **The game pack is 176 MB smaller** (742 MB to 566 MB, about a quarter):
+  both export presets now leave out `docs/`, whose 376 review stills were being
+  imported as textures and packed. Nothing the game loads changed: the two
+  packs differ only by the docs files, and both boot headless with the same log.
+- **The raw Hyper3D models were never shipped.** Every `source/` folder has a
+  `.gdignore`, so they are not imported or exported; the presets now also
+  exclude `assets/*/source/*` in case one loses it.
+- **`tests/test_share_build.gut.gd`** fails if a source folder loses its
+  `.gdignore`, a preset loses either filter, or the game's code or data loads a
+  path from a source folder or `docs/` (the prep tools' `source` and
+  `emission` inputs are allowed).
+
+## Builders' docs: one page of render rules, PLAN and KNOWN_ISSUES true (2026-11-05, issue #547)
+
+- **`docs/RENDER_RULES.md`:** the twelve rules for anything drawn or ticked
+  (batch, share materials, boxes before models, no new shaders, never read a
+  mesh back, draw by distance, one shadow caster, build over ticks, few
+  colliders, tick by distance, numbers in data, measure), lifted from the
+  station's rules, the draw distance decision, the art direction budget and the
+  trace notes. AGENTS.md and the write-issue skill link it beside "What can not
+  change".
+- **PLAN.md is true:** one M15 row, M14 and S1 marked done, and a line saying
+  the table stops at P1 and CHANGELOG has the rest.
+- **KNOWN_ISSUES.md holds only current notes.** The nine replaced sections (M0
+  to M8, M11 + M12, M13, the first seamless desert) moved to
+  `docs/KNOWN_ISSUES_ARCHIVE.md`, and a doubled M15 heading is gone.
+- **`tests/test_docs.gut.gd`** fails if PLAN.md lists an id twice, if
+  KNOWN_ISSUES.md marks a section as replaced, or if the render rules page
+  loses its links.
+
+## The IP scan reads the whole repo (2026-11-05, issue #548)
+
+- **Every file is scanned, and every file name.** The franchise-name check used
+  to read only `.gd .json .txt .tscn .cfg` under five folders. It now reads
+  every text file in the repo (docs, the root markdown, the skills, tools,
+  shaders, `project.godot`, the export presets) and every file name, models
+  and sounds included. Only `addons/`, build and test output, and the two files
+  that quote the list on purpose are left out.
+- **Commit messages are checked.** `scripts/check_commit_messages.sh` reads
+  every commit a branch adds over `origin/main` against the same list, and
+  `ci.sh` runs it first.
+- **Two old hits reworded:** a changelog line that named the three ship names
+  it added to the list, and the outside review page quoting the list.
+
+## The cruiser outside: flush bay, better guns, step out into space (2026-11-04)
+
+- **The bay sits flush in the hull.** The bay's port wall and ceiling used to
+  stand 15 m out of the port shoulder along the whole bay, its fore and aft
+  walls poked up through the shoulders on both sides, and the deck ran 8 m out
+  past the flank as a ledge. Now the bay's walls stop under the hull's own
+  plates and the deck ends at the flank, so both sides of the ship are clean.
+- **New gun turrets on top.** The ten dorsal guns were two boxes and two sticks
+  each. Now each is a round barbette with a faceted gun house on it (riveted
+  gunmetal with a red line under the roof), a sensor pod and whip, cooling fins
+  aft, a mantlet, and three long barrels with sleeves and muzzle brakes, raised
+  a little, their bores glowing. Each is trained a little outboard. You can
+  stand on them.
+- **Walk out through the bay's shield.** The shield still lets ships and bolts
+  through and still holds the crew in, but you can now walk or jump out of it.
+  Outside the hull, within about 110 m of it, gravity is light (4 instead of
+  20) and the jetpack refuels in the air, so you can fly round the ship and
+  land on its hull. Drift further and you are pulled back aboard by the dock
+  pad.
+
 ## Sniper rifle balance, and the weapon keys move (2026-11-04)
 
 - **The sniper rifle fires half as fast.** 0.24 s between shots instead of
@@ -3241,7 +3416,7 @@ Fixed along the way:
 - **The IP-neutrality scan skipped every top-level file** in the folders it scans
   (`scenes/*.gd`, `content/core/manifest.json`, `scripts/*`, `tests/*`): it joined
   the folder and file names without a slash. Fixed; the guard file itself is the one
-  exclusion. Added "x-wing", "tie fighter" and "millennium falcon" to the list.
+  exclusion. Added three franchise ship names to the list.
 - **CI on a fresh checkout ran no tests but still passed.** Without an import step GUT
   could not load, printed an error, and `ci.sh` exited 0. `ci.sh` now imports first.
 
