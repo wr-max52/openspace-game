@@ -30,3 +30,13 @@ flight/physics surfaces, an actual flight-model landing, pointed fracture plates
 and four segmented engine rims. Optional photos include the powered-off engines.
 Screenshots omit
 the town buildings/NPCs and are not a full gameplay or performance review.
+
+## Wreck poses (the field round the ball)
+
+A photo of every wreck from outside, along its decks and up its hold, each in its
+own pose (flat, sunken, steep and listing). Not CI:
+
+```sh
+xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 1600x900 \
+  -s res://tools/review/wreck_poses_shot.gd -- shots=/tmp/wreck_poses
+```

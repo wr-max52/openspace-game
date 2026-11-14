@@ -51,6 +51,32 @@ Every significant technical choice, the alternative, and why. Newest on top.
   it touches the ship, camera, labels, sky frame and LAN positions for a few
   millimetres of float error; KNOWN_ISSUES has it.
 
+## 2026-11-14 — The wreck field spreads round the ball and each wreck lies its own way
+
+- **Where.** The original crash site stays 1.35 km east of the port (the story
+  sends you there); the other three move off in their own directions: 6 km
+  south-west, 9 km north over the curve, and the far side, 1.4 km from the point
+  straight through the planet. Alternative: more wrecks. Not asked for; the
+  crews and crates already scale per site if more are added.
+- **Pose is data.** `yaw_deg`, `pitch_deg`, the new `roll_deg` (a list, turning the
+  whole ship, decks included) and `bury_height`; one lies nearly flat (8 degrees),
+  one is sunk past its middle (you walk in through the breach on the sand), one
+  dives at 26 degrees and lists. Alternative: a level frame that removes the list
+  from the decks. Rejected: a few degrees is walkable, and the wall maths would
+  need the list too.
+- **The interior is one rigid design** (`StarcruiserWreck.Pose`): decks, ramps,
+  rails and the bridge keep their design coordinates on every wreck, so the
+  droids' routes and the crates in data serve all four unchanged. Each pose moves
+  the design so the bridge platform keeps its spot on the dorsal plating
+  (variant `deck_drop` lets it down for a flat one). Alternative: a hand-made
+  interior per pose. Rejected: four times the routes, rails and tests.
+- **What joins it to the hull is worked out** (`_connectors`, `_column_top`,
+  `_meets`): the stern ramp's head moves aft until the ramp is walkable, else a
+  climb ramp runs up the starboard side to the low balcony; the gallery ramp
+  stands only where it can climb; the drops pull in from the plating; the dorsal
+  hatch, ribs and radiators give way to the bridge; gallery stanchions stop under
+  any deck. The original's parts come out exactly as before (its tests unchanged).
+
 ## 2026-11-05 — Open space is its own place (issue #573)
 
 - **The bug.** "Space" was the home planet's whole scene: every planet was near
