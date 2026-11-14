@@ -170,7 +170,7 @@ func _add_wreck_plate(b: Dictionary) -> void:
 		material.set_shader_parameter("finish", { "hull": 0, "rib": 1, "scorch": 2, "marking": 3, "nozzle": 4,
 			"deck": 5, "grate": 6, "ramp": 7, "pad": 8 }.get(finish, 0))
 		_wreck_mats[key] = material
-	# Wreck field: four wrecks in sight of each other. Their small parts (railings,
+	# Wreck field: four wrecks round the ball, the first in sight of the port. Their small parts (railings,
 	# vents, braces) are a pixel or two past SMALL_PART_RANGE; stop drawing them.
 	var small := size.length() < SMALL_PART
 	var batch_key := key + ("/small" if small else "")
