@@ -43,6 +43,9 @@ esac
 
 CI_BUDGET_S="${CI_BUDGET_S:-1800}"
 CI_START=$SECONDS
+# Steps send their own output (stderr too) to a log or /dev/null; the budget's
+# error goes to the gate's stderr, kept here as fd 3, so it is never swallowed.
+exec 3>&2
 
 # Run a step under the time left. It runs in its own process group so the alarm
 # takes its children too. Returns the step's exit code; exits the gate when the
@@ -50,7 +53,7 @@ CI_START=$SECONDS
 within_budget() {
   local left=$(( CI_BUDGET_S - (SECONDS - CI_START) ))
   if [ "$left" -le 0 ]; then
-    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget before: $*" >&2
+    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget before: $*" >&3
     exit 1
   fi
   local rc=0
@@ -64,7 +67,7 @@ within_budget() {
     exit(($? & 127) ? 128 + ($? & 127) : $? >> 8);
   ' "$left" "$@" || rc=$?
   if [ "$rc" -eq 142 ]; then
-    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget ($((SECONDS - CI_START)) s) in: $*" >&2
+    echo "CI: ERROR -- over the $((CI_BUDGET_S / 60))-minute budget ($((SECONDS - CI_START)) s) in: $*" >&3
     exit 1
   fi
   return "$rc"
