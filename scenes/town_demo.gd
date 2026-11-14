@@ -73,6 +73,7 @@ var training_range: TrainingRange
 var cantina_owner: Node3D                 ## M12 (null in the CI greybox)
 var bar: Node
 var gear: GearController              ## M13
+var community: CommunityStalls        ## issue #147: player-made stall keepers and the NPC builder
 var pilot: ShipPilot                  ## M14
 var interceptor: AtmoFighter          ## issue #76: the Remnant's dark interceptor on the barracks pad
 var hijack: Node                      ## E by a ship or speeder someone else sits in: take it (Hijack)
@@ -214,6 +215,9 @@ func build_plan(staged_build: bool) -> Array:
 	var ground_kind := str(planet.get("ground", "terrain"))
 	var add := func(n: String, tier: String, fn: Callable, poll := false) -> void:
 		plan.append({ "name": n, "tier": tier, "fn": fn, "poll": poll })
+	if ground_kind == "none":
+		_open_space_plan(add)
+		return plan
 	if use_look:
 		# Issue #162: the outfit textures load on worker threads from here, so the
 		# people built over the next frames (or after the next handoff) never wait on disk.
@@ -232,11 +236,22 @@ func build_plan(staged_build: bool) -> Array:
 	add.call("platform", SHELL, func(): _build_platform(ground_kind); return true)
 	if use_look:
 		add.call("look", SHELL, func(): _build_look(); return true)
+		# Issue #574: the ship on the pad on the first frame (a ship flying in is
+		# it); the town round it one piece a frame after, hidden until it is dressed.
 		add.call("decor", SHELL, func(): _build_decor(); return true)
+		var dressing: Array = decor_steps()
+		for i in dressing.size():
+			var fn: Callable = dressing[i]
+			add.call("decor:%d" % i, LATER, func(): fn.call(); return true)
+		add.call("decor_done", LATER, func(): _decor_done(); return true)
 		add.call("club_look", LATER, func(): _build_club_look(); return true)    # issue #261: the club's room and instruments
 		add.call("dress_desert", SHELL, func():
 			if terrain != null:
 				_dress_desert()
+			return true)
+		add.call("landforms", LATER, func():
+			if terrain != null:
+				_build_landforms()
 			return true)
 		add.call("gas_ring", SHELL, func(): _dress_gas_ring(); return true)
 		add.call("dress_platform", SHELL, func():
@@ -331,6 +346,10 @@ func build_plan(staged_build: bool) -> Array:
 		if bar != null and gear != null and townsfolk != null:
 			_build_fence()
 		return true)
+	add.call("community", LATER, func():
+		if bar != null and townsfolk != null:
+			_community().attach(bar, townsfolk)       # issue #147: player-made stall keepers
+		return true)
 	add.call("mechanic", LATER, func():
 		if speeder_post != null and gear != null:
 			_build_mechanic()
@@ -388,6 +407,58 @@ func build_plan(staged_build: bool) -> Array:
 	if staged_build and ball_terrain:
 		add.call("terrain_far", LATER, func(left): return _terrain_far(left), true)
 	return plan
+
+
+## Issue #573: open space (ground "none"): only the flight shell. The sky, the
+## ship you flew in (parked on its hidden pad, then flown), its pilot with travel
+## and HUD, the altitude detail and the HUD's frame; no town, people, ground,
+## bar or save (a save never records open space).
+func _open_space_plan(add: Callable) -> void:
+	if use_look:
+		add.call("look", SHELL, func(): _build_look(); return true)
+		add.call("park", SHELL, func():
+			decor = TownDecor.new()
+			decor.style = style
+			decor.location_id = str(planet.get("town_id", ""))
+			add_child(decor)
+			decor.park_only(town, look)
+			return true)
+	else:
+		add.call("light_and_sky", SHELL, func(): _add_light_and_sky(); return true)
+	if lookdev_mode:
+		return
+	add.call("ui_scale", SHELL, func(): RetroUI.apply_scale(get_tree()); return true)
+	if use_look:
+		add.call("retro_skin", SHELL, func(): add_child(RetroSkin.new()); return true)
+	add.call("music", SHELL, func(): Sound.start_music(); return true)
+	add.call("player", SHELL, func(): _spawn_player(); return true)
+	add.call("pads", SHELL, func(): _build_launch_pads(); return true)
+	if with_ship:
+		add.call("ship", SHELL, func(): _build_ship(); return true)
+	add.call("detail", SHELL, func(): _build_detail(); return true)
+	if use_look:
+		add.call("retro_hud", SHELL, func():
+			retro_hud = RetroHud.new()
+			retro_hud.demo = self
+			add_child(retro_hud)
+			return true)
+	add.call("dev_settings", LATER, func():
+		dev_settings = DevSettingsPanel.new()
+		dev_settings.name = "DevSettings"
+		dev_settings.demo = self
+		add_child(dev_settings)
+		return true)
+	if use_look:
+		add.call("objective_hud", LATER, func():
+			objective_hud = ObjectiveHud.new()
+			objective_hud.demo = self
+			add_child(objective_hud)
+			return true)
+
+
+## True in open space (issue #573): no town, no ground.
+func open_space() -> bool:
+	return str(planet.get("ground", "")) == "none"
 
 
 ## Issue #121: the town's own collider, from its worker thread (a poll step).
@@ -460,7 +531,31 @@ func _build_decor() -> void:
 	decor.style = style
 	decor.location_id = str(planet.get("town_id", "port_town"))
 	add_child(decor)
-	decor.dress(town, look)
+	decor.park_pit(town, look)
+	if staging:
+		var root := get_node_or_null("Town") as Node3D
+		if root != null:
+			root.visible = false          # issue #574: greybox until the decor's materials are on (decor_done)
+
+
+## Issue #574: the rest of the town's decor, one piece a build step. Called
+## while the plan is made: the pieces run later, after _build_decor().
+func decor_steps() -> Array:
+	var out: Array = []
+	for i in TownDecor.TOWN_STEPS:
+		out.append(func():
+			var steps: Array = decor.town_steps(town) if decor != null else []
+			if i < steps.size():
+				steps[i].call())
+	return out
+
+
+func _decor_done() -> void:
+	var root := get_node_or_null("Town") as Node3D
+	if root != null:
+		root.visible = true
+	if pilot != null:
+		pilot.town_built_late()           # the bays' ships, built just now, are berths too
 
 
 ## Issue #261: the cantina dressed as its club (the town's "club" block), and the
@@ -793,9 +888,11 @@ func _build_npc(m: Dictionary) -> void:
 	var face := town.marker_pos("gate") if m.role == "trooper_post" else town.marker_pos("cantina_door")
 	if m.has("face"):
 		face = Vector3(float(m.face[0]), float(m.face[1]), float(m.face[2]))
-	var npc := make_soldier(soldier, here, atan2(face.x - here.x, face.z - here.z), str(m.id), key)
+	var npc := make_soldier(soldier, here, atan2(face.x - here.x, face.z - here.z), str(m.id), key, null,
+		_community().look_for(str(m.id)))
 	if npc == null:
 		return
+	_community().dressed(str(m.id), npc)          # issue #147: a player-made stall keeper's name and build
 	characters[str(m.id)] = npc.look_body if npc.look_body != null else npc
 	built_markers += 1
 	if barracks_post != "":
@@ -1002,13 +1099,18 @@ func garrison_for(n: Node) -> Garrison:
 ## One NpcBody from a soldier profile, standing at `here` facing `yaw`, its senses
 ## on the player, named by `name_key`. It joins `npcs` (the Remnant) or `locals`
 ## by its faction; the caller hands a Remnant body to the Garrison if it is up.
+## `extra` (issue #147): fields laid over the profile (a stall keeper's archetype,
+## outfit and look_scale).
 func make_soldier(soldier_id: String, here: Vector3, yaw: float, post_id: String, name_key: String,
-		parent: Node = null) -> NpcBody:
+		parent: Node = null, extra: Dictionary = {}) -> NpcBody:
 	var cc := _content()
 	var soldier: Dictionary = cc.get_soldier(soldier_id)
 	if soldier.is_empty():
 		push_error("TownDemo: unknown soldier profile " + soldier_id)
 		return null
+	if not extra.is_empty():
+		soldier = soldier.duplicate(true)
+		soldier.merge(extra, true)
 	var npc := make_npc(soldier, here, yaw, post_id, name_key, parent)
 	if bool(soldier.get("ambient", false)):
 		stage_performers.append(npc)
@@ -1335,6 +1437,17 @@ func _build_dark_master() -> void:
 		dark_master.attach_host(bar)
 
 
+## Issue #147: the market's player-made stall keepers (content/community/npcs),
+## and the NPC builder at every free stall. Made the first time a body asks.
+func _community() -> CommunityStalls:
+	if community == null:
+		community = CommunityStalls.new()
+		community.name = "CommunityStalls"
+		add_child(community)
+		community.setup(self, town, str(planet.get("town_id", "port_town")), _content())
+	return community
+
+
 ## Issue #188: the fence talks: an AI character on the bar's host from his own card
 ## (content/core/npcs/fence_card.json), in the body of the local who keeps his
 ## stall. "Talk" leads the stall's [E] menu (GearController.vendor_talk), so he
@@ -1494,6 +1607,8 @@ func _physics_process(dt: float) -> void:
 	if slow:
 		_slow_left = 1.0 / SLOW_HZ
 		_tick_day()
+	if open_space():
+		return                 # issue #573: no town to run out here
 	# A LAN guest in the host's town: the host's game runs the people and says who
 	# holds the barracks; this one only paints the town for them.
 	if lan_shared:
@@ -1708,6 +1823,12 @@ func _dress_desert() -> void:
 		add_child(dust)
 		var wd = terrain.material.get_shader_parameter("wind_dir")
 		dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+
+
+## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
+func _build_landforms() -> void:
+	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty()):
+		return
 	if with_landforms:
 		landforms = DesertLandforms.new()
 		landforms.clear_circles = _landmark_clearings()
@@ -1717,6 +1838,8 @@ func _dress_desert() -> void:
 			for m in landforms.rock_materials():
 				look.track_material(m)       # the sun, for the dusk side (issue #77)
 		_tint_rock(landforms, planet.get("type_cfg", {}).get("rock", {}))
+		if pilot != null:
+			pilot.town_built_late()       # solid to the ship too
 
 
 ## Issue #45: a snow world's white drifts, a red desert's red sand. Shader values

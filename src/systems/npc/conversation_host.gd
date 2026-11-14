@@ -178,9 +178,19 @@ func add_spot(s: TalkSpot) -> void:
 	b.job_offered.connect(func(j): _on_job(s, j))
 	b.drink_poured.connect(func(d): _on_drink(s, d))
 	b.ended.connect(func(reason): _end_soon(reason))
-	var r := save.get_relationship(s.id())
+	var r := save.get_relationship(s.id()) if s.remember else {}
 	if not r.is_empty():
 		b.rel.from_save(r)
+
+
+## Issue #147: take a character away (a stall keeper tried out in the NPC builder,
+## replaced by the next try). Ends the talk first if it is theirs.
+func remove_spot(s: TalkSpot) -> void:
+	if s == null:
+		return
+	if active == s:
+		end_talk()
+	spots.erase(s)
 
 
 func spot(id: String) -> TalkSpot:
@@ -214,7 +224,9 @@ func spot_in_range() -> TalkSpot:
 	var p: Node3D = demo._player
 	var best: TalkSpot = null
 	for s in spots:
-		if not s.manual and s.in_range(p) and (best == null or s.distance_to(p) < best.distance_to(p)):
+		if s.manual or (s.available.is_valid() and not s.available.call()):
+			continue
+		if s.in_range(p) and (best == null or s.distance_to(p) < best.distance_to(p)):
 			best = s
 	return best
 
@@ -666,7 +678,8 @@ func _save_memory() -> void:
 	if save.data.is_empty():
 		save.new_game()
 	for s in spots:
-		save.set_relationship(s.id(), s.brain.rel.to_save())
+		if s.remember:
+			save.set_relationship(s.id(), s.brain.rel.to_save())
 	save.set_world(WorldState.to_save())
 	save.data["credits"] = WorldState.credits
 	_save_where()

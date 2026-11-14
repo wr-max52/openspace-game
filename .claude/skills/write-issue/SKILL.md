@@ -133,7 +133,9 @@ write which one you chose into the issue.
 ## The parts
 
 Check paths before citing them; things move. Each row is "what you get for
-free" and where to start reading.
+free" and where to start reading. To build a planet, an NPC or a ship rather
+than write the issue, the `add-planet`, `add-npc` and `add-ship` skills have
+the steps.
 
 | Part | What it gives you | Start here |
 |---|---|---|
@@ -147,6 +149,7 @@ free" and where to start reading.
 | **Names** | Everything that spawns is named by the name engine, never by hand. | `src/systems/names/`, `docs/names/NAMING.md` |
 | **Droids** | Assassin, cargo and floating models, tinted per variant. | `content/core/droids/`, `src/systems/droids/` |
 | **Items, vendors, pickups** | A new item, shop or drop is data. | `content/core/items/`, `vendors/`, `pickups/`, `docs/ADDING_ITEMS.md` |
+| **Player-made stall keepers** | The NPC builder: a free market stall's keeper made in the game, one file each, sent in as a pull request; talk only, the town briefing as their world. | `content/community/npcs/`, `src/systems/npc/community_npc.gd`, `docs/ADDING_STALL_KEEPERS.md` |
 | **Ships, guns, pilots, fights** | Data-driven ships, weapons, AI pilots and encounters; one flight model for all. Speeders and the barge drive on `hover_model.gd`. | `content/core/ships/`, `src/systems/flight/`, `src/systems/vehicles/`, `docs/ADDING_SHIPS.md` |
 | **Story, jobs, rumors, state** | Chapters and quests, the job board, rumors; `WorldState` is what is true now and is saved with the world. | `content/core/story/`, `content/core/board/`, `content/core/rumors/`, `src/systems/world/world_state.gd` |
 | **Sound and effects** | Playlists, moods, NPC sounds, explosions, materials. | `content/look/sound.json`, `src/systems/audio/`, `src/systems/look/` |
@@ -158,7 +161,9 @@ reasons are in `DECISIONS.md`.
 
 1. **One scene for every planet.** `town_demo.tscn` builds whatever
    `GameFlow.planet()` says; travel reloads it.
-2. **Space is the town's own sky.** No separate space scene for gameplay.
+2. **Space near a planet is that planet's own sky; between planets it is open
+   space** (issue #573): one place with no planet (ground `none`), still
+   `town_demo.tscn`. Fights stay inside a planet's bubble. No other space scene.
 3. **Planets are round and walkable all the way round**, with seamless
    handoffs.
 4. **The town data format.** Boxes, markers, routes and zones, read only by
@@ -176,6 +181,12 @@ reasons are in `DECISIONS.md`.
     (`tests/test_ip_neutral.gut.gd`).
 12. **The engine.** Godot 4.7.2, GDScript, no new autoloads or plugins
     without the user saying so.
+
+Anything drawn or ticked also follows the render rules in
+[`docs/RENDER_RULES.md`](../../../docs/RENDER_RULES.md) (batch, share materials,
+boxes before models, no new shaders, build over ticks, draw and tick by
+distance, measure). An issue that adds props, people or per-frame work names the
+ones it leans on.
 
 ## Issue format
 

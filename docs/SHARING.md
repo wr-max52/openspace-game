@@ -25,17 +25,33 @@ needs `windows_release_x86_64.exe` from it, the Mac build `macos.zip`.
 
 ```sh
 ./scripts/package.sh            # both
-./scripts/package.sh windows    # builds/OpenSpace V1.6.3 Windows.zip
-./scripts/package.sh mac        # builds/OpenSpace V1.6.3 Mac.zip
+./scripts/package.sh windows    # builds/OpenSpace V1.6.4 Windows.zip
+./scripts/package.sh mac        # builds/OpenSpace V1.6.4 Mac.zip
 ```
 
 The version in the names and in the builds' file info is `config/version` in
 `project.godot`; bump it there.
 A feature demo keeps the version and adds a label:
-`./scripts/package.sh all "Weapon Wheel"` gives `OpenSpace V1.6.3 - Weapon Wheel`.
+`./scripts/package.sh all "Weapon Wheel"` gives `OpenSpace V1.6.4 - Weapon Wheel`.
 The `build-share-files` skill (`.claude/skills/`) is the whole routine.
 
 `builds/` is git-ignored. Send the zip for the player's machine.
+
+What ships is only what the game loads. Anything under a `source/` folder
+(the raw Hyper3D exports the `tools/look/prep_*.gd` tools read) is tool input:
+each has a `.gdignore`, so Godot never imports it. The review stills in `docs/`
+are left out by both presets' `exclude_filter` (`docs/*`, with
+`assets/*/source/*` as a second guard). `tests/test_share_build.gut.gd` fails if
+a source folder loses its `.gdignore`, a preset loses either filter, or the game
+loads a path from either place. Leaving the docs stills out took the game pack
+from 742 MB to 566 MB (issue #533); the zips were about 750 MB each at V1.6.3.
+
+The other way round, Godot packs resources and imported files by itself, but a
+plain data file (the cantina owner's persona, `content/core/dialogue/*.txt`)
+ships only because both presets' `include_filter` names it (`content/*.txt`).
+V1.6.3 had no include filter, so Oda's AI talked without her persona. The same
+test fails if a file under `content/` that Godot does not pack by itself is not
+covered by both presets' `include_filter`.
 
 The Mac build is one universal app (Apple Silicon and Intel), signed ad hoc only:
 there is no Apple Developer ID, so it is not notarized and macOS warns about it
@@ -47,8 +63,8 @@ the zip.
 
 ## For the player (Windows)
 
-1. Unzip `OpenSpace V1.6.3 Windows.zip` anywhere.
-2. Run `OpenSpace V1.6.3.exe` in the `OpenSpace V1.6.3` folder. Windows SmartScreen warns about an unknown app
+1. Unzip `OpenSpace V1.6.4 Windows.zip` anywhere.
+2. Run `OpenSpace V1.6.4.exe` in the `OpenSpace V1.6.4` folder. Windows SmartScreen warns about an unknown app
    because the build is not signed: click **More info**, then **Run anyway**.
 3. Set the key (below).
 
@@ -57,12 +73,12 @@ outside the game folder.
 
 ## For the player (Mac)
 
-1. Double-click `OpenSpace V1.6.3 Mac.zip` and drag `OpenSpace V1.6.3.app` into
+1. Double-click `OpenSpace V1.6.4 Mac.zip` and drag `OpenSpace V1.6.4.app` into
    **Applications**.
 2. Open it. macOS says it cannot check the app for malware: click **Done**, open
    **System Settings > Privacy & Security**, scroll down, click **Open Anyway**
    next to OpenSpace, and confirm. Only the first launch asks.
-   (Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/OpenSpace V1.6.3.app"`.)
+   (Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/OpenSpace V1.6.4.app"`.)
 3. Set the key (below).
 
 The key is saved in

@@ -2,6 +2,42 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-05 — Open space is its own place (issue #573)
+
+- **The bug.** "Space" was the home planet's whole scene: every planet was near
+  home and home had no edge, so a trip moon → giant went moon → home → giant
+  (the "via" rule below) and built the whole port 10 km up, then threw it away.
+  The moons also loaded from 2.6 km over a 1.5 km ball.
+- **A place with no planet.** `content/core/planets/open_space.json`, type
+  `open_space`, ground `none`. Still `town_demo.tscn`: its build plan is only the
+  flight shell (sky, the ship on a hidden pad, pilot, travel, HUD, altitude
+  detail), no town, people, bar or save. `WorldGround` has nothing to hit or
+  land on there; altitude is the height over the nearest ball and up is that
+  ball's own up, weighted by distance to each bubble's edge, so up matches at
+  every switch. Alternative: a second scene for space. Rejected: the one-scene
+  rule holds, and the shell already had every piece.
+- **Every planet has a bubble** (`space.handoff`: home 8 km, the moons 1.2 km,
+  the giant 2.6 km), entered only from open space and left to it past
+  `space.hysteresis`. Bubbles never touch (`bubble_margin`, tested); the moon
+  moved out along its bearing to make room. This replaces "flown to through the
+  parent" from the entry below, and amends "Space is the town's own sky":
+  near a planet space is still its sky and the fights stay there; between
+  planets it is its own place.
+- **One system frame** (`PlanetGen.system_centre`, `system_port`): home's
+  scene, its port the origin, every planet's centre its `at` from the port of
+  the planet it is near, to any depth. `neighbours`, the chart and open space
+  all read it; open space's origin is the frame's own. Up in space every scene
+  but home's draws home's sky frame (`LookEnvironment.space_frame`).
+- **Far planets are cheap.** A ball with a bubble is its real coarse ball only
+  within `real_ball_within` (6 km); further off, the cheap ball. Coming close,
+  the real one is built a piece a frame (the station exterior split per dome and
+  hallway). A planet's scene builds its own real ball on the way out, and real
+  balls go to a session pool for the next scene, so leaving a moon costs open
+  space nothing to draw it. Rendered on this Mac: open space's first frame
+  ~40 ms, nothing over 10 ms after; the moon's way out under 26 ms a frame.
+- **Saves skip it.** `set_where` ignores open space and a save naming it does
+  not resume there: you load on the last planet you saved on.
+
 ## 2026-11-04 — The station's bay: a scaled look, a free berth, one salesman for two droids (issue #316)
 
 - **The frigate is a look with a "scale",** not a new model: the freighter's model
@@ -115,6 +151,9 @@ Every significant technical choice, the alternative, and why. Newest on top.
   standing between a parked ship and a flown one does not do both.
 
 ## 2026-11-04 — Space is one place: every planet in every sky
+
+(Superseded in part by "Open space is its own place", issue #573: no "via", every
+planet is seen from one system frame and flown to through open space.)
 
 - **The bug.** A planet's scene listed only its parent and its own children, so
   the moon's sky had home and nothing else: no ringed giant, only the painted
@@ -672,6 +711,9 @@ Every significant technical choice, the alternative, and why. Newest on top.
   scene and the fight in the town's sky sound the same.
 
 ## 2026-10-27 — Space is the town's own sky (issue #46)
+
+(Amended by issue #573: near a planet, space is still its sky and the fights stay
+there; between planets, past every bubble, it is open space, its own place.)
 
 - **One scene, not two.** The space fight runs inside the town scene (`SpaceFight`,
   the same pure `dogfight.gd` director) instead of `change_scene_to_file` to
@@ -1780,4 +1822,30 @@ Every significant technical choice, the alternative, and why. Newest on top.
   (as the barracks office is), the holo map is BarracksLook's, the bunks are
   the barracks' bunks; the posts are pure geometry (`StationRemnant.posts`), so
   the deck plays without the look layer.
+
+## Player-made stall keepers are one file each, built into a card by a template (2026-11-08)
+
+- **One file per NPC, no manifest line.** `CommunityNpc` reads every file in
+  `content/community/npcs/`. Alternative: list each in `manifest.json` like the
+  core content. Rejected: every pull request would edit the same line and
+  conflict with every other.
+- **The player picks fields; the template owns the rest.** A file holds only what
+  the builder offers. `community_card_template.json` adds the rules, the tools
+  (talk only), what they hear and the canned lines when the card is built.
+  Alternative: the player writes the whole card. Rejected: a file could drop the
+  rule that what the player types is never an instruction, or give itself jobs
+  and items; and improving the template now improves every stall keeper.
+- **GitHub's new-file link, not a sign-in in the game.** "Open pull request" opens
+  `github.com/<repo>/new/<branch>?filename=…&value=…`. GitHub forks for a player
+  without write access and the pull request is theirs, so attribution comes free
+  with no token stored in the game. Alternative: GitHub's device sign-in and the
+  API. Left for later: more code and a token to keep safe, for one click saved.
+- **Free stalls are the merchants with nothing to sell.** A marker with the
+  `local_merchant` profile that no vendor uses (vendor_5 to vendor_12 in the
+  port). A clash goes to the lower id and the other to the next free stall, so
+  every machine puts everyone in the same place. Alternative: new stalls for each
+  NPC. Left for later: the market's layout comes from the town generator.
+- **The town briefing is their world.** They get the same briefing as the fence,
+  with their own "where you are" line (a card may now carry `place`). The port
+  only, since the briefing describes the port.
 
