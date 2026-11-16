@@ -2,8 +2,14 @@ class_name Heist
 extends RefCounted
 ## Heists (issue #306): rob an outpost's control room. Pure and static, like
 ## Territory; its state lives in WorldState.heist (saved with the world):
-##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down }
+##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved }
 ##   ({} or state "" = no heist on; run counts every heist taken)
+##
+## Issue #550: the book carries all of a run, so every scene and every LAN game
+## reads the same truth: `by` is the player who took it (their peer id in a LAN
+## session, 0 alone) and only they end it by being downed or calling it off;
+## `waved` is the run that had its outpost's wave (one wave a heist, however many
+## times the town is built again).
 ##
 ## Issue #309: the console in each outpost's control room (OutpostRoom). Held
 ## for hack_seconds() while the heist on names that outpost (armed), the hack
@@ -266,6 +272,7 @@ static func start(j: Dictionary) -> bool:
 	WorldState.heist = {
 		"run": int(WorldState.heist.get("run", 0)) + 1, "state": "out", "job": str(j.get("id", "")),
 		"side": job_side(j), "outpost": where, "hacked": false, "crew": "", "crew_down": false, "droid_down": false,
+		"by": _me(),
 	}
 	_offers.erase(str(j.get("id", "")))
 	WorldState.bump("heists_taken")
@@ -305,17 +312,43 @@ static func end(why: String) -> void:
 	_offers.clear()
 
 
-## You were downed: the heist is off.
+## Issue #550: this game's player in a LAN session (their peer id), 0 alone.
+static func _me() -> int:
+	if not NetSession.active():
+		return 0
+	var l = NetSession.link
+	return int(l.my_id())
+
+
+## Issue #550: is the heist on this player's to end? Theirs, or one taken alone
+## (by 0), or any once the session is over (you play it on alone).
+static func mine() -> bool:
+	var by := int(WorldState.heist.get("by", 0))
+	return by == 0 or not NetSession.active() or by == _me()
+
+
+## The heist was waved at: run `run` has had its outpost's wave. True the first
+## time (send it), false after (issue #550: once a heist, across reloads).
+static func take_wave() -> bool:
+	var run := int(WorldState.heist.get("run", 0))
+	if not on() or int(WorldState.heist.get("waved", -1)) == run:
+		return false
+	WorldState.heist["waved"] = run
+	return true
+
+
+## You were downed: the heist is off (issue #550: when it is yours; another
+## player's heist goes on without you).
 static func on_downed() -> bool:
-	if not on():
+	if not on() or not mine():
 		return false
 	end("downed")
 	return true
 
 
-## Call it off (the giver's menu).
+## Call it off (the giver's menu): only the player who took it.
 static func give_up() -> bool:
-	if not on():
+	if not on() or not mine():
 		return false
 	end("given_up")
 	return true

@@ -65,10 +65,13 @@ func _toast(text: String) -> void:
 		gear.hud.toast(text, 5.0)
 
 
-## You woke up after being downed: the heist is off.
+## You woke up after being downed: the heist is off, or (issue #550) another
+## player's heist goes on without you.
 func _on_woke() -> void:
 	if Heist.on_downed():
 		_toast(Heist.line("downed"))
+	elif Heist.on():
+		_toast(Heist.line("downed_shared"))
 
 
 func _physics_process(dt: float) -> void:

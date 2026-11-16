@@ -53,6 +53,7 @@
     "droid_down": "The borrowed droid is down. The heist goes on without it.",
     "lost": "The flasks are gone. The heist is off.",
     "downed": "You were downed. The heist is off, and your crew are gone.",
+    "downed_shared": "You were downed. The heist goes on without you.",
     "given_up": "You called off the heist. Your crew walk off.",
     "paid": "%d cr for the flasks, after %s's cut of %d.",
     "collect": "[E] Hand the fence the heist's flasks (+%d cr)",

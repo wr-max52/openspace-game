@@ -349,7 +349,7 @@ func open_menu(keep_cursor := false) -> void:
 		opts.append({ "id": "hand:%d" % int(d.uid), "text": _l("hand_over") % [DroidRoster.label(str(d.kind)), droid_pay()] })
 	if Heist.collectable("general"):
 		opts.append({ "id": "heist", "text": Heist.line("general_collect") % int(Heist.pay("general", Heist.carrying()).net) })
-	elif Heist.on() and Heist.pays_to() == "general":
+	elif Heist.on() and Heist.mine() and Heist.pays_to() == "general":
 		opts.append({ "id": "heist_off", "text": Heist.line("call_off") })
 	if WorldState.repossession_pay() > 0 and not Heist.holding():
 		opts.append({ "id": "contraband", "text": _l("hand_contraband") % WorldState.repossession_pay() })

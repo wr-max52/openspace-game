@@ -72,7 +72,6 @@ var running := -1.0                ## the started hack's seconds left (-1 = none
 var running_at := ""               ## ... the outpost whose console it runs on ("" = none)
 var wave: Array = []               ## NpcBody, the wave the outpost sent when the hack started
 var waves := 0                     ## ... waves sent in this scene, for tests and traces
-var _wave_run := -1                ## the heist run that has had its wave (one per heist)
 var _bar_up := false
 var _stash: Node3D                 ## the stash lying at a hacked console (GearController's pickup)
 var _room_mats: Dictionary = {}    ## finish -> material, shared by every room
@@ -964,14 +963,14 @@ func wave_points(o: Dictionary) -> Array:
 
 ## The hack started at outpost `o`: whoever holds it sends a wave at you, once a
 ## heist. They run in on the outpost's alarm (home: the console, so their leash
-## is the room), join its garrison, and never come back when killed.
+## is the room), join its garrison, and never come back when killed. Issue #550:
+## the heist book says it was sent (Heist.take_wave), so a town built again (a
+## trip, a save switch, a LAN arrival) never sends a second.
 func _send_wave(o: Dictionary) -> void:
-	var run := int(WorldState.heist.get("run", 0))
-	if _wave_run == run:
-		return
-	_wave_run = run
 	if demo == null or bool(demo.get("lan_shared")):
 		return                           # a LAN guest's town: bodies are the host's (NetWorld)
+	if not Heist.take_wave():
+		return
 	var id := str(o.id)
 	var holder := Territory.owner(id)
 	var soldier := Heist.wave_soldier(holder)
