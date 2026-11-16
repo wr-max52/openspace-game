@@ -1254,7 +1254,7 @@ func _engine_step() -> void:
 		else:
 			_engine.stop()
 	if on:
-		_engine.pitch_scale = 0.75 + _throttle * 0.5 + (0.15 if _boost else 0.0)
+		_engine.pitch_scale = 0.75 + _throttle * 0.5 + 0.15 * maxf(1.0 if _boost else 0.0, atmo.cruise_k())   # issue #575: cruise sounds like boost
 
 
 ## The seeker warning: while an enemy has a lock on her or a seeker in flight at her
@@ -1795,7 +1795,7 @@ func _sync_visual() -> void:
 		visual.global_transform = atmo.transform() * _jolt_xf
 		# The engines light with the throttle while you fly her; out the moment you're not.
 		var up := piloting and atmo.state == AtmoFlight.State.FLYING
-		ShipKit.throttle_flames(visual, _throttle if up else 0.0, _boost and up,
+		ShipKit.throttle_flames(visual, _throttle if up else 0.0, (_boost or atmo.cruise_k() > 0.5) and up,
 			get_physics_process_delta_time() if piloting else 0.0)
 
 

@@ -151,7 +151,7 @@ func frames(n: int) -> void:
 func _start_outside(id: String) -> void:
 	var cc := CoreContent.new()
 	cc.load_from()
-	var centre: Vector3 = PlanetGen.system_centre(id, cc)
+	var centre: Vector3 = PlanetGen.system_centre(id, cc) - PlanetGen.system_port(PlanetGen.open_space_id(), cc)   # in open space's frame
 	var r := PlanetGen.bubble_radius(id, false, cc)
 	var dir := Vector3(0.35, 1.0, 0.25).normalized()
 	var at := centre + dir * (r + 400.0)

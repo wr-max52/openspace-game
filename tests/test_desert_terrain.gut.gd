@@ -206,14 +206,14 @@ func test_town_demo_builds_the_desert() -> void:
 			for z in [-9.0, 0.0, 9.0]:
 				assert_almost_eq(sp.elevation(sp.map_dir(r.get_center().x + x, r.get_center().y + z)), y,
 					0.001, "merchant and customer positions share flat ground")
-	assert_eq(d.view_far(), maxf(20000.0, d.sky_giant_reach()), "the home planet: the whole ball (and the ringed giant in its sky)")
+	assert_eq(d.view_far(), maxf(20000.0, d.sky_reach()), "the home planet: the whole ball, and every other planet whole (issue #576)")
 	var off = TownDemo.new()
 	off.use_look = false
 	off.lookdev_mode = true
 	off.with_desert = false
 	add_child_autofree(off)
 	assert_null(off.terrain, "with_desert = false is the old town")
-	assert_eq(off.view_far(), maxf(4000.0, off.sky_giant_reach()))
+	assert_eq(off.view_far(), maxf(4000.0, off.sky_reach()))
 
 
 func test_look_hides_the_aprons_and_raises_landforms() -> void:

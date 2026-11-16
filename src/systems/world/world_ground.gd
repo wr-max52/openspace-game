@@ -677,6 +677,15 @@ func _void_altitude(p: Vector3) -> float:
 	return best if is_finite(best) else 1.0e6
 
 
+## Open space (issue #575): metres to the nearest planet's bubble, the edge its
+## scene lets go at (0 at it or inside).
+func void_gap(p: Vector3) -> float:
+	var best := INF
+	for vb in void_bodies:
+		best = minf(best, p.distance_to(vb[0]) - float(vb[4] if vb.size() > 4 else vb[1]))
+	return maxf(best, 0.0) if is_finite(best) else 1.0e6
+
+
 ## Open space: each planet's own up (PlanetSphere.up_at: straight up over its port,
 ## easing to the radial), weighted by 1 / (metres to its bubble's edge)^4, so at
 ## any bubble's edge it is that planet's up (bubbles never touch).

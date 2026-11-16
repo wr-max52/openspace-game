@@ -114,11 +114,16 @@ its manifest line. Without it the board has no local run.
 ## Where to hang it
 
 `at` is `[east, up, south]` in metres from the `near` planet's port. The way
-back is automatic.
+back is automatic. The system is a tree (issue #576): the home planet and the
+ringed giant orbit the sun (`"near": "sun"`, `at` from the sun's centre), Grit
+Station orbits home and Cinder Station the giant. A new planet orbits the sun;
+a new moon orbits its planet.
 
-- **Keep it inside 20 km of the port.** The port draws 20 km (four times the
-  home ball's radius); further out the ball's far side is cut off. Cinder
-  Station, at 16.7 km, is about as far as it goes.
+- **Set the trip by distance.** `tests/test_star_system.gut.gd` flies the
+  courier between bubbles at cruise and checks the bands in
+  `types.json` `space.trips`: a moon to its planet 20-30 s (about 23 km of open
+  space between the bubbles), a planet to a planet 50-70 s (about 65 km). Add
+  the new trip there.
 - **Keep the bubbles apart.** Each ball has a bubble (`space.handoff` in its
   type: the moons 1.2 km, home 8 km). Between any two bubbles there must be
   `bubble_margin` (1 km) of open space. `tests/test_planets.gut.gd` checks the

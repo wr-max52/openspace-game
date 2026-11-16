@@ -307,6 +307,8 @@ static func bubble_radius(id: String, leaving := false, cc = null) -> float:
 ## is straight under it; every other planet's centre is its "at" from the port of
 ## the planet it is "near", to any depth. Every scene is this frame shifted to its
 ## own port (never turned), so the sun and stars agree in all of them.
+## Issue #576: "near" may name the sun (space.sun): "at" is then from the sun's
+## centre, which sits wherever the home planet's own "at" puts it.
 static func system_centre(id: String, cc = null, depth := 0):
 	if cc == null:
 		cc = _content()
@@ -317,7 +319,12 @@ static func system_centre(id: String, cc = null, depth := 0):
 	if id == home_id():
 		return Vector3(0, -ball_radius(cfg, cc), 0)
 	var near := str(cfg.get("near", ""))
-	if depth >= 8 or not cfgs.has(near) or not cfg.has("at"):
+	if not cfg.has("at"):
+		return null
+	if near == sun_id():
+		var sun := system_sun(cc)
+		return sun + GameFlow.vec(cfg.at) if sun.is_finite() else null
+	if depth >= 8 or not cfgs.has(near):
 		return null
 	var pc = system_centre(near, cc, depth + 1)
 	if pc == null:
@@ -325,12 +332,32 @@ static func system_centre(id: String, cc = null, depth := 0):
 	return (pc as Vector3) + Vector3(0, ball_radius(cfgs[near], cc), 0) + GameFlow.vec(cfg.at)
 
 
+## Issue #576: the sun's id, a name planets can be "near" (not a place).
+static func sun_id() -> String:
+	return str(space_cfg().get("sun", "sun"))
+
+
+## Issue #576: the sun's centre in the system frame (the home planet's centre less
+## its "at"), INF when the home planet is not near the sun.
+static func system_sun(cc = null) -> Vector3:
+	if cc == null:
+		if not _cache.has("_sun"):
+			_cache["_sun"] = system_sun(_content())
+		return _cache["_sun"]
+	var home: Dictionary = cc.planets.get(home_id(), {})
+	if str(home.get("near", "")) != sun_id() or not home.has("at"):
+		return Vector3.INF
+	return Vector3(0, -ball_radius(home, cc), 0) - GameFlow.vec(home.at)
+
+
 ## Where a place's own origin (a planet's port, on top of its ball) is in the
-## system frame: open space's is the system frame's own origin. INF when the
-## place is not in the system.
+## system frame: open space's is the sun (issue #576: the middle of the system,
+## so a ship out there is never far from its origin), else the system frame's own
+## origin. INF when the place is not in the system.
 static func system_port(id: String, cc = null) -> Vector3:
 	if is_open_space(id):
-		return Vector3.ZERO
+		var sun := system_sun(cc)
+		return sun if sun.is_finite() else Vector3.ZERO
 	if cc == null:
 		cc = _content()
 	var c = system_centre(id, cc)

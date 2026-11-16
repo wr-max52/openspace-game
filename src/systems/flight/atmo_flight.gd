@@ -51,6 +51,13 @@ var crash_point := Vector3.ZERO
 var drift := Vector3.ZERO       ## issue #276: her velocity while ADRIFT (m/s, world)
 var coast_left := 0.0           ## landing called off (C again): seconds left of easing to a stop
 var _coast_rate := 0.0          ## m/s per second she slows by while coasting
+## Issue #575: open space's cruise, the multiplier on top speed out between the
+## planets (1 everywhere else). It eases up to the ship's cruise_mult over
+## cruise_ease_in seconds and lets go by distance: 1 at the nearest bubble, full
+## cruise_ease_out metres off it (open space's atmosphere block).
+var cruise := 1.0
+var cruise_ease_in := 4.0
+var cruise_ease_out := 6000.0
 
 var _command := { "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "throttle": 0.0, "boost": false }
 
@@ -71,6 +78,8 @@ func setup(ship_cfg: Dictionary, world_ground: WorldGround) -> void:
 		var atmo := ground.atmosphere()
 		space_altitude = float(atmo.get("space_altitude", space_altitude))
 		upper_start = float(atmo.get("upper_start", upper_start))
+		cruise_ease_in = float(atmo.get("cruise_ease_in", cruise_ease_in))
+		cruise_ease_out = float(atmo.get("cruise_ease_out", cruise_ease_out))
 
 
 func p(key: String, fallback: float) -> float:
@@ -130,10 +139,17 @@ func space_fraction() -> float:
 	return clampf(altitude() / maxf(space_altitude, 1.0), 0.0, 1.0)
 
 
-## How much faster thin air lets the ship go here (1 near the ground).
+## How much faster thin air lets the ship go here (1 near the ground), times
+## open space's cruise (issue #575; 1 in every planet's scene).
 func air_scale() -> float:
 	var k := clampf((altitude() - upper_start) / maxf(space_altitude - upper_start, 1.0), 0.0, 1.0)
-	return minf(1.0 + (p("edge_speed_mult", 4.0) - 1.0) * pow(k, p("speed_curve", 1.0)), air_cap)
+	return minf(1.0 + (p("edge_speed_mult", 4.0) - 1.0) * pow(k, p("speed_curve", 1.0)), air_cap) * cruise
+
+
+## Issue #575: how far into cruise she is, 0 (none) to 1 (the ship's cruise_mult).
+func cruise_k() -> float:
+	var m := p("cruise_mult", 1.0)
+	return clampf((cruise - 1.0) / (m - 1.0), 0.0, 1.0) if m > 1.0 else 0.0
 
 
 func can_land(known_agl: float = -INF) -> bool:
@@ -263,7 +279,9 @@ func _step_liftoff(dt: float) -> void:
 
 
 func _step_flying(dt: float) -> void:
-	var climb: float = flight.forward().dot(up())
+	_step_cruise(dt)
+	# No air out in open space, so nothing to climb against (up there is only the nearest planet's).
+	var climb: float = 0.0 if ground != null and ground.void_space else flight.forward().dot(up())
 	flight.speed_scale = air_scale() * (1.0 - p("climb_drag", 0.3) * maxf(0.0, climb))
 	flight.accel_scale = maxf(air_scale(), 1.0)   # capped under 1, she still brakes as hard as ever
 	if coast_left > 0.0:
@@ -278,6 +296,25 @@ func _step_flying(dt: float) -> void:
 	flight.step(dt)
 	_check_space()
 	_collide(before, dt)
+
+
+## Issue #575: out in open space (no planet's scene) the top speed eases up to
+## cruise_mult, rising no faster than cruise_ease_in seconds from 1 to full, and
+## comes back down by distance to the nearest bubble, her speed with it, so she
+## crosses a bubble's edge as fast as she would have without it. Turning is
+## scaled down with it (cruise_turn_scale), as boost does.
+func _step_cruise(dt: float) -> void:
+	var m := p("cruise_mult", 1.0)
+	if ground == null or not ground.void_space or m <= 1.0:
+		cruise = 1.0
+		return
+	var want := 1.0 + (m - 1.0) * smoothstep(0.0, maxf(cruise_ease_out, 1.0), ground.void_gap(flight.position))
+	if want >= cruise:
+		cruise = move_toward(cruise, want, (m - 1.0) / maxf(cruise_ease_in, 0.01) * dt)
+	else:
+		flight.speed *= want / cruise        # letting go: her speed comes down with it
+		cruise = want
+	flight.turn_mult = lerpf(1.0, p("cruise_turn_scale", 1.0), cruise_k())
 
 
 ## Faster than this air lets her go (a space fight's speed handed on, or diving

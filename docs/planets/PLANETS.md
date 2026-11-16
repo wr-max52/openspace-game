@@ -37,7 +37,7 @@ where `at` puts it. Fly into it to land there.
 | `town_size` | 1 to 100. 50 is the port's scale, 100 is 5x its area, and 1 is just a cantina (with its stage), one Remnant guard at its door, a merchant in front of the cantina, three locals walking the street, and a landing bay. |
 | `style` | How the town looks: `desert` (the port's own), `metallic`, `snowy`, `pastel`, or plain words like `red matte metal`. See below. Default: the type's own. |
 | `seed` | Optional. A different number lays the same size of town out differently. |
-| `near` / `at` | The planet whose sky it hangs in, and where in that sky, in metres from that planet's port: `[east, up, south]`. The return trip is automatic. `home_at` overrides where `near` appears from here. |
+| `near` / `at` | The planet it orbits, and where, in metres from that planet's port: `[east, up, south]`. `near` may be `sun` (issue #576): `at` is then from the sun's centre (the home planet's own `near: sun` and `at` place the sun). The return trip is automatic. `home_at` overrides where `near` appears from here. |
 | `town_name` | Optional. The town's name; otherwise generated. |
 | `cantina_owner` | Optional. `{ "card": "npcs/<file>.json", "look": "<archetype>" }`: who runs the cantina (their AI card) and how they look. With no `card`, a generated planet gets its own Oda (see below). The port's is Oda Vell. |
 | `encounter` | Optional. The space fight when you climb out of this planet's atmosphere (`"orbital_skirmish"`), or `""` for a quiet sky. Default: the landing pad's. |
@@ -321,8 +321,8 @@ below).
 - **`replaces_sky_painting: true`** turns the painted giant off on the planet
   itself and on any planet whose sky it hangs in (`PlanetGen.sky_painting`).
   Grit Station keeps its painting.
-- **The port's ground camera** sees far enough to show it
-  (`TownDemo.sky_giant_reach`).
+- **The port's ground camera** sees far enough to show every planet whole
+  (`TownDemo.sky_reach`).
 - **Quiet sky** (`encounter: ""`): a space fight's flight does not check the
   clouds yet.
 - **The space station is its town** (`content/core/stations/orbital_station.json`,

@@ -28,7 +28,7 @@ func test_the_station_hangs_in_the_ports_sky() -> void:
 	# Since the lava moon and the ringed giant (#272, 317d163) home has three neighbours.
 	assert_true(str(t.get("HOME_NEIGHBOURS")).split(",").has("grit_station"))
 	assert_ne(str(t.get("STATION_NAME_IN_PORT_SKY", "")), "")
-	assert_between(float(t.get("STATION_DISTANCE_FROM_PAD_KM", 0)), 8.0, 20.0, "a nearby hop")
+	assert_between(float(t.get("STATION_DISTANCE_FROM_PAD_KM", 0)), 25.0, 40.0, "a short hop (issue #576: 20-30 s of open space at cruise)")
 
 
 func test_flying_into_it_travels() -> void:

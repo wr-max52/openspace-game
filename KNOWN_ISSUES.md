@@ -8,6 +8,32 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After the cruise and the star system (issues #575, #576, 2026-11-14)
+
+**Checked:** `tests/test_star_system.gut.gd` (8: cruise passes today's top
+speed and is back to edge speed at the next bubble; it eases in over seconds and
+scales turning; none in a planet's scene; the freighter's trip is close to the
+courier's; the sun → planets → moons tree; the trip bands, 24.2 s a moon hop
+and 60.2 s planet to planet each way; every planet whole in every sky; the
+chart centred on the sun). `test_planets` (the frame, open space, bubbles, the
+giant), `test_station`, `test_handoff_seams`, `test_eject`, `test_day_clock`.
+A headless probe in the real town scene: open space from the moon's bubble at
+the giant, one switch at 43 s, top 1,190 m/s, 476 m/s at the giant's edge.
+Run on Linux headless, not the Mac: nothing was flown or looked at on screen.
+
+- **Not looked at:** the planets from the port at their new size (the moon and
+  the giant about 5 degrees wide, were about 11 and 13), and the chart's sun.
+- **A few millimetres of float error far out.** Open space's origin is the sun,
+  so a ship is at most ~57 km from it (float steps ~4 mm there). No floating
+  origin; if the ship or camera visibly shakes near the giant, that is next.
+- **No climb drag in open space** (there is no up out there but the nearest
+  planet's): a ship leaving a planet no longer flies at 70% until halfway.
+- **Old reds left as they were** (the same on `main`, fixed in the open
+  `fix/ci-gate-green` PR): `test_atmo_flight`'s takeoff-to-space band,
+  `test_desert_terrain`'s square-port aprons, `test_globe_map` line 101, and
+  `planets_trace`, which stops at the switch into open space and hangs on the
+  `NpcVoice` autoload under `-s`.
+
 ## After the NPC builder (2026-11-08)
 
 **Checked:** `tests/test_community_npc.gut.gd` (18: the folder's files pass

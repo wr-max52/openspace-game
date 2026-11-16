@@ -277,12 +277,12 @@ func test_the_asteroid_station() -> void:
 		assert_false(x.has("via"), "no planet is flown to through another's scene any more")
 	var home := PlanetGen.build("port_desert", cc)
 	assert_eq(home.neighbours.map(func(x): return x.id), ["grit_station", "cinder_station", "ringed_giant"], "and the port sees the station (and the lava moon, #272, and the ringed giant)")
-	assert_eq(home.neighbours[0].at, Vector3(10450, 6840, -7545))
+	assert_eq(home.neighbours[0].at, Vector3(26216, 17160, -18928))
 	assert_true(bool(home.neighbours[0].child))
 	# Issue #99: one map. The station's port is on top of its ball; from the station
 	# the port's ball is exactly where the shift between the two scenes puts it.
 	var off: Vector3 = home.neighbours[0].offset
-	assert_eq(off, Vector3(10450, 8340, -7545))
+	assert_eq(off, Vector3(26216, 18660, -18928))
 	assert_eq(PlanetGen.system_port("grit_station", cc), off, "home's scene is the system frame")
 	assert_eq(n[0].offset, -off, "the same shift, back the other way")
 	assert_eq(n[0].at, Vector3(0, -5000, 0) - off, "the home ball's centre, seen from the station")
@@ -294,12 +294,12 @@ func test_the_asteroid_station() -> void:
 
 
 ## Issue #573: open space is a place with no planet: no town but the ship's pad,
-## its frame the system frame, every planet in its sky.
+## its frame the system frame shifted to the sun (issue #576), every planet in its sky.
 func test_open_space_is_a_place_with_no_planet() -> void:
 	var o := PlanetGen.build(PlanetGen.open_space_id(), cc)
 	assert_eq(o.ground, "none")
 	assert_false(PlanetGen.is_planet(PlanetGen.open_space_id(), cc))
-	assert_eq(PlanetGen.system_port(PlanetGen.open_space_id(), cc), Vector3.ZERO)
+	assert_eq(PlanetGen.system_port(PlanetGen.open_space_id(), cc), PlanetGen.system_sun(cc), "its origin is the sun")
 	assert_eq(o.neighbours.size(), 4, "every planet")
 	assert_eq(o.natives, {})
 	for x in PlanetGen.build("port_desert", cc).neighbours:
@@ -534,8 +534,8 @@ func test_the_ringed_giant_replaces_the_painting() -> void:
 	var at: Vector3 = n.at
 	assert_lt(rad_to_deg(at.normalized().angle_to(painted)), 0.5, "where the painting was")
 	var looks := asin(float(n.radius) / at.length())
-	assert_almost_eq(looks, asin(float(sky.planet_radius)), 0.15 * asin(float(sky.planet_radius)), "about as big as the painting looked")
-	assert_lt(float(n.radius), 5000.0 * 1.5, "smaller than it looked: a short flight")
+	# Issue #576: it orbits the sun, a minute's cruise out, so it looks smaller than the painting did.
+	assert_between(looks, 0.3 * asin(float(sky.planet_radius)), asin(float(sky.planet_radius)), "smaller than the painting, still a big thing in the sky")
 	assert_false(bool(port.sky_painting), "the port shows the real one, not the painting")
 	assert_false(bool(g.sky_painting), "no painted giant over the giant itself")
 	assert_false(bool(PlanetGen.build("grit_station", cc).sky_painting), "the moon sees the real giant, not the painting")

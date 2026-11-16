@@ -4,10 +4,20 @@
   "home": "port_desert",
   "space": {
     "open_space": "open_space",
+    "sun": "sun",
+    "trips": {
+      "ship": "courier",
+      "note": "Issue #576: how long the open-space leg of each trip takes (seconds), from leaving one planet's bubble to crossing the next one's, in this ship at full throttle with cruise and no boost, flown straight by tests/test_star_system.gut.gd. A moon to its planet is a short hop, a planet to a planet a real trip. Move a planet (its near and at) to change one.",
+      "bands": [
+        { "from": "grit_station", "to": "port_desert", "seconds": [20.0, 30.0] },
+        { "from": "cinder_station", "to": "ringed_giant", "seconds": [20.0, 30.0] },
+        { "from": "port_desert", "to": "ringed_giant", "seconds": [50.0, 70.0] }
+      ]
+    },
     "hysteresis": 300.0,
     "bubble_margin": 1000.0,
     "real_ball_within": 6000.0,
-    "note": "Issue #573: space between the planets is its own place (open_space, a planet file with the open_space type) with no planet loaded. hysteresis: metres past a bubble (a type's space.handoff) before leaving it, so flying along the edge does not flip-flop. bubble_margin: the least open space between any two planets' bubbles, hysteresis included (tests/test_planets.gut.gd checks the data). real_ball_within: a ball planet with a bubble is drawn as its real coarse ball (terrain and station outside, SpaceTravel._ball_body) only within this many metres of its surface; further off it is the cheap ball, swapped for the real one on the way in."
+    "note": "Issue #573: space between the planets is its own place (open_space, a planet file with the open_space type) with no planet loaded. hysteresis: metres past a bubble (a type's space.handoff) before leaving it, so flying along the edge does not flip-flop. bubble_margin: the least open space between any two planets' bubbles, hysteresis included (tests/test_planets.gut.gd checks the data). sun (issue #576): the name a planet's 'near' gives to orbit the sun ('at' is then from the sun's centre); the sun is not a place, only the system chart's centre and the middle of open space's frame. real_ball_within: a ball planet with a bubble is drawn as its real coarse ball (terrain and station outside, SpaceTravel._ball_body) only within this many metres of its surface; further off it is the cheap ball, swapped for the real one on the way in."
   },
   "detail": {
     "hysteresis": 40.0,
@@ -172,9 +182,9 @@
     "open_space": {
       "label": "open space",
       "ground": "none",
-      "note": "Issue #573: the space between the planets, its own place with no planet loaded (content/core/planets/open_space.json). ground 'none': town_demo builds only the flight shell (the sky, the ship, its pilot and HUD, the altitude detail), no town, no ground to hit or land on (WorldGround: up is away from the nearest planet). It is still town_demo.tscn. Its frame is the system frame (PlanetGen.system_port: the home planet's port is the origin). Never saved as where you are.",
+      "note": "Issue #573: the space between the planets, its own place with no planet loaded (content/core/planets/open_space.json). ground 'none': town_demo builds only the flight shell (the sky, the ship, its pilot and HUD, the altitude detail), no town, no ground to hit or land on (WorldGround: up is away from the nearest planet). It is still town_demo.tscn. Its frame is the system frame (PlanetGen.system_port: the home planet's port is the origin). Never saved as where you are. Issue #575: out here every ship cruises (AtmoFlight._step_cruise): its top speed eases up to its own cruise_mult (content/core/ships/*.json atmosphere), taking cruise_ease_in seconds from none to full, and lets go by distance, none at the nearest bubble and full cruise_ease_out metres off it, so a ship crosses a bubble as fast as it does without cruise.",
       "sky": { "sky": { "cloud_cover": 0.0, "planet_visibility": 1.0 }, "volumetric": { "enabled": false } },
-      "atmosphere": { "upper_start": 0.0, "cloud_deck": 0.0, "sky_black_at": 1.0, "space_altitude": 1.0 },
+      "atmosphere": { "upper_start": 0.0, "cloud_deck": 0.0, "sky_black_at": 1.0, "space_altitude": 1.0, "cruise_ease_in": 4.0, "cruise_ease_out": 6000.0 },
       "body": {},
       "fall_text": ""
     }

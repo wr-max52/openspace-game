@@ -361,7 +361,7 @@ static func port_from(id: String, here: String) -> Vector3:
 
 
 ## A point in place `here`'s scene, in the system frame (INF when it is not in it).
-## Issue #573: open space's scene is the system frame itself.
+## Issue #576: open space's scene is the system frame shifted to the sun.
 static func to_system(p: Vector3, here: String) -> Vector3:
 	var b := _port(here)
 	return b + p if b != Vector3.INF else Vector3.INF
@@ -370,7 +370,7 @@ static func to_system(p: Vector3, here: String) -> Vector3:
 ## A place's origin in the system frame: a planet's port, open space's origin.
 static func _port(id: String) -> Vector3:
 	if PlanetGen.is_open_space(id):
-		return Vector3.ZERO
+		return PlanetGen.system_port(id)        # issue #576: the sun
 	var b := system_body(id)
 	return b.port if not b.is_empty() else Vector3.INF
 
