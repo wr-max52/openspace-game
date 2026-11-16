@@ -2,6 +2,29 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Seamless flight: cruise between planets, and a sun in the middle (issues #575 and #576, 2026-11-15)
+
+- **In open space the ship speeds up on its own.** Away from every planet its
+  top speed eases up over about 4 s, and it slows back down over the last 6 km
+  before the next planet, so you arrive at the usual edge-of-space speed. On a
+  planet nothing flies faster.
+- **Slow ships catch up.** Each ship has its own cruise boost (the courier 2.0x
+  up to the frigate 3.8x), so the whole fleet cruises at about 1,170 m/s, and
+  the courier is still the fastest. Turning is a little gentler at cruise speed,
+  and the engine sound and boost flames follow it.
+- **The planets orbit a sun.** The desert planet and the ringed giant orbit it,
+  Grit Station orbits the desert planet, and Cinder Station (the lava moon) now
+  orbits the giant. Everything sits further out, on the same bearing from the
+  port.
+- **Trip times:** a moon hop is about 24 s of open space, and the desert planet
+  to the giant is about 60 s (courier, full throttle, no boost).
+- **Every planet is whole in every sky** when you stand on the ground. From the
+  port the moon and the giant now look smaller (about 5 degrees wide, down from
+  11 and 13).
+- **The F11 chart** centres on a drawn sun and draws each orbit: the planets
+  round the sun, each moon round its planet.
+- Old saves load where they were made.
+
 ## Take one or all out of a cargo droid (2026-11-15)
 
 - **A cargo droid's hold now lists what it holds, one row per item.** Enter (or
@@ -52,6 +75,16 @@ Plain English, newest on top. One entry per milestone.
   at, and the story always does on the home planet. Taking any job now clears
   the pin, so the pointer goes back to the most urgent job (the drop comes
   before the story).
+
+## The waypoint pointer moves to the top centre (2026-11-05)
+
+- **The objective line and its arrow sit at the top centre of the screen**,
+  under the top banner, with the label ("Find Oda Vell at the cantina   43 m")
+  above the arrow. The arrow is a little larger.
+- **The diamond over the target is bigger** (15 px to each point, was 9) with an
+  outline.
+- Pop-ups (checkpoint toasts and standing changes) now start under the arrow so
+  they don't cover it.
 
 ## New version is 1.6.4 (2026-11-05)
 
