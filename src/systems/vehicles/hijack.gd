@@ -295,6 +295,11 @@ func on_answer(peer: int, kind: String, st: Dictionary) -> void:
 		_send_back(peer, kind, st.get("xf", Transform3D.IDENTITY), false)   # too late: theirs again
 		return
 	_release()
+	var link0 = _link()
+	if link0 != null and int(st.get("owner", 0)) == link0.my_id():
+		on_back(peer, kind, st.get("xf", Transform3D.IDENTITY), false)   # issue #551: your own, taken back
+		takes += 1
+		return
 	var ok := _seat_ship(peer, st) if kind == SHIP else _seat_speeder(peer, st)
 	if not ok:
 		_send_back(peer, kind, st.get("xf", Transform3D.IDENTITY), false)
@@ -311,7 +316,14 @@ func _seat_ship(peer: int, st: Dictionary) -> bool:
 		return false
 	if not pilot.hijack_let_go.is_connected(_on_ship_let_go):
 		pilot.hijack_let_go.connect(_on_ship_let_go)
-	return pilot.seat_taken(st, peer) >= 0
+	return pilot.seat_taken(st, _owner(peer, st)) >= 0
+
+
+## Issue #551: whose it is: the owner it came with (taken from someone who had
+## taken it), else the one you took it from.
+static func _owner(peer: int, st: Dictionary) -> int:
+	var o := int(st.get("owner", 0))
+	return o if o != 0 else peer
 
 
 func _on_ship_let_go(peer: int, xf: Transform3D, wrecked: bool) -> void:
@@ -327,7 +339,7 @@ func _seat_speeder(peer: int, st: Dictionary) -> bool:
 	var xf: Transform3D = st.get("xf", Transform3D.IDENTITY)
 	var s := SpeederNode.new()
 	s.setup(demo, pilot.ground, c, true, str(st.get("paint", "")))
-	s.set_meta("hijacked_from", peer)
+	s.set_meta("hijacked_from", _owner(peer, st))
 	demo.add_child(s)
 	s.place(xf.origin, float(st.get("yaw", 0.0)))
 	s.model.speed = float(st.get("speed", 0.0))
@@ -341,8 +353,8 @@ func _seat_speeder(peer: int, st: Dictionary) -> bool:
 
 ## Off their speeder (or it burst under you): back to them where it is.
 func _speeder_let_go(s: SpeederNode) -> void:
-	if s.has_meta("given_back"):
-		return
+	if s.has_meta("given_back") or s.has_meta("hijacked_by"):
+		return                          # issue #551: thrown off it by someone else: it goes on to them
 	s.set_meta("given_back", true)
 	var peer := int(s.get_meta("hijacked_from", 0))
 	var wrecked := not s.model.alive()
@@ -386,10 +398,14 @@ func on_take(peer: int, kind: String) -> Dictionary:
 		var s := p.vehicle as SpeederNode
 		at = s.model.position
 		st = s.thrown_out(peer)
-		if not st.is_empty():
+		if st.has("owner"):
+			s.queue_free.call_deferred()     # issue #551: theirs, not yours: nothing here waits for it
+		elif not st.is_empty():
 			_taken_speeders[peer] = s
 	if st.is_empty():
 		return {}
+	if st.has("owner"):
+		_pass_on(int(st.owner), kind, peer)
 	thrown += 1
 	_shove(p, at)
 	var link = _link()
@@ -427,6 +443,34 @@ func on_back(peer: int, kind: String, xf: Transform3D, wrecked: bool) -> void:
 	var link = _link()
 	var who := str(link.roster.get(peer, {}).get("name", "")) if link != null else ""
 	_toast(fmt("wrecked", [who, label(kind)]) if wrecked else fmt("given_back", [label(kind), who]))
+
+
+## Issue #551: the one you had taken from `owner` was taken from you by `to`: tell
+## the owner's game, so `to` is the one who gives it back.
+func _pass_on(owner: int, kind: String, to: int) -> void:
+	var link = _link()
+	if link != null and owner != to and link.roster.has(owner) and owner != link.my_id():
+		link.hijack_moved.rpc_id(owner, kind, to)
+
+
+## Issue #551: player `peer`, who had yours, lost it to player `to`: it is `to`'s
+## to give back now (or back where it was, if `to` is gone already).
+func on_moved(peer: int, kind: String, to: int) -> void:
+	var link = _link()
+	var here: bool = link != null and link.roster.has(to)
+	if kind == SHIP:
+		var pilot = _pilot()
+		if pilot != null and pilot.hijack_passed(peer, to) and not here:
+			on_left(to)
+		return
+	var s = _taken_speeders.get(peer, null)
+	_taken_speeders.erase(peer)
+	if s == null or not is_instance_valid(s):
+		return
+	s.set_meta("hijacked_by", to)
+	_taken_speeders[to] = s
+	if not here:
+		on_left(to)
 
 
 ## Player `peer` left the game holding yours: it is back where they took it.

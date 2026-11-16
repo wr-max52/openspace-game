@@ -356,8 +356,10 @@ func thrown_out(by: int) -> Dictionary:
 	if not can_be_hijacked():
 		return {}
 	var st := { "cfg": cfg, "paint": paint, "xf": model.transform(), "yaw": model.yaw, "speed": model.speed }
+	if has_meta("hijacked_from"):
+		st["owner"] = int(get_meta("hijacked_from"))   # issue #551: one you had taken goes on as its owner's
+	set_meta("hijacked_by", by)        # before dismount: being thrown off is not getting off (Hijack._speeder_let_go)
 	dismount()
-	set_meta("hijacked_by", by)
 	visible = false
 	set_physics_process(false)
 	if hull != null:
