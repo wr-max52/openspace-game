@@ -360,6 +360,11 @@ func _finish() -> void:
 	kit.flush(_parent)                 # nothing left to draw: only the Props body
 	if not solids_only:
 		merge_cloth(_parent)
+		return
+	for c in _parent.get_children():   # issue #543: the stalls' cloth and stock (TownMarket): drawn only
+		if not (c is CollisionObject3D):
+			_parent.remove_child(c)
+			c.free()
 
 
 ## Nothing in the fill casts a shadow.
@@ -711,7 +716,7 @@ func _market(parent: Node3D, t: Dictionary, f: Dictionary, fc: Dictionary) -> vo
 			_count("stall")
 		ri += 1
 	var batch := 4
-	var j := 0 if not solids_only else stalls.size()     # issue #543: the stalls' colliders are above; the dressing is drawn only
+	var j := 0
 	while j < stalls.size():
 		_q.append(market.dress_at.bind(parent, stalls.slice(j, j + batch), j))
 		j += batch
