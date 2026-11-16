@@ -492,7 +492,7 @@ func _park_ships() -> void:
 		else:
 			ship = Node3D.new()
 		var s := float(pd.scale)
-		var a := TownDecor.visual_aabb(ship) if demo.use_look else AABB(Vector3(-4, -1, -4), Vector3(8, 3, 8))
+		var a := footprint(cc.get_ship(ship_id), ship)
 		root.add_child(ship)
 		var b := (frame.basis * Basis(Vector3.UP, float(pd.yaw))).scaled(Vector3.ONE * s)
 		var lift := Vector3(-a.get_center().x, -a.position.y + 0.1, -a.get_center().z)
@@ -510,6 +510,18 @@ func _park_ships() -> void:
 
 ## A ship that only stands there (the frigate): solid to feet and to ships. The
 ## body is not under the (scaled) model: a box its size, in its place.
+## Issue #543: a parked ship's bounds at scale 1, the same with the look layer on
+## or off: the ship's data ("footprint": { position, size }), else the model's
+## (look on), else a fighter-sized box.
+static func footprint(ship_cfg: Dictionary, model: Node3D = null) -> AABB:
+	var fp: Dictionary = ship_cfg.get("footprint", {})
+	if fp.has("position") and fp.has("size"):
+		return AABB(WorldGround._v3(fp.position), WorldGround._v3(fp.size))
+	if model != null and model.get_child_count() > 0:
+		return TownDecor.visual_aabb(model)
+	return AABB(Vector3(-4, -1, -4), Vector3(8, 3, 8))
+
+
 func _solid_ship(root: Node3D, ship: Node3D, a: AABB, s: float, pad_id: String) -> void:
 	var xf := ship.global_transform * Transform3D(Basis.IDENTITY, a.get_center())
 	xf = Transform3D(xf.basis.orthonormalized(), xf.origin)

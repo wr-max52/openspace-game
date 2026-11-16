@@ -74,7 +74,7 @@ func _ready() -> void:
 		points[k] = WorldGround._v3(loc.points[k])
 	if demo.use_look:
 		_dress(loc)
-		_build_droids()
+	_build_droids()                      # issue #543: there with the look off too, only undressed
 	_build_mechanic()
 
 
@@ -314,25 +314,32 @@ func _ball(r: float) -> SphereMesh:
 
 ## Cargo droids driving loops round the yard, and an assassin droid with no
 ## weapon standing by the garage door. Looks only: nobody owns them.
+## Issue #543: with the look layer off they are there all the same (bare nodes on
+## the same loops and spot), only not dressed.
 func _build_droids() -> void:
-	var mats: LookMaterials = demo._flat_mats()
+	var dressed: bool = demo.use_look
+	var mats: LookMaterials = demo._flat_mats() if dressed else null
 	var variants := ["tan", "olive", "blue"]
 	var loops := [[Vector3(9, 0, 0), 9.0, 11.0, 2.4], [Vector3(10, 0, -1), 7.0, 13.0, -2.0], [Vector3(10, 0, 1), 9.0, 8.0, 2.9]]
 	for i in loops.size():
 		var L: Array = loops[i]
-		var look := DroidKit.build("cargo", DroidRoster.variant_cfg("cargo", variants[i % variants.size()]), mats,
-			DroidRoster.kind_cfg("cargo").get("look", {}))
+		var look: Node3D = DroidKit.build("cargo", DroidRoster.variant_cfg("cargo", variants[i % variants.size()]), mats,
+			DroidRoster.kind_cfg("cargo").get("look", {})) if dressed else Node3D.new()
 		look.name = "YardCargo%d" % (i + 1)
 		add_child(look)
-		DroidKit.set_awake(look, true)
+		if dressed:
+			DroidKit.set_awake(look, true)
 		droids.append({ "look": look, "center": L[0], "rx": float(L[1]), "rz": float(L[2]), "speed": float(L[3]), "a": TAU * i / 3.0 })
-	var lc := { "kind": "assassin" }
-	guard_droid = DroidKit.build("assassin", DroidRoster.variant_cfg("assassin", "gunmetal"), mats, ShipSalesman.model_look(lc))
-	ShipSalesman._disarm(guard_droid)
+	if dressed:
+		guard_droid = DroidKit.build("assassin", DroidRoster.variant_cfg("assassin", "gunmetal"), mats, ShipSalesman.model_look({ "kind": "assassin" }))
+		ShipSalesman._disarm(guard_droid)
+	else:
+		guard_droid = Node3D.new()
 	guard_droid.name = "YardAssassin"
 	add_child(guard_droid)
-	DroidKit.set_awake(guard_droid, true)
-	DroidKit.play_anim(guard_droid, "idle")
+	if dressed:
+		DroidKit.set_awake(guard_droid, true)
+		DroidKit.play_anim(guard_droid, "idle")
 	guard_droid.global_transform = Transform3D(xf.basis * Basis(Vector3.UP, -PI * 0.5), _ground(Vector3(-2.0, 0, 5.6)))     # issue #295: beside the door, not in it
 	_drive_droids(0.0)
 

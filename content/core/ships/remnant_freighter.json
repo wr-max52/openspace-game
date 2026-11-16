@@ -12,6 +12,7 @@
     "regen": 8.0,
     "delay": 3.5
   },
+  "footprint": { "position": [-3.75, -1.14, -4.5], "size": [7.5, 2.28, 9.0], "note": "Issue #543: the model's bounds at scale 1 (TownDecor.visual_aabb of its look), so a parked one stands and collides the same with the look layer off." },
   "hit_radius": 4.4,
   "convergence": 320.0,
   "flight": {

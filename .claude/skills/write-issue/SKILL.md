@@ -169,7 +169,8 @@ reasons are in `DECISIONS.md`.
 4. **The town data format.** Boxes, markers, routes and zones, read only by
    `town_layout.gd`, passing the validator.
 5. **The look layer is optional.** `use_look = false` must still play; styles
-   go through `LookMaterials`, never per building.
+   go through `LookMaterials`, never per building. Colliders and people are
+   built before the `use_look` branch; the branch only dresses (#543).
 6. **One movement for player and NPCs, one flight model for every ship.**
 7. **Pure brains, run by the existing directors.** No second AI framework.
 8. **`WorldState` is the one truth**, saved with the world. No second store.

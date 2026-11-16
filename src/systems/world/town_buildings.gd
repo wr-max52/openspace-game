@@ -60,7 +60,8 @@ func _init(m: LookMaterials, l: LookEnvironment) -> void:
 	mats = m
 	look = l
 	window_glow = mats.glow(Color("#ffb46a"))
-	look.track_glow(window_glow)
+	if look != null:
+		look.track_glow(window_glow)     # issue #543: none with the look layer off (StationFill.solids_only)
 	# Door lights and beacons are on day and night: fixed, not driven by the lamps.
 	door_glow = mats.glow(DOOR_LIGHT)
 	door_glow.emission_energy_multiplier = 2.2
