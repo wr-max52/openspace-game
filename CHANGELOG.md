@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Take one or all out of a cargo droid (2026-11-15)
+
+- **A cargo droid's hold now lists what it holds, one row per item.** Enter (or
+  **Take one**) takes one of a stack back into your backpack, **Shift+Enter**
+  (or **Take all**) takes the whole stack. A lone item has a single **Take**
+  button. The hold stays open after each take, so you can take the next one.
+- **Unload everything** is still there once the hold has more than one kind of
+  item. With one kind, Take all does the same.
+- A full backpack keeps the item in the hold and says so. Taking the last of an
+  item frees its hold slot.
+- The key hint says what Shift+Enter does for the row under the cursor (Stash
+  all or Take all).
+
 ## Respawn button in the game menu (2026-11-08)
 
 - **F11, Game page, first section: Respawn where you started.** It puts you

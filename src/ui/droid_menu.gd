@@ -16,7 +16,8 @@ extends CanvasLayer
 ## A row can also carry "alt" (the id Shift+Enter picks instead, e.g. stash the whole
 ## stack; "alt_hint" names it in the key hint) and "buttons" ([{ id, text }], small
 ## buttons at the row's end that pick their id when clicked; the mouse is freed while
-## a menu with buttons is open). A cargo droid's hold: Stash one / Stash all.
+## a menu with buttons is open). A cargo droid's hold: Stash one / Stash all, and
+## Take one / Take all for what it holds.
 
 const INK := Color(0.95, 0.92, 0.85, 0.95)
 const AMBER := Color("#e0a050")
@@ -162,8 +163,11 @@ func has_alt() -> bool:
 	return false
 
 
-## What Shift+Enter does, for the key hint: the first row's "alt_hint".
+## What Shift+Enter does, for the key hint: the row under the cursor's "alt_hint",
+## else the first row's (a hold mixes Stash all and Take all rows).
 func alt_hint() -> String:
+	if selected < options.size() and str(options[selected].get("alt_hint", "")) != "":
+		return str(options[selected].alt_hint)
 	for o in options:
 		if str(o.get("alt_hint", "")) != "":
 			return str(o.alt_hint)
@@ -242,6 +246,7 @@ func _show_cursor() -> void:
 		var on := i == selected
 		_rows[i].box.add_theme_stylebox_override("panel", _cursor_box if on else _row_box)
 		_rows[i].key.text = ">" if on else ""
+	hint.text = HINT_ALT % alt_hint() if has_alt() else HINT
 	_scroll_to_cursor()
 
 
