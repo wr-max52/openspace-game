@@ -971,6 +971,7 @@ func _send_wave(o: Dictionary) -> void:
 		return                           # a LAN guest's town: bodies are the host's (NetWorld)
 	if not Heist.take_wave():
 		return
+	var run := int(WorldState.heist.get("run", 0))
 	var id := str(o.id)
 	var holder := Territory.owner(id)
 	var soldier := Heist.wave_soldier(holder)
