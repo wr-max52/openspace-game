@@ -121,6 +121,36 @@ func test_unload_stops_at_a_full_backpack() -> void:
 	assert_eq(c.cargo.size(), 1, "the other waits in the hold")
 
 
+func test_take_moves_one_or_all_of_a_held_stack() -> void:
+	var r := WorldState.droids
+	var inv := WorldState.inventory
+	var c := r.add("cargo", "tan")
+	inv.add("holocrystals", 3)
+	r.stash(int(c.uid), inv, "holocrystals", 3)
+	assert_eq(r.take(int(c.uid), inv, "holocrystals"), 1, "one comes out")
+	assert_eq(inv.count("holocrystals"), 1)
+	assert_eq(int(c.cargo.holocrystals), 2, "two stay in the hold")
+	assert_eq(r.take(int(c.uid), inv, "holocrystals", -1), 2, "the rest come out")
+	assert_false(c.cargo.has("holocrystals"), "its hold slot is free again")
+	assert_eq(r.take(int(c.uid), inv, "holocrystals"), 0, "nothing left to take")
+
+
+func test_take_stops_at_a_full_backpack() -> void:
+	var r := WorldState.droids
+	var inv := WorldState.inventory
+	var c := r.add("cargo", "tan")
+	inv.add("holocrystals", 2)
+	r.stash(int(c.uid), inv, "holocrystals", 2)
+	for id in ["food", "quartz", "energy_blade", "unmarked_cells"]:
+		inv.add(id)
+	assert_eq(inv.slots_free(), 0)
+	assert_eq(r.take(int(c.uid), inv, "holocrystals"), 0, "no slot for a new kind")
+	assert_eq(int(c.cargo.holocrystals), 2, "it stays in the hold")
+	inv.add("holocrystals")
+	r.stash(int(c.uid), inv, "holocrystals")
+	inv.add("food")
+	assert_eq(r.take(int(c.uid), inv, "food"), 0, "the hold has none of it")
+
 # ---- your droids in a fight ---------------------------------------------------------
 
 class FakePlayer extends CharacterBody3D:
@@ -266,5 +296,66 @@ func test_hold_stashes_one_or_the_whole_stack() -> void:
 
 	ctl.menu.choose("stash_all:food")
 	assert_eq(int(c.cargo.get("food", 0)), 1, "stash all of one is one")
+	ctl.menu.choose("")
+	assert_false(ctl.menu.is_open())
+
+
+func _take_row(ctl: DroidController, item: String) -> Dictionary:
+	for o in ctl.menu.options:
+		if str(o.id) == "take:" + item:
+			return o
+	return {}
+
+
+func _has_row(ctl: DroidController, id: String) -> bool:
+	for o in ctl.menu.options:
+		if str(o.id) == id:
+			return true
+	return false
+
+
+func test_hold_takes_one_or_the_whole_stack() -> void:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	var inv := WorldState.inventory
+	var c := WorldState.droids.add("cargo", "tan")
+	inv.add("holocrystals", 3)
+	inv.add("food")
+	WorldState.droids.stash(int(c.uid), inv, "holocrystals", 3)
+	ctl.focus = { "kind": "cargo", "uid": int(c.uid) }
+	assert_eq(ctl.interact(), "menu")
+	var row := _take_row(ctl, "holocrystals")
+	assert_eq(str(row.get("text", "")).contains("x3"), true, "the row says how many it holds")
+	assert_eq(str(row.get("alt", "")), "take_all:holocrystals", "Shift+Enter takes the stack")
+	var ids := []
+	for b in row.get("buttons", []):
+		ids.append(str(b.id))
+	assert_eq(ids, ["take:holocrystals", "take_all:holocrystals"], "Take one and Take all buttons")
+	assert_false(_has_row(ctl, "unload"), "one kind held: Take all is the unload")
+
+	ctl.menu.selected = ctl.menu.options.find(row)
+	ctl.menu._show_cursor()
+	assert_true(ctl.menu.hint.text.contains("Take all"), "the key hint follows the cursor")
+
+	ctl.menu.choose("take:holocrystals")
+	assert_eq(inv.count("holocrystals"), 1, "Enter takes one")
+	assert_eq(int(c.cargo.get("holocrystals", 0)), 2)
+	assert_true(ctl.menu.is_open(), "the hold stays open for the next one")
+	assert_true(str(_take_row(ctl, "holocrystals").text).contains("x2"))
+
+	ctl.menu.choose("stash:food")
+	assert_true(_has_row(ctl, "unload"), "two kinds held: Unload everything is back")
+	assert_false(_take_row(ctl, "food").has("alt"), "a single held item has no take-all")
+	assert_eq((_take_row(ctl, "food").get("buttons", []) as Array).size(), 1, "just a Take button")
+
+	var key := InputEventKey.new()
+	key.keycode = KEY_ENTER
+	key.pressed = true
+	key.shift_pressed = true
+	ctl.menu.selected = ctl.menu.options.find(_take_row(ctl, "holocrystals"))
+	ctl.menu._input(key)
+	assert_eq(inv.count("holocrystals"), 3, "Shift+Enter takes the rest")
+	assert_false(c.cargo.has("holocrystals"), "its slot is free")
+	assert_true(_take_row(ctl, "holocrystals").is_empty(), "nothing left of it to take")
 	ctl.menu.choose("")
 	assert_false(ctl.menu.is_open())
