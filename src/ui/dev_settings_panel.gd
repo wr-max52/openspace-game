@@ -1304,6 +1304,9 @@ func lan_arrive(planet_id: String, reload := true) -> void:
 func lan_left(reload := true) -> void:
 	if demo == null or not bool(demo.get("lan_shared")):
 		return
+	if NetSession.active():
+		demo.lan_rebuild_waiting = false    # joined again before landing: the host's town it stays
+		return
 	if not demo.on_own_feet():
 		demo.lan_rebuild_waiting = true
 		return
