@@ -589,9 +589,10 @@ func _open_hold(uid: int, opts: Array, keep_cursor := false) -> void:
 	_open_menu(_l("menu_hold") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)], opts, _on_hold.bind(uid), keep_cursor)
 
 
-## Stash what the hold has a slot for (or already holds some of), and unload.
-## Enter (or "Stash one") stashes one of a stack; Shift+Enter (or "Stash all") the
-## whole stack.
+## Stash what the hold has a slot for (or already holds some of), take back what it
+## holds, and unload. Enter (or "Stash one" / "Take one") moves one of a stack;
+## Shift+Enter (or "Stash all" / "Take all") the whole stack. "Unload everything"
+## shows once the hold has more than one kind.
 func hold_options(uid: int) -> Array:
 	var out := []
 	var inv := WorldState.inventory
@@ -610,9 +611,22 @@ func hold_options(uid: int) -> Array:
 			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_button") }]
 		out.append(row)
 	var held: Array = []
-	for id in d.get("cargo", {}):
-		held.append("%s x%d" % [str(WorldState._item(str(id)).get("label", id)), int(d.cargo[id])])
-	if not held.is_empty():
+	var cargo_ids: Array = d.get("cargo", {}).keys()
+	cargo_ids.sort()
+	for id in cargo_ids:
+		var label := str(WorldState._item(str(id)).get("label", id))
+		var n := int(d.cargo[id])
+		held.append("%s x%d" % [label, n])
+		var row := { "id": "take:" + str(id), "text": _l("take") % [label, n] }
+		if n > 1:
+			row["alt"] = "take_all:" + str(id)
+			row["alt_hint"] = _l("take_all_hint")
+			row["buttons"] = [{ "id": "take:" + str(id), "text": _l("take_one_button") },
+				{ "id": "take_all:" + str(id), "text": _l("take_all_button") }]
+		else:
+			row["buttons"] = [{ "id": "take:" + str(id), "text": _l("take_button") }]
+		out.append(row)
+	if held.size() > 1:
 		out.append({ "id": "unload", "text": _l("unload") % ", ".join(held) })
 	return out
 
@@ -624,6 +638,19 @@ func _on_hold(id: String, uid: int) -> void:
 		for n in roster().find(uid).get("cargo", {}).values():
 			left += int(n)
 		_toast(_l("unloaded") % moved if left == 0 else _l("unload_partial") % left)
+	elif id.begins_with("take:") or id.begins_with("take_all:"):
+		var item := id.substr(id.find(":") + 1)
+		var label := str(WorldState._item(item).get("label", item))
+		var n := roster().take(uid, WorldState.inventory, item, -1 if id.begins_with("take_all:") else 1)
+		if n > 0:
+			_toast(_l("took_many") % [n, label] if n > 1 else _l("took") % label)
+			if gear != null:
+				gear.sync_gear()        # a jetpack back in your pack goes on your back
+			var opts := hold_options(uid)
+			if not opts.is_empty():
+				_open_hold(uid, opts, true)     # stay open: take the next one
+		else:
+			_toast(_l("take_no_room") % label)
 	elif id.begins_with("stash:") or id.begins_with("stash_all:"):
 		var all := id.begins_with("stash_all:")
 		var item := id.substr(id.find(":") + 1)

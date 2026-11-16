@@ -285,6 +285,25 @@ func stash(uid: int, inv: Inventory, item_id: String, n: int = 1) -> bool:
 	return true
 
 
+## Move n of an item out of a cargo droid's hold into the pockets (n < 0: all of
+## it). Returns how many moved: 0 when the hold has none or the backpack has no
+## slot for a new kind. Taking the last one frees its hold slot.
+func take(uid: int, inv: Inventory, item_id: String, n: int = 1) -> int:
+	var d := find(uid)
+	if d.is_empty() or not d.get("cargo", {}).has(item_id):
+		return 0
+	var held := int(d.cargo[item_id])
+	var moved := held if n < 0 else mini(n, held)
+	if moved <= 0 or not inv.room_for(item_id):
+		return 0
+	inv.add(item_id, moved)
+	if moved >= held:
+		d.cargo.erase(item_id)
+	else:
+		d.cargo[item_id] = held - moved
+	return moved
+
+
 ## What a cargo droid holds back into the pockets, as much as the backpack has
 ## room for (the rest stays in the hold). Returns how many items moved.
 func unload(uid: int, inv: Inventory) -> int:
