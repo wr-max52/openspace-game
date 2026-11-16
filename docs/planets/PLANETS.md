@@ -321,8 +321,8 @@ below).
 - **`replaces_sky_painting: true`** turns the painted giant off on the planet
   itself and on any planet whose sky it hangs in (`PlanetGen.sky_painting`).
   Grit Station keeps its painting.
-- **The port's ground camera** sees far enough to show it
-  (`TownDemo.sky_giant_reach`).
+- **The port's ground camera** sees far enough to show every planet whole
+  (`TownDemo.sky_reach`).
 - **Quiet sky** (`encounter: ""`): a space fight's flight does not check the
   clouds yet.
 - **The space station is its town** (`content/core/stations/orbital_station.json`,
