@@ -463,7 +463,7 @@ func trade_options(v: Dictionary) -> Array:
 		if cost > WorldState.credits:
 			text = _l("buy_row_poor") % [_shown(it, str(id)), cost, WorldState.credits]
 		out.append({ "id": "buy:" + str(id), "text": text })
-	if bool(v.get("bounties", false)) and Heist.on() and Heist.pays_to() == "fence" and not Heist.holding():
+	if bool(v.get("bounties", false)) and Heist.on() and Heist.mine() and Heist.pays_to() == "fence" and not Heist.holding():
 		out.append({ "id": "heist_off", "text": Heist.line("call_off") })     # issue #310
 	if v.has("offers"):
 		for o in GearUpgrades.open_offers(str(v.get("id", ""))):
