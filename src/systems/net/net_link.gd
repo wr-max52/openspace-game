@@ -1023,6 +1023,16 @@ func hijack_back(kind: String, xf: Transform3D, wrecked: bool) -> void:
 		h.on_back(id, kind, xf, wrecked)
 
 
+## Issue #551: a hijacker -> the owner: the `kind` of yours I had was taken from
+## me by player `to`; they give it back now.
+@rpc("any_peer", "call_remote", "reliable")
+func hijack_moved(kind: String, to: int) -> void:
+	var id := _mp().get_remote_sender_id()
+	var h = _hijack()
+	if roster.has(id) and h != null:
+		h.on_moved(id, kind, to)
+
+
 ## Every player -> every other: my `kind` is not mine to show any more (taken from
 ## me, or given back): drop it now, not when it goes stale.
 @rpc("any_peer", "call_remote", "reliable")

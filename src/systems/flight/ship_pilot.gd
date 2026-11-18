@@ -2657,6 +2657,8 @@ func can_be_hijacked() -> bool:
 ## ground beside her, and she is not here for you while they fly her (stowed,
 ## "hijacked_by"; not lost in the save: hijack_returned brings her back). Returns
 ## what another game needs to fly her on ({} when she can not be taken now).
+## Issue #551: a ship you had taken from another player is not yours to wait for:
+## she goes on to `by` as her owner's (st.owner), and is gone from here.
 func thrown_out(by: int) -> Dictionary:
 	if not can_be_hijacked():
 		return {}
@@ -2665,11 +2667,16 @@ func thrown_out(by: int) -> Dictionary:
 		"xf": atmo.transform(), "flying": flying, "speed": atmo.flight.speed if flying else 0.0,
 		"throttle": _throttle if flying else 0.0, "hull": lan_hull() }
 	var i := berth
+	var owner := int(berths[i].get("hijacked_from", 0))
 	_eject_hold = 0.0
 	_leave_seat(_exit_spot())
 	atmo.park(atmo.position(), _yaw_of(atmo.transform()))
 	_stow(i)
-	berths[i]["hijacked_by"] = by
+	if owner != 0:
+		berths[i].erase("hijacked_from")
+		st["owner"] = owner
+	else:
+		berths[i]["hijacked_by"] = by
 	exited.emit()
 	for j in berths.size():
 		if not bool(berths[j].get("destroyed", false)):
@@ -2704,6 +2711,16 @@ func hijack_returned(by: int, xf: Transform3D, wrecked: bool) -> bool:
 		v.visible = true
 		_remember(i)
 		return true
+	return false
+
+
+## Issue #551: the ship player `by` took from you was taken from them by player
+## `to`: she is `to`'s to give back now. False when no ship of yours is `by`'s.
+func hijack_passed(by: int, to: int) -> bool:
+	for b in berths:
+		if int(b.get("hijacked_by", 0)) == by:
+			b["hijacked_by"] = to
+			return true
 	return false
 
 
