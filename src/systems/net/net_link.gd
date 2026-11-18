@@ -294,7 +294,11 @@ func _gone(id: int) -> void:
 func _on_host_gone() -> void:
 	_toast(NetSession.label("host_left"), 6.0)
 	host_left.emit()
+	var scene := get_tree().current_scene if is_inside_tree() else null
 	NetSession.leave()      # you play on in your own game, where you stand
+	var panel = scene.get("dev_settings") if scene != null else null
+	if panel != null and panel.has_method("lan_left"):
+		panel.lan_left()    # issue #549: the town comes back to life
 
 
 # ------------------------------------------------------------------ state

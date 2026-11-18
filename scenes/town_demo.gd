@@ -58,6 +58,7 @@ const ROLE_COLORS := {
 var lan_shared := false
 var lan_holder := ""                  ## a LAN guest in the host's town: who holds the barracks in the host's game ("" not heard yet)
 var _lan_painted := ""                ## the holder this guest's town is painted for
+var lan_rebuild_waiting := false      ## issue #549: the session ended while you flew or rode: the town is rebuilt once you stand
 
 var town := TownLayout.new()
 var look: LookEnvironment
@@ -932,6 +933,14 @@ func _build_outposts(now: bool = true) -> void:
 			ranches.build()
 
 
+## Issue #549: the player stands on their own feet: not flying, riding, falling or
+## down (the spot a save keeps, ConversationHost._save_where).
+func on_own_feet() -> bool:
+	var p := _player
+	return p != null and is_instance_valid(p) and p.is_inside_tree() and not bool(p.get("piloting")) \
+		and not bool(p.get("is_downed")) and not GameFlow.in_flight and (p as CharacterBody3D).is_on_floor()
+
+
 ## Then the brains that run them all.
 func _npc_brains() -> void:
 	lan_shared = NetWorld.shared_town(GameFlow.current_planet_id())
@@ -1612,6 +1621,8 @@ func _physics_process(dt: float) -> void:
 	# A LAN guest in the host's town: the host's game runs the people and says who
 	# holds the barracks; this one only paints the town for them.
 	if lan_shared:
+		if lan_rebuild_waiting and slow and on_own_feet() and dev_settings != null:
+			dev_settings.lan_left()       # issue #549: landed or got off since the session ended
 		if lan_holder != "" and lan_holder != _lan_painted:
 			_lan_painted = lan_holder
 			_repaint_town(lan_holder)

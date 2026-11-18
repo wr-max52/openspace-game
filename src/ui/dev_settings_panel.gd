@@ -1231,6 +1231,7 @@ func _lan_page(v: VBoxContainer) -> void:
 	leave.pressed.connect(func():
 		said[0] = ""
 		NetSession.leave()
+		lan_left()                       # issue #549: your own town again
 		_lan_refresh.call())
 	_lan_refresh = func():
 		var on := NetSession.active()
@@ -1291,6 +1292,30 @@ func lan_arrive(planet_id: String, reload := true) -> void:
 	WorldState.set_flag(WorldState.FREE_OPENING, false)
 	ShipSalesman.greeted = true
 	NetSession.guest_spawn = true
+	_reload(reload)
+
+
+## Issue #549: the session is over (you left, or the host did). A guest standing
+## in the host's town, where the host's game ran the people, gets their own town
+## back where they stand: this save is kept, then the town is built again from it
+## (lan_arrive the other way round). Flying or riding, the town waits until you
+## stand (TownDemo.lan_rebuild_waiting). Hosting, or a guest in a town of their
+## own, nothing changes. `reload` false: just the state (tests).
+func lan_left(reload := true) -> void:
+	if demo == null or not bool(demo.get("lan_shared")):
+		return
+	if NetSession.active():
+		demo.lan_rebuild_waiting = false    # joined again before landing: the host's town it stays
+		return
+	if not demo.on_own_feet():
+		demo.lan_rebuild_waiting = true
+		return
+	demo.lan_rebuild_waiting = false
+	var at: Vector3 = demo._player.global_position
+	_save_left()
+	_leave()
+	GameFlow.resumed = true                 # this planet, not where the save was left
+	GameFlow.resume_pos = at
 	_reload(reload)
 
 
