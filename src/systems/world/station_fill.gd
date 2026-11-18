@@ -60,6 +60,10 @@ var _room_c := Vector2.ZERO         ## the floor being built: its tower's middle
 var _room_n := 0                    ## the frame the room finishes are laid out in (_t; 0: open floors)
 var _win_r := 0.0                   ## the floor being built: the window's inside, where its rooms end
 var _texs := {}
+## Issue #543: build only the colliders (the Props body), nothing drawn: the
+## station with the look layer off plays on the same floors (counters, beds,
+## stalls, huts, machines) as with it on.
+var solids_only := false
 
 
 func _init(building_kit: TownBuildings, station_hull: StationHull, station_finish: Callable) -> void:
@@ -139,6 +143,11 @@ func dress(parent: Node3D, t: Dictionary, i: int) -> void:
 ## each a few thousand vertices at a time (the kit's own meshes, which have no CPU
 ## copy, a MultiMesh each); then the colliders, the cloth, and no shadows.
 func _collect() -> void:
+	if solids_only:
+		kit._groups.clear()
+		draws = 0
+		_q.append(_finish)
+		return
 	var by_mat := {}
 	for key in kit._groups:
 		var g: Array = kit._groups[key]
@@ -349,7 +358,13 @@ func _commit(acc: Dictionary, mat: Material) -> void:
 
 func _finish() -> void:
 	kit.flush(_parent)                 # nothing left to draw: only the Props body
-	merge_cloth(_parent)
+	if not solids_only:
+		merge_cloth(_parent)
+		return
+	for c in _parent.get_children():   # issue #543: the stalls' cloth and stock (TownMarket): drawn only
+		if not (c is CollisionObject3D):
+			_parent.remove_child(c)
+			c.free()
 
 
 ## Nothing in the fill casts a shadow.

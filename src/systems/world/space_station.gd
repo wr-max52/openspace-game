@@ -91,7 +91,7 @@ func _ready() -> void:
 	if demo != null and demo.use_look:
 		_build_look()
 		_lights()
-		_plan_fill()
+	_plan_fill()                         # issue #543: the floors' colliders with the look off too (solids only)
 	_build_shield()
 	_build_hatches()
 	_build_tubes()
@@ -225,11 +225,12 @@ func _pull_back(p: Node3D, text: String) -> void:
 ## scene does not hitch,
 ## each under a node of its own that is only shown near the camera (_show_fill).
 func _plan_fill() -> void:
-	if (cfg.get("fill", {}) as Dictionary).is_empty():
+	if demo == null or (cfg.get("fill", {}) as Dictionary).is_empty():
 		return
 	var mats: LookMaterials = demo.decor.mats if demo.get("decor") != null and demo.decor.mats != null else LookMaterials.new()
 	var kit := TownBuildings.new(mats, demo.look)
 	fill = StationFill.new(kit, hull, _mat)
+	fill.solids_only = not demo.use_look
 	fill.faction_mats("station:" + id)        # issue #314: the Remnant deck's red, repainted when it is taken
 	for t in hull.towers:
 		for i in (t.floors as Array).size():
