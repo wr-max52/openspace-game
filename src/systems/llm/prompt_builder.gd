@@ -21,7 +21,7 @@ const ACTION_DOCS := {
 	"offer_job": '{"type": "offer_job", "id": "<job id>"}  when you offer a job from your board',
 	"hint_secret": '{"type": "hint_secret", "id": "<secret id>"}  when you let a secret slip',
 	"pour_drink": '{"type": "pour_drink", "name": "<drink from the menu>"}  when they order',
-	"offer_speeder": '{"type": "offer_speeder"}  when they want to buy (the game shows them the price and asks them to confirm; you never take money yourself)',
+	"offer_speeder": '{"type": "offer_speeder", "id": "<model id from WHAT YOU SELL>"}  when they want to buy one (the game shows them the price and asks them to confirm; you never take money yourself)',
 	"offer_ship": '{"type": "offer_ship", "id": "<ship id from YOUR SHIPS>"}  when you recommend a ship or they want to buy one (the game shows them its price and asks them to confirm; you never take money yourself)',
 	"offer_ship_buy": '{"type": "offer_ship_buy", "id": "<id from A SHIP YOU WOULD BUY>"}  when they want to sell you that ship (the game shows them what you pay and asks them to confirm; you never hand over money yourself)',
 	"offer_item": '{"type": "offer_item", "id": "<id from YOU CAN SELL THEM>"}  when they ask for an upgrade or want to buy one (the game shows them its price and asks them to confirm; you never take money yourself)',
@@ -85,7 +85,14 @@ func persona_message() -> Dictionary:
 	if not menu.is_empty():
 		lines.append("YOUR MENU:\n- " + "\n- ".join(menu))
 	var sale: Dictionary = card.get("sale", {})
-	if not sale.is_empty():
+	var models: Array = sale.get("models", [])
+	if not models.is_empty():
+		# Issue #627: several models (Skrugs: one of each to a customer).
+		var ms: PackedStringArray = []
+		for m in models:
+			ms.append("[%s] %s: %d credits. %s" % [m.get("id", ""), m.get("name", ""), int(m.get("price", 0)), m.get("note", "")])
+		lines.append("WHAT YOU SELL (id, name, price):\n- " + "\n- ".join(ms))
+	elif not sale.is_empty():
 		lines.append("WHAT YOU SELL: %s for %d credits. %s" % [sale.get("name", ""), int(sale.get("price", 0)), sale.get("note", "")])
 	# T-89's stock, with its numbers (ShipSalesman fills "ships" in from the ship files).
 	var ships: PackedStringArray = []
@@ -200,6 +207,18 @@ func briefing(world: Dictionary, rel, rumors: Array, jobs: Array) -> Dictionary:
 	var sale_open := bool(world.get("sale_open", true))
 	if not sale_open and str(sale.get("closed", "")) != "":
 		L.append(str(sale.closed))
+	# Issue #627: with several models, only the ones they don't own are on offer.
+	var open_sale: Dictionary = sale if sale_open else {}
+	if sale_open and sale.get("models") is Array:
+		var open_ids: Array = world.get("sale_models", (sale.models as Array).map(func(m): return str(m.get("id", ""))))
+		var still: Array = (sale.models as Array).filter(func(m): return open_ids.has(str(m.get("id", ""))))
+		var owned: Array = (sale.models as Array).filter(func(m): return not open_ids.has(str(m.get("id", ""))))
+		if not owned.is_empty():
+			L.append("THEY ALREADY OWN: %s (one of each to a customer). STILL FOR SALE TO THEM: %s." % [
+				", ".join(owned.map(func(m): return str(m.get("name", "")))),
+				", ".join(still.map(func(m): return "[%s] %s" % [m.get("id", ""), m.get("name", "")]))])
+		open_sale = sale.duplicate()
+		open_sale["models"] = still
 	# Issue #295: a ship of theirs Skrugs would buy, parked by his post right now.
 	var sb: Dictionary = world.get("ship_buy", {})
 	if not sb.is_empty():
@@ -226,7 +245,7 @@ func briefing(world: Dictionary, rel, rumors: Array, jobs: Array) -> Dictionary:
 	return {
 		"message": { "role": "system", "content": "YOUR BRIEFING (true right now):\n" + "\n".join(L) },
 		"ids": { "rumors": rumor_ids, "jobs": job_ids, "secrets": secret_ids, "drinks": drinks,
-			"allowed": actions(), "sale": sale if sale_open else {}, "ships": ship_ids, "moods": moods,
+			"allowed": actions(), "sale": open_sale, "ships": ship_ids, "moods": moods,
 			"ship_buy": world.get("ship_buy", {}), "wares": wares },
 	}
 

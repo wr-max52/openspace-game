@@ -37,6 +37,7 @@ enum State { PARKED, LIFTOFF, FLYING, LANDING, CRASHED, ADRIFT }
 
 var cfg: Dictionary = {}        ## the ship's "atmosphere" block
 var flight                      ## FlightModel (atmosphere speeds)
+var crash_velocity := Vector3.ZERO  ## issue #404: how it was moving when it crashed
 var ground: WorldGround
 var state := State.PARKED
 var events: Array = []          ## this step's events: { type, ... }
@@ -429,6 +430,7 @@ func _touch_down() -> void:
 
 func _crash(at: Vector3, what: String) -> void:
 	crash_point = at
+	crash_velocity = flight.velocity()   # issue #404: the wreck carries on with it
 	flight.speed = 0.0
 	state = State.CRASHED
 	events.append({ "type": "crashed", "at": at, "what": what })

@@ -2018,6 +2018,7 @@ func fire(u: DroidUnit, aim: Vector3, gun: Dictionary) -> Node:
 		dir = dir.rotated(axis.normalized(), rng.randf_range(-spread, spread))
 	u.shots += 1
 	u.last_aim = aim
+	NoiseEvents.emit(origin, float(gun.get("noise_radius", 40.0)), "shot_droid")   # issue #605: bystanders hear it
 	var b = BoltScene.instantiate()
 	b.direction = dir
 	b.speed = float(gun.get("bolt_speed", 30.0))

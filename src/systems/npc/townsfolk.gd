@@ -11,6 +11,12 @@ extends Node
 ##             (profile combat.hold_ground) duck behind the counter and shoot over
 ##             it, never leaving the stall. Everyone's pistol (profile "sidearm")
 ##             comes out when the alarm goes up and is put away after
+##   scared    issue #605: shooting near them while all is calm (anyone's: the
+##             Remnant at the gate, a droid, a grenade; any noise Scatter counts):
+##             walkers run to cover and crouch there, those at a post (a merchant at
+##             the stall, the band, a dancer, a patron at a table) crouch where they
+##             stand; quiet for quiet_s, they go back to what they were doing. Their
+##             stall does not trade while they hide. If the alarm goes up they fight.
 ##   after     calm again when the player flees or is downed. After fleeing the
 ##             locals remember the face for memory_s and start again on sight;
 ##             once the player wakes in the pit they forget it (forgive_player)
@@ -58,6 +64,9 @@ var kills := 0
 
 var _rng := RandomNumberGenerator.new()
 var _attacked := false
+var scared: Dictionary = {}       ## issue #605: NpcBody -> { until (_clock), at (the noise), cover (or INF) }
+var scares := 0                   ## times someone was sent to hide (traces, tests)
+var _noise_id := -1
 var unfound: Array = []         ## issue #307: bodies of silent sword kills nobody has found yet
 var silent_kills := 0           ## (traces)
 var _clock := 0.0
@@ -174,6 +183,11 @@ func _physics_process(dt: float) -> void:
 	_alarm_in["alive"] = alive.size()
 	alarm.update(dt, _alarm_in)
 	_handle(alarm.drain())
+	if alarm.active():
+		scared.clear()                                 # up in arms: they fight, as ever
+		_noise_id = NoiseEvents.last_id()
+	else:
+		_hear(alive)
 	for g in alive:
 		var b: GuardBrain = brains[g]
 		g.drawn = alarm.active() or not g.sidearm   # pistols out while the port is up in arms (a guard's rifle always is)
@@ -186,8 +200,9 @@ func _physics_process(dt: float) -> void:
 		if due >= 0.0:
 			_run_brain(g, due, ppos)
 	if not alarm.active():
-		_calm_talk(alive, ppos)
-		_club_chat(alive, ppos)
+		var chatty: Array = alive if scared.is_empty() else alive.filter(func(g): return not scared.has(g))
+		_calm_talk(chatty, ppos)
+		_club_chat(chatty, ppos)
 
 
 func _run_brain(g: NpcBody, dt: float, ppos: Vector3) -> void:
@@ -201,6 +216,8 @@ func _run_brain(g: NpcBody, dt: float, ppos: Vector3) -> void:
 	if b.want_cover:
 		b.want_cover = false
 		b.cover = _pick_cover(g, b)
+	if scared.has(g):
+		_cower(g, b)
 	g.carry_out(b, dt)
 	if b.bark != "":
 		_say(g, b.bark)
@@ -254,7 +271,7 @@ func _handle(events: Array) -> void:
 func vendor_open(marker: String) -> bool:
 	for g in members:
 		if g.post_id == marker:
-			return not g.dead and not alarm.active()
+			return not g.dead and not alarm.active() and not scared.has(g)
 	return true
 
 
@@ -304,6 +321,74 @@ func _pick_cover(g: NpcBody, b: GuardBrain) -> Vector3:
 		return Vector3.INF
 	claimed[g] = at
 	return at
+
+
+# ------------------------------------------------------------------ a fight nearby (issue #605)
+
+## Noises since last tick: everyone in reach goes to hide; the quiet ones get up.
+func _hear(alive: Array) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	for e in NoiseEvents.after(_noise_id):
+		_noise_id = maxi(_noise_id, int(e.id))
+		for g in alive:
+			if Scatter.hears(e, g.global_position):
+				_scare(g, e.pos)
+	for g in scared.keys():
+		if not is_instance_valid(g) or g.dead or _clock >= float(scared[g].until):
+			scared.erase(g)
+
+
+## Hide `g` from a fight at `at`: to a cover spot within cover_m if it walks a
+## loop, else down where it stands. Already hiding: the quiet starts again.
+func _scare(g: NpcBody, at: Vector3) -> void:
+	var until := _clock + Scatter.quiet_s()
+	if scared.has(g):
+		scared[g].until = until
+		scared[g].at = at
+		return
+	scares += 1
+	var b: GuardBrain = brains.get(g)
+	var posted: bool = b == null or b.patrol_points.size() < 2 \
+		or bool(g.profile.get("combat", {}).get("hold_ground", false))
+	scared[g] = { "until": until, "at": at, "cover": Vector3.INF if posted else _scatter_cover(g, at) }
+
+
+## A free cover spot (the garrison's grid) within cover_m of `g`, away from `at`; INF if none.
+func _scatter_cover(g: NpcBody, at: Vector3) -> Vector3:
+	var garrison = demo.get("garrison") if demo != null else null
+	if garrison == null:
+		return Vector3.INF
+	var reach := float(Scatter.cfg().get("cover_m", 18.0))
+	var taken: Array = []
+	for other in scared:
+		if scared[other].cover != Vector3.INF:
+			taken.append(scared[other].cover)
+	for other in claimed:
+		taken.append(claimed[other])
+	var mine: Array = garrison.spots_near(g.global_position, reach)
+	var i := CoverPicker.pick(g.global_position, at, mine, taken, 3.0, 80.0)
+	return (mine[i].pos as Vector3) if i >= 0 else Vector3.INF
+
+
+## This tick's orders for someone hiding: run to cover, then crouch facing away;
+## no gun, no talk.
+func _cower(g: NpcBody, b: GuardBrain) -> void:
+	var s: Dictionary = scared[g]
+	b.fire = false
+	b.aim = Vector3.INF
+	b.bark = ""
+	var cv: Vector3 = s.cover
+	if cv != Vector3.INF and Vector2(g.global_position.x - cv.x, g.global_position.z - cv.z).length() > 0.9:
+		b.go_to = cv
+		b.sprint = true
+		b.crouch = false
+		b.face = Vector3.INF
+	else:
+		b.go_to = Vector3.INF
+		b.sprint = false
+		b.crouch = true
+		b.face = g.global_position * 2.0 - (s.at as Vector3)
 
 
 # ------------------------------------------------------------------ events
