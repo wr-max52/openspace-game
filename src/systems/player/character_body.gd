@@ -144,7 +144,7 @@ func clear_external_command() -> void:
 func _physics_process(delta: float) -> void:
 	_tick_health(delta)
 	var yaw: float = -rotation.y
-	if locked or move_blocked:
+	if locked or move_blocked or (not use_external_command and DroidMenu.any_open()):   # a menu's W/S move its cursor
 		controller.set_command(Vector2.ZERO, false, false, false)
 		gait.reset()
 	elif not use_external_command:
