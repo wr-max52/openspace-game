@@ -1086,6 +1086,7 @@ func _animate(dt: float, move: Vector3) -> void:
 	_anim_in["upper"] = str(profile.get("upper", BodyAnimatorT.UPPER_RIFLE))
 	_anim_in["aim_pitch"] = _aim_pitch()
 	_anim_in["ready"] = carry.eased()
+	_anim_in["twist"] = -_blade_deg() * carry.eased()
 	_anim_in["dance"] = bool(profile.get("dance_loop", false))
 	_anim_in["perform"] = perform
 	_anim_in["bpm"] = float(profile.get("bpm", 110.0))
@@ -1108,7 +1109,8 @@ func _animate(dt: float, move: Vector3) -> void:
 	if w != null and w.visible:
 		var grips: Dictionary = w.get_meta("grips", {})
 		var kind := str(w.get_meta("carry", "rifle"))      # issue #76: the marked officer's pistol
-		w.transform = WeaponCarry.blend(WeaponCarry.rest_xf(kind, grips.get("r", Vector3.ZERO)), _rifle_aim_xf, carry.eased())
+		var aimed := _gun_aim_xf(w, kind) if look_body.has_meta("skin") else _rifle_aim_xf
+		w.transform = WeaponCarry.blend(WeaponCarry.rest_xf(kind, grips.get("r", Vector3.ZERO)), aimed, carry.eased())
 		if grips.has("r"):
 			kit.reach(look_body, "r", w.transform * (grips.r as Vector3), Vector3(-0.5, -0.7, -0.5))
 		if grips.has("l"):
@@ -1140,6 +1142,11 @@ func _animate(dt: float, move: Vector3) -> void:
 			yaw = clampf(rad_to_deg(atan2(l.x, l.z)), -70.0, 70.0)
 		(joints.neck as Node3D).rotation_degrees.y = yaw * 0.4
 		(joints.head as Node3D).rotation_degrees.y = yaw * 0.6
+		if _blade_deg() != 0.0:
+			# Issue #324: the head turns back out of the bladed torso, down the gun.
+			var back := rad_to_deg(-_torso_yaw()) * carry.eased()
+			(joints.neck as Node3D).rotation_degrees.y += back * 0.4
+			(joints.head as Node3D).rotation_degrees.y += back * 0.6
 	# Issue #96: a swing, a throw or a gesture over the walk (NativeMoves).
 	if action != "":
 		var mw := NativeMoves.weight(action, action_t / maxf(action_len, 0.001))
@@ -1234,6 +1241,64 @@ static func hold_3p(id: String) -> Dictionary:
 	return _holds.get(id, {})
 
 
+## A point in the gun model's own space (hand_weapons.json) in its holder's space:
+## the line rifle's model sits slid inside its holder (CharacterKit "model_at").
+static func _gun_pt(w: Node3D, a) -> Vector3:
+	return (w.get_meta("model_at", Vector3.ZERO) as Vector3) + _v3(a)
+
+
+## Issue #324: the whole hand_weapons.json entry for a gun (its "aim", "muzzle").
+static var _guns: Dictionary = {}
+
+
+static func gun_spec(id: String) -> Dictionary:
+	if _guns.is_empty():
+		_guns = CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+	return _guns.get(id, {})
+
+
+## Issue #324: a rifle carrier's chest turns this much more into the shot as the
+## gun comes up (hand_weapons.json rifle "aim" "blade_deg"); 0 without a skinned
+## rifle.
+func _blade_deg() -> float:
+	if look_body == null or not look_body.has_meta("skin") or not look_body.has_meta("weapon"):
+		return 0.0
+	var w: Node3D = look_body.get_meta("weapon")
+	if str(w.get_meta("carry", "rifle")) == "pistol" or not w.visible:
+		return 0.0
+	return float((gun_spec("rifle_blaster").get("aim", {}) as Dictionary).get("blade_deg", 0.0))
+
+
+## Issue #324: how far the chest is turned from the way the body faces (radians,
+## + toward the body's left).
+func _torso_yaw() -> float:
+	var f := SkinnedBody._rel(look_body, joints.chest).basis.orthonormalized().inverse() * Vector3(0, 0, 1)
+	return -atan2(f.x, f.z)
+
+
+## Issue #324: a gun up, shouldered as the player's third person gun is
+## (hand_weapons.json "aim": the rifle's butt in the right shoulder pocket), turned
+## back about its butt by the torso's turn (the bladed stance), then onto what this
+## body aims at. Visual only: shots leave from muzzle_position(). The holder's
+## transform (chest space).
+func _gun_aim_xf(w: Node3D, kind: String) -> Transform3D:
+	var spec := gun_spec("pistol_blaster" if kind == "pistol" else "rifle_blaster")
+	var a: Dictionary = spec.get("aim", {})
+	if a.is_empty():
+		return _rifle_aim_xf
+	var grips: Dictionary = w.get_meta("grips", {})
+	var model_at: Vector3 = w.get_meta("model_at", Vector3.ZERO)
+	var pivot_m := _v3(a.pivot) if a.has("pivot") else (grips.get("r", Vector3.ZERO) as Vector3) - model_at
+	var xf := Transform3D(Basis.from_euler(_v3(a.get("rot", [0, 0, 0])) * PI / 180.0), _v3(a.get("pos", [0, 0, 0.4])))
+	var pivot := xf * pivot_m
+	var r := Basis(Vector3.UP, -_torso_yaw())
+	xf = Transform3D(r * xf.basis, pivot + r * (xf.origin - pivot))
+	if aim_point != Vector3.INF and is_inside_tree():
+		var target := (joints.chest as Node3D).global_transform.affine_inverse() * aim_point
+		xf = WeaponCarry.aim_at(xf, pivot_m, _v3(spec.get("muzzle", [0, 0, 1])), target)
+	return xf * Transform3D(Basis(), -model_at)
+
+
 static func _v3(a) -> Vector3:
 	return Vector3(float(a[0]), float(a[1]), float(a[2])) if a is Array and a.size() >= 3 else Vector3.ZERO
 
@@ -1252,21 +1317,51 @@ func _close_on_gun(w: Node3D) -> bool:
 			skin.set_hold("r", {})
 		skin.set_hold("l", {})
 		return false
-	var z := (w.transform.basis * _v3(r.get("bar", [0, 1, 0]))).normalized()
-	var p := w.transform.basis * _v3(r.get("palm", [1, 0, 0]))
-	var x := (p - z * p.dot(z)).normalized()
-	var frame := skin.grip_frame("r", r)
-	var hand := (Basis(x, z.cross(x), z) * frame.basis.inverse()).orthonormalized()
-	# The arm re-aimed once so the fist's middle, not the wrist, comes to the grip.
-	var g := w.transform * _v3(r.get("grip", [0, 0, 0]))
-	var fdir := -kit.chest_space(look_body, joints.r_elbow).basis.y.normalized()
-	kit.reach(look_body, "r", g - hand * frame.origin + fdir * CharacterKit.HAND_REACH, Vector3(-0.5, -0.7, -0.5))
-	var el := kit.chest_space(look_body, joints.r_elbow)
-	(joints.r_wrist as Node3D).basis = (el.basis.orthonormalized().inverse() * hand).orthonormalized()
+	# Each hand that can get there: where its fist's middle goes, the hand's turn.
+	var seats := {}
+	var reach := CharacterKit.UPPER_ARM + CharacterKit.FOREARM + CharacterKit.HAND_REACH
+	for side in ["r", "l"]:
+		var spec: Dictionary = (hold.get("hands", {}) as Dictionary).get(side, {})
+		if spec.is_empty() or not spec.has("bar") or not skin.bone_of.has(side + "_wrist"):
+			continue
+		var g := w.transform * _gun_pt(w, spec.get("grip", [0, 0, 0]))
+		if side == "l" and (g - kit.chest_space(look_body, joints.l_shoulder).origin).length() > reach + 0.02:
+			continue
+		var z := (w.transform.basis * _v3(spec.bar)).normalized()
+		var p := w.transform.basis * _v3(spec.get("palm", [0, 1, 0]))
+		var x := (p - z * p.dot(z)).normalized()
+		var frame := skin.grip_frame(side, spec)
+		var hand := (Basis(x, z.cross(x), z) * frame.basis.inverse()).orthonormalized()
+		seats[side] = { "wrist": g - hand * frame.origin, "hand": hand }
+	# The arms re-aimed so the fists' middles, not the wrists, come to the grips; then
+	# once more by how far the skin's wrist lands from the kit's (its arm is not the
+	# kit's length): one extra sync.
+	_reach_seats(seats, {})
+	var err := {}
+	if not seats.is_empty():
+		skin.sync(look_body)
+		var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
+		for side in seats:
+			err[side] = (to_chest * skin.joint_xf(side + "_wrist")).origin - kit.chest_space(look_body, joints[side + "_wrist"]).origin
+		_reach_seats(seats, err)
 	skin.set_hold("r", r, 1.0)
 	var l: Dictionary = (hold.get("hands", {}) as Dictionary).get("l", {})
-	skin.set_hold("l", l, HALF_GRIP)
+	skin.set_hold("l", l, 1.0 if seats.has("l") else HALF_GRIP)
 	return true
+
+
+const SEAT_POLES := { "r": Vector3(-0.5, -0.7, -0.5), "l": Vector3(0.6, -0.7, -0.4) }
+
+
+func _reach_seats(seats: Dictionary, err: Dictionary) -> void:
+	for side in seats:
+		var hand: Basis = seats[side].hand
+		var elbow: Node3D = joints[side + "_elbow"]
+		var fdir := -kit.chest_space(look_body, elbow).basis.y.normalized()
+		var at: Vector3 = seats[side].wrist - (err.get(side, Vector3.ZERO) as Vector3)
+		kit.reach(look_body, side, at + fdir * CharacterKit.HAND_REACH, SEAT_POLES[side])
+		var el := kit.chest_space(look_body, elbow)
+		(joints[side + "_wrist"] as Node3D).basis = (el.basis.orthonormalized().inverse() * hand).orthonormalized()
 
 
 ## Issue #324: after the sync, the gun moved the last few centimetres into the
@@ -1278,7 +1373,7 @@ func _gun_into_fist(w: Node3D) -> void:
 	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
 	var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
 	var fist: Vector3 = to_chest * (skin.joint_xf("r_wrist") * skin.grip_frame("r", r).origin)
-	var g := w.transform * _v3(r.get("grip", [0, 0, 0]))
+	var g := w.transform * _gun_pt(w, r.get("grip", [0, 0, 0]))
 	var miss := fist - g
 	if miss.length() < 0.12:       # a bigger gap is a pose the hand never reaches: leave it
 		w.transform.origin += miss

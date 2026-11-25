@@ -586,6 +586,7 @@ func _rifle(body: Node3D, p: Dictionary) -> void:
 		GunSights.add_to(model, spec)
 		r.add_child(model)
 		r.set_meta("grips", { "r": grips.r, "l": model.position + gl })
+		r.set_meta("model_at", model.position)    # issue #324: the model's own space, for hold_3p's grips
 		return
 	var metal := _m(Color("#2a2a2a"), "metal", 0.35)
 	var furn := _m(_c(p, "armor_light", "#4a4a4a"), "metal", 0.5)
