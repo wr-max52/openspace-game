@@ -55,6 +55,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#a4a6aa"
     }
@@ -65,6 +66,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_remnant.glb",
+    "weather": { "amount": 1.2 },
     "paint": {
       "body": "#2b2b30",
       "trim": "#a01e1e",
@@ -77,6 +79,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_tide.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#3f8a52",
       "trim": "#3a78d8"
@@ -88,6 +91,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_crimson.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#8c1428",
       "trim": "#ece7dc"
@@ -132,6 +136,84 @@
       "refs": [0.3, 0.1]
     }
   },
+  "racer": {
+    "source": "res://assets/vehicles/source/racer628_u.glb",
+    "emission": "res://assets/vehicles/source/racer628_u_emissive.png",
+    "out": "res://assets/vehicles/racer.glb",
+    "yaw_deg": 180,
+    "length": 6.0,
+    "max_span": 2.8
+  },
+  "hauler": {
+    "source": "res://assets/vehicles/source/hauler628_sled2.glb",
+    "emission": "res://assets/vehicles/source/hauler628_sled2_emissive.png",
+    "out": "res://assets/vehicles/hauler.glb",
+    "yaw_deg": 180,
+    "length": 7.4,
+    "max_span": 3.6,
+    "cut_below": 0.42,
+    "cut_plate": [2.5, 5.8]
+  },
+  "racer_gold": {
+    "source": "res://assets/vehicles/source/racer628_u.glb",
+    "emission": "res://assets/vehicles/source/racer628_u_emissive.png",
+    "yaw_deg": 180,
+    "length": 6.0,
+    "max_span": 2.8,
+    "out": "res://assets/vehicles/racer_gold.glb",
+    "paint": { "body": "#1d1d21", "trim": "#c9a23f" }
+  },
+  "racer_dune": {
+    "source": "res://assets/vehicles/source/racer628_u.glb",
+    "emission": "res://assets/vehicles/source/racer628_u_emissive.png",
+    "yaw_deg": 180,
+    "length": 6.0,
+    "max_span": 2.8,
+    "out": "res://assets/vehicles/racer_dune.glb",
+    "paint": { "body": "#d27a2c", "trim": "#3b2b20" }
+  },
+  "racer_remnant": {
+    "source": "res://assets/vehicles/source/racer628_u.glb",
+    "emission": "res://assets/vehicles/source/racer628_u_emissive.png",
+    "yaw_deg": 180,
+    "length": 6.0,
+    "max_span": 2.8,
+    "out": "res://assets/vehicles/racer_remnant.glb",
+    "paint": { "body": "#2b2b30", "trim": "#a01e1e", "glow": "#ff4030", "bands": [0.04, 0.1, 0.1, 0.18], "refs": [0.32, 0.1] }
+  },
+  "hauler_rust": {
+    "source": "res://assets/vehicles/source/hauler628_sled2.glb",
+    "emission": "res://assets/vehicles/source/hauler628_sled2_emissive.png",
+    "yaw_deg": 180,
+    "length": 7.4,
+    "max_span": 3.6,
+    "cut_below": 0.42,
+    "cut_plate": [2.5, 5.8],
+    "out": "res://assets/vehicles/hauler_rust.glb",
+    "paint": { "body": "#8e4a28", "trim": "#2e2622" }
+  },
+  "hauler_gunmetal": {
+    "source": "res://assets/vehicles/source/hauler628_sled2.glb",
+    "emission": "res://assets/vehicles/source/hauler628_sled2_emissive.png",
+    "yaw_deg": 180,
+    "length": 7.4,
+    "max_span": 3.6,
+    "cut_below": 0.42,
+    "cut_plate": [2.5, 5.8],
+    "out": "res://assets/vehicles/hauler_gunmetal.glb",
+    "paint": { "body": "#6f7680", "trim": "#2d3034" }
+  },
+  "hauler_remnant": {
+    "source": "res://assets/vehicles/source/hauler628_sled2.glb",
+    "emission": "res://assets/vehicles/source/hauler628_sled2_emissive.png",
+    "yaw_deg": 180,
+    "length": 7.4,
+    "max_span": 3.6,
+    "cut_below": 0.42,
+    "cut_plate": [2.5, 5.8],
+    "out": "res://assets/vehicles/hauler_remnant.glb",
+    "paint": { "body": "#2b2b30", "trim": "#a01e1e", "glow": "#ff4030", "bands": [0.04, 0.1, 0.1, 0.18], "refs": [0.32, 0.1] }
+  },
   "options": {
     "note": "Runner-up generations, kept for later (more ships to buy, or swaps). All in assets/vehicles/source/, nose toward +Z. Not loaded by the game.",
     "interceptor_text.glb": "text-only interceptor, white and teal, detailed jet (8042... ref copy is interceptor_ref.glb)",
@@ -144,7 +226,8 @@
     "speeder_text.glb": "teal and sand hover car (has wheels; would need trimming)",
     "speeder_ref.glb": "reference-led copy of the primitive speeder",
     "speeder_text2.glb": "text-only hover sled, second try (2130a072); not reviewed",
-    "sandboxer.glb": "first Sand-boxer try (issue #82): glass plasma core shows more, but the engine deck sits off centre; no front guns"
+    "sandboxer.glb": "first Sand-boxer try (issue #82): glass plasma core shows more, but the engine deck sits off centre; no front guns",
+    "dual_jet_racer.glb": "issue #628 runner-up kept for a later racer type, the dual jet racer: two separate turbine nacelles on a strut with a ball cockpit (b599d30f). Before it ships, change the layout (a wedge cockpit, the nacelles joined by a wing, no electrode cones out front): as it is, it sits too close to a well-known franchise silhouette"
   },
   "generations": {
     "interceptor": "b173bc6a-9d84-4c6b-8007-5c06d23a24a2 (agentic, refs: stand-in crops)",
@@ -154,6 +237,8 @@
     "speeder": "895b349d-a78a-4094-bccc-f7acfb611e8c (agentic, refs: stand-in crops)",
     "runner_ups": "8042aad5 (interceptor_ref), afd8adcf (interceptor_text), 9f5deb82 (interceptor_text2), b3bf40dd (freighter), ce66b6d3 (courier), 79440b71 (speeder_ref), 3ecc12e5 (speeder_text), 2130a072 (speeder_text2), 12657846 (sandboxer.glb: first Sand-boxer, engine deck off centre)",
     "not_downloaded": "agentic clean-style rebuilds of the chosen layouts, still building when this was committed; fetch from Hyper3D Mine if wanted: fb9ecabb (freighter), e9a97efd (courier), 07fcc97c (gunship)",
+    "racer": "ce8c8798-b643-40be-96cf-5d803a32c1bf (issue #628, Gen-2.5 Medium, 30k, prompt only: Rodin copied the primitive stand-in when given its crops). Two long booms either side of a race hull with a bubble canopy, like a U opening forward; the arc between the boom tips is the racer's look.parts, not the model's (Rodin draws thin beams badly). racer_gold/_dune/_remnant are paint jobs on it (Dorrin's and Skrugs's bench sells the first two and race white, the stock model); `emission` is Rodin's glow map, a separate file (source/racer628_u_emissive.png), so every paint keeps the cyan. Runner-ups, not kept (fetch from Hyper3D Mine): fd3cc5c1 (copy of the stand-in from its crops), 2d3e54ff (single needle nose), 9cfc73e0 (beam sticks out sideways), 0e965673 (fork squeezed into the nose); b599d30f kept as source/dual_jet_racer.glb",
+    "hauler": "a1c774b2-b0dd-40ca-a28d-271c01251db6 (issue #628, Gen-2.5 Medium, 30k, prompt only, written as a cargo sled: with the word truck in the prompt Rodin gives it wheels). Two big roof tanks, two jets on the back. cut_below drops the display slab Rodin stood it on and cut_plate closes the hollow underside (prep_vehicle.gd _cut). hauler_rust/_gunmetal/_remnant are paint jobs on it (work yellow is the stock model); `emission` is its glow map (source/hauler628_sled2_emissive.png). Runner-ups, not kept: ee164528 and 50fe2000 (copies of the stand-in from its crops), 774126a5 and d941a42c (road trucks with wheels), e27ae8e9 (no wheels, but its jets point sideways)",
     "sandboxer": "c6c78950-0769-413d-9a6e-d22b3fbd29d3 (Gen-2.5 Medium, delit, 30k; refs: front and rear-quarter crops of the issue #82 concept sheet; prompt asks for a centred core and front blasters). Issue #82: the Atlantium Sand-boxer; the four sandboxer* entries are paint jobs on this one model. The blasters are SpeederNode's (laser.muzzle), not the model's"
   }
 }

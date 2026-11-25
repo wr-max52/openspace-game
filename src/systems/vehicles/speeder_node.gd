@@ -831,11 +831,28 @@ func _build_visual() -> void:
 	visual = Node3D.new()
 	visual.name = "Look"
 	add_child(visual)
+	var mat_of := { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
+		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) }
 	var scene := str(look.get("paints", {}).get(paint, look.get("scene", "")))
 	if _build_model(scene, float(look.get("base_y", -0.65))):
+		_build_bolt_ons(look.get("parts", []), mat_of)
 		return
-	_build_stand_in(look, { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
-		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) })
+	_build_stand_in(look, mat_of)
+
+
+## Issue #628: extra pieces bolted onto a model (look.parts, the stand-in's piece
+## format, in the speeder's frame): what Rodin draws badly, like the racer's
+## glowing beam between its fork prongs. Batched and shared like the stand-in;
+## glow pieces stay out of the hull (_model_hull skips the glow material).
+func _build_bolt_ons(pieces: Array, mat_of: Dictionary) -> void:
+	if pieces.is_empty():
+		return
+	var key := str(pieces).hash()
+	if not _stand_ins.has(key):
+		_stand_ins[key] = _stand_in_meshes(pieces)
+	var meshes: Dictionary = _stand_ins[key].meshes
+	for mat_name in meshes:
+		_part(meshes[mat_name], mat_of.get(mat_name, mat_of.hull), Vector3.ZERO).name = "Part_" + str(mat_name)
 
 
 ## Issue #627: the primitive body from data (look.stand_in), built when there is
@@ -1159,12 +1176,15 @@ func _build_hull() -> void:
 
 ## Issue #82: the hull is the model's own shape (its convex hull, blasters and
 ## all), not a box: bolts that miss the body miss the speeder. One shape per
-## model, shared by every speeder that uses it. Null with no model.
+## model, shared by every speeder that uses it. Null with no model. Issue #628:
+## keyed by the look's own model (look.scene), not the paint's file: a paint job
+## is a recolour of the same mesh (content/look/vehicle_models.json), so a model
+## reads its mesh back once (docs/RENDER_RULES.md 5), not once per paint.
 func _model_hull() -> ConvexPolygonShape3D:
 	var m := visual.get_node_or_null("Model") as Node3D if visual != null else null
 	if m == null:
 		return null
-	var key := str(m.scene_file_path) + str(m.position)
+	var key := str(cfg.get("look", {}).get("scene", m.scene_file_path)) + str(m.position)
 	if _hulls.has(key):
 		return _hulls[key]
 	var pts := PackedVector3Array()

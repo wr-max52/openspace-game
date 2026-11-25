@@ -1,0 +1,10 @@
+{
+  "title": "Issue #628: the three speeders Skrugs sells, as the game builds them (SpeederNode): the Sand-boxer, and the racer and the cargo sled on their Hyper3D bodies (the racer's arc is a look part)",
+  "out": "res://docs/lookdev/vehicles/08_new_speeders_hyper3d.png",
+  "views": ["front34", "side", "rear34", "top"],
+  "cells": [
+    { "name": "sandboxer", "label": "Atlantium Sand-boxer (steel)", "speeder": "speeder", "paint": "steel" },
+    { "name": "racer", "label": "Korvane Stiletto (racer)", "speeder": "racer" },
+    { "name": "hauler", "label": "Ironbridge Boxcar (cargo sled)", "speeder": "hauler" }
+  ]
+}

@@ -27,8 +27,9 @@ func test_every_part_is_complete() -> void:
 		assert_has(groups, str(p.get("group", "")), str(p.id))
 		if p.has("requires"):
 			assert_false(SpeederUpgrades.part(str(p.requires)).is_empty(), str(p.id) + " needs a real part")
-		if str(p.slot) == "paint":
-			assert_true(cfg.look.paints.has(str(p.paint)), str(p.id) + " is a real paint job")
+		if str(p.slot) == "paint":       # issue #628: on its own model's look
+			var look: Dictionary = HoverModel.load_config(str(p.get("model", "speeder"))).look
+			assert_true(look.paints.has(str(p.paint)), str(p.id) + " is a real paint job")
 	var lifter := SpeederUpgrades.part("grav_lifter")
 	for p in SpeederUpgrades.parts():
 		if str(p.id) != "grav_lifter":
