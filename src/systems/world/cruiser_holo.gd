@@ -88,7 +88,7 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 	# The cruiser in its orbit, and the orbit itself (issue #321: not on a planet with none).
 	if not bool(spec.get("no_cruiser", false)):
 		var here := cruiser_frame.origin - sphere.center
-		var ccol := Color(str(spec.get("cruiser_color", "#ff3030")))
+		var ccol := owner_color(CRUISER)       # issue #497: by who holds it
 		var ship := MeshInstance3D.new()
 		ship.name = "Cruiser"
 		var wedge := PrismMesh.new()
@@ -101,7 +101,9 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 		ship.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
 		_turn.add_child(_ring(here, squeezed(here.length()), ccol, 0.5))
 		var ship_name := str(names.get("cruiser", ""))
-		_turn.add_child(_label(ship.position + here.normalized() * 0.2, ship_name if here_town else here_line % ship_name, ccol))
+		var ship_label := _label(ship.position + here.normalized() * 0.2, ship_name if here_town else here_line % ship_name, ccol)
+		_turn.add_child(ship_label)
+		_place(CRUISER, { "mats": [ship.material_override], "label": ship_label })
 	# The moon (any child neighbour): its real direction, its distance squeezed.
 	var mcol := Color(str(spec.get("moon_color", "#a9b8ff")))
 	for m in moons:
@@ -337,8 +339,24 @@ func _process(dt: float) -> void:
 ## Who holds `id` (an outpost, or Territory.BARRACKS for the port) as the holo's
 ## colour: the Remnant's, the locals', or either side running short (issue #425:
 ## the Remnant once the cruiser has fallen).
+## Issue #497: the cruiser's own place in `places`: its colour is who holds it.
+const CRUISER := "cruiser"
+
+
+## Who holds a place: Territory's owner, or for the cruiser RemnantCruiser's holder
+## (the Remnant's colour while nobody holds it: the dark master aboard).
+static func owner_of(id: String) -> String:
+	if id == CRUISER:
+		var h := RemnantCruiser.home_holder()
+		return h if h != "" else Territory.REMNANT
+	return Territory.owner(id)
+
+
 func owner_color(id: String) -> Color:
 	var cols: Dictionary = spec.get("owner_colors", {})
+	if id == CRUISER:
+		return Color(str(cols.get(owner_of(id), spec.get("cruiser_color", "#ff3030")))) if owner_of(id) == Territory.LOCALS \
+			else Color(str(spec.get("cruiser_color", "#ff3030")))
 	var key := Territory.owner(id)
 	if key == Territory.LOCALS and Territory.short_shown(id):
 		key = "short"
@@ -352,8 +370,8 @@ func owner_color(id: String) -> Color:
 func refresh_owners() -> void:
 	for id in places:
 		var p: Dictionary = places[id]
-		var who := Territory.owner(str(id))
-		var is_short := Territory.short_shown(str(id))
+		var who := owner_of(str(id))
+		var is_short := Territory.short_shown(str(id)) if str(id) != CRUISER else false
 		if who == p.owner and is_short == p.short:
 			continue
 		if who != p.owner:
@@ -364,8 +382,8 @@ func refresh_owners() -> void:
 
 
 func _place(id: String, pin: Dictionary) -> void:
-	pin["owner"] = Territory.owner(id)
-	pin["short"] = Territory.short_shown(id)
+	pin["owner"] = owner_of(id)
+	pin["short"] = Territory.short_shown(id) if id != CRUISER else false
 	pin["flash"] = 0.0
 	places[id] = pin
 

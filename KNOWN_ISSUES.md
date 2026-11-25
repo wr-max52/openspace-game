@@ -8,6 +8,27 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After the cruiser crew (issue #497, 2026-11-25)
+
+**Checked:** `tests/test_cruiser_crew.gut.gd` (6: the crew is unchanged before it
+falls; once taken and the dark master is gone, 8 locals on bay and bridge posts,
+not shoot-on-sight, lending to a friend only; nobody while he is aboard; on the
+oath his Remnant on the same posts, on your side, the town still the locals';
+breaking the oath empties it until he dies there; the holo and the Map page's
+cruiser row show the locals' colour). `test_remnant_cruiser`, `test_cruiser_holo`
+(its place count now includes the cruiser), `test_dark_master`,
+`test_belt_cruiser`, `test_smoke`, `test_ip_neutral`, a headless town boot, and
+probes in the town: with the locals and on the oath, 8 bodies of the right
+faction wake in the bay, leave when you fly off and are back on the next visit;
+rendered stills in `docs/lookdev/cruiser_crew/`.
+
+- **No flash on the Map page.** The holo's cruiser wedge flashes when it
+  changes hands like an outpost; the Map page's cruiser row only changes colour.
+- **Not played:** borrowing a bay ship (the berth is marked borrowed and the
+  standing moves, by code), and a fight with the locals aboard.
+- **The belt cruiser** has no holders block, so it stays empty once taken, as
+  before.
+
 ## After the descent fixes, part 3: big builds in pieces (issue #574, 2026-11-24)
 
 **Checked:** `test_smoke`, a headless town boot, and the rendered
