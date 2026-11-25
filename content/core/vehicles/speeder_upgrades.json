@@ -1,5 +1,5 @@
 {
-  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale.",
+  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale. Issue #616: race gear (group \"race\"): seekers, mines and a deflector carry a `gear` block (SpeederGear: load, refill, damage, lock cone and range; a mine's blast is the grenade's keys); nitro tiers are plain mods on boost_time and boost_recharge.",
   "mechanic": {
     "name": "Dorrin Vask",
     "location": "mechanic_yard",
@@ -19,6 +19,7 @@
       "menu_paint": "Paint",
       "menu_looks": "Looks",
       "menu_performance": "Performance",
+      "menu_race": "Race gear",
       "menu_scrap": "Sell her for scrap  (+%d cr)",
       "confirm_scrap": "Scrap your speeder for %d cr? This can't be undone.",
       "yes_scrap": "Yes, scrap her",
@@ -76,6 +77,18 @@
     { "unlocked_by": "salt", "id": "cannons_2", "slot": "cannons", "group": "performance", "label": "Overcharged cannons (+70% damage)", "price": 300, "requires": "cannons_1",
       "mods": { "laser.damage": 1.7 } },
     { "id": "grav_lifter", "slot": "lifter", "group": "lifter", "label": "Grav Lifter (Space: 2 s of no gravity; ramps launch you)", "price": 900,
-      "hover": { "hop_vy": 6.5, "float_s": 2.0, "recharge_s": 4.0 } }
+      "hover": { "hop_vy": 6.5, "float_s": 2.0, "recharge_s": 4.0 } },
+    { "unlocked_by": "yard", "id": "seekers", "slot": "seekers", "group": "race", "label": "Seeker rack (4 homing missiles, RMB)", "price": 450,
+      "gear": { "kind": "seekers", "load": 4, "refill_s": 30.0, "rate": 0.6, "speed": 95.0, "turn_rate": 2.2, "damage": 70, "personnel_damage": 70, "range": 400.0, "lock_cone_deg": 25.0, "lock_range": 160.0, "splash_radius": 4.0, "splash_damage": 30, "blast_size": 0.5, "color": "#ffd28a", "length": 1.1, "width": 0.22 } },
+    { "unlocked_by": "basin", "id": "mines", "slot": "mines", "group": "race", "label": "Mine dropper (3 mines, G)", "price": 380,
+      "gear": { "kind": "mines", "load": 3, "refill_s": 30.0, "rate": 0.8, "arm_s": 1.0, "trigger_m": 2.6, "life_s": 120.0, "cap": 6, "blast_radius": 5.0, "blast_damage": 150, "vehicle_damage": 60, "player_damage": 45, "blast_size": 0.6, "noise_radius": 70.0 } },
+    { "unlocked_by": "basin", "id": "deflector", "slot": "deflector", "group": "race", "label": "Deflector (soaks one hit, recharges)", "price": 520,
+      "gear": { "kind": "deflector", "recharge_s": 12.0, "grace_s": 0.3 } },
+    { "id": "nitro_1", "slot": "nitro", "group": "race", "label": "Nitro tank (+30% boost, faster refill)", "price": 160,
+      "mods": { "boost_time": 1.3, "boost_recharge": 1.25 } },
+    { "id": "nitro_2", "slot": "nitro", "group": "race", "label": "Big nitro tank (+60% boost, faster refill)", "price": 320, "requires": "nitro_1",
+      "mods": { "boost_time": 1.6, "boost_recharge": 1.5 } },
+    { "unlocked_by": "salt", "id": "nitro_3", "slot": "nitro", "group": "race", "label": "Racing nitro (+100% boost, fast refill)", "price": 600, "requires": "nitro_2",
+      "mods": { "boost_time": 2.0, "boost_recharge": 1.9 } }
   ]
 }

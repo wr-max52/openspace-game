@@ -125,6 +125,7 @@ func top_options() -> Array:
 		{ "id": "group:paint", "text": label("menu_paint") },
 		{ "id": "group:looks", "text": label("menu_looks") },
 		{ "id": "group:performance", "text": label("menu_performance") },
+		{ "id": "group:race", "text": label("menu_race") },       # issue #616
 	]
 	for p in SpeederUpgrades.in_group("lifter"):
 		opts.append(_row(fit, p))
