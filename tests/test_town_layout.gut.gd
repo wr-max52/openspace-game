@@ -289,7 +289,7 @@ func idx_of(d: Dictionary, id: String, list: String = "boxes") -> int:
 func test_town_loads_with_expected_counts() -> void:
 	var t := _town()
 	assert_eq(t.boxes().size(), 239)   # issue #76: + the barracks landing pad; 182 in the file, + 57 the barracks interior stamps in on load (364b7a0)
-	assert_eq(t.markers().size(), 50)  # 388e1e6: + five speeders out the back gate; 364b7a0: + the barracks rifle's spot and its two corridor troopers; locals: five walkers and four stall keepers; art pass 2: + three patrons at the bar; issue #58: + T-89; + three roof riflemen; issue #261: + the band of three and eight club patrons
+	assert_eq(t.markers().size(), 51)  # issue #613: + the chase speeder by the gate; 388e1e6: + five speeders out the back gate; 364b7a0: + the barracks rifle's spot and its two corridor troopers; locals: five walkers and four stall keepers; art pass 2: + three patrons at the bar; issue #58: + T-89; + three roof riflemen; issue #261: + the band of three and eight club patrons
 	assert_eq(t.routes().size(), 19)   # 364b7a0: + the interior troopers' two corridor loops; M15: + patrol loops; locals: + five walkers' loops; art pass 2: + the climb to the lookout; issue #261: + three club strolls
 	assert_eq(t.zones().size(), 8)
 

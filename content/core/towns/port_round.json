@@ -7644,7 +7644,18 @@
    "role": "vehicle",
    "yaw_deg": -90,
    "paint": "remnant",
-   "note": "Issue #82: the Remnant's black and red Sand-boxer, parked outside the front gate off the gate lane, nose to the desert. Not rideable; gone with the town garrison."
+   "note": "Issue #82: the Remnant's black and red Sand-boxer, parked outside the front gate off the gate lane, nose to the desert. Issue #613: rideable now, and whoever holds the town parks one (the locals in their paint); stealing it sets off the alarm."
+  },
+  {
+   "id": "chase_speeder",
+   "pos": [
+    147.9,
+    0,
+    25.0
+   ],
+   "role": "vehicle_chase",
+   "yaw_deg": -90,
+   "note": "Issue #613: the garrison's chase speeder beside the gate speeder (src/systems/world/gate_chase.gd): two guards stand by it and ride it after you when the alarm is up and you are on a speeder."
   },
   {
    "id": "desert_exit",

@@ -328,6 +328,46 @@ func add_owned(fit: Dictionary) -> SpeederNode:
 	return s
 
 
+## Issue #613: speeder `s` (the gate speeder you got away on) is yours now, as it
+## stands: with `fit`, counted, saved, in the row next visit. False if you own all
+## you can.
+func adopt(s: SpeederNode, fit: Dictionary) -> bool:
+	if s == null or speeders.has(s) or WorldState.count("speeders_owned") >= owned_cap():
+		return false
+	var i := WorldState.count("speeders_owned")
+	WorldState.bump("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())
+	if WorldState.speeder_fits.size() > i:
+		WorldState.speeder_fits[i] = fit.duplicate(true)
+	else:
+		WorldState.speeder_fits.append(fit.duplicate(true))
+	s.set_meta("slot", i)
+	s.destroyed.connect(func(_at): _lost(s))
+	speeders.append(s)
+	return true
+
+
+## Issue #613: a stolen speeder you own is one Skrugs buys: it is gone, you are
+## paid. Returns the credits paid (0 = not a stolen one of yours).
+func sell_stolen(s: SpeederNode, price: int) -> int:
+	if s == null or not speeders.has(s):
+		return 0
+	if not bool(fit_for(int(s.get_meta("slot", 0))).get("stolen", false)):
+		return 0
+	if s.riding:
+		s.dismount()
+	remove(s)
+	WorldState.credits += price
+	WorldState.log_event("Skrugs bought a speeder with no questions asked.", "back_gate")
+	return price
+
+
+## Whether `s` is a stolen speeder of yours.
+func is_stolen(s: SpeederNode) -> bool:
+	return s != null and speeders.has(s) and bool(fit_for(int(s.get_meta("slot", 0))).get("stolen", false))
+
+
 ## A save from before the one-speeder rule keeps its first speeders (and their
 ## fits); the rest are gone. Issue #617: up to owned_cap.
 func _trim_owned() -> void:
