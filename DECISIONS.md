@@ -2,6 +2,20 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-25 — Race pots paid at the finish; race quests are generated per crew
+
+- **A win pays your credits at once** (`WorldState.on_race_won`). Dorrin holding
+  the pot was a walk across the desert for nothing. Dorrin's collect prompt stays
+  for a save that still has `race_winnings`, and the buy-in can still draw on it.
+- **Race quests are built from the crew files** (`RaceCrew.quests()`, added to
+  `Quests.all()` like `Territory.quests()`): per crew a `next`, `slips` and
+  `rematch`, words in `racing/rules.json` `quests`, target `crew:<id>` (the
+  leader, resolved by `ObjectiveHud.where`). A new crew file gets its quests with
+  no code. Alternative: hand-written quests in `story/main.json`. Rejected: one
+  per crew per kind, and they would drift from the ladder.
+- **A race only finishes quests that were offered.** `Quests.complete` marks an
+  unoffered quest done, which would fill the job log with races nobody asked for.
+
 ## 2026-11-25 — Speeder race lag: an indexed hit test, parked rivals, rings for the crew
 
 - **`WorldGround.hit` uses the height index.** Every speeder (and ship) asks it a

@@ -349,12 +349,13 @@ static func on_range_record(seconds: float) -> void:
 	_complete_jobs("range_record")
 
 
-## Issue #611: you won a speeder race against `crew` for `pot` credits, held by
-## Dorrin until you collect them (counter "race_winnings").
+## Issue #611: you won a speeder race against `crew` for `pot` credits. They are
+## paid into your credits at the finish (Dorrin used to hold them; an old save's
+## "race_winnings" is still collected at his counter).
 static func on_race_won(crew: String, pot: int) -> void:
 	set_flag("race_won")
 	set_flag("crew_beaten_" + crew)
-	bump("race_winnings", pot)
+	credits += maxi(0, pot)
 	bump("races_won")
 	log_event("Won a speeder race against " + crew + ".")
 	_complete_jobs("race_won")

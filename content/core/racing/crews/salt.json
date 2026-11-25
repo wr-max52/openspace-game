@@ -112,7 +112,7 @@
       "Eat this!",
       "Out of my way!"
     ],
-    "won": "You beat {crew}! Collect {pot} cr from Dorrin.",
+    "won": "You beat {crew}! {pot} cr is yours.",
     "lost": "{winner} took it. Your buy-in's gone.",
     "out": "Out of the race: {why}.",
     "why_wrecked": "your speeder's wrecked",
