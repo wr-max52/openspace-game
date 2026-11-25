@@ -42,13 +42,16 @@ func test_pins_are_the_places_that_stay_put() -> void:
 	assert_eq(pins.camp_bone_teeth.map, Vector2(180, -1230), "where the planet's data puts it")
 
 
-func test_off_planet_lists_planets_and_the_cruiser() -> void:
-	var home := _home()
-	var off := GlobeMap.off_planet([{ "id": "grit_station", "name": "Grit Station" }], home.world)
-	assert_eq(off.size(), 2)
+func test_off_planet_lists_planets_and_every_cruiser() -> void:
+	var off := GlobeMap.off_planet([{ "id": "grit_station", "name": "Grit Station" }])
+	var cruisers := GlobeMap.system_cruisers()
+	assert_eq(cruisers.size(), 2, "the home cruiser and the belt one")
+	assert_eq(off.size(), 1 + cruisers.size())
 	assert_eq(str(off[0].label), "Grit Station")
 	assert_eq(str(off[0].target), "planet:grit_station")
 	assert_eq(str(off[1].target), "cruiser")
+	assert_eq(str(off[1].planet), PlanetGen.home_id(), "the home planet's first")
+	assert_ne(str(off[2].planet), str(off[1].planet), "each over its own planet")
 
 
 func test_map_dir_matches_the_ball() -> void:

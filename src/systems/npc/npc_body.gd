@@ -106,7 +106,7 @@ var turn_rate := deg_to_rad(260.0)
 ## Look (null in the greybox: a plain capsule mesh stands in).
 var kit: CharacterKit
 var look_body: Node3D
-var look_scale := Vector3.ZERO ## issue #147: a size kept through _stand_on_ground's tilt (a stall keeper's height and build); ZERO = none, as before
+var look_scale := Vector3.ZERO ## the look's size, kept through _stand_on_ground's tilt: the kit's (archetype height and bulk, a pack child's look_scale) or a stall keeper's (issue #147); ZERO = no look (the greybox)
 var joints: Dictionary = {}
 ## Issue #261: a club performer's set ("dj", "drum", "bass"; ClubMoves), from the
 ## profile's "perform"; "" for everyone else.
@@ -222,6 +222,9 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 		# Issue #96: a smaller body (a desert pack's children) from the same model.
 		if soldier.has("look_scale"):
 			look_body.scale *= float(soldier.look_scale)
+		# The kit's size (the archetype's height and bulk, times a pack child's
+		# look_scale) is kept through _stand_on_ground's tilt.
+		look_scale = look_body.scale
 		look_body.name = "Look"
 		add_child(look_body)
 		joints = look_body.get_meta("joints")
@@ -737,9 +740,8 @@ func _stand_on_ground() -> void:
 		return
 	var yaw := Basis(Vector3.UP, rotation.y)
 	var stand := Basis.IDENTITY if tilt == Basis.IDENTITY else yaw.inverse() * tilt * yaw
-	# Issue #147: a stall keeper keeps their size. Every other body's kit scale (its
-	# archetype's height and bulk, a pack child's look_scale) is dropped here, as
-	# since issue #77: KNOWN_ISSUES.md.
+	# Every body keeps its size: the kit's (archetype height and bulk, a pack
+	# child's look_scale, set in setup) or a stall keeper's (issue #147).
 	look_body.basis = stand if look_scale == Vector3.ZERO else stand * Basis.from_scale(look_scale)
 
 

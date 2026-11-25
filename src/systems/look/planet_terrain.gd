@@ -68,6 +68,33 @@ var perf_mesh_upload_worst_frame_ms := 0.0  ## most near/mid upload time spent i
 ## mid landing together never stack into one long frame.
 @export var mesh_upload_budget_ms := 2.0
 var _ready_meshes := {}
+## The mid ring (the 1 km square of fine sand under the camera) only comes in
+## once the camera is under this many metres over the ground; higher up the far
+## ball alone is drawn, so the square is not seen from kilometres out and is not
+## built on a handoff's busy first frames. It goes again above this plus
+## mid_agl_hysteresis. 0 = always (the world's detail.ground_detail_below sets it).
+@export var mid_below_agl := 0.0
+@export var mid_agl_hysteresis := 300.0
+var mid_held_off := false              ## the mid ring is off: the camera is too high
+
+
+## Switches the mid ring off (hidden, the far ball whole again) or lets it build.
+func _hold_mid(off: bool) -> void:
+	if mid_held_off == off:
+		return
+	mid_held_off = off
+	if not off:
+		return                             # the next tick starts one under the camera (_mid_map is unset)
+	_mid_map = Vector2.INF
+	_pending_jobs.erase("mid")
+	_ready_meshes.erase("mid")
+	if _jobs.has("mid"):
+		_jobs.mid.stale = true             # still running: its result is dropped when it lands
+	if mid_mesh != null:
+		mid_mesh.visible = false
+	if far_root != null:
+		for c in far_root.get_children():
+			_set_hole(c, Transform3D.IDENTITY, 0.0)
 
 
 func _init() -> void:
@@ -661,7 +688,7 @@ func set_fast_flight_quality(active: bool) -> void:
 	if _fast_flight_quality == active:
 		return
 	_fast_flight_quality = active
-	if not _with_mesh or mid_mesh == null:
+	if not _with_mesh or mid_mesh == null or mid_held_off:
 		return
 	var map_pos := sphere.world_to_map(_visual_eye())
 	var cells := _mid_cells_for_quality()
@@ -757,8 +784,11 @@ func _physics_process(_dt: float) -> void:
 				_start("near", Vector2(c.x, c.z))
 	if _with_mesh:
 		var eye := _visual_eye()
+		if mid_below_agl > 0.0:
+			var agl := sphere.height_above_ground(to_local(eye))
+			_hold_mid(agl > mid_below_agl + (mid_agl_hysteresis if not mid_held_off else 0.0))
 		var me := sphere.world_to_map(eye)
-		if me.distance_to(_mid_map) >= mid_recenter:
+		if not mid_held_off and me.distance_to(_mid_map) >= mid_recenter:
 			var cells := _mid_cells_for_quality()
 			var step := _mid_step_for_quality()
 			var center := Vector2(snappedf(me.x, step), snappedf(me.y, step))
@@ -860,7 +890,8 @@ func _finish_jobs() -> void:
 			# Issue #574: always put a finished mesh in (a newer one replaces an unsent
 			# older one). Thrown away while a newer request waited, a ship that outran
 			# the mid ring never got any.
-			_ready_meshes[layer] = job.result
+			if not job.get("stale", false):
+				_ready_meshes[layer] = job.result
 			if _pending_jobs.has(layer):
 				var pending: Dictionary = _pending_jobs[layer]
 				_pending_jobs.erase(layer)
@@ -877,6 +908,8 @@ func upload_ready_meshes(budget_ms: float) -> bool:
 			continue
 		var p: Dictionary = _ready_meshes[layer]
 		_ready_meshes.erase(layer)
+		if layer == "mid" and mid_held_off:
+			continue                       # built for a camera that has since climbed away
 		_apply_mesh(layer, p)
 		if (Time.get_ticks_usec() - t0) / 1000.0 >= budget_ms:
 			break
@@ -958,6 +991,7 @@ func _apply_mesh(layer: String, p: Dictionary) -> void:
 	elif mid_mesh != null:
 		_mid_map = p.center
 		_set_mesh(mid_mesh, p.arrays, xf, int(p.cells) * float(p.step))
+		mid_mesh.visible = true
 		if far_root != null:
 			for c in far_root.get_children():
 				_set_hole(c, xf, int(p.cells) * float(p.step) * 0.5)

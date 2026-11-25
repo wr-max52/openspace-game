@@ -127,7 +127,7 @@ func test_the_holo_shows_the_locals_holding_it() -> void:
 	var locals_col := holo.owner_color(CruiserHolo.CRUISER)
 	assert_eq(locals_col, Color(str(holo.spec.owner_colors.locals)), "the locals' colour")
 	assert_ne(locals_col, remnant_col)
-	var row: Dictionary = GlobeMap.off_planet([], ItemKit._read_json("res://content/core/worlds/port_desert.json")).filter(
+	var row: Dictionary = GlobeMap.off_planet([]).filter(
 		func(o): return str(o.kind) == "cruiser").front()
 	assert_eq(str(row.owner), Territory.LOCALS, "and the Map page's cruiser row")
 

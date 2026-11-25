@@ -26,6 +26,26 @@ updated for the parked speeders and the staggered set-off but not run.
   1); posing it less often helps the tick, not the draw calls.
 - Racers walk from their spot to their speeder on foot; with you far off (no
   sand collider) they are sat on it after `board_grace_s` instead.
+## After NPC sizes (2026-11-25)
+
+**Checked:** `tests/test_npc_look_scale.gut.gd` (3: a trooper keeps its kit size
+on flat and tilted ground and still stands along the tilt; a pack child is 60%
+of the same body; a stall keeper's size still wins). It fails on `main`.
+`test_smoke`, `test_natives`, `test_community_npc`, `test_local_outfits`,
+`test_ip_neutral`, a headless town boot, and a rendered before/after line-up
+(`docs/lookdev/npc_scale/`).
+
+Since issue #77 `NpcBody._stand_on_ground` dropped every body's kit size each
+tick, so everyone stood at the kit's 1.8 m reference. Now each body keeps its
+archetype's height and bulk: troopers 14% taller and 12% wider, the dark master
+20% taller, locals 4% shorter, and desert pack children at 60%.
+
+- **Not looked at in place:** seated NPCs (cantina stools, the barge, the club
+  band), NPCs riding speeders or standing in doorways and under low ceilings.
+  A bigger trooper may poke through a seat, a speeder or a door frame.
+- **Collision shapes are unchanged** (the capsule is the same for every body);
+  only the look is bigger or smaller, so a tall trooper's head is above its
+  hitbox and a child's hitbox is adult-sized.
 
 ## After the droid safety (2026-11-25)
 
@@ -176,11 +196,6 @@ GitHub link was not opened in a browser.
 - **No voice sample** in the builder, and no "write it for me" from the AI model.
 - **Attribution is the pull request's GitHub account** and the typed handle; the
   game itself does not sign in to GitHub.
-- **Found on the way, not fixed:** since issue #77 every NPC body's kit scale is
-  dropped each tick (`NpcBody._stand_on_ground` sets the look's basis), so
-  archetype heights and bulk and the desert packs' children (`child_scale` 0.6)
-  all show at the base size. Stall keepers keep theirs (`look_scale`); fixing it
-  for everyone resizes characters across the game, so it is left for its own issue.
 
 ## After issue #545, the CI gate green (2026-11-05, trimmed 2026-11-14)
 

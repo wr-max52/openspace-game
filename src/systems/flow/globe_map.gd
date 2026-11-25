@@ -21,7 +21,7 @@ extends RefCounted
 ## does each time it opens.
 ##
 ## Off planet: every planet you can fly to from here (SpaceTravel's bodies) and
-## the Remnant cruiser when this world has one, as { id, kind, label, target }.
+## every Remnant cruiser in the system, as { id, kind, label, target }.
 ##
 ## The waypoint lives in WorldState.map_waypoint (saved): { id, label, target,
 ## planet, arrive }. One pointer at a time: setting it turns any quest's waypoint
@@ -103,15 +103,17 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			at if at is Vector2 else Vector2(float(at[0]), float(at[1])))
 		p["hostile"] = str(pack.get("attitude", "")) == "hostile"
 		out.append(p)
-	out.append_array(race_pins(str(world.get("id", ""))))
+	out.append_array(race_pins(str(world.get("id", "")), world))
 	for t in town:
 		out.append(t)
 	return out
 
 
-## Issue #615: the speeder races you have heard of, at their start lines (map
-## coordinates: a course's gates are plateau x,z like the landmarks).
-static func race_pins(world_id: String) -> Array:
+## Issue #615: the speeder races you have heard of, where the crew's leader stands
+## (you talk to them to race; the start line stays empty until you do). Map
+## coordinates: plateau x,z like the landmarks. Without `world` (or the crew's
+## hangout in it), the course's start line.
+static func race_pins(world_id: String, world: Dictionary = {}) -> Array:
 	var out: Array = []
 	if kind_cfg("race").is_empty():
 		return out
@@ -119,12 +121,33 @@ static func race_pins(world_id: String) -> Array:
 		if not RaceCrew.heard_of(c):
 			continue
 		var course := RaceCourse.load_course(str(c.get("course", "")))
-		var gates: Array = course.get("gates", [])
-		if gates.is_empty():
-			continue
-		var at: Array = gates[0].at
-		out.append(_pin("race_" + str(c.id), "race", _cap(str(course.get("label", c.id))), Vector2(float(at[0]), float(at[1]))))
+		var at := crew_spot(c, world)
+		if at == Vector2.INF:
+			var gates: Array = course.get("gates", [])
+			if gates.is_empty():
+				continue
+			at = Vector2(float(gates[0].at[0]), float(gates[0].at[1]))
+		out.append(_pin("race_" + str(c.id), "race", _cap(str(course.get("label", c.id))), at))
 	return out
+
+
+## Where crew `c`'s leader stands, in map coordinates (RaceCrew._find_hangout's
+## frame: the landmark turned by its yaw_deg), or Vector2.INF if `world` has no
+## such landmark.
+static func crew_spot(c: Dictionary, world: Dictionary) -> Vector2:
+	var near := str(c.get("hangout", {}).get("near", ""))
+	for lm in world.get("landmarks", []):
+		if near == "" or (str(lm.get("location", "")) != near and str(lm.get("id", "")) != near) or not lm.has("at"):
+			continue
+		var racers: Array = c.get("racers", [])
+		var stand := RaceCrew._v2(racers[0].get("stand", [0, 0])) if not racers.is_empty() else Vector2.ZERO
+		for rc in racers:
+			if bool(rc.get("leader", false)):
+				stand = RaceCrew._v2(rc.get("stand", [0, 0]))
+				break
+		var local := Basis(Vector3.UP, deg_to_rad(float(lm.get("yaw_deg", 0.0)))) * Vector3(stand.x, 0.0, stand.y)
+		return Vector2(float(lm.at[0]) + local.x, float(lm.at[2]) + local.z)
+	return Vector2.INF
 
 
 ## A sealed station's places past its first dome (the moon's): the landing pit and
@@ -213,18 +236,18 @@ static func spot_pin(map: Vector2) -> Dictionary:
 
 
 ## The places off this planet: [{ id, kind, label, target }]. `bodies` are
-## SpaceTravel's ({ id, name }).
-static func off_planet(bodies: Array, world: Dictionary) -> Array:
+## SpaceTravel's ({ id, name }). Then every cruiser in the system (`cruisers`,
+## system_cruisers), each with the planet it hangs over and who holds it (issue
+## #497: coloured by that, the locals' green once they do).
+static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Array:
 	var out: Array = []
 	for b in bodies:
 		var label := str(b.get("name", ""))
 		out.append({ "id": "planet_" + str(b.id), "kind": "planet",
 			"label": label if label != "" else str(b.id).capitalize(), "target": "planet:" + str(b.id) })
-	for lm in world.get("landmarks", []):
-		if str(lm.get("kind", "")) == "cruiser":
-			# Issue #497: coloured by who holds it (the locals' green once they do).
-			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser",
-				"owner": CruiserHolo.owner_of(CruiserHolo.CRUISER) })
+	for c in cruisers:
+		out.append({ "id": str(c.id), "kind": "cruiser", "label": line("cruiser_over") % planet_name(str(c.planet)),
+			"target": "cruiser", "planet": str(c.planet), "cfg": str(c.cfg), "owner": cruiser_owner(c) })
 	return out
 
 
@@ -404,17 +427,86 @@ static func _port(id: String) -> Vector3:
 	return b.port if not b.is_empty() else Vector3.INF
 
 
-## The Remnant cruiser in the system frame, over the planet whose world has it
-## (its "cruiser" landmark: a map point and an altitude), or INF when none does.
+## The first Remnant cruiser in the system frame (system_cruisers), or INF when
+## there is none.
 static func system_cruiser() -> Vector3:
+	var all := system_cruisers()
+	return all[0].pos if not all.is_empty() else Vector3.INF
+
+
+static var _cruisers: Array = []
+
+
+## Every Remnant cruiser in the system (each planet's "cruiser" landmarks: the home
+## one over the port's planet, issue #327's by the ringed giant's station), the
+## home planet's first: [{ id (its landmark), cfg (content/core/cruiser/<cfg>.json),
+## planet, pos (system frame) }]. Once a session; its name and who holds it change
+## with the save: cruiser_label, cruiser_owner. A planet has at most one, so the
+## Map page names a cruiser by the planet it hangs over ("cruiser:<planet>").
+static func system_cruisers() -> Array:
+	if not _cruisers.is_empty():
+		return _cruisers
 	for b in system():
-		for lm in PlanetGen.build(str(b.id)).get("world", {}).get("landmarks", []):
-			if str(lm.get("kind", "")) != "cruiser" or not lm.has("at"):
+		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
+		for lm in CruiserHull.landmarks(world):
+			if not lm.has("at"):
 				continue
 			var at: Array = lm.at
 			var r := float(b.radius)
-			return (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
-	return Vector3.INF
+			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
+			_cruisers.append({ "id": str(lm.get("id", "")), "cfg": CruiserHull.config_id(lm), "planet": str(b.id), "pos": pos })
+			break                                # one a planet
+	return _cruisers
+
+
+## The cruiser over planet `planet` (system_cruisers), or {}.
+static func cruiser_on(planet: String) -> Dictionary:
+	for c in system_cruisers():
+		if str(c.planet) == planet:
+			return c
+	return {}
+
+
+## A cruiser's name, as RemnantCruiser.label gives it: its config's label and the
+## name this save gave the ship.
+static func cruiser_label(c: Dictionary) -> String:
+	var cfg := CruiserHull.data_for(str(c.get("cfg", "")))
+	var l := str(cfg.get("label", _kind_label("cruiser")))
+	var n := NameHooks.vessel(cfg, "vessel:" + str(cfg.get("id", c.get("cfg", ""))))
+	return "%s %s" % [l, n] if n != "" else l
+
+
+## Who holds a cruiser now: the home one by RemnantCruiser.home_holder (issue
+## #497: the Remnant, the locals, "" while the dark master is aboard); any other
+## the Remnant's until its general dies (its config's flag), then nobody's ("").
+static func cruiser_owner(c: Dictionary) -> String:
+	var cfg_id := str(c.get("cfg", ""))
+	if cfg_id == "" or cfg_id == CruiserHull.HOME_ID:
+		return CruiserHolo.owner_of(CruiserHolo.CRUISER)
+	return "" if WorldState.has_flag(str(CruiserHull.data_for(cfg_id).get("flag", ""))) else Territory.REMNANT
+
+
+## The hover line for who holds a cruiser.
+static func cruiser_status(c: Dictionary) -> String:
+	match cruiser_owner(c):
+		Territory.REMNANT:
+			return line("cruiser_remnant")
+		Territory.LOCALS:
+			return line("cruiser_locals")
+	return line("cruiser_empty")
+
+
+## A cruiser's icon colour: the pin's red while the Remnant hold it, the locals'
+## green, the owners' "empty" grey once nobody does.
+static func cruiser_color(c: Dictionary) -> Color:
+	var lk := look()
+	var ow: Dictionary = lk.get("owners", {})
+	match cruiser_owner(c):
+		Territory.REMNANT:
+			return Color(str(lk.get("pins", {}).get("cruiser", {}).get("color", "#e0573a")))
+		Territory.LOCALS:
+			return Color(str(ow.get("locals", "#5fd35f")))
+	return Color(str(ow.get("empty", "#a89a80")))
 
 
 ## A planet's name for the map's title and its lines.

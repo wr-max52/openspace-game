@@ -20,6 +20,8 @@
     "note": "Issue #573: space between the planets is its own place (open_space, a planet file with the open_space type) with no planet loaded. hysteresis: metres past a bubble (a type's space.handoff) before leaving it, so flying along the edge does not flip-flop. bubble_margin: the least open space between any two planets' bubbles, hysteresis included (tests/test_planets.gut.gd checks the data). sun (issue #576): the name a planet's 'near' gives to orbit the sun ('at' is then from the sun's centre); the sun is not a place, only the system chart's centre and the middle of open space's frame. real_ball_within: a ball planet with a bubble is drawn as its real coarse ball (terrain and station outside, SpaceTravel._ball_body) only within this many metres of its surface; further off it is the cheap ball, swapped for the real one on the way in."
   },
   "detail": {
+    "ground_detail_below": 1500.0,
+    "ground_detail_note": "The mid ring (the 1 km square of fine sand under the camera, src/systems/look/planet_terrain.gd) is built only below this many metres over the ground, with the props tier; higher up only the whole ball is drawn, so the square is not seen from kilometres out. 0 = always.",
     "hysteresis": 40.0,
     "motion": {
       "above": 550.0,

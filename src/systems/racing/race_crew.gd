@@ -445,7 +445,7 @@ static func ride_label(fit: Dictionary) -> String:
 
 
 ## Race the leader for pink slips: "" if it is on; else why not ("ladder",
-## "beaten", "speeder", "full", "busy").
+## "beaten", "speeder", "not_yours", "full", "busy").
 func accept_slips() -> String:
 	if phase != Phase.IDLE or leader() == null:
 		return "busy"
@@ -454,9 +454,13 @@ func accept_slips() -> String:
 		return "ladder"
 	if not slips_offered():
 		return "beaten"
-	if your_speeder() == null:
+	var s := your_speeder()
+	if s == null:
 		_say(leader(), line("no_speeder"))
 		return "speeder"
+	if not _owned(s):
+		_say(leader(), line("slips_not_yours"))   # a speeder that is not yours yet is no bet
+		return "not_yours"
 	var post = demo.get("speeder_post")
 	if post != null and WorldState.count("speeders_owned") >= post.owned_cap():
 		_say(leader(), line("no_room"))
@@ -533,7 +537,9 @@ func accept(amount: int) -> String:
 	return ""
 
 
-## A speeder of yours nearby: the one you ride, or one you own within 120 m.
+## A speeder you can race nearby: the one you ride, one you own within 120 m, or
+## the one you last got off within 120 m. The crew don't ask whose it is, so a
+## stolen gate speeder counts before GateChase has made it yours.
 func your_speeder() -> SpeederNode:
 	var p := _player()
 	if p == null:
@@ -543,9 +549,24 @@ func your_speeder() -> SpeederNode:
 	var post = demo.get("speeder_post")
 	if post != null and is_instance_valid(post):
 		for s in post.speeders:
-			if is_instance_valid(s) and s.model.alive() and s.model.position.distance_to(p.global_position) < 120.0:
+			if _near_and_free(s, p):
 				return s
+	var last = p.get("last_vehicle")
+	if last is SpeederNode and _near_and_free(last, p):
+		return last
 	return null
+
+
+## `s` is whole, nobody else is on it, and it is within 120 m of you.
+static func _near_and_free(s, p: Node3D) -> bool:
+	return is_instance_valid(s) and s.rideable and s.model.alive() and not s.npc_driven() \
+		and s.model.position.distance_to(p.global_position) < 120.0
+
+
+## A speeder you own (in the row's list) is what you can put up for pink slips.
+func _owned(s: SpeederNode) -> bool:
+	var post = demo.get("speeder_post") if demo != null else null
+	return s != null and post != null and is_instance_valid(post) and post.speeders.has(s)
 
 
 # ------------------------------------------------------------------ the grid
@@ -802,6 +823,8 @@ func line_up() -> bool:
 	if p == null or not (p.piloting and p.vehicle is SpeederNode):
 		return false
 	var sp: SpeederNode = p.vehicle
+	if pink and not _owned(sp):
+		return false                             # pink slips: race the speeder you bet
 	var s0: Dictionary = course.grid_slot(0)
 	if sp.model.position.distance_to(s0.pos) > rule("line_up_reach", 45.0):
 		return false
