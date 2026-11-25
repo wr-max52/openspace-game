@@ -167,8 +167,8 @@ static func _emit(root: Node3D, path: String, energy: float) -> void:
 	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var mat := mi.mesh.surface_get_material(s) as BaseMaterial3D
-			if mat == null:
-				continue
+			if mat == null or mat.albedo_texture == null:
+				continue                          # not Rodin's surface (the cut's underplate)
 			mat = mat.duplicate() as BaseMaterial3D
 			mat.emission_enabled = true
 			mat.emission = Color.WHITE

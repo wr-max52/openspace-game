@@ -1173,12 +1173,15 @@ func _build_hull() -> void:
 
 ## Issue #82: the hull is the model's own shape (its convex hull, blasters and
 ## all), not a box: bolts that miss the body miss the speeder. One shape per
-## model, shared by every speeder that uses it. Null with no model.
+## model, shared by every speeder that uses it. Null with no model. Issue #628:
+## keyed by the look's own model (look.scene), not the paint's file: a paint job
+## is a recolour of the same mesh (content/look/vehicle_models.json), so a model
+## reads its mesh back once (docs/RENDER_RULES.md 5), not once per paint.
 func _model_hull() -> ConvexPolygonShape3D:
 	var m := visual.get_node_or_null("Model") as Node3D if visual != null else null
 	if m == null:
 		return null
-	var key := str(m.scene_file_path) + str(m.position)
+	var key := str(cfg.get("look", {}).get("scene", m.scene_file_path)) + str(m.position)
 	if _hulls.has(key):
 		return _hulls[key]
 	var pts := PackedVector3Array()
