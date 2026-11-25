@@ -399,6 +399,15 @@ func provoke() -> void:
 	_attacked = true
 
 
+## The player did something the port hates as much as a killing (stole one of
+## Skrugs's own speeders): the standing hit a local's death costs (killed_standing),
+## and the alarm goes up next tick, as if a local was killed.
+func outrage(why: String) -> void:
+	if standing:
+		WorldState.change_standing("locals", int(cfg.get("alarm", {}).get("killed_standing", -8)), why)
+	_attacked = true
+
+
 func _on_local_hit(shooter: Node, _amount: float, g: NpcBody) -> void:
 	if DroidController.by_player(shooter, player) and SilentKill.unaware_cut(g):
 		_check_cut.call_deferred(g)            # issue #307: silent if the cut killed them unseen

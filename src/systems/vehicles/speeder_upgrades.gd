@@ -13,8 +13,10 @@ extends RefCounted
 ## Issue #627: a fit's "model" is its vehicle file (speeder, racer, hauler; none =
 ## the Sand-boxer, so old saves load as they were). A model's "shop_groups" say
 ## which menu groups the bench offers it (none listed = all), and a part's "model"
-## says which model it fits (none = the Sand-boxer): the racer and the box truck
-## take their own paint jobs and nothing else.
+## says which model it fits (none = the Sand-boxer). Speeder classes: a part in
+## one of the data's "shared_groups" with no "model" fits every model, so the
+## racer and the box truck take the same engines, thrusters, cannons, race gear
+## and Grav Lifter; paint and looks stay the Sand-boxer's.
 
 const PATH := "res://content/core/vehicles/speeder_upgrades.json"
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
@@ -82,12 +84,16 @@ static func groups_for(model: String) -> Array:
 
 
 ## Part `p` goes on this model: its group is one the model takes, and it is made
-## for this model (a part with no "model" is the Sand-boxer's).
+## for this model (a part with no "model" is the Sand-boxer's, or every model's
+## when its group is shared).
 static func fits_model(p: Dictionary, model: String) -> bool:
+	var group := str(p.get("group", ""))
 	var pm := str(p.get("model", ""))
-	if (pm if pm != "" else "speeder") != model:
+	if pm == "" and not (data().get("shared_groups", []) as Array).has(group):
+		pm = "speeder"
+	if pm != "" and pm != model:
 		return false
-	return groups_for(model).has(str(p.get("group", "")))
+	return groups_for(model).has(group)
 
 
 ## The parts in `group` that go on this model.
@@ -161,7 +167,8 @@ static func unlocked_by_crew(crew: String) -> Array:
 
 
 ## The speeder's config (content/core/vehicles/speeder.json) with `fit` applied:
-## stat multipliers, and the Grav Lifter's "hover" block.
+## stat multipliers, and the Grav Lifter's "hover" block. A mod on a number the
+## config does not have (an engine's boost_speed on the box truck) is skipped.
 static func apply(base_cfg: Dictionary, fit: Dictionary) -> Dictionary:
 	var cfg := base_cfg.duplicate(true)
 	for id in fit.get("parts", []):
@@ -172,10 +179,11 @@ static func apply(base_cfg: Dictionary, fit: Dictionary) -> Dictionary:
 			if k.begins_with("laser."):
 				var laser: Dictionary = cfg.get("laser", {})
 				var lk := k.substr(6)
-				laser[lk] = float(laser.get(lk, 0.0)) * float(mods[key])
-				cfg["laser"] = laser
-			else:
-				cfg[k] = float(cfg.get(k, 0.0)) * float(mods[key])
+				if laser.has(lk):
+					laser[lk] = float(laser[lk]) * float(mods[key])
+					cfg["laser"] = laser
+			elif cfg.has(k):
+				cfg[k] = float(cfg[k]) * float(mods[key])
 		if p.has("hover"):
 			cfg["hover"] = (p.hover as Dictionary).duplicate()
 	cfg["parts"] = (fit.get("parts", []) as Array).duplicate()

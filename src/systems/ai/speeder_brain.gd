@@ -239,7 +239,9 @@ func _park() -> void:
 # ---------------------------------------------------------------- steering
 
 ## Steer at `goal` and hold `want` m/s: brake hard when going too fast, ease off
-## for a sharp angle, boost only nearly straight on and far enough out.
+## for a sharp angle, boost only nearly straight on and far enough out. Speeder
+## classes: never on the box truck, whose Shift is a drift that would hold its
+## speed instead of building it.
 func _drive_to(goal: Vector3, want: float, far: bool) -> void:
 	var to := _flat(goal - model.position)
 	if to.length() < 0.01:
@@ -255,7 +257,7 @@ func _drive_to(goal: Vector3, want: float, far: bool) -> void:
 		if a > deg_to_rad(100.0) and to.length() < 20.0:
 			command.throttle = minf(command.throttle, 0.35)   # behind and close: turn tight
 	command.boost = far and may_boost and _boost_on and a < deg_to_rad(s("boost_angle_deg", 12.0)) \
-		and want > model.p("max_speed", 36.0) - 0.5
+		and want > model.p("max_speed", 36.0) - 0.5 and model.ability() == "boost"
 
 
 ## Steer round what is ahead: the owner's `avoid` list, then buildings and rocks.
