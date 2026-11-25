@@ -409,7 +409,7 @@ func trade_options() -> Array:
 		for d in roster().owned:
 			if str(d.kind) == want:
 				job_rows.append({ "id": "deliver:%d" % int(d.uid), "job": true,
-					"text": _l("deliver") % [DroidRoster.label(want), Story.droids_wanted()] })
+					"text": _l("deliver") % DroidRoster.label(want) })
 		out = job_rows + out
 	return out
 
@@ -525,7 +525,7 @@ func deliver(uid: int) -> bool:
 	roster().remove(uid)
 	_free_companion(uid)
 	Story.on_droid_delivered()
-	_toast(_l("delivered") % [DroidRoster.label(str(d.kind)), Story.droids_wanted()])
+	_toast(_l("delivered") % DroidRoster.label(str(d.kind)))
 	return true
 
 
