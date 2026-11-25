@@ -2,6 +2,17 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Race pots paid at the finish, and race quests (2026-11-25)
+
+- **Win a speeder race and the pot is yours at once.** The credits go straight
+  into your wallet when the race ends; no more trip to Dorrin's counter to
+  collect them. A pot an old save still has him holding can still be collected.
+- **Win and you get two optional quests:** race the next crew up the ladder
+  (the waypoint points at where they hang out) and a pink slip rematch with the
+  crew you just beat.
+- **Lose and you get one:** a rematch with the crew who beat you, done when you
+  beat them.
+
 ## Credits in and out show on screen (2026-11-25)
 
 - **Every payment shows top right.** Whenever money changes hands (buying,

@@ -177,7 +177,7 @@ func _race_to_go(t, crew: RaceCrew) -> SpeederNode:
 	return mine
 
 
-func test_win_and_dorrin_holds_the_pot_and_skrugs_job_is_done() -> void:
+func test_win_pays_the_pot_at_once_and_skrugs_job_is_done() -> void:
 	var t = await _town()
 	var crew := _crew(t)
 	WorldState.jobs_taken["j_speeder_race"] = "active"
@@ -198,13 +198,13 @@ func test_win_and_dorrin_holds_the_pot_and_skrugs_job_is_done() -> void:
 		await wait_physics_frames(1)
 	Engine.time_scale = 1.0
 	assert_eq(crew.winner, RaceCrew.YOU, "you won")
-	assert_eq(WorldState.count("race_winnings"), 1000, "10 x 100, held by Dorrin")
+	assert_eq(WorldState.credits, 400 + 1000, "10 x 100, paid into your credits at the finish")
+	assert_eq(WorldState.count("race_winnings"), 0, "nothing left for Dorrin to hold")
+	assert_eq(t.mechanic.collect_winnings(), 0, "nothing to collect")
 	assert_true(WorldState.has_flag("race_won") and WorldState.has_flag("crew_beaten_yard"))
 	assert_eq(WorldState.jobs_taken.get("j_speeder_race", ""), "done", "Skrugs's job is done")
-	var before := WorldState.credits
-	assert_eq(t.mechanic.collect_winnings(), 1000, "Dorrin pays out")
-	assert_eq(WorldState.credits, before + 1000)
-	assert_eq(t.mechanic.collect_winnings(), 0, "once")
+	assert_eq(Quests.state(RaceCrew.quest_id("next", "basin")), "open", "next: the basin crew")
+	assert_eq(Quests.state(RaceCrew.quest_id("slips", "yard")), "open", "a pink-slip rematch with the yard crew")
 	Engine.time_scale = 4.0
 	for i in 1500:
 		if crew.phase == RaceCrew.Phase.IDLE:
@@ -234,6 +234,8 @@ func test_lose_your_speeder_and_you_are_out_with_no_prize() -> void:
 	assert_ne(crew.winner, RaceCrew.YOU, "no win")
 	assert_eq(WorldState.count("race_winnings"), 0, "no prize")
 	assert_eq(WorldState.credits, 400, "no refund")
+	assert_eq(Quests.state(RaceCrew.quest_id("rematch", "yard")), "open", "lost: a rematch with them")
+	assert_eq(Quests.state(RaceCrew.quest_id("slips", "yard")), "", "no pink slips offered")
 
 
 func test_from_the_shooting_lap_a_racer_with_you_in_its_nose_fires() -> void:

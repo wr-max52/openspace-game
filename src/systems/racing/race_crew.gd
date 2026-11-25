@@ -27,8 +27,8 @@ extends Node3D
 ##                         From the crew's shoot_from_lap a racer with you in its
 ##                         nose fires its lasers. Shoot them any time.
 ##   out                -- your speeder bursts, you get off, or you leave the course.
-##   the end            -- win and Dorrin holds the pot for you (WorldState
-##                         race_winnings; collect at his counter); the racers cruise
+##   the end            -- win and the pot is paid into your credits at once
+##                         (WorldState.on_race_won); the racers cruise
 ##                         back to their spots, park, climb off and walk back to
 ##                         where they stand. Their speeders stay parked.
 ##   rematch            -- while they head home, [Z] on your speeder near the line
@@ -36,6 +36,10 @@ extends Node3D
 ##                         it (credits, then what Dorrin holds for you). Short, and
 ##                         they just go home; the leader's menu then offers the
 ##                         same stake first. Never for pink slips.
+##   race quests        -- optional quests (Quests, quests() below) offered when a
+##                         race ends: win and you are offered the next crew up the
+##                         ladder (pointing at where they hang out) and a pink-slip
+##                         rematch with this crew; lose and a rematch with them.
 ##
 ## The headless test drives accept(), line_up() and the frame directly.
 
@@ -575,6 +579,92 @@ static func _pay(amount: int) -> void:
 	if from_pot > 0:
 		WorldState.bump("race_winnings", -from_pot)
 	Sound.play("coin_spend")
+
+
+# ------------------------------------------------------------------ race quests
+
+static var _quests: Array = []            ## built once from the crew files (Quests.all() asks often)
+
+
+static func quest_id(kind: String, crew_id: String) -> String:
+	return "race_%s_%s" % [kind, crew_id]
+
+
+## The crew one rung above `crew_id` on the ladder (the one whose `after` is it),
+## or {} at the top.
+static func next_crew(crew_id: String) -> Dictionary:
+	for cid in ids():
+		var c := load_crew(cid)
+		if str(c.get("after", "")) == crew_id and crew_id != "":
+			return c
+	return {}
+
+
+## "the salt crew" -> "Salt crew".
+static func crew_name(c: Dictionary) -> String:
+	var label := str(c.get("label", c.get("id", "")))
+	if label.to_lower().begins_with("the "):
+		label = label.substr(4)
+	return label.substr(0, 1).to_upper() + label.substr(1)
+
+
+static func _quest_words(c: Dictionary) -> Dictionary:
+	return { "crew": str(c.get("label", c.get("id", ""))), "Crew": crew_name(c),
+		"course": str(RaceCourse.load_course(str(c.get("course", ""))).get("label", "course")) }
+
+
+## Every race quest, for Quests.all(): per crew a "next" (race them: offered when
+## you beat the crew below), a "slips" (race them for pink slips: offered when you
+## beat them) and a "rematch" (race them again: offered when they beat you). Each
+## points at where that crew hangs out ("crew:<id>").
+static func quests() -> Array:
+	if not _quests.is_empty():
+		return _quests
+	var q: Dictionary = rules().get("quests", {})
+	if q.is_empty():
+		return _quests
+	var crews: Dictionary = {}
+	for cid in ids():
+		crews[cid] = load_crew(cid)
+	for cid in crews:
+		var c: Dictionary = crews[cid]
+		var words := _quest_words(c)
+		var below: Dictionary = crews.get(str(c.get("after", "")), {})
+		words["beaten"] = str(below.get("label", "the crew below them"))
+		for kind in ["next", "slips", "rematch"]:
+			var k: Dictionary = q.get(kind, {})
+			if k.is_empty() or (kind == "next" and below.is_empty()):
+				continue
+			_quests.append({ "id": quest_id(kind, str(cid)), "title": str(k.get("title", kind)).format(words),
+				"text": str(k.get("text", "")).format(words), "target": "crew:" + str(cid) })
+	return _quests
+
+
+## A race with `crew_id` is over: settle and offer its quests. Won: the rematch
+## and (after a pink-slip race) the slips quest are done, and you are offered the
+## next crew up (unless you have beaten them) and a pink-slip rematch here. Lost:
+## you are offered a rematch only. Any pink-slip race, won or lost, does the
+## slips quest.
+static func settle_quests(crew_id: String, won: bool, was_pink: bool) -> void:
+	if was_pink:
+		_finish(quest_id("slips", crew_id))
+	if not won:
+		Quests.offer_again(quest_id("rematch", crew_id))
+		return
+	_finish(quest_id("rematch", crew_id))
+	_finish(quest_id("next", crew_id))
+	var up := next_crew(crew_id)
+	if not up.is_empty() and not WorldState.has_flag("crew_beaten_" + str(up.get("id", ""))):
+		Quests.offer_again(quest_id("next", str(up.get("id", ""))))
+	if bool(rules().get("pink_slips", true)):
+		Quests.offer_again(quest_id("slips", crew_id))
+
+
+## Done, if it was offered (Quests.complete would also mark one never offered as
+## done, which would fill the job log with races nobody asked you to run).
+static func _finish(qid: String) -> void:
+	if Quests.state(qid) == "open":
+		Quests.complete(qid)
 
 
 # ------------------------------------------------------------------ the rematch
@@ -1312,6 +1402,7 @@ func _end_race() -> void:
 	else:
 		_toast(line("lost", { "winner": _name_of(winner) }), 5.0)
 		_say(leader(), line("leader_won"))
+	settle_quests(id, winner == YOU, was_pink)
 	_show_results(order)
 	_offer_rematch(was_pink)
 	for rc in racers:

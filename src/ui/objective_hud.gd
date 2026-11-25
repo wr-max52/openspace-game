@@ -204,6 +204,13 @@ func where(target: String) -> Vector3:
 			var y = demo.get("mechanic")
 			if y != null and is_instance_valid(y) and y.found:
 				return y.world_point("customer")
+		"crew":
+			# A race quest: where that crew's leader stands (their hangout).
+			if "race_crews" in demo:
+				for c in demo.race_crews:
+					if is_instance_valid(c) and c.id == id and c.found:
+						var l = c.leader()
+						return l.global_position if l != null else c.xf.origin
 		"race":
 			# Issue #611: a race's next gate ("race:<course>:<gate>").
 			var rc = demo.race_course(id) if demo.has_method("race_course") else null

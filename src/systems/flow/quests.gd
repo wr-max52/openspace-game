@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## Each quest is data in content/core/story/main.json "quests": { id, title, text,
 ## target, unlocked_by, done_on }, plus one resupply quest per outpost that
-## Territory offers, finishes and offers again (Territory.quests, offer_again). Every Story.event() reaches event() here, so a
+## Territory offers, finishes and offers again (Territory.quests, offer_again), and
+## three per speeder race crew that a race offers when it ends (RaceCrew.quests). Every Story.event() reaches event() here, so a
 ## quest unlocks (and finishes) on any event name a system reports. A quest done
 ## before it was ever offered is just done, with no news.
 ##
@@ -17,7 +18,7 @@ extends RefCounted
 
 
 static func all() -> Array:
-	return Story.data().get("quests", []) + Territory.quests()
+	return Story.data().get("quests", []) + Territory.quests() + RaceCrew.quests()
 
 
 static func cfg(id: String) -> Dictionary:
