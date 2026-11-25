@@ -31,6 +31,11 @@ extends Node3D
 ##                         race_winnings; collect at his counter); the racers cruise
 ##                         back to their spots, park, climb off and walk back to
 ##                         where they stand. Their speeders stay parked.
+##   rematch            -- while they head home, [Z] on your speeder near the line
+##                         races them again for the same stake, if you can cover
+##                         it (credits, then what Dorrin holds for you). Short, and
+##                         they just go home; the leader's menu then offers the
+##                         same stake first. Never for pink slips.
 ##
 ## The headless test drives accept(), line_up() and the frame directly.
 
@@ -98,6 +103,8 @@ var _crowd_left := 0                  ## crowd bodies still to build at the line
 var _spawn_wait := 0
 var _beast_due := false               ## the track beast comes once the crowd is up
 var _slips := ""                      ## issue #617: "won" / "lost" this race, settled once they are home
+var last_stake := 0                   ## the buy-in of your last money race with this crew (0 = none yet)
+var rematch_on := false               ## the race is over and [Z] races them again for last_stake
 
 
 # ------------------------------------------------------------------ data
@@ -141,9 +148,10 @@ func r(key: String, fallback: float) -> float:
 	return float(crew.get("rules", {}).get(key, fallback))
 
 
-## A crew line with its {words} filled in; a list picks one.
+## A crew line with its {words} filled in; a list picks one. A line the crew's
+## file does not have comes from rules.json `lines` (the same for every crew).
 func line(key: String, extra: Dictionary = {}) -> String:
-	var v = crew.get("lines", {}).get(key, key)
+	var v = crew.get("lines", {}).get(key, rules().get("lines", {}).get(key, key))
 	if v is Array:
 		v = (v as Array)[_rng.randi() % maxi(1, (v as Array).size())] if not (v as Array).is_empty() else key
 	var words := { "name": leader_name(), "crew": str(crew.get("label", id)), "stake": stake,
@@ -383,11 +391,14 @@ func talk() -> void:
 
 func menu_options() -> Array:
 	var out: Array = []
+	if last_stake > 0 and can_afford(last_stake):
+		out.append({ "id": "rematch", "text": line("rematch_option",
+			{ "stake": last_stake, "pot": last_stake * int(r("multiple", 10)) }) })
 	var least := int(r("min_buy_in", 100))
 	var step := int(r("buy_in_step", 100))
 	for k in int(r("buy_in_steps", 6)):
 		var s := least + step * k
-		if s > WorldState.credits and k > 0:
+		if not can_afford(s) and k > 0:
 			break
 		out.append({ "id": "buy:%d" % s, "text": line("buy_in", { "stake": s, "pot": s * int(r("multiple", 10)) }) })
 	if slips_offered():
@@ -412,6 +423,8 @@ func best_lap() -> float:
 func _on_pick(choice: String) -> void:
 	if choice.begins_with("buy:"):
 		accept(int(choice.get_slice(":", 1)))
+	elif choice == "rematch":
+		accept(last_stake)
 	elif choice == "slips":
 		accept_slips()
 
@@ -523,18 +536,83 @@ func accept(amount: int) -> String:
 		_say(leader(), line("not_yet"))
 		return "ladder"
 	stake = amount
-	if amount < int(r("min_buy_in", 100)) or WorldState.credits < amount:
+	if amount < int(r("min_buy_in", 100)) or not can_afford(amount):
 		stake = int(r("min_buy_in", 100))
 		_say(leader(), line("too_poor"))
 		return "poor"
 	if your_speeder() == null:
 		_say(leader(), line("no_speeder"))
 		return "speeder"
-	WorldState.credits -= amount
-	Sound.play("coin_spend")
+	_pay(amount)
 	_start_grid()
 	_say(leader(), line("accept"))
 	return ""
+
+
+## What you can put down: your credits and the winnings Dorrin holds for you
+## (the crew know he is good for it).
+static func spendable() -> int:
+	return WorldState.credits + maxi(0, WorldState.count("race_winnings"))
+
+
+static func can_afford(amount: int) -> bool:
+	return spendable() >= amount
+
+
+## Pay a buy-in: your credits first, the rest out of what Dorrin holds.
+static func _pay(amount: int) -> void:
+	var from_pot := clampi(amount - WorldState.credits, 0, maxi(0, WorldState.count("race_winnings")))
+	WorldState.credits -= amount - from_pot
+	if from_pot > 0:
+		WorldState.bump("race_winnings", -from_pot)
+	Sound.play("coin_spend")
+
+
+# ------------------------------------------------------------------ the rematch
+
+## The race is over and the crew are heading home: race them again at once for
+## the same stake. "" if it is on; else why not ("busy", "poor", "speeder").
+func rematch() -> String:
+	if phase != Phase.RETURN or not rematch_on or leader() == null:
+		return "busy"
+	if not can_afford(last_stake):
+		rematch_on = false
+		return "poor"
+	if your_speeder() == null:
+		return "speeder"
+	rematch_on = false
+	for rc in racers:
+		# Anyone not driving (thrown clear, or their racer down) is sorted out as
+		# _put_away would; the rest turn round from wherever they are.
+		if not bool(rc.home) and not (_speeder_ok(rc) and rc.speeder.npc_driven()):
+			_settle_home(rc)
+	_remove_beast()                         # it was crawling off: a fresh one comes in
+	if _hud_list != null:
+		_hud_list.visible = false
+	stake = last_stake
+	_pay(stake)
+	var standing := crowd.size()
+	_start_grid()
+	_crowd_left = maxi(0, _crowd_left - standing)   # the crowd still at the line stay
+	_say(leader(), line("rematch_accept"))
+	line_up()                               # already by the grid: straight onto your slot
+	return ""
+
+
+## While they head home: the [Z] prompt on your speeder near the line.
+func _tick_rematch() -> void:
+	if not rematch_on:
+		return
+	var p := _player()
+	if p == null or not (p.piloting and p.vehicle is SpeederNode) or course.gates.is_empty():
+		return
+	if (p.vehicle as SpeederNode).model.position.distance_to(course.gates[0].pos) > r("off_course_m", 400.0):
+		return
+	var g = _gear()
+	if g != null and g.hud != null:
+		g.hud.set_prompt(line("rematch", { "stake": last_stake, "pot": last_stake * int(r("multiple", 10)) }))
+	if InputMap.has_action("bay_land") and Input.is_action_just_pressed("bay_land"):
+		rematch()
 
 
 ## A speeder you can race nearby: the one you ride, one you own within 120 m, or
@@ -1210,6 +1288,7 @@ func _end_race() -> void:
 	order.append_array(rest)
 	winner = str(order[0]) if not order.is_empty() else ""
 	var pot := stake * int(r("multiple", 10))
+	var was_pink := pink
 	if pink:
 		_settle_slips(winner == YOU)
 		pink = false
@@ -1225,6 +1304,7 @@ func _end_race() -> void:
 		_toast(line("lost", { "winner": _name_of(winner) }), 5.0)
 		_say(leader(), line("leader_won"))
 	_show_results(order)
+	_offer_rematch(was_pink)
 	for rc in racers:
 		if rc.brain != null and _speeder_ok(rc) and rc.speeder.npc_driven():
 			rc.brain.shoot_at = Vector3.INF
@@ -1237,6 +1317,22 @@ func _end_race() -> void:
 		# It crawls off, away from the course, and is gone once the racers are home.
 		var away := track_beast.global_position - course.center
 		track_beast.home = track_beast.global_position + (away.normalized() if away.length() > 1.0 else Vector3.RIGHT) * 1500.0
+
+
+## A money race is over: the rematch is open if you can cover the same stake;
+## if not, a line saying so, and they head home where you can challenge them again.
+func _offer_rematch(was_pink: bool) -> void:
+	rematch_on = false
+	if was_pink or stake <= 0:
+		return
+	last_stake = stake
+	if can_afford(last_stake):
+		rematch_on = true
+		return
+	var g = _gear()
+	var text := line("rematch_poor", { "stake": last_stake })
+	if g != null and g.hud != null:
+		g.hud.toast_after(text, 4.0)
 
 
 func _name_of(key: String) -> String:
@@ -1311,22 +1407,8 @@ func _hold(b: NpcBody) -> void:
 ## loads. Issue #617: a pink-slip race changes what the leader parks.
 func _put_away() -> void:
 	for rc in racers:
-		var sp = rc.speeder
-		var alive := _body_ok(rc)
-		if sp != null and is_instance_valid(sp):
-			if sp.model.alive() and alive:
-				if not bool(rc.home):
-					sp.step_off()
-					sp.place(_park_pos(rc), _park_yaw(rc))
-				sp.brain = null
-			else:
-				sp.step_off()
-				sp.queue_free()
-				rc.speeder = null
-		rc.brain = null
-		if alive and not bool(rc.home):
-			_stand_at(rc.body, _ground(_v2(rc.cfg.get("stand", [0, 0]))))
-		rc.home = true
+		_settle_home(rc)
+	rematch_on = false
 	_settle_leader_ride()
 	_crowd_left = 0
 	_beast_due = false
@@ -1338,6 +1420,27 @@ func _put_away() -> void:
 		_hud_list.visible = false
 	if _hud_lap != null:
 		_hud_lap.visible = false
+
+
+## One racer home now: their speeder parked on its spot (or gone, if it or they
+## are), and they stand at their spot.
+func _settle_home(rc: Dictionary) -> void:
+	var sp = rc.speeder
+	var alive := _body_ok(rc)
+	if sp != null and is_instance_valid(sp):
+		if sp.model.alive() and alive:
+			if not bool(rc.home):
+				sp.step_off()
+				sp.place(_park_pos(rc), _park_yaw(rc))
+			sp.brain = null
+		else:
+			sp.step_off()
+			sp.queue_free()
+			rc.speeder = null
+	rc.brain = null
+	if alive and not bool(rc.home):
+		_stand_at(rc.body, _ground(_v2(rc.cfg.get("stand", [0, 0]))))
+	rc.home = true
 
 
 ## Placings now: { key -> place (1 = first) } by finish order, then progress.
@@ -1393,6 +1496,8 @@ func _physics_process(dt: float) -> void:
 			_tick_racing(dt)
 		Phase.RETURN:
 			_tick_return(dt)
+			if phase == Phase.RETURN:
+				_tick_rematch()
 	if _big_left > 0.0:
 		_big_left -= dt
 		if _big_left <= 0.0 and _hud_big != null:
