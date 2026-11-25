@@ -103,6 +103,7 @@ var detail: AltitudeDetail            ## issue #46: less to draw and run the hig
 var draw_distance: DrawDistance       ## and the further off it is (null in the CI greybox)
 var speeder_post: SpeederPost         ## issue #42: Skrugs's stall outside the back gate, and the speeders
 var mechanic: MechanicYard            ## issue #95: Dorrin's speeder yard out in the desert
+var race_courses: Array = []          ## issue #610: this world's race courses (RaceCourse), by Dorrin's and beyond
 var harmful_surface: HarmfulSurface    ## issue #298: no air outside without armour (the asteroid)
 var barge: PartyBarge                 ## issue #269: the planet's party barge, if it has one
 var beast: PlanetBeast                ## issue #220: the planet's beast (a deadly purple blob), if it has one
@@ -356,6 +357,10 @@ func build_plan(staged_build: bool) -> Array:
 	add.call("mechanic", LATER, func():
 		if speeder_post != null and gear != null:
 			_build_mechanic()
+		return true)
+	add.call("race_courses", LATER, func():
+		if pilot != null and terrain != null:
+			_build_race_courses()
 		return true)
 	# Issue #574: built in pieces over frames (a ~330 ms build in one go before);
 	# `barge` is set once it is whole.
@@ -1410,6 +1415,24 @@ func _build_mechanic() -> void:
 	add_child(mechanic)
 
 
+## Issue #610: this world's race courses (content/core/racing/courses/*.json with
+## its world id). Each draws its gates only while you are near it.
+func _build_race_courses() -> void:
+	for c in RaceCourse.courses_for(str(world.get("id", ""))):
+		var rc := RaceCourse.new()
+		rc.setup(self, pilot.ground, c)
+		add_child(rc)
+		race_courses.append(rc)
+
+
+## The race course with this id, or null.
+func race_course(id: String) -> RaceCourse:
+	for rc in race_courses:
+		if is_instance_valid(rc) and rc.id == id:
+			return rc
+	return null
+
+
 ## Issue #96: the planet's native packs and wild animals (PlanetGen gave the
 ## planet its "natives"). After the gear (its HUD, its E) and the ship (the ground).
 func _build_natives() -> void:
@@ -1898,9 +1921,11 @@ func _landmark_clearings() -> Array:
 	var cc := CoreContent.new()
 	cc.load_from()
 	var out: Array = []
-	for lm in cc.world_for_town(str(town.data.get("id", "")), str(town.data.get("layout", ""))).get("landmarks", []):
+	var w: Dictionary = cc.world_for_town(str(town.data.get("id", "")), str(town.data.get("layout", "")))
+	for lm in w.get("landmarks", []):
 		if lm.has("clear"):
 			out.append([Vector2(float(lm.at[0]), float(lm.at[2])), float(lm.clear)])
+	out.append_array(RaceCourse.clear_circles(str(w.get("id", ""))))   # issue #610: no boulders on a racing line
 	return out
 
 

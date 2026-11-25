@@ -1,0 +1,82 @@
+{
+  "id": "hoodoo_run",
+  "label": "Hoodoo Run",
+  "note": "Issue #610: the first race course, a loop through the desert round five rock towers, its start/finish line a short drive from Dorrin's yard (the mechanic_yard landmark in content/core/worlds/port_desert.json). Read by src/systems/racing/race_course.gd (RaceCourse). Everything is plateau x,z (the world's landmark coordinates; on the ball they are mapped onto the sphere like any landmark). `gates`: gate 0 is the start/finish line, the rest the checkpoints in the order you go through them; each faces along the racing line. `gate_width` is the gap between its two antennas (m). `line`: the racing line, in order, a loop (NPC racers follow it, issue #609). `grid`: the slots behind the start line (rows of two, `back_m` behind it, `row_m` between rows, `side_m` either side of the middle). `laps`: a race's laps. `draw_m`: gates and markers are built when you come this close to the course's middle and dropped past draw_m + 200. `clear_m`: the desert's boulders keep this far off the racing line and the gates (DesertLandforms clear circles). The rock towers it weaves round are hoodoos in content/look/desert_landforms.json.",
+  "world": "port_desert",
+  "near": "mechanic_yard",
+  "laps": 2,
+  "gate_width": 26.0,
+  "antenna_height": 7.0,
+  "draw_m": 1500.0,
+  "clear_m": 14.0,
+  "grid": {
+    "slots": 4,
+    "back_m": 10.0,
+    "row_m": 9.0,
+    "side_m": 4.5
+  },
+  "gates": [
+    {
+      "id": "start",
+      "at": [-907.5, -771.7]
+    },
+    {
+      "id": "c1",
+      "at": [-1417.6, -707.6]
+    },
+    {
+      "id": "c2",
+      "at": [-1760.1, -955.9]
+    },
+    {
+      "id": "c3",
+      "at": [-1592.5, -1268.3]
+    },
+    {
+      "id": "c4",
+      "at": [-1082.4, -1332.4]
+    },
+    {
+      "id": "c5",
+      "at": [-739.9, -1084.1]
+    }
+  ],
+  "line": [
+    [-907.5, -771.7],
+    [-980.6, -737.7],
+    [-1060.1, -709.3],
+    [-1146.0, -686.6],
+    [-1239.0, -686.8],
+    [-1329.6, -693.9],
+    [-1417.6, -707.6],
+    [-1500.5, -730.8],
+    [-1572.6, -765.4],
+    [-1629.5, -809.2],
+    [-1690.3, -850.8],
+    [-1734.8, -900.7],
+    [-1760.1, -955.9],
+    [-1769.9, -1013.1],
+    [-1769.0, -1071.0],
+    [-1757.0, -1129.5],
+    [-1710.2, -1180.6],
+    [-1655.3, -1226.8],
+    [-1592.5, -1268.3],
+    [-1519.4, -1302.3],
+    [-1436.2, -1324.6],
+    [-1348.0, -1334.0],
+    [-1260.8, -1346.6],
+    [-1170.4, -1346.1],
+    [-1082.4, -1332.4],
+    [-999.5, -1309.2],
+    [-920.9, -1279.8],
+    [-847.0, -1243.9],
+    [-800.8, -1192.7],
+    [-765.2, -1139.3],
+    [-739.9, -1084.1],
+    [-730.1, -1026.9],
+    [-736.1, -969.5],
+    [-757.7, -913.7],
+    [-794.3, -861.0],
+    [-844.7, -813.2]
+  ]
+}
