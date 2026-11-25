@@ -2,7 +2,9 @@ extends SceneTree
 ## Issue #45 trace (headless, real physics, the real town scene): the test the
 ## issue asks for. Take off from the port, climb to space, fly to the asteroid
 ## station hanging in the port's sky; issue #99: its scene takes over in mid-
-## flight with no fade, the ship exactly where it was. Drop under its edge of
+## flight with no fade, the ship exactly where it was. Issue #573: between the
+## two is open space, a place of its own with no planet built (SPACE_OUT and
+## SPACE_BACK: the switch into it, and that nothing of a town is there). Drop under its edge of
 ## space and press Z to be landed in its landing pit, get out in its size-1 town
 ## (its own Oda, a stage, a guard at the door, a merchant in front, locals in the
 ## street), walk out through the ring wall's gate shield, along the windowed
@@ -143,7 +145,16 @@ func follow_handoff(label: String, carried: Dictionary, old_ref: WeakRef) -> voi
 	var dv := 0.0
 	var flying := true
 	var n := 0
+	# Issue #573: a moon's bubble is 1,200 m and the ship comes in from open space at
+	# boost speed, often across the ball's side; with the autopilot's last command
+	# held it would hit the rock seconds before the build is done. A pilot holds
+	# height instead: 1,000 m over the ground, on a planet (open space has no ground).
+	var hold = FighterBrain.new({ "steer_gain": 3.0 }, p.atmo.flight, 1) if demo.terrain != null else null
 	while not sb.done and sb.failed_step == "" and n < 60 * 120:
+		var sp := PlanetSphere.current
+		if hold != null and sp != null:
+			hold._steer_to(sp.center + sp.up_at(p.atmo.position()) * (sp.radius + 1000.0), 0.5, false)
+			p.set_external_command(hold.command)
 		await physics_frame
 		n += 1
 		var now: Vector3 = p.atmo.position()
@@ -179,6 +190,17 @@ func follow_handoff(label: String, carried: Dictionary, old_ref: WeakRef) -> voi
 	out(k + "FLEW_THROUGH", flying)
 	out(k + "PEOPLE_HIDDEN", demo.detail.hidden_groups().has("people")
 		and (demo.get_node_or_null("Npcs") == null or not demo.get_node("Npcs").visible))
+
+
+## Issue #573: open space holds the ship, the sky and the planets ahead, and no
+## town: no people, no garrison, no cantina, no ground to stand on.
+func space_is_empty(label: String) -> void:
+	out(label + "_PLANET", GameFlow.current_planet_id())
+	out(label + "_GROUND", demo.planet.get("ground", ""))
+	out(label + "_EMPTY", demo.npcs.is_empty() and demo.locals.is_empty() and demo.terrain == null
+		and demo.platform == null)
+	out(label + "_NEIGHBOURS", ",".join(PackedStringArray(pilot.travel.bodies.map(func(b): return str(b.id)))))
+	out(label + "_FLYING", pilot.piloting and pilot.atmo.state == AtmoFlight.State.FLYING)
 
 
 func place_player(p: Vector3) -> void:
@@ -257,6 +279,16 @@ func _run() -> void:
 	out("PLANET_AFTER_TRAVEL", GameFlow.planet_id)
 	out("FLOWN_SHIP", GameFlow.flown_ship)
 	out("ARRIVAL_MODE", str(GameFlow.arrival.get("mode", "")))
+
+	# ---------------------------------------------------------------- open space
+	await make_town("SPACE_OUT")
+	_phase = "open_space_out"
+	space_is_empty("SPACE_OUT")
+	var on := await fly_to_planet("grit_station", 0.0, 150.0)
+	out("FLEW_SPACE_TO_STATION_S", snappedf(on, 0.1))
+	out("TRAVEL_FROM_SPACE", pilot.travel.traveling)
+	await frames(5)
+	out("PLANET_AFTER_SPACE", GameFlow.planet_id)
 
 	# ---------------------------------------------------------------- the station
 	await make_town("STATION")
@@ -388,9 +420,16 @@ func _run() -> void:
 	_phase = "station_to_home"
 	await take_off()
 	out("HOME_TAKEOFF", "%s %s" % [pilot.piloting, pilot.atmo.state_label()])
-	var home_flight := await fly_to_planet("port_desert", 600.0, 150.0)
+	var out_of_station := await fly_to_planet("port_desert", 600.0, 150.0)
+	out("FLEW_OUT_OF_STATION_S", snappedf(out_of_station, 0.1))
+	await frames(5)
+	out("PLANET_LEAVING_STATION", GameFlow.planet_id)
+	await make_town("SPACE_BACK")
+	_phase = "open_space_back"
+	space_is_empty("SPACE_BACK")
+	var home_flight := await fly_to_planet("port_desert", 0.0, 150.0)
 	out("FLEW_HOME_S", snappedf(home_flight, 0.1))
-	await frames(60)
+	await frames(5)
 	out("PLANET_AFTER_RETURN", GameFlow.planet_id)
 	await make_town("HOME")
 	_phase = "home"

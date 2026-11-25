@@ -72,8 +72,15 @@ open project.godot            # in the Godot editor, F5
 ./scripts/ci.sh
 ```
 
-`./scripts/ci.sh` runs the full GUT suite and the IP-neutrality scan headless and
-exits non-zero if anything fails. That non-zero exit is the merge gate.
+`./scripts/ci.sh` is the merge gate, with a 30-minute budget. It checks two
+things headless: the game starts (a first launch through the New Game menu, then
+the next launch from the save, with no script error) and the key moments stay
+smooth (the town walk, the desert walk, the ship from the pit to space and back,
+and flying between planets, each with its frame budget). It also runs the
+IP-neutrality scan. It exits non-zero if anything fails.
+
+`./scripts/test_all.sh` runs every test in `tests/` (45 minutes). It does not
+block a merge; run it for the system you change.
 
 To run the game on screen and record the 3-minute gameplay clip, see `LAUNCH.md`.
 
@@ -115,7 +122,7 @@ content/look/      palettes, ship and item looks, lighting (what things look lik
 src/systems/       gameplay + support systems (dataloader, player, combat, ai, flight, ...)
 scenes/            boot + level scenes; scenes/flight/ is the playable dogfight
 tests/             GUT tests + (M5) the headless bot playthrough
-scripts/           ci.sh, record.sh, pin.txt
+scripts/           ci.sh (the gate), test_all.sh (everything), record.sh, pin.txt
 addons/            godot plugins (gut; nobodywho added at M6)
 assets/            third-party (CC0 / MIT, with licenses) and generated audio
 tools/             render, eval and runtime helpers (tools/llm, tools/m11, ...)
