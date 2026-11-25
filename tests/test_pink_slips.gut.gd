@@ -121,14 +121,27 @@ func test_parked_speeders_sleep_while_you_are_away() -> void:
 	assert_eq(t.speeder_post.speeders.size(), 5, "five in the row")
 	t._player.global_position = t.speeder_post.speeders[0].model.position + Vector3(200, 0, 0)
 	await wait_physics_frames(2)
-	var before: Array = t.speeder_post.speeders.map(func(s): return s.hover_steps)
+	var before: Array = t.speeder_post.speeders.map(func(s): return s.parked_steps)
 	await wait_physics_frames(30)
-	var after: Array = t.speeder_post.speeders.map(func(s): return s.hover_steps)
+	var after: Array = t.speeder_post.speeders.map(func(s): return s.parked_steps)
 	assert_eq(after, before, "200 m away: not one hover tick")
 	var near: SpeederNode = t.speeder_post.speeders[2]
 	t._player.global_position = near.model.position + Vector3(4, 0, 0)
 	await wait_physics_frames(10)
-	assert_gt(near.hover_steps, before[2], "walk up: it wakes")
+	assert_gt(near.parked_steps, before[2], "walk up: it wakes")
+
+
+func test_won_speeders_do_not_use_up_skrugss_one_of_each() -> void:
+	var t = await _town(0)
+	var post: SpeederPost = t.speeder_post
+	post.add_owned(SpeederUpgrades.new_fit("crimson"))
+	assert_eq(WorldState.count("speeders_owned"), 1, "a Sand-boxer won on pink slips")
+	assert_eq(post.owned_of("speeder"), 0, "not one he sold")
+	assert_false(post.at_limit("speeder"), "so he still sells you a Sand-boxer")
+	WorldState.credits = 1000
+	assert_true(post.buy(), "and you can buy it")
+	assert_eq(post.owned_of("speeder"), 1, "that one counts")
+	assert_true(post.at_limit("speeder"), "one of each")
 
 
 func test_a_full_row_means_no_pink_slips() -> void:
