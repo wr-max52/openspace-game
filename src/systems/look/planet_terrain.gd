@@ -210,7 +210,8 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 	var site := SpaceTravel.site_of(planet.get("town", {}))
 	pt.configure_site(site.floor, site.walls, site.sunken, 0.0)
 	pt.configure_flat_sites(droid_flat_sites(planet, pt.sphere) + camp_flat_sites(planet, pt.sphere)
-		+ outpost_flat_sites(planet, pt.sphere))
+		+ outpost_flat_sites(planet, pt.sphere)
+		+ RaceCourse.flat_sites(str(planet.get("world", {}).get("id", "")), pt.sphere))
 	return pt
 
 

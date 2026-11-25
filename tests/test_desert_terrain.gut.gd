@@ -197,7 +197,10 @@ func test_town_demo_builds_the_desert() -> void:
 	# test_native_camps checks those.
 	var yards: Array = d.terrain.flat_sites.filter(func(s): return not s.has("plane_u"))
 	assert_eq(yards.size(), 3, "the home planet levels all three droid relay yards")
-	assert_eq(d.terrain.flat_sites.size() - yards.size(), 12, "and a pad under each pack's camp (2), outpost and ranch (10)")
+	var gates := 0
+	for c in RaceCourse.courses_for("port_desert"):
+		gates += (c.gates as Array).size()
+	assert_eq(d.terrain.flat_sites.size() - yards.size(), 12 + gates, "and a pad under each pack's camp (2), outpost and ranch (10) and race gate")
 	for site in yards:
 		var r: Rect2 = site.rect
 		var y := float(site.y)
