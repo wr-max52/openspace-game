@@ -39,7 +39,7 @@ func test_the_town_and_every_outpost_are_coloured_by_who_holds_them() -> void:
 	Territory.take(MID)
 	var h := _holo()
 	var cols: Dictionary = h.spec.owner_colors
-	assert_eq(h.places.size(), Story.OUTPOSTS.size() + 1, "the town and the seven outposts")
+	assert_eq(h.places.size(), Story.OUTPOSTS.size() + 2, "the town, the seven outposts and the cruiser (issue #497)")
 	assert_eq(_col(h, Territory.BARRACKS), Color(str(cols.remnant)), "the Remnant hold the town")
 	for id in Story.OUTPOSTS:
 		var want := Color(str(cols.locals)) if id in [NEAR, MID] else Color(str(cols.remnant))

@@ -347,6 +347,27 @@ static func on_range_record(seconds: float) -> void:
 	_complete_jobs("range_record")
 
 
+## Issue #611: you won a speeder race against `crew` for `pot` credits, held by
+## Dorrin until you collect them (counter "race_winnings").
+static func on_race_won(crew: String, pot: int) -> void:
+	set_flag("race_won")
+	set_flag("crew_beaten_" + crew)
+	bump("race_winnings", pot)
+	bump("races_won")
+	log_event("Won a speeder race against " + crew + ".")
+	_complete_jobs("race_won")
+
+
+## Issue #611: Dorrin pays out what you have won. Returns the credits paid.
+static func collect_race_winnings() -> int:
+	var pot := count("race_winnings")
+	if pot <= 0:
+		return 0
+	credits += pot
+	counters["race_winnings"] = 0
+	return pot
+
+
 static func on_deflection() -> void:
 	bump("deflections")
 	if count("deflections") >= 5:

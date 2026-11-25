@@ -5,14 +5,22 @@ extends RefCounted
 ## numbers with them fitted, and what it is worth as scrap. Tested headless in
 ## tests/test_speeder_upgrades.gut.gd.
 ##
-## A speeder's fit is { "paint": "<look.paints name or ''>", "parts": [part ids] },
-## kept per speeder in WorldState.speeder_fits (SpeederPost reads it when it
-## parks one). Data: content/core/vehicles/speeder_upgrades.json.
+## A speeder's fit is { "paint": "<look.paints name or ''>", "parts": [part ids],
+## "model": "<vehicle id>" }, kept per speeder in WorldState.speeder_fits
+## (SpeederPost reads it when it parks one). Data:
+## content/core/vehicles/speeder_upgrades.json.
+##
+## Issue #627: a fit's "model" is its vehicle file (speeder, racer, hauler; none =
+## the Sand-boxer, so old saves load as they were). A model's "shop_groups" say
+## which menu groups the bench offers it (none listed = all), and a part's "model"
+## says which model it fits (none = the Sand-boxer): the racer and the box truck
+## take their own paint jobs and nothing else.
 
 const PATH := "res://content/core/vehicles/speeder_upgrades.json"
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 static var _data: Dictionary = {}
+static var _models: Dictionary = {}    ## issue #627: vehicle id -> its config (shop_groups, scrap_base)
 
 
 static func data() -> Dictionary:
@@ -51,8 +59,40 @@ static func in_group(group: String) -> Array:
 	return parts().filter(func(p): return str(p.get("group", "")) == group)
 
 
-static func new_fit(paint: String = "") -> Dictionary:
-	return { "paint": paint, "parts": [], "spent": 0 }
+static func new_fit(paint: String = "", model: String = "speeder") -> Dictionary:
+	return { "paint": paint, "parts": [], "spent": 0, "model": model }
+
+
+## Issue #627: the vehicle file this fit is for ("speeder" when it does not say).
+static func model_of(fit: Dictionary) -> String:
+	var m := str(fit.get("model", ""))
+	return m if m != "" else "speeder"
+
+
+static func _model_cfg(model: String) -> Dictionary:
+	if not _models.has(model):
+		_models[model] = HoverModel.load_config(model)
+	return _models[model]
+
+
+## The menu groups the bench offers this model (every group when it lists none).
+static func groups_for(model: String) -> Array:
+	var g = _model_cfg(model).get("shop_groups", null)
+	return g if g is Array else ["paint", "looks", "performance", "lifter"]
+
+
+## Part `p` goes on this model: its group is one the model takes, and it is made
+## for this model (a part with no "model" is the Sand-boxer's).
+static func fits_model(p: Dictionary, model: String) -> bool:
+	var pm := str(p.get("model", ""))
+	if (pm if pm != "" else "speeder") != model:
+		return false
+	return groups_for(model).has(str(p.get("group", "")))
+
+
+## The parts in `group` that go on this model.
+static func in_group_for(group: String, model: String) -> Array:
+	return in_group(group).filter(func(p): return fits_model(p, model))
 
 
 ## True if `fit` already has this part (or the tier above it in its line).
@@ -72,6 +112,8 @@ static func why_not(fit: Dictionary, id: String) -> String:
 	var p := part(id)
 	if p.is_empty():
 		return "unknown"
+	if not fits_model(p, model_of(fit)):
+		return "wrong_model"           # issue #627: not for this model (the racer takes paint only)
 	if str(p.get("slot", "")) == "paint":
 		return "owned" if str(fit.get("paint", "")) == str(p.get("paint", "")) else ""
 	if has_part(fit, id):
@@ -101,6 +143,23 @@ static func fit_part(fit: Dictionary, id: String) -> bool:
 	return true
 
 
+## Issue #615: in story mode a part may wait until you beat a race crew (its
+## "unlocked_by"). The crew id it waits on, or "" when it is for sale (free roam:
+## always). Racers' own fits never ask.
+static func locked_by(id: String) -> String:
+	if not WorldState.story_mode():
+		return ""
+	var crew := str(part(id).get("unlocked_by", ""))
+	if crew == "" or WorldState.has_flag("crew_beaten_" + crew):
+		return ""
+	return crew
+
+
+## The parts beating `crew` puts on sale.
+static func unlocked_by_crew(crew: String) -> Array:
+	return parts().filter(func(p): return str(p.get("unlocked_by", "")) == crew)
+
+
 ## The speeder's config (content/core/vehicles/speeder.json) with `fit` applied:
 ## stat multipliers, and the Grav Lifter's "hover" block.
 static func apply(base_cfg: Dictionary, fit: Dictionary) -> Dictionary:
@@ -126,4 +185,5 @@ static func apply(base_cfg: Dictionary, fit: Dictionary) -> Dictionary:
 ## What the mechanic pays for the speeder as scrap.
 static func scrap_value(fit: Dictionary) -> int:
 	var s: Dictionary = data().get("scrap", {})
-	return int(s.get("base", 35)) + int(round(float(fit.get("spent", 0)) * float(s.get("parts_back", 0.25))))
+	var base := int(_model_cfg(model_of(fit)).get("scrap_base", s.get("base", 35)))    # issue #627: per model
+	return base + int(round(float(fit.get("spent", 0)) * float(s.get("parts_back", 0.25))))

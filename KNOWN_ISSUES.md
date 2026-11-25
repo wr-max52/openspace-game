@@ -33,6 +33,61 @@ pieces, the party barge blown up (stills in `docs/lookdev/crash/`).
 - **No hook test** (a real vehicle destroyed in a scene starts one crash): the
   probes did it on screen; GUT does not build vehicles with the look on.
 
+## After the cruiser crew (issue #497, 2026-11-25)
+
+**Checked:** `tests/test_cruiser_crew.gut.gd` (6: the crew is unchanged before it
+falls; once taken and the dark master is gone, 8 locals on bay and bridge posts,
+not shoot-on-sight, lending to a friend only; nobody while he is aboard; on the
+oath his Remnant on the same posts, on your side, the town still the locals';
+breaking the oath empties it until he dies there; the holo and the Map page's
+cruiser row show the locals' colour). `test_remnant_cruiser`, `test_cruiser_holo`
+(its place count now includes the cruiser), `test_dark_master`,
+`test_belt_cruiser`, `test_smoke`, `test_ip_neutral`, a headless town boot, and
+probes in the town: with the locals and on the oath, 8 bodies of the right
+faction wake in the bay, leave when you fly off and are back on the next visit;
+rendered stills in `docs/lookdev/cruiser_crew/`.
+
+- **No flash on the Map page.** The holo's cruiser wedge flashes when it
+  changes hands like an outpost; the Map page's cruiser row only changes colour.
+- **Not played:** borrowing a bay ship (the berth is marked borrowed and the
+  standing moves, by code), and a fight with the locals aboard.
+- **The belt cruiser** has no holders block, so it stays empty once taken, as
+  before.
+
+## After the descent fixes, part 3: big builds in pieces (issue #574, 2026-11-24)
+
+**Checked:** `test_smoke`, a headless town boot, and the rendered
+`scenes/descent_trace.tscn` one planet at a time (home, then the moon), 0 script
+errors. Home was run back to back against `main` on the same machine while
+other sessions' Godot probes were using ~160% CPU, so the frame numbers are
+noisy; the per-step times are steadier.
+
+**Fixed (home, same machine, back to back):** worst descent frame 455 → 150 ms,
+frames over 100 ms 13 → 9. `StagedBuild.add_sliced` runs a build as a coroutine
+that yields to the next frame once the frame's budget is spent; under
+`run_all()` (a normal arrival, the tests) it never yields. Cut into pieces: the
+party barge and its look (~330 ms on one frame before), the droids (~170), the
+club room (~160), the town's merged meshes and colliders (~110; the colliders
+are now Props bodies of 48 shapes), the garrisons (~96), the cruiser (~65). A
+native camp is now a queue job per tent: the two "~220 ms frames near 5.1-5.4 km
+with no step on them" were the camps (~128 ms each, inside `native_bodies`).
+
+**Not done, honestly (still over the issue's budget):**
+- More frames between 50 and 100 ms than before (46 → 65): each big build is
+  now 5-10 pieces, and single pieces still take 20-60 ms (the barge's skin and
+  portholes, a cantina body, the barracks dressing, the general's squad).
+- Outposts: ~110 pieces of 16-30 ms (an NPC body ~23, nav ~21, room ~24, ground
+  ~29). Making a body cheaper is its own job.
+- The switch frame: ~190-230 ms at home (`ShipPilot._ready` ~70-100 ms of it,
+  `CoreContent.load_from` ~11 ms of that, loaded again in ~20 places).
+- The moon: one 290 ms frame at ~765 m with no step on it; the rave's club look
+  still has a ~110 ms piece.
+- A first descent with an empty shader cache (a fresh install) has ~14 s of
+  ~450 ms frames between 2.1 and 1.4 km: shader compiles, once per install.
+- The trace with both routes in one run (its default) floods "Too many instances
+  using shader instance variables" and the second arrival is never seen; run it
+  with `DESCENT_ROUTES=port_desert`, then `grit_station`.
+
 ## After the cruise and the star system (issues #575, #576, 2026-11-14)
 
 **Checked:** `tests/test_star_system.gut.gd` (8: cruise passes today's top

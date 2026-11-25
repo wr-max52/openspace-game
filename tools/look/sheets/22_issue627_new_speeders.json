@@ -1,0 +1,10 @@
+{
+  "title": "Issue #627: the three speeders Skrugs sells, as the game builds them (SpeederNode): the Sand-boxer, and the racer and the box truck as primitive stand-ins until issue #628 renders them",
+  "out": "res://docs/lookdev/vehicles/07_new_speeders_stand_ins.png",
+  "views": ["front34", "side", "rear34", "top"],
+  "cells": [
+    { "name": "sandboxer", "label": "Atlantium Sand-boxer (steel)", "speeder": "speeder", "paint": "steel" },
+    { "name": "racer", "label": "Korvane Stiletto (racer, stand-in)", "speeder": "racer" },
+    { "name": "hauler", "label": "Ironbridge Boxcar (box truck, stand-in)", "speeder": "hauler" }
+  ]
+}

@@ -207,6 +207,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 	_street(cantina.end, xi1, sh)
 	_guards(guards, cantina, xi1, sh, district_x0, tower)
 	_roamers(roamers, float(cantina.end), xi1 - wt, sh)
+	_street_patrol(float(cantina.end), xi1 - wt)
 	_lots(xi0, xi1, zi0, zi1, sh, residents)
 	var zones := _zone_list(xi0, xi1, zi0, zi1, sh)
 	var klaxon := ""
@@ -536,6 +537,15 @@ func _cantina_homes(cantina: Dictionary, sh: float) -> void:
 	var x := float(cantina.end) - 2.0
 	_core.append(Rect2(x, -(z0 + 6.0), 16.0, 2.0 * (z0 + 6.0)))
 	_zones.append({ "id": "cantina_homes", "min": [x, -(z0 + 6.0)], "max": [x + 16.0, z0 + 6.0] })
+
+
+## Issue #607: the droids' street patrol ("street_patrol", read by DroidController):
+## down the middle of the main street from the cantina door to the gate and back,
+## where nothing stands (the front stalls are past the street's edge).
+func _street_patrol(x_door: float, x_gate: float) -> void:
+	var xa := x_door + 4.0
+	var xb := maxf(xa + 6.0, x_gate - 4.0)
+	_routes.append({ "id": "street_patrol", "points": [[xa, 0.0], [xb, 0.0]] })
 
 
 ## Issue #75: locals who walk the streets (and fight, like every local): loops up

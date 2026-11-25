@@ -228,18 +228,21 @@ func test_one_speeder_to_a_customer() -> void:
 	assert_not_null(post.speeders[0].visual.get_node_or_null("Model"), "the Sand-boxer, not the stand-in")
 
 
+## Issue #627: one of each model; once they own all three he offers none.
 func test_he_does_not_offer_a_second() -> void:
 	var t = _town()
 	var post: SpeederPost = t.speeder_post
 	var brain: NpcBrain = post.spot.brain
 	var open_ids: Dictionary = brain.builder.briefing({ "sale_open": brain._sale_open() }, brain.rel, [], []).ids
 	assert_eq(str(open_ids.sale.get("id", "")), "speeder", "none owned: on sale")
-	WorldState.credits = 1000
-	post.buy()
+	WorldState.credits = 1800
+	post.buy("speeder")
+	post.buy("racer")
+	post.buy("hauler")
 	assert_false(brain._sale_open())
 	var b: Dictionary = brain.builder.briefing({ "sale_open": brain._sale_open() }, brain.rel, [], [])
 	assert_true(b.ids.sale.is_empty(), "an offer_speeder is dropped")
-	assert_string_contains(str(b.message.content), "ALREADY OWN A SPEEDER")
+	assert_string_contains(str(b.message.content), "ALREADY OWN ONE OF EACH")
 	var said := brain.canned_reply("How much for the speeder?")
 	assert_true((said.actions as Array).is_empty(), "no AI: no offer either")
 	assert_eq(str(said.say), str(brain.card.canned.one_only[0]))
@@ -247,8 +250,8 @@ func test_he_does_not_offer_a_second() -> void:
 	t.bar.start_talk(post.spot)
 	brain.sale_offered.emit({ "id": "speeder", "name": "speeder", "price": 100 })
 	t.bar.panel.answer_card(true)
-	assert_eq(WorldState.credits, 900)
-	assert_eq(post.speeders.size(), 1)
+	assert_eq(WorldState.credits, 1000)
+	assert_eq(post.speeders.size(), 3)
 	t.bar.end_talk()
 
 

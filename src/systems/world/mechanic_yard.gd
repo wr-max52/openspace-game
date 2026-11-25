@@ -123,10 +123,25 @@ func _tick_focus() -> void:
 		and absf(p.y - at.y) <= 2.0 and (gear == null or gear.focus.is_empty())
 	if not in_reach:
 		return
+	var pot := WorldState.count("race_winnings")
 	if gear != null and gear.hud != null:
-		gear.hud.set_prompt(shop.label("talk") % npc_name())
+		gear.hud.set_prompt(RaceCrew.rule_text("collect") % pot if pot > 0 else shop.label("talk") % npc_name())
 	if not player.locked and InputMap.has_action("interact") and Input.is_action_just_pressed("interact"):
-		talk()
+		if pot > 0:
+			collect_winnings()
+		else:
+			talk()
+
+
+## Issue #611: he holds the pot for the speeder races; you collect it here.
+## Returns the credits paid.
+func collect_winnings() -> int:
+	var paid := WorldState.collect_race_winnings()
+	if paid > 0:
+		Sound.play("coin_gain")
+		if gear != null and gear.hud != null:
+			gear.hud.toast(RaceCrew.rule_text("collected") % paid, 3.5)
+	return paid
 
 
 # ------------------------------------------------------------------ the shop (SpeederShop)

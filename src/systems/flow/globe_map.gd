@@ -103,8 +103,27 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			at if at is Vector2 else Vector2(float(at[0]), float(at[1])))
 		p["hostile"] = str(pack.get("attitude", "")) == "hostile"
 		out.append(p)
+	out.append_array(race_pins(str(world.get("id", ""))))
 	for t in town:
 		out.append(t)
+	return out
+
+
+## Issue #615: the speeder races you have heard of, at their start lines (map
+## coordinates: a course's gates are plateau x,z like the landmarks).
+static func race_pins(world_id: String) -> Array:
+	var out: Array = []
+	if kind_cfg("race").is_empty():
+		return out
+	for c in RaceCrew.crews_for(world_id):
+		if not RaceCrew.heard_of(c):
+			continue
+		var course := RaceCourse.load_course(str(c.get("course", "")))
+		var gates: Array = course.get("gates", [])
+		if gates.is_empty():
+			continue
+		var at: Array = gates[0].at
+		out.append(_pin("race_" + str(c.id), "race", _cap(str(course.get("label", c.id))), Vector2(float(at[0]), float(at[1]))))
 	return out
 
 
@@ -195,7 +214,9 @@ static func off_planet(bodies: Array, world: Dictionary) -> Array:
 			"label": label if label != "" else str(b.id).capitalize(), "target": "planet:" + str(b.id) })
 	for lm in world.get("landmarks", []):
 		if str(lm.get("kind", "")) == "cruiser":
-			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser" })
+			# Issue #497: coloured by who holds it (the locals' green once they do).
+			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser",
+				"owner": CruiserHolo.owner_of(CruiserHolo.CRUISER) })
 	return out
 
 

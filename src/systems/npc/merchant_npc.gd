@@ -16,7 +16,11 @@ var anim := BodyAnimator.new()
 var look_at_target: Node3D
 var mood_act := "idle"                ## "idle" | "thinking" | "talking"
 var move_speed := 0.0                 ## m/s while someone walks him (the general leaving the pit): his legs walk
+var hit_body: TalkHit                 ## issue #606: bolts find him (hit marker, flinch), no damage
+var _flinch := 0.0
 var _act_left := 0.0
+var cower_left := 0.0                 ## issue #605: seconds he stays down behind his stall (shooting nearby)
+var _noise_id := -1
 var _talk_energy := 0.0
 var _t := 0.0
 
@@ -39,12 +43,18 @@ func _init(character_kit: CharacterKit = null, archetype: String = "local", outf
 		mi.position = Vector3(0, 0.9, 0)
 		add_child(mi)
 		body = mi
+	hit_body = TalkHit.make(self)
 
 
 ## TalkSpot's hook: "idle", "thinking", "talking" (anything else idles).
 func act_named(n: String, seconds: float = 0.0) -> void:
 	mood_act = n if n in ["thinking", "talking"] else "idle"
 	_act_left = seconds
+
+
+## Issue #606: shot or cut (TalkHit): a jolt back through the chest.
+func flinch() -> void:
+	_flinch = 1.0
 
 
 ## Pulse while words stream in (drives the nods and gestures).
@@ -54,16 +64,34 @@ func speak_pulse() -> void:
 	_act_left = 1.2
 
 
+## Issue #605: down behind the stall while there is shooting near (Scatter); no
+## trade or talk till it has been quiet for quiet_s (ConversationHost asks).
+func cowering() -> bool:
+	return cower_left > 0.0
+
+
+func _hear(dt: float) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	cower_left = maxf(0.0, cower_left - dt)
+	var got: Array = Scatter.newest(_noise_id, global_position)
+	_noise_id = int(got[0])
+	if not (got[1] as Dictionary).is_empty():
+		cower_left = Scatter.quiet_s()
+
+
 func _process(dt: float) -> void:
 	_t += dt
+	_hear(dt)
 	if _act_left > 0.0:
 		_act_left -= dt
 		if _act_left <= 0.0 and mood_act != "thinking":
 			mood_act = "idle"
 	_talk_energy = maxf(0.0, _talk_energy - dt * 2.5)
+	_flinch = maxf(0.0, _flinch - dt * 4.0)
 	if joints.is_empty():
 		return
-	var out := anim.step(dt, { "speed": move_speed, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER })
+	var out := anim.step(dt, { "speed": move_speed, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER, "crouch": cowering() })
 	for jn in out.joints:
 		if joints.has(jn):
 			(joints[jn] as Node3D).rotation_degrees = out.joints[jn]
@@ -96,4 +124,4 @@ func _upper() -> void:
 		# Big salesman hands.
 		kit.reach(body, "r", Vector3(-0.3, -0.02 + 0.1 * sin(_t * 3.2), 0.36 + 0.06 * sin(_t * 2.1)), Vector3(-0.6, -0.5, -0.4))
 		kit.reach(body, "l", Vector3(0.3, -0.05 + 0.08 * sin(_t * 2.7 + 1.0), 0.32), Vector3(0.6, -0.5, -0.4))
-	chest.rotation_degrees.x += 1.0 * sin(_t * 1.3)
+	chest.rotation_degrees.x += 1.0 * sin(_t * 1.3) - 14.0 * _flinch

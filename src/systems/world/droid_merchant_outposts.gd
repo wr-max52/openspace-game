@@ -192,47 +192,9 @@ func _table_wares(root: Node3D, top: Vector3, size: Vector3, mats: LookMaterials
 ## house: a mast, three cross-arm tiers, two auxiliary whips, bracing and beacons.
 func _antenna_array(root: Node3D, height: float, style: String, steel: Material,
 		dark: Material, trim: Material, glow: Material, beacon: Material) -> void:
-	var roof_y := 3.55
-	var base := Vector3(-1.2, roof_y, -0.7)
-	_part(root, _box(Vector3(1.3, 0.24, 1.3)), dark, base + Vector3(0, 0.12, 0))
-	var mast_y := height * 0.5
-	_rod(root, 0.09, height, steel, base + Vector3(0, mast_y, 0), Vector3.UP)
-	for side in [-1.0, 1.0]:
-		_rod(root, 0.045, height * 0.83, trim,
-			base + Vector3(side * 0.35, height * 0.415, 0), Vector3(side * 0.04, 1, 0).normalized())
-	var span := 3.4 if style == "wide" else 2.7
-	for tier in 3:
-		var y := height * (0.3 + tier * 0.25)
-		var tier_span := span if tier == 1 or style == "wide" else span * 0.68
-		_rod(root, 0.055 if tier == 1 else 0.04, tier_span, steel,
-			base + Vector3(0, y, 0), Vector3.RIGHT)
-		_rod(root, 0.04, 0.95, dark, base + Vector3(0, y + 0.28, 0), Vector3.FORWARD)
-		for side in [-1.0, 1.0]:
-			_rod(root, 0.027, 0.8, trim,
-				base + Vector3(side * tier_span * 0.31, y - 0.22, 0),
-				Vector3(side * 0.45, 1, 0).normalized())
-			_part(root, _box(Vector3(0.13, 0.22, 0.13)),
-				glow if tier == 2 else dark, base + Vector3(side * tier_span * 0.5, y, 0))
-	for side in [-1.0, 1.0]:
-		var wing := base + Vector3(side * 1.35, height * 0.15, 0.2)
-		_rod(root, 0.035, height * 0.48, steel,
-			wing + Vector3(0, height * 0.24, 0), Vector3.UP)
-		_rod(root, 0.025, 1.0, trim, wing + Vector3(0, height * 0.48, 0), Vector3.FORWARD)
-		_rod(root, 0.022, Vector3(0.9, height * 0.35, 0).length(), dark,
-			base + Vector3(side * 0.32, height * 0.12, 0),
-			Vector3(side * 0.9, height * 0.35, 0).normalized())
-	_part(root, _box(Vector3(0.32, 0.38, 0.32)), trim, base + Vector3(0, height + 0.18, 0))
-	_part(root, _box(Vector3(0.24, 0.24, 0.24)), beacon, base + Vector3(0, height + 0.48, 0))
-	# The dish is a small directional receiver below the top array.
-	var dish := CylinderMesh.new()
-	dish.top_radius = 0.08
-	dish.bottom_radius = 0.72
-	dish.height = 0.22
-	dish.radial_segments = 12
-	_part(root, dish, steel, base + Vector3(0, height * 0.72, -0.28),
-		Basis(Vector3.RIGHT, deg_to_rad(68.0)))
-	_part(root, _box(Vector3(0.11, 1.1, 0.11)), trim,
-		base + Vector3(0, height * 0.72 + 0.52, -0.28))
+	# Issue #610: the array is RelayAntenna now, shared with the race gates.
+	RelayAntenna.build(root, height, style,
+		{ "steel": steel, "dark": dark, "trim": trim, "glow": glow, "beacon": beacon }, Vector3(-1.2, 3.55, -0.7))
 
 
 func _rod(root: Node3D, radius: float, length: float, mat: Material, at: Vector3,

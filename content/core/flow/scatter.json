@@ -1,0 +1,9 @@
+{
+  "note": "Issue #605: people who do not fight (the station's crowd, the town's locals while their alarm is down: residents, cantina and club patrons, dancers, the band, stall keepers; the party barge's dancers and band; the talk-only NPCs: merchants, the mechanic, the cantina owner) scatter when shooting starts near them. Read by src/systems/ai/scatter.gd. They hear any noise in NoiseEvents of a kind in 'kinds' within its own radius times 'reach_mult' (a shot carries 45 m, a guard's 50, a grenade 90); on the station only on the same floor ('floor_dy' metres). Walkers run (at 'run_mult' times their pace) to cover within 'cover_m' metres and crouch there; people at a post (behind a counter, on the stage) crouch where they stand. Each noise they hear restarts their 'quiet_s' seconds; once it is quiet that long they stand up and go back to what they were doing. While they hide they will not trade or talk. Shots on the training range (shot_range) scare nobody.",
+  "kinds": ["shot", "shot_guard", "shot_droid", "shot_guest", "explosion"],
+  "reach_mult": 1.0,
+  "floor_dy": 8.0,
+  "quiet_s": 12.0,
+  "cover_m": 18.0,
+  "run_mult": 2.4
+}

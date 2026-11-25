@@ -199,6 +199,16 @@ func where(target: String) -> Vector3:
 			# A LAN player picked on the F11 map: where they stand now, or their
 			# ship while they sit in it (INF on another planet: the line alone).
 			return NetSession.player_pos(int(id))
+		"mechanic":
+			# Issue #611: Dorrin's counter at his yard in the desert.
+			var y = demo.get("mechanic")
+			if y != null and is_instance_valid(y) and y.found:
+				return y.world_point("customer")
+		"race":
+			# Issue #611: a race's next gate ("race:<course>:<gate>").
+			var rc = demo.race_course(id) if demo.has_method("race_course") else null
+			if rc != null:
+				return rc.gate_pos(int(target.get_slice(":", 2)))
 		"outpost":
 			if demo.outposts != null:
 				for o in demo.outposts.outposts:

@@ -85,6 +85,7 @@ var roused := 0                       ## people swapped for fighters (traces)
 var gangplank_down := true
 var look: Node3D                      ## everything seen; collision stays on the body
 var dressing                          ## BargeLook, with the look layer
+var build_later := false              ## issue #574: the town builds it with build(st), over frames
 var parts: Array = []                 ## { mesh, xf, finish, group }: drawn merged, one mesh a finish
 var external := {}                    ## a trace's panel command: { dial, engage, stop }
 var _ground := Vector3.ZERO           ## the sand point under the middle
@@ -93,6 +94,8 @@ var _lift_to := 0.0
 var _rng := RandomNumberGenerator.new()
 var _t := 0.0
 var _tick := 0
+var cower_left := 0.0                  ## issue #605: seconds the dancers and band stay down (shooting near the barge)
+var _noise_id := -1
 var _L := 40.0
 var _W := 12.0
 var _y := [1.8, 5.2, 8.6]             ## floor tops: steerage, lower, top
@@ -173,6 +176,16 @@ func setup(town_demo, world_ground: WorldGround, planet: Dictionary) -> void:
 
 
 func _ready() -> void:
+	if not build_later:
+		build(null)
+
+
+## Everything the barge is. Issue #574: `st` (a StagedBuild) cuts it into pieces
+## over frames on a handoff; with null it is built at once (from _ready). The body
+## only starts moving and ticking once it is whole.
+func build(st: StagedBuild) -> void:
+	set_physics_process(false)
+	set_process(false)
 	look = Node3D.new()
 	look.name = "Look"
 	add_child(look)
@@ -187,14 +200,17 @@ func _ready() -> void:
 	_measure_lift()
 	_place(0.0)
 	_build_hull()
+	await StagedBuild.slice_of(st)
 	_build_top()
+	await StagedBuild.slice_of(st)
 	_build_below()
 	_plan_people()
 	_build_prompt()
+	await StagedBuild.slice_of(st)
 	if demo != null and bool(demo.get("use_look")):
 		dressing = BargeLook.new()
 		look.add_child(dressing)
-		dressing.build(self)
+		await dressing.build(self, st)
 	else:
 		_flat_look()
 	_draw_range()
@@ -207,6 +223,8 @@ func _ready() -> void:
 		_music.inside_fn = func(p: Vector3) -> bool: return deck_of(p) != ""
 		add_child(_music)
 	_record_xf()
+	set_physics_process(true)
+	set_process(true)
 
 
 # ------------------------------------------------------------------ ground
@@ -522,12 +540,30 @@ func finishes() -> Array:
 func merged(mats: Dictionary) -> Array:
 	var sets := {}
 	for p in parts:
-		var key := "%s|%s" % [p.finish, p.group]
-		if not sets.has(key):
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			sets[key] = st
-		(sets[key] as SurfaceTool).append_from(p.mesh, 0, p.xf)
+		_merge_part(sets, p)
+	return _commit_sets(sets, mats)
+
+
+## Issue #574: merged(), a few parts at a time between slices (`st` may be null).
+func merged_sliced(mats: Dictionary, st: StagedBuild) -> Array:
+	var sets := {}
+	for i in parts.size():
+		_merge_part(sets, parts[i])
+		if i % 16 == 15:
+			await StagedBuild.slice_of(st)
+	return _commit_sets(sets, mats)
+
+
+func _merge_part(sets: Dictionary, p) -> void:
+	var key := "%s|%s" % [p.finish, p.group]
+	if not sets.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		sets[key] = st
+	(sets[key] as SurfaceTool).append_from(p.mesh, 0, p.xf)
+
+
+func _commit_sets(sets: Dictionary, mats: Dictionary) -> Array:
 	var out: Array = []
 	for key in sets:
 		var bits: PackedStringArray = str(key).split("|")
@@ -781,7 +817,15 @@ func _animate(dt: float) -> void:
 			body.rotation.y = 0.3 * sin(t * 1.3)
 			continue
 		var joints: Dictionary = body.get_meta("joints")
-		if p.kind == "dancer":
+		if cower_left > 0.0 and p.kind in ["dancer", "band"]:
+			var cp: Dictionary = BodyAnimatorT.cower_pose()
+			for jn in cp.joints:
+				if joints.has(jn):
+					(joints[jn] as Node3D).rotation_degrees = cp.joints[jn]
+			if joints.has("pelvis"):
+				(joints.pelvis as Node3D).position = Vector3(0.0, float(cp.pelvis_y), 0.0)
+			body.rotation.y = 0.0
+		elif p.kind == "dancer":
 			var pose: Dictionary = BodyAnimatorT.dance_pose(t)
 			for jn in pose.joints:
 				if joints.has(jn):
@@ -1220,11 +1264,25 @@ func _physics_process(dt: float) -> void:
 	var was := global_transform
 	_move(dt)
 	_carry = global_transform * was.affine_inverse()
+	_hear(dt)
 	_animate(dt)
 	_tick_fight(dt)
 	if _tick % 30 == 0:
 		_tick_respawns()
 	_record_xf()
+
+
+## Issue #605: shooting near the barge (any noise Scatter counts): the dancers and
+## the band get down on the deck until it has been quiet for quiet_s. The music
+## plays on.
+func _hear(dt: float) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	cower_left = maxf(0.0, cower_left - dt)
+	var got: Array = Scatter.newest(_noise_id, global_position)
+	_noise_id = int(got[0])
+	if not (got[1] as Dictionary).is_empty():
+		cower_left = Scatter.quiet_s()
 
 
 ## Note this tick's resting transform for render smoothing (BargeLook draws
