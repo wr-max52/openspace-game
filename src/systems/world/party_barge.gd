@@ -85,6 +85,7 @@ var roused := 0                       ## people swapped for fighters (traces)
 var gangplank_down := true
 var look: Node3D                      ## everything seen; collision stays on the body
 var dressing                          ## BargeLook, with the look layer
+var build_later := false              ## issue #574: the town builds it with build(st), over frames
 var parts: Array = []                 ## { mesh, xf, finish, group }: drawn merged, one mesh a finish
 var external := {}                    ## a trace's panel command: { dial, engage, stop }
 var _ground := Vector3.ZERO           ## the sand point under the middle
@@ -173,6 +174,16 @@ func setup(town_demo, world_ground: WorldGround, planet: Dictionary) -> void:
 
 
 func _ready() -> void:
+	if not build_later:
+		build(null)
+
+
+## Everything the barge is. Issue #574: `st` (a StagedBuild) cuts it into pieces
+## over frames on a handoff; with null it is built at once (from _ready). The body
+## only starts moving and ticking once it is whole.
+func build(st: StagedBuild) -> void:
+	set_physics_process(false)
+	set_process(false)
 	look = Node3D.new()
 	look.name = "Look"
 	add_child(look)
@@ -187,14 +198,17 @@ func _ready() -> void:
 	_measure_lift()
 	_place(0.0)
 	_build_hull()
+	await StagedBuild.slice_of(st)
 	_build_top()
+	await StagedBuild.slice_of(st)
 	_build_below()
 	_plan_people()
 	_build_prompt()
+	await StagedBuild.slice_of(st)
 	if demo != null and bool(demo.get("use_look")):
 		dressing = BargeLook.new()
 		look.add_child(dressing)
-		dressing.build(self)
+		await dressing.build(self, st)
 	else:
 		_flat_look()
 	_draw_range()
@@ -207,6 +221,8 @@ func _ready() -> void:
 		_music.inside_fn = func(p: Vector3) -> bool: return deck_of(p) != ""
 		add_child(_music)
 	_record_xf()
+	set_physics_process(true)
+	set_process(true)
 
 
 # ------------------------------------------------------------------ ground
@@ -522,12 +538,30 @@ func finishes() -> Array:
 func merged(mats: Dictionary) -> Array:
 	var sets := {}
 	for p in parts:
-		var key := "%s|%s" % [p.finish, p.group]
-		if not sets.has(key):
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			sets[key] = st
-		(sets[key] as SurfaceTool).append_from(p.mesh, 0, p.xf)
+		_merge_part(sets, p)
+	return _commit_sets(sets, mats)
+
+
+## Issue #574: merged(), a few parts at a time between slices (`st` may be null).
+func merged_sliced(mats: Dictionary, st: StagedBuild) -> Array:
+	var sets := {}
+	for i in parts.size():
+		_merge_part(sets, parts[i])
+		if i % 16 == 15:
+			await StagedBuild.slice_of(st)
+	return _commit_sets(sets, mats)
+
+
+func _merge_part(sets: Dictionary, p) -> void:
+	var key := "%s|%s" % [p.finish, p.group]
+	if not sets.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		sets[key] = st
+	(sets[key] as SurfaceTool).append_from(p.mesh, 0, p.xf)
+
+
+func _commit_sets(sets: Dictionary, mats: Dictionary) -> Array:
 	var out: Array = []
 	for key in sets:
 		var bits: PackedStringArray = str(key).split("|")

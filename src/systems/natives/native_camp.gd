@@ -96,33 +96,49 @@ func _unevenness(c: Vector3) -> float:
 
 ## Everything, at once (a few dozen meshes and shapes; no bodies).
 func build() -> void:
+	for job in build_jobs():
+		job.call()
+
+
+## Issue #574: build() in pieces, a tent each and then the rest, so a staged
+## handoff can make them on separate frames (one camp was ~110 ms on one frame).
+## Each returns true (one piece done).
+func build_jobs() -> Array:
 	var mats: LookMaterials = director.demo._flat_mats() if director.demo != null and director.demo.use_look else null
 	var n := clampi(int(cfg.get("tents", 3)), 1, 6)
 	var ring := float(cfg.get("ring_m", 9.0))
 	var side := NativeSteer._side(up)
 	var fwd := side.cross(up).normalized()
 	var a0 := float(cfg.get("yaw_deg", 0.0)) * PI / 180.0
+	var jobs: Array = []
 	for i in n:
-		var a := a0 + TAU * float(i) / float(n)
-		var at := center + (side * cos(a) + fwd * sin(a)) * ring
+		jobs.append(func() -> bool:
+			var a := a0 + TAU * float(i) / float(n)
+			var at := center + (side * cos(a) + fwd * sin(a)) * ring
+			if director.steer != null:
+				at = director.steer.clear_spot(at, up)
+			var fl := _floor_at(director._on_ground(at))
+			tents.append(_tent(i, fl.at, float(fl.depth), mats))
+			return true)
+	jobs.append(func() -> bool:
+		fires.append(_firepit(center, mats))
+		_props(mats)
+		return true)
+	jobs.append(func() -> bool:
+		# Packs walk round the tents and what lies between them.
 		if director.steer != null:
-			at = director.steer.clear_spot(at, up)
-		var fl := _floor_at(director._on_ground(at))
-		tents.append(_tent(i, fl.at, float(fl.depth), mats))
-	fires.append(_firepit(center, mats))
-	_props(mats)
-	# Packs walk round the tents and what lies between them.
-	if director.steer != null:
-		for t in tents:
-			director.steer.add((t.xf as Transform3D).origin, float(t.r) + 0.3)
-		for i in n:
-			var a := a0 + TAU * (float(i) + 0.5) / float(n)
-			director.steer.add(center + (side * cos(a) + fwd * sin(a)) * ring * 0.95, 1.3)
-	var k := maxi(int(cfg.get("spots", 14)), 1)
-	for i in k:
-		var a := TAU * (float(i) + 0.5) / float(k)
-		var r := 2.6 + float(i % 2) * 1.2
-		spots.append(director._on_ground(center + (side * cos(a) + fwd * sin(a)) * r))
+			for t in tents:
+				director.steer.add((t.xf as Transform3D).origin, float(t.r) + 0.3)
+			for i in n:
+				var a := a0 + TAU * (float(i) + 0.5) / float(n)
+				director.steer.add(center + (side * cos(a) + fwd * sin(a)) * ring * 0.95, 1.3)
+		var k := maxi(int(cfg.get("spots", 14)), 1)
+		for i in k:
+			var a := TAU * (float(i) + 0.5) / float(k)
+			var r := 2.6 + float(i % 2) * 1.2
+			spots.append(director._on_ground(center + (side * cos(a) + fwd * sin(a)) * r))
+		return true)
+	return jobs
 
 
 ## A tent's floor: { at, depth }. Level with the highest ground under it (up to

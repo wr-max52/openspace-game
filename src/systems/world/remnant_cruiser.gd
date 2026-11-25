@@ -89,17 +89,32 @@ func setup(town_demo, world_ground: WorldGround, lm: Dictionary = {}) -> void:
 	vessel_name = NameHooks.vessel(cfg, "vessel:" + id)
 
 
+var build_later := false              ## issue #574: the town calls build(st) itself, over frames
+
+
 func _ready() -> void:
+	if not build_later:
+		build(null)
+
+
+## Issue #574: `st` (a StagedBuild, may be null) spreads the look over frames; the
+## cruiser only ticks once it is whole.
+func build(st: StagedBuild) -> void:
+	set_process(false)
+	set_physics_process(false)
 	_hull = Node3D.new()
 	_hull.name = "Hull"
 	add_child(_hull)
 	_hull.transform = frame
 	if demo.use_look:
-		_build_look()
+		await _build_look(st)
 	_build_shield()
 	_park_ships()
+	await StagedBuild.slice_of(st)
 	_bake_nav()
 	_build_label()
+	set_process(true)
+	set_physics_process(true)
 
 
 # ------------------------------------------------------------------ queries
@@ -573,7 +588,7 @@ func _build_shield() -> void:
 
 # ------------------------------------------------------------------ the look
 
-func _build_look() -> void:
+func _build_look(st: StagedBuild = null) -> void:
 	var noise: Texture2D = demo._flat_mats().noise
 	for f in FINISHES:
 		if f == "pad":
@@ -606,9 +621,13 @@ func _build_look() -> void:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.extra_cull_margin = 50.0
 		_hull.add_child(mi)
+		await StagedBuild.slice_of(st)
 	_engines()
+	await StagedBuild.slice_of(st)
 	_globes()
+	await StagedBuild.slice_of(st)
 	_turrets()
+	await StagedBuild.slice_of(st)
 	_lights()
 
 
