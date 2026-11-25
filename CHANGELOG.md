@@ -2,6 +2,56 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7, rebuilt (2026-11-25)
+
+- **OpenSpace V1.7 is rebuilt** with everything merged since the first V1.7
+  build (Nov 24, 8:35 pm PT): the entries above the old "New version is 1.7"
+  line, now all below this one. Everything below, down to "New version is
+  1.6.4", is in it.
+
+## Rocks: tall spires, climbable mountains, tunnels and the Salt Flats range (2026-11-25)
+
+- **Rocks spread all round the planet.** Boulders, the old hoodoos (now half
+  their height) and new tall sandstone spires stand everywhere on the ball,
+  not just near the town; no more of them than before.
+- **The big flat-topped rocks are climbable mountains**: stacks of shelves
+  with a walkable ramp and a jump-stair up to each one, caves cut into the
+  foot, rock columns and loose boulders to hop between.
+- **Tunnel mountains**: a few have a big arched tunnel right through them,
+  wide enough for the box truck with room to spare.
+- **The Salt Flats run through a range.** The salt crew's course (the last
+  race on the ladder) now goes through a long curving tunnel under three
+  peaks, with a checkpoint at each end and one in the middle, and runner
+  lights along the walls.
+- **Walking is steadier far from town.** The player (and every NPC) no longer
+  sticks fast on the seam of a long rock ramp kilometres out.
+
+## Also in the V1.7 rebuild (2026-11-25)
+
+- **Map:** every cruiser shows on the star system chart with its own badge.
+- **Stolen speeders:** a stolen gate speeder ends up yours or clearly not;
+  race crews take a stolen speeder, and race pins point at the crew.
+- **Races:** [Z] after a race goes again for the same stake; less lag in
+  speeder races; the yard crew park side by side.
+- **Speeders:** Dorrin sells every model; Skrugs keeps a racer and throws
+  grenades at thieves. The racer and box truck have proper bodies and paint
+  jobs, and you sit at the racer's yoke.
+- **The market:** a sellers' yard by the pit, an L-shaped lamp street and a
+  crooked bazaar.
+- **Death:** a flash as you're hit, a fall from above, "Defeated", then the
+  port.
+- **Menus hold you still** (W/S move the cursor, not you); inventory items,
+  ships and speeders get silhouette icons.
+- **Combat:** thinner, faster hand-gun bolts and NPCs fire less often; no
+  orange tip on the pistol and rifle; a hostile pack stops hunting past its
+  leash.
+- **People:** troopers, the dark master and pack children are their own
+  height again.
+- **Looks and speed:** the fine sand under a landing ship waits until 1.5 km
+  up; moons from far off are smooth painted spheres; vehicle textures use a
+  quarter of the video memory.
+- **Story:** the droid merchant wants one cargo droid, not three.
+
 ## Race pots paid at the finish, and race quests (2026-11-25)
 
 - **Win a speeder race and the pot is yours at once.** The credits go straight
@@ -79,11 +129,6 @@ Plain English, newest on top. One entry per milestone.
   Cannon upgrades are now +25% and +50% (were +30% and +70%).
 - Race drivers in a box truck no longer stall their own speed up by drifting
   on the straights.
-
-## New version is 1.7 (2026-11-24)
-
-- Share builds are now **OpenSpace V1.7**. Everything below, down to "New
-  version is 1.6.4", is in it.
 
 ## Seamless flight: cruise between planets, and a sun in the middle (issues #575 and #576, 2026-11-15)
 
