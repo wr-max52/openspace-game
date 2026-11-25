@@ -375,23 +375,35 @@ func build_gates() -> void:
 		for side: float in [-1.0, 1.0]:
 			var x := side * float(g.half)
 			lamps.append_array(RelayAntenna.build(root, h, "narrow", mats, Vector3(x, _sand_y(g, x), 0.0), false))
-		# The strip follows the sand across the gap in short pieces (a dune slope
-		# would bury one long bar).
-		var sh := float(lk.get("strip_height", 0.45))
-		var pieces := int(lk.get("strip_pieces", 6))
-		var span := float(g.half) * 2.0 - 1.4
-		var piece := span / float(pieces)
-		var strips: Array = []
-		for k in pieces:
-			var x := -span * 0.5 + piece * (k + 0.5)
-			var st := RelayAntenna.part(root, RelayAntenna.box(Vector3(piece + 0.05, sh, 0.12)),
-				_mat(rest, "rest_energy", true), Vector3(x, _sand_y(g, x) + sh * 0.5 + float(lk.get("strip_lift", 0.35)), 0.0))
-			st.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			strips.append(st)
+		var strips: Array = [_strip(root, g, _mat(rest, "rest_energy", true))]
 		_gate_roots.append(root)
 		_gate_parts.append({ "lamps": lamps, "strips": strips })
 	for i in _flash:
 		_paint(i, "you" if bool(_flash[i].you) else "pass", "flash_energy")
+
+
+## The beam across a gate: one straight bar from one mast's foot to the other's,
+## tilted with the slope between them. Where the sand between rises over that
+## line, the whole bar lifts just enough to clear it (it never steps).
+func _strip(root: Node3D, g: Dictionary, mat: Material) -> MeshInstance3D:
+	var lk := look()
+	var sh := float(lk.get("strip_height", 0.45))
+	var xl := -float(g.half) + 0.7
+	var xr := float(g.half) - 0.7
+	var yl := _sand_y(g, xl)
+	var yr := _sand_y(g, xr)
+	var bulge := 0.0
+	var samples := int(lk.get("strip_samples", 12))
+	for k in range(1, samples):
+		var t := float(k) / float(samples)
+		bulge = maxf(bulge, _sand_y(g, lerpf(xl, xr, t)) - lerpf(yl, yr, t))
+	var lift := float(lk.get("strip_lift", 0.35)) + bulge
+	var dx := xr - xl
+	var dy := yr - yl
+	var st := RelayAntenna.part(root, RelayAntenna.box(Vector3(sqrt(dx * dx + dy * dy), sh, 0.12)), mat,
+		Vector3((xl + xr) * 0.5, (yl + yr) * 0.5 + sh * 0.5 + lift, 0.0), Basis(Vector3(0, 0, 1), atan2(dy, dx)))
+	st.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return st
 
 
 ## The sand's height `x` metres across gate `g`, in the gate's frame.

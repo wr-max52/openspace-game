@@ -44,7 +44,13 @@ const AUTO := ["bounty", "heist", "smuggle", "supply", "story", "cruiser"]     #
 ## and before it a waypoint set on the F11 map (GlobeMap; only one is ever on).
 ## Then the job the player made the waypoint in the Ledger (pin), then the most
 ## urgent (AUTO). `key` names the job log entry it is ("map" for the F11 map's).
+## Issue #611: set by a race while you race it: { text, target: "race:<course>:<gate>", key }.
+static var race: Dictionary = {}
+
+
 static func current() -> Dictionary:
+	if not race.is_empty():
+		return race                       # issue #611: racing, the pointer is the next gate
 	var mark := GlobeMap.waypoint()
 	if not mark.is_empty():
 		mark["key"] = "map"
