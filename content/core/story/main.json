@@ -69,10 +69,10 @@
       "teller": "cantina_owner",
       "done_on": "droids_delivered",
       "job": "j_droid_merchant",
-      "deliver": { "kind": "cargo", "count": 3 },
-      "skipped": { "counters": { "merchant_droids": 3 } },
-      "intro": "A friend of mine is in need of three cargo droids. You could buy them, or fix some up in the desert. Take them to any of the droid merchants' posts out there. Get that done and I'll tell you about an incredible weapon.",
-      "remind": "My friend still needs %d more cargo droids. Any droid merchant's post in the desert will take them."
+      "deliver": { "kind": "cargo", "count": 1 },
+      "skipped": { "counters": { "merchant_droids": 1 } },
+      "intro": "A friend of mine is in need of a cargo droid. You could buy one, or fix one up in the desert. Take it to any of the droid merchants' posts out there. Get that done and I'll tell you about an incredible weapon.",
+      "remind": "My friend still needs that cargo droid. Any droid merchant's post in the desert will take it."
     },
     {
       "id": "heist",
@@ -155,7 +155,7 @@
       "range": { "text": "Shoot the targets at the range in the landing pit", "target": "range" },
       "remote": { "text": "Try the sparring droid in the pit, then go back to Oda", "target": "remote" },
       "smuggle_1": { "text": "Ask Oda about the drop", "target": "npc:cantina_owner" },
-      "droid_merchant": { "text": "Take cargo droids to the nearest droid merchant's post", "target": "droid_post" },
+      "droid_merchant": { "text": "Take a cargo droid to the nearest droid merchant's post", "target": "droid_post" },
       "heist": { "text": "Ask Oda about the job", "target": "npc:cantina_owner" },
       "bounty": { "text": "Ask Oda about the bounty", "target": "npc:cantina_owner" },
       "fleet": { "text": "Land in the Remnant cruiser's bay, far east in orbit", "target": "cruiser:bay" },

@@ -283,13 +283,10 @@ func test_story_jetpack_lies_on_the_cantina_tower() -> void:
 
 # ---- #212: the droid merchant ----------------------------------------------------------
 
-func test_three_droids_end_the_chapter_and_oda_tells_of_the_blade() -> void:
+func test_one_droid_ends_the_chapter_and_oda_tells_of_the_blade() -> void:
 	Story.skip_to("droid_merchant")
-	assert_eq(Story.droids_wanted(), 3)
+	assert_eq(Story.droids_wanted(), 1)
 	assert_eq(Story.droid_wanted_kind(), "cargo")
-	Story.on_droid_delivered()
-	assert_string_contains(Story.line_of(Story.chapter_cfg(), "remind"), "2 more")
-	Story.on_droid_delivered()
 	Story.on_droid_delivered()
 	assert_eq(Story.chapter(), "heist", "issue #413: the heist comes before the bounty")
 	Story.beat("cantina_owner")

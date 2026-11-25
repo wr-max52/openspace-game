@@ -97,7 +97,7 @@ func test_the_whole_story_in_order() -> void:
 	assert_eq(str(oda.job), "j_smuggle_run", "the first run comes with its job card")
 	_smuggle_run()
 	assert_eq(Story.chapter(), "droid_merchant", "selling the drop ends the first run")
-	# Issue #212: three cargo droids for Oda's friend instead of a second run.
+	# Issue #212: a cargo droid for Oda's friend instead of a second run.
 	for i in 3:
 		Story.on_droid_delivered()
 	assert_eq(Story.chapter(), "heist", "issue #413: the heist before the bounty")
@@ -208,7 +208,7 @@ func test_skipping_ahead_unlocks_what_playing_would() -> void:
 	assert_eq(int(Story.chapter_cfg("bounty").skipped.credits), int(Story.bounty_cfg().first_pay), "the first bounty's pay")
 	assert_eq(WorldState.credits, c0 + int(Story.chapter_cfg("remote").pays) + int(Story.bounty_cfg().first_pay))
 	assert_true(GearUpgrades.open_offers().any(func(o): return str(o.id) == "quantonium_armour"), "the fence sells the armour")
-	assert_eq(WorldState.count("merchant_droids"), 3)
+	assert_eq(WorldState.count("merchant_droids"), 1)
 	assert_eq(str(WorldState.jobs_taken.get("j_droid_merchant", "")), "done", "the droid merchant's card is not left open")
 	assert_false(WorldState.open_jobs("confidant").any(func(j): return str(j.id) == "j_droid_merchant"))
 	assert_eq(Quests.state("tower_blade"), "open", "the blade on the tower is offered")
