@@ -78,7 +78,6 @@ var gear: SpeederGear                ## issue #616: seekers, mines, deflector (t
 ## the config's sleep_distance, so owning one of each costs what one did.
 var asleep := false
 var parked_steps := 0                ## hover steps taken while parked (tests)
-var hover_steps := 0                 ## issue #617: the same count, as the pink-slip tests read it
 ## Issue #618: a race's finish cam takes the camera while this is on.
 var cam_override_on := false
 var cam_override := Transform3D.IDENTITY
@@ -298,7 +297,6 @@ func _physics_process(dt: float) -> void:
 		parked_steps += 1
 		for e in model.step(dt):
 			log_events.append(e)
-		hover_steps += 1
 		_sync()
 	_carry_riders()
 
