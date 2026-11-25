@@ -141,12 +141,19 @@ func test_its_floors_tunnels_and_bay_stand() -> void:
 		var c: Vector2 = t.c
 		for f in t.floors:
 			pts["%s_%s_walkway" % [t.id, f.id]] = Vector3(c.x + h.gap_r + 3.0, float(f.y), c.y + 1.0)
-			pts["%s_%s_glass" % [t.id, f.id]] = Vector3(c.x + 8.0, float(f.y), c.y + 4.0)
 			pts["%s_%s_outer" % [t.id, f.id]] = Vector3(c.x - float(f.r) + 4.0, float(f.y), c.y + 2.0)
 	for k in pts:
 		var w: Vector3 = xf * ((pts[k] as Vector3) + Vector3(0, 1.0, 0))
 		assert_almost_eq(g.height_above(w), 1.0, 0.35, "%s stands" % k)
 		assert_true(h.aboard(xf.affine_inverse() * w), "%s is aboard" % k)
+	# Issue #603: the gap round the shaft is a shield, not glass: nothing to stand on there.
+	for t in h.towers:
+		var c: Vector2 = t.c
+		for f in t.floors:
+			var w: Vector3 = xf * Vector3(c.x + 8.0, float(f.y) + 1.0, c.y + 4.0)
+			assert_gt(g.height_above(w), 5.0, "%s_%s: the gap's shield floor is no floor" % [t.id, f.id])
+	assert_eq(h.gap_shields.size(), h.towers.reduce(func(n, t): return n + (t.floors as Array).size() + 1, 0),
+		"a gap shield on every floor, and one over each top floor")
 	assert_false(h.aboard(Vector3(30, 20, 0)), "between floors is space")
 	assert_false(h.aboard(Vector3(0, 40, 300)), "and so is out past the towers")
 

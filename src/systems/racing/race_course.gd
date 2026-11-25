@@ -376,7 +376,7 @@ func build_gates() -> void:
 		for side: float in [-1.0, 1.0]:
 			var x := side * float(g.half)
 			lamps.append_array(RelayAntenna.build(root, h, "narrow", mats, Vector3(x, _sand_y(g, x), 0.0), false))
-		var strips: Array = [_strip(root, g, _mat(rest, "rest_energy", true))]
+		var strips: Array = _strip(root, g, _mat(rest, "rest_energy", true))
 		_gate_roots.append(root)
 		_gate_parts.append({ "lamps": lamps, "strips": strips })
 	for i in _flash:
@@ -408,14 +408,17 @@ func refresh_record() -> void:
 	record_label.text = "%s\nBEST LAP %s" % [label().to_upper(), RaceCrew.clock(best)]
 
 
-## The beam across a gate: one straight bar from one mast's foot to the other's,
-## tilted with the slope between them. Where the sand between rises over that
-## line, the whole bar lifts just enough to clear it (it never steps).
-func _strip(root: Node3D, g: Dictionary, mat: Material) -> MeshInstance3D:
+## The beam across a gate: one straight bar between two emitters clamped to the
+## masts, tilted with the slope between them. Where the sand between rises over
+## that line, the whole bar (and its emitters) lifts just enough to clear it.
+## Returns the parts that light up with the gate: the beam and both emitters' lenses.
+func _strip(root: Node3D, g: Dictionary, mat: Material) -> Array:
 	var lk := look()
 	var sh := float(lk.get("strip_height", 0.45))
-	var xl := -float(g.half) + 0.7
-	var xr := float(g.half) - 0.7
+	var em: Dictionary = lk.get("emitter", {})
+	var reach := float(em.get("reach", 0.85))        # mast to the lens face
+	var xl := -float(g.half) + reach
+	var xr := float(g.half) - reach
 	var yl := _sand_y(g, xl)
 	var yr := _sand_y(g, xr)
 	var bulge := 0.0
@@ -429,7 +432,30 @@ func _strip(root: Node3D, g: Dictionary, mat: Material) -> MeshInstance3D:
 	var st := RelayAntenna.part(root, RelayAntenna.box(Vector3(sqrt(dx * dx + dy * dy), sh, 0.12)), mat,
 		Vector3((xl + xr) * 0.5, (yl + yr) * 0.5 + sh * 0.5 + lift, 0.0), Basis(Vector3(0, 0, 1), atan2(dy, dx)))
 	st.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return st
+	var lit: Array = [st]
+	lit.append(_emitter(root, g, -1.0, yl + sh * 0.5 + lift, mat, em))
+	lit.append(_emitter(root, g, 1.0, yr + sh * 0.5 + lift, mat, em))
+	return lit
+
+
+## One end of the beam: a bracket off the mast, a steel housing pointing across
+## the gate, and a lens that glows with the beam. `side` -1 left mast, 1 right;
+## `y` the beam's centre height at that end. Returns the lens.
+func _emitter(root: Node3D, g: Dictionary, side: float, y: float, beam: Material, em: Dictionary) -> MeshInstance3D:
+	var mast := side * float(g.half)
+	var reach := float(em.get("reach", 0.85))
+	var r := float(em.get("radius", 0.3))
+	var body := float(em.get("length", 0.5))
+	var arm := reach - body                         # mast to the housing's back
+	RelayAntenna.part(root, RelayAntenna.box(Vector3(arm + 0.1, 0.14, 0.16)), _plain("dark"),
+		Vector3(mast - side * arm * 0.5, y, 0.0))
+	RelayAntenna.part(root, RelayAntenna.box(Vector3(0.12, r * 2.3, 0.2)), _plain("dark"),
+		Vector3(mast - side * 0.02, y, 0.0))          # the clamp round the mast
+	RelayAntenna.rod(root, r, body, _plain("steel"), Vector3(mast - side * (arm + body * 0.5), y, 0.0), Vector3.RIGHT)
+	RelayAntenna.rod(root, r * 1.12, 0.08, _plain("trim"), Vector3(mast - side * (reach - 0.06), y, 0.0), Vector3.RIGHT)
+	var lens := RelayAntenna.rod(root, r * 0.82, 0.05, beam, Vector3(mast - side * (reach + 0.01), y, 0.0), Vector3.RIGHT)
+	lens.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return lens
 
 
 ## The sand's height `x` metres across gate `g`, in the gate's frame.

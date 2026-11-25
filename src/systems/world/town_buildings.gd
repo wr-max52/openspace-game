@@ -121,44 +121,88 @@ func solid_part(mesh: Mesh, mat: Material, pos: Vector3, basis: Basis = Basis.ID
 func flush(parent: Node3D) -> int:
 	var n := 0
 	for key in _groups:
-		var g: Array = _groups[key]
-		var xfs: Array = g[2]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = g[0]
-		mm.instance_count = xfs.size()
-		for i in xfs.size():
-			mm.set_instance_transform(i, xfs[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.material_override = g[1]
-		parent.add_child(mmi)
-		n += xfs.size()
+		n += _flush_group(parent, _groups[key])
 	_groups.clear()
 	solids = _solids.size() + _cyls.size()
-	var has := not _solids.is_empty() or not _cyls.is_empty()
-	if has:
-		var body := StaticBody3D.new()
-		body.name = "Props"
+	if not _solids.is_empty() or not _cyls.is_empty():
+		var body := _props_body()
 		for sp in _solids:
-			var cs := CollisionShape3D.new()
-			var shape := BoxShape3D.new()
-			shape.size = sp[1]
-			cs.shape = shape
-			cs.transform = sp[0]
-			body.add_child(cs)
+			body.add_child(_box_shape(sp))
 		for d in _cyls:
-			var cs := CollisionShape3D.new()
-			var shape := CylinderShape3D.new()
-			shape.radius = d[1]
-			shape.height = d[2]
-			cs.shape = shape
-			cs.transform = d[0]
-			body.add_child(cs)
+			body.add_child(_cyl_shape(d))
 		parent.add_child(body)
 		_solids.clear()
 		_cyls.clear()
 	return n
+
+
+## Issue #574: flush() over frames (`st`, may be null): a multimesh a slice, and the
+## colliders as a few Props bodies of SHAPES_PER_BODY, not one body of hundreds
+## added on one frame.
+const SHAPES_PER_BODY := 48
+func flush_sliced(parent: Node3D, st: StagedBuild) -> int:
+	var n := 0
+	for key in _groups.keys():
+		n += _flush_group(parent, _groups[key])
+		await StagedBuild.slice_of(st)
+	_groups.clear()
+	solids = _solids.size() + _cyls.size()
+	var shapes: Array = []
+	for sp in _solids:
+		shapes.append(_box_shape(sp))
+	for d in _cyls:
+		shapes.append(_cyl_shape(d))
+	_solids.clear()
+	_cyls.clear()
+	var i := 0
+	while i < shapes.size():
+		var body := _props_body()
+		for cs in shapes.slice(i, i + SHAPES_PER_BODY):
+			body.add_child(cs)
+		parent.add_child(body)
+		i += SHAPES_PER_BODY
+		await StagedBuild.slice_of(st)
+	return n
+
+
+func _flush_group(parent: Node3D, g: Array) -> int:
+	var xfs: Array = g[2]
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = g[0]
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = g[1]
+	parent.add_child(mmi)
+	return xfs.size()
+
+
+static func _props_body() -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = "Props"
+	return body
+
+
+static func _box_shape(sp: Array) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = sp[1]
+	cs.shape = shape
+	cs.transform = sp[0]
+	return cs
+
+
+static func _cyl_shape(d: Array) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = d[1]
+	shape.height = d[2]
+	cs.shape = shape
+	cs.transform = d[0]
+	return cs
 
 
 # ---------------------------------------------------------------- meshes (cached)
