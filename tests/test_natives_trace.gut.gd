@@ -48,6 +48,13 @@ func test_hostile_and_won_over() -> void:
 	_true("HORN")
 	_true("HOSTILE_ATTACKS")
 	_true("PLAYER_HURT")
+	# Run past the leash with nobody of theirs dead: they stop, the timer goes, and
+	# they do not re-horn every frame (perception latched while their physics is off).
+	_true("LEASH_STANDS_DOWN")
+	assert_eq(int(t.get("LEASH_FLIPS", -1)), 1, "stood down once, not attack/travel/attack...")
+	_true("LEASH_NO_REHORN")
+	_true("LEASH_TIMER_GONE")
+	_true("LEASH_REHUNT", "back in sight: a new hunt")
 	# survive_s from the species data (60 s since fb47599; it was five minutes).
 	var sp = JSON.parse_string(FileAccess.get_file_as_string("res://content/core/species/dune_nomads.json"))
 	var survive := float(sp.hostile.survive_s)

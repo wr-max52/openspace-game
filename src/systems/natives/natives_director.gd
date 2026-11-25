@@ -927,10 +927,19 @@ func start_attack(p: Dictionary) -> void:
 	_toast(_line("horn") % str(p.label))
 
 
+## Lost you (past the leash, downed, flown off): back to their route, the hunt and
+## its timer over. Their eyes forget you too: past far_lod_m a member's physics is
+## off, so its perception never decays, and a latched "noticed" would blow the horn
+## again the next frame (attack, leash, attack... the timer stuck on screen). They
+## have to see you again, close, to start a new hunt.
 func _stand_down(p: Dictionary) -> void:
 	p.state = "travel"
 	p.attack_t = 0.0
 	for m in alive(p):
+		var per = (m.npc as NpcBody).perception
+		per.awareness = 0.0
+		per.noticed = false
+		per.visible = false
 		(m.npc as NpcBody).hostile = false
 		(m.npc as NpcBody).aim_point = Vector3.INF
 		m.erase("release")
