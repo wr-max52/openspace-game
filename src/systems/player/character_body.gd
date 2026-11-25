@@ -31,6 +31,9 @@ var piloting := false
 ## Issue #55: while piloting, the SpeederNode or ShipPilot you are in (null on
 ## foot). The garrison asks it whether it is a threat in town and where its hull is.
 var vehicle: Node = null
+## The speeder you last got off (SpeederNode.dismount), so a race crew counts the
+## one you rode over on even when it is not one you own (a stolen gate speeder).
+var last_vehicle: Node = null
 var hits_taken := 0
 
 ## M15: health. Regenerates after regen_delay_s without a hit; `downed` at zero.

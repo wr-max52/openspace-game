@@ -183,6 +183,8 @@ func dismount() -> bool:
 	var spot := _exit_spot()
 	p.piloting = false
 	p.vehicle = null
+	if "last_vehicle" in p:
+		p.last_vehicle = self
 	p.locked = false
 	p.process_mode = Node.PROCESS_MODE_INHERIT
 	p.visible = true

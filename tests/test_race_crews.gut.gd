@@ -124,3 +124,24 @@ func test_the_map_shows_the_races_you_have_heard_of() -> void:
 	WorldState.set_flag("crew_beaten_yard")
 	assert_true(ids.call().has("race_basin"), "beat them: they tell you of the basin crew")
 	assert_false(ids.call().has("race_salt"))
+
+
+## Bug: the race pin sat on the empty start line, 100-300 m from the crew you
+## have to talk to. It sits where the leader stands now.
+func test_the_race_pin_is_where_the_crew_stand() -> void:
+	WorldState.counters["speeders_owned"] = 1
+	WorldState.set_flag("crew_beaten_yard")
+	WorldState.set_flag("crew_beaten_basin")
+	var world = JSON.parse_string(FileAccess.get_file_as_string("res://content/core/worlds/port_desert.json"))
+	var pins := GlobeMap.race_pins("port_desert", world)
+	assert_eq(pins.size(), 3, "all three races heard of")
+	for p in pins:
+		var c := RaceCrew.load_crew(str(p.id).trim_prefix("race_"))
+		var near := str(c.hangout.near)
+		var lm: Dictionary = (world.landmarks as Array).filter(func(l): return str(l.get("location", l.id)) == near)[0]
+		var hang := Vector2(float(lm.at[0]), float(lm.at[2]))
+		var gate: Array = RaceCourse.load_course(str(c.course)).gates[0].at
+		var stand: Array = (c.racers as Array).filter(func(r): return bool(r.get("leader", false)))[0].stand
+		assert_almost_eq((p.map as Vector2).distance_to(hang), Vector2(float(stand[0]), float(stand[1])).length(), 0.5,
+			"%s: the pin is on the leader's spot by their hangout" % p.id)
+		assert_gt((p.map as Vector2).distance_to(Vector2(float(gate[0]), float(gate[1]))), 60.0, "%s: not out on the start line" % p.id)

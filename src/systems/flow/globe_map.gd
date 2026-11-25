@@ -103,15 +103,17 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			at if at is Vector2 else Vector2(float(at[0]), float(at[1])))
 		p["hostile"] = str(pack.get("attitude", "")) == "hostile"
 		out.append(p)
-	out.append_array(race_pins(str(world.get("id", ""))))
+	out.append_array(race_pins(str(world.get("id", "")), world))
 	for t in town:
 		out.append(t)
 	return out
 
 
-## Issue #615: the speeder races you have heard of, at their start lines (map
-## coordinates: a course's gates are plateau x,z like the landmarks).
-static func race_pins(world_id: String) -> Array:
+## Issue #615: the speeder races you have heard of, where the crew's leader stands
+## (you talk to them to race; the start line stays empty until you do). Map
+## coordinates: plateau x,z like the landmarks. Without `world` (or the crew's
+## hangout in it), the course's start line.
+static func race_pins(world_id: String, world: Dictionary = {}) -> Array:
 	var out: Array = []
 	if kind_cfg("race").is_empty():
 		return out
@@ -119,12 +121,33 @@ static func race_pins(world_id: String) -> Array:
 		if not RaceCrew.heard_of(c):
 			continue
 		var course := RaceCourse.load_course(str(c.get("course", "")))
-		var gates: Array = course.get("gates", [])
-		if gates.is_empty():
-			continue
-		var at: Array = gates[0].at
-		out.append(_pin("race_" + str(c.id), "race", _cap(str(course.get("label", c.id))), Vector2(float(at[0]), float(at[1]))))
+		var at := crew_spot(c, world)
+		if at == Vector2.INF:
+			var gates: Array = course.get("gates", [])
+			if gates.is_empty():
+				continue
+			at = Vector2(float(gates[0].at[0]), float(gates[0].at[1]))
+		out.append(_pin("race_" + str(c.id), "race", _cap(str(course.get("label", c.id))), at))
 	return out
+
+
+## Where crew `c`'s leader stands, in map coordinates (RaceCrew._find_hangout's
+## frame: the landmark turned by its yaw_deg), or Vector2.INF if `world` has no
+## such landmark.
+static func crew_spot(c: Dictionary, world: Dictionary) -> Vector2:
+	var near := str(c.get("hangout", {}).get("near", ""))
+	for lm in world.get("landmarks", []):
+		if near == "" or (str(lm.get("location", "")) != near and str(lm.get("id", "")) != near) or not lm.has("at"):
+			continue
+		var racers: Array = c.get("racers", [])
+		var stand := RaceCrew._v2(racers[0].get("stand", [0, 0])) if not racers.is_empty() else Vector2.ZERO
+		for rc in racers:
+			if bool(rc.get("leader", false)):
+				stand = RaceCrew._v2(rc.get("stand", [0, 0]))
+				break
+		var local := Basis(Vector3.UP, deg_to_rad(float(lm.get("yaw_deg", 0.0)))) * Vector3(stand.x, 0.0, stand.y)
+		return Vector2(float(lm.at[0]) + local.x, float(lm.at[2]) + local.z)
+	return Vector2.INF
 
 
 ## A sealed station's places past its first dome (the moon's): the landing pit and
