@@ -162,6 +162,23 @@ const DANCE_LOOP_S := DANCE_SEG_S * DANCE_MOVES
 ## Move i runs on its own clock: it starts DANCE_BLEND_S before its segment so the
 ## crossfade out of the previous move already shows it, and every move is tuned to
 ## begin near upright, facing the audience (or the wall, for the one after the bend).
+static var _cower: Dictionary = {}
+
+
+## Issue #605: crouched still (down on one knee, the crouch the player and the
+## guards use), sampled once and shared: { joints, pelvis_y }. Puppets and the
+## talk-only NPCs take it while they hide from a fight.
+static func cower_pose() -> Dictionary:
+	if _cower.is_empty():
+		var a = load("res://src/systems/anim/body_animator.gd").new()
+		var inp := { "speed": 0.0, "move_local": Vector2.ZERO, "grounded": true, "crouch": true, "upper": UPPER_FREE }
+		var o: Dictionary = {}
+		for i in 120:
+			o = a.step(1.0 / 60.0, inp)
+		_cower = { "joints": o.joints, "pelvis_y": float(o.pelvis_y) }
+	return _cower
+
+
 static func dance_pose(seconds: float) -> Dictionary:
 	var t := fposmod(seconds, DANCE_LOOP_S)
 	var i := int(t / DANCE_SEG_S) % DANCE_MOVES

@@ -17,6 +17,8 @@ var look_at_target: Node3D
 var mood_act := "idle"                ## "idle" | "thinking" | "talking"
 var move_speed := 0.0                 ## m/s while someone walks him (the general leaving the pit): his legs walk
 var _act_left := 0.0
+var cower_left := 0.0                 ## issue #605: seconds he stays down behind his stall (shooting nearby)
+var _noise_id := -1
 var _talk_energy := 0.0
 var _t := 0.0
 
@@ -54,8 +56,25 @@ func speak_pulse() -> void:
 	_act_left = 1.2
 
 
+## Issue #605: down behind the stall while there is shooting near (Scatter); no
+## trade or talk till it has been quiet for quiet_s (ConversationHost asks).
+func cowering() -> bool:
+	return cower_left > 0.0
+
+
+func _hear(dt: float) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	cower_left = maxf(0.0, cower_left - dt)
+	var got: Array = Scatter.newest(_noise_id, global_position)
+	_noise_id = int(got[0])
+	if not (got[1] as Dictionary).is_empty():
+		cower_left = Scatter.quiet_s()
+
+
 func _process(dt: float) -> void:
 	_t += dt
+	_hear(dt)
 	if _act_left > 0.0:
 		_act_left -= dt
 		if _act_left <= 0.0 and mood_act != "thinking":
@@ -63,7 +82,7 @@ func _process(dt: float) -> void:
 	_talk_energy = maxf(0.0, _talk_energy - dt * 2.5)
 	if joints.is_empty():
 		return
-	var out := anim.step(dt, { "speed": move_speed, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER })
+	var out := anim.step(dt, { "speed": move_speed, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER, "crouch": cowering() })
 	for jn in out.joints:
 		if joints.has(jn):
 			(joints[jn] as Node3D).rotation_degrees = out.joints[jn]

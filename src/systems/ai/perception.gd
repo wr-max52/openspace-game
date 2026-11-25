@@ -16,6 +16,10 @@ extends RefCounted
 ##
 ## Every number comes from the soldier profile's "perception" block.
 
+## Issue #605: noises only the bystanders listen for (Scatter): droids' and a LAN
+## friend's shots. Guards go on hearing what they heard before.
+const UNHEARD := ["shot_droid", "shot_guest"]
+
 var sight_range := 32.0
 var fov_deg := 120.0
 var close_range := 2.5        ## felt at any angle inside this, if in line of sight
@@ -146,6 +150,8 @@ func update(dt: float, s: Dictionary) -> void:
 	var noises: Array = s["noises"] if s.has("noises") else NoiseEvents.after(_last_noise_id)
 	for n in noises:
 		_last_noise_id = maxi(_last_noise_id, int(n.id))
+		if str(n.kind) in UNHEARD:
+			continue
 		var reach_m := minf(float(n.radius), hearing_range)
 		if (n.pos as Vector3).distance_to(self_pos) <= reach_m:
 			heard = true
