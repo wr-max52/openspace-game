@@ -30,14 +30,17 @@ func _town() -> Node:
 	t.npc_brains = false
 	add_child_autofree(t)
 	for i in 900:
-		if not t.race_crews.is_empty():
+		if t.race_crews.size() >= 3:
 			break
 		await wait_physics_frames(1)
 	return t
 
 
 func _crew(t) -> RaceCrew:
-	return t.race_crews[0] if not t.race_crews.is_empty() else null
+	for c in t.race_crews:
+		if c.id == "yard":
+			return c
+	return null
 
 
 func _speeders_of(crew: RaceCrew) -> Array:

@@ -24,10 +24,17 @@ func _town() -> Node:
 	t.npc_brains = false
 	add_child_autofree(t)
 	for i in 900:
-		if not t.race_crews.is_empty() and t.beast != null:
+		if t.race_crews.size() >= 3 and t.beast != null:
 			break
 		await wait_physics_frames(1)
 	return t
+
+
+func _yard(t) -> RaceCrew:
+	for c in t.race_crews:
+		if c.id == "yard":
+			return c
+	return null
 
 
 func _accept(t, crew: RaceCrew) -> void:
@@ -42,7 +49,7 @@ func _accept(t, crew: RaceCrew) -> void:
 
 func test_the_track_beast_is_there_only_while_a_race_runs() -> void:
 	var t = await _town()
-	var crew: RaceCrew = t.race_crews[0]
+	var crew: RaceCrew = _yard(t)
 	assert_null(crew.track_beast, "no track beast between races")
 	var brief_before := PlanetBeast.brief(t.planet)
 	_accept(t, crew)
@@ -62,7 +69,7 @@ func test_the_track_beast_is_there_only_while_a_race_runs() -> void:
 
 func test_killed_it_stays_dead_and_the_planets_beast_lives_on() -> void:
 	var t = await _town()
-	var crew: RaceCrew = t.race_crews[0]
+	var crew: RaceCrew = _yard(t)
 	_accept(t, crew)
 	crew.track_beast._die()
 	var pid := str(t.planet.get("id", ""))
@@ -78,7 +85,7 @@ func test_killed_it_stays_dead_and_the_planets_beast_lives_on() -> void:
 
 func test_racers_steer_round_it_and_die_on_it() -> void:
 	var t = await _town()
-	var crew: RaceCrew = t.race_crews[0]
+	var crew: RaceCrew = _yard(t)
 	_accept(t, crew)
 	await wait_physics_frames(5)
 	var head := crew.track_beast.global_position

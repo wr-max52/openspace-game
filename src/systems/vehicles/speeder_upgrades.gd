@@ -101,6 +101,23 @@ static func fit_part(fit: Dictionary, id: String) -> bool:
 	return true
 
 
+## Issue #615: in story mode a part may wait until you beat a race crew (its
+## "unlocked_by"). The crew id it waits on, or "" when it is for sale (free roam:
+## always). Racers' own fits never ask.
+static func locked_by(id: String) -> String:
+	if not WorldState.story_mode():
+		return ""
+	var crew := str(part(id).get("unlocked_by", ""))
+	if crew == "" or WorldState.has_flag("crew_beaten_" + crew):
+		return ""
+	return crew
+
+
+## The parts beating `crew` puts on sale.
+static func unlocked_by_crew(crew: String) -> Array:
+	return parts().filter(func(p): return str(p.get("unlocked_by", "")) == crew)
+
+
 ## The speeder's config (content/core/vehicles/speeder.json) with `fit` applied:
 ## stat multipliers, and the Grav Lifter's "hover" block.
 static func apply(base_cfg: Dictionary, fit: Dictionary) -> Dictionary:
