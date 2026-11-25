@@ -20,7 +20,10 @@ Every new id also goes in `content/core/manifest.json` under `ships`, `weapons`,
 ## A new ship
 
 1. Copy `content/core/ships/remnant_fighter.json` to `content/core/ships/<id>.json`.
-2. Change `id`, `label`, `faction`, `pilot` (its default AI) and `look`.
+2. Change `id`, `label`, `faction`, `pilot` (its default AI) and `look`. Its `icon`
+   is its silhouette in the Ledger (I): a variant of an airframe uses that
+   airframe's (`assets/ui/vehicle_icons/<look>.png`); a new airframe goes in
+   `SHIP_LOOKS` in `tools/lookdev/vehicle_icons.gd`, which renders it from above.
 3. Tune it:
    - `hull`, `shield` (`max`, `regen` per second, `delay` before regen), `hit_radius`
      in metres.
@@ -117,7 +120,10 @@ freighter's drift), `shop_groups` (which bench menus it takes; none = all),
 `scrap_base`, and a `look` with a `stand_in` list of boxes and cylinders until it
 has a `scene`. Skrugs sells it once it is in his card's `sale.models`
 (`content/core/npcs/skrugs_card.json`), one of each to a customer; its paint jobs
-are parts in `speeder_upgrades.json` with `"model": "<id>"`.
+are parts in `speeder_upgrades.json` with `"model": "<id>"`. Its `class_label`
+("racer") follows its name in the Ledger, and its `icon` is rendered by
+`tools/lookdev/vehicle_icons.gd` (add it to `SPEEDERS` with the angle it reads
+best from).
 
 Check the look with `./tools/lookdev/shoot_dogfight.sh`: `lineup.png` shows every
 look side by side.

@@ -4,6 +4,7 @@
   "label": "Marchbank GR-75 Frigatebird",
   "faction": "smuggler",
   "look": "freighter",
+  "icon": "res://assets/ui/vehicle_icons/freighter.png",
   "pilot": "ace",
   "hull": 260,
   "shield": {

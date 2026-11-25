@@ -4,6 +4,7 @@
   "label": "Ashford Albatross Mk VI",
   "faction": "smuggler",
   "look": "gunship",
+  "icon": "res://assets/ui/vehicle_icons/gunship.png",
   "pilot": "ace",
   "hull": 220,
   "shield": {

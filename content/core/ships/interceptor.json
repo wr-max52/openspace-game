@@ -4,6 +4,7 @@
   "label": "Kaldor VX-88 Kestrel",
   "faction": "smuggler",
   "look": "interceptor",
+  "icon": "res://assets/ui/vehicle_icons/interceptor.png",
   "pilot": "ace",
   "hull": 120,
   "shield": {
