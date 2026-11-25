@@ -113,6 +113,7 @@ var silent_kills := 0           ## (traces)
 var _lock_left := 0.0
 var _ko_left := 0.0
 var _ko_done := false
+var defeated: DefeatedShot             ## issue #684: the shot of your fall, while it runs
 var _spots_checked := false
 var _spot_i := 0
 var _spots_ok: Array = []
@@ -955,6 +956,26 @@ func _on_player_downed() -> void:
 	_ko_left = knockout_s
 	_ko_done = false
 	hud.hide_card()
+	# Issue #684: on foot, the fall is filmed (DefeatedShot): a flash, the shot from
+	# above, "Defeated", black; you wake in the pit when it is done. The knockout
+	# timer just waits for it (it runs in real time, through the slow motion).
+	if player.get("piloting") != true and player.get("vehicle") == null:
+		var rig = demo.get("_rig") if demo != null else null
+		defeated = DefeatedShot.start(demo if demo != null else self, player, rig)
+		defeated.done.connect(_on_defeated_done)
+		_ko_left = defeated.total() + 60.0
+
+
+## Issue #684: the shot has gone to black: wake in the port's pit, then lift it.
+func _on_defeated_done() -> void:
+	if _ko_done:
+		return
+	_ko_done = true
+	_ko_left = 0.0
+	_wake_in_pit()
+	if defeated != null and is_instance_valid(defeated):
+		defeated.clear()
+	defeated = null
 
 
 func _tick_locks(dt: float) -> void:
@@ -964,6 +985,8 @@ func _tick_locks(dt: float) -> void:
 			player.locked = false
 	if _ko_left > 0.0:
 		_ko_left -= dt
+		if defeated != null and is_instance_valid(defeated):
+			return                         # the shot draws its own black and wakes you
 		hud.fade.color.a = clampf(1.0 - _ko_left / knockout_s * 0.5, 0.0, 1.0)
 		if _ko_left <= 0.0 and not _ko_done:
 			_ko_done = true
