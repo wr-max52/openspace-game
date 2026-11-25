@@ -78,7 +78,6 @@ var gear: SpeederGear                ## issue #616: seekers, mines, deflector (t
 ## the config's sleep_distance, so owning one of each costs what one did.
 var asleep := false
 var parked_steps := 0                ## hover steps taken while parked (tests)
-var hover_steps := 0                 ## issue #617: the same count, as the pink-slip tests read it
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -290,7 +289,6 @@ func _physics_process(dt: float) -> void:
 		parked_steps += 1
 		for e in model.step(dt):
 			log_events.append(e)
-		hover_steps += 1
 		_sync()
 	_carry_riders()
 

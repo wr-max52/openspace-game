@@ -338,11 +338,16 @@ func model_sale(model: String) -> Dictionary:
 	return {}
 
 
-## How many of `model` they own (fits without a model are Sand-boxers).
+## How many of `model` they bought from him (fits without a model are
+## Sand-boxers). Issue #617: speeders won on pink slips ("won") or kept after the
+## gate chase ("stolen") are not his sales, so they never use up his one of each.
 func owned_of(model: String) -> int:
 	var n := 0
 	for i in mini(WorldState.count("speeders_owned"), WorldState.speeder_fits.size()):
-		if SpeederUpgrades.model_of(WorldState.speeder_fits[i]) == model:
+		var f: Dictionary = WorldState.speeder_fits[i]
+		if bool(f.get("won", false)) or bool(f.get("stolen", false)):
+			continue
+		if SpeederUpgrades.model_of(f) == model:
 			n += 1
 	# An old save may count speeders it has no fit for yet: those are Sand-boxers.
 	if model == "speeder":
