@@ -4,6 +4,7 @@
   "label": "Marchbank Albatross Frigate",
   "faction": "locals",
   "look": "frigate",
+  "icon": "res://assets/ui/vehicle_icons/freighter.png",
   "pilot": "ace",
   "hull": 620,
   "shield": {

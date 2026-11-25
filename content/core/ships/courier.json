@@ -4,6 +4,7 @@
   "label": "Valcourt Kinetics Lanner",
   "faction": "smuggler",
   "look": "courier",
+  "icon": "res://assets/ui/vehicle_icons/courier.png",
   "pilot": "ace",
   "hull": 80,
   "shield": {

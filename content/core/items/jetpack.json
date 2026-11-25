@@ -5,6 +5,7 @@
   "slot": "back",
   "value": 120,
   "look": "jetpack",
+  "icon": "res://assets/ui/item_icons/jetpack.svg",
   "jetpack": {
     "fuel": 1.8,
     "thrust": 36.0,

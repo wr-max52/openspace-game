@@ -79,6 +79,11 @@ static func fixed_slots() -> Array:
 	return backpack_cfg().get("fixed", ["Pistol"])
 
 
+## A fixed slot's icon in the Ledger (its "fixed_icons" path), or "".
+static func fixed_icon(label: String) -> String:
+	return str(backpack_cfg().get("fixed_icons", {}).get(label, ""))
+
+
 ## "Your backpack is full (5 of 5 slots)."
 static func full_line() -> String:
 	return str(backpack_cfg().get("full", "Your backpack is full (%d of %d slots).")) % [backpack_slots(), backpack_slots()]

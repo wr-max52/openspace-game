@@ -26,6 +26,11 @@ Copy `content/core/items/jetpack.json`:
   or takes it off. An item without a slot can be owned and sold but not worn.
 - `value`: the base price. Vendors pay `value x buy_rate` and ask `value x sell_rate`.
 - `look`: the id of its look in `content/look/items.json`.
+- `icon`: its silhouette in the inventory (I), a white shape on a clear background:
+  an SVG in `assets/ui/item_icons/` (copy one, trim its viewBox to the shape), or a
+  weapon wheel PNG from `assets/ui/weapon_icons/`. The panel tints it like the row
+  (red for contraband); `icon_tint` (optional) sets the colour instead. With no
+  `icon`, the row shows the carry case (`item.svg`).
 - `jetpack` (optional): makes it fly. `fuel` is seconds of thrust; `thrust` (m/s²,
   gravity is 20) and `max_rise` (m/s) set the climb; `kick_in` is how long jump must
   be held before it lights (so taps stay jumps); `min_fuel_to_start`;

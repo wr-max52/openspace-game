@@ -4,6 +4,7 @@
   "kind": "weapon",
   "value": 600,
   "look": "rifle_case",
+  "icon": "res://assets/ui/weapon_icons/sniper_rifle.png",
   "must_own": true,
   "note": "The sniper rifle as something you own. 'must_own': it can only be drawn while you carry it, in a story save and in free roam alike (WorldState.weapon_allowed). The gear trader sells it from day one."
 }
