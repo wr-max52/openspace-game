@@ -15,6 +15,13 @@ extends Node3D
 ## Bolts hit the hull (a StaticBody child; bolts call apply_damage on its parent):
 ## at 0 hull it bursts and is gone, and anyone riding is thrown clear. Nothing
 ## else hurts it.
+##
+## Issue #609: NPCs ride it too. board() walks a body up to a seat ("driver" or
+## "rider", content/core/vehicles/speeder.json `seats`) and sits it there; while
+## an NPC sits in the driver's seat, `brain` (a SpeederBrain its owner set up)
+## drives it through the same HoverModel as the player. step_off() puts a body
+## back on its feet beside it; at 0 hull every rider is thrown clear, hurt but
+## alive. A speeder with NPCs aboard is not yours to climb on.
 
 const ChaseCamera := preload("res://src/systems/camera/chase_camera.gd")
 const WeaponActor := preload("res://src/systems/combat/weapon_actor.gd")
@@ -23,6 +30,8 @@ const Weapon := preload("res://src/systems/combat/weapon.gd")
 signal mounted
 signal dismounted
 signal destroyed(at: Vector3)
+signal npc_boarded(body: Node3D, seat: String)
+signal npc_left(body: Node3D, seat: String)
 
 var demo                              ## town_demo.gd (player, rig, terrain)
 var model: HoverModel
@@ -56,6 +65,11 @@ var _flames: Array = []              ## the turbo boosters' flames (scaled by bo
 var _roof: Node3D                    ## the soft-top's hinge (folds back while you ride)
 var _roof_fold := 0.0                ## 0 = up, 1 = folded
 var _lift_glow := 0.0                ## the hover glow's flare while the Grav Lifter holds it up
+## Issue #609: NPC riders.
+var brain: SpeederBrain              ## drives while an NPC sits in the driver's seat (its owner sets the mode)
+var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sitting there
+var _boarding: Dictionary = {}       ## NpcBody walking to a seat -> { seat, t, free_walk }
+var _npc_cmd: Dictionary = {}        ## what the NPC driver did this frame (the lean reads it)
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -107,7 +121,7 @@ func player() -> CharacterBody3D:
 
 func can_mount() -> bool:
 	var p := player()
-	if not rideable or riding or p == null or p.locked or p.piloting or not model.alive():
+	if not rideable or riding or not npc_seats.is_empty() or p == null or p.locked or p.piloting or not model.alive():
 		return false
 	# Along the ground and along up (issue #77: up leans on the ball).
 	var u := model.up()
@@ -222,8 +236,11 @@ func _physics_process(dt: float) -> void:
 		return
 	_t += dt
 	_jolt_xf = jolt.step(dt)
+	_tick_boarding(dt)
 	if riding:
 		_ride(dt)
+	elif npc_driven():
+		_npc_drive(dt)
 	elif rideable:
 		model.set_command(0.0, 0.0)
 		for e in model.step(dt):
@@ -233,6 +250,7 @@ func _physics_process(dt: float) -> void:
 		_show_prompt(free)
 		if free and _just("interact"):
 			mount()
+	_carry_riders()
 
 
 func _ride(dt: float) -> void:
@@ -324,7 +342,8 @@ func _sync() -> void:
 	global_transform = model.transform()
 	if visual != null:
 		# Lean into turns and pitch with the climb, for the eye only.
-		var lean := clampf(model.speed / 40.0, -1.0, 1.0) * (_axis("move_left", "move_right") if riding and _external.is_empty() else float(_external.get("steer", 0.0)))
+		var steer_now := float(_npc_cmd.get("steer", 0.0)) if npc_driven() else float(_external.get("steer", 0.0))
+		var lean := clampf(model.speed / 40.0, -1.0, 1.0) * (_axis("move_left", "move_right") if riding and _external.is_empty() else steer_now)
 		_lean.y = lerpf(_lean.y, -lean * 0.25, 0.15)
 		_lean.x = lerpf(_lean.x, clampf(model.vy / 30.0, -0.35, 0.35), 0.2)
 		visual.transform = Transform3D(Basis.from_euler(Vector3(_lean.x, 0.0, _lean.y)), Vector3(0, 0.04 * sin(_t * 3.0), 0)) * _jolt_xf
@@ -392,6 +411,219 @@ func _yaw_from(xf: Transform3D) -> float:
 	return atan2(-local.x, -local.z) if Vector2(local.x, local.z).length() > 0.01 else model.yaw
 
 
+# ------------------------------------------------------------------ NPC riders (issue #609)
+
+## An NPC sits in the driver's seat (and is alive).
+func npc_driven() -> bool:
+	var d = npc_seats.get("driver")
+	return d != null and is_instance_valid(d) and not d.dead
+
+
+## The NPC in `seat`, or null.
+func npc_in(seat: String) -> NpcBody:
+	var b = npc_seats.get(seat)
+	return b if b != null and is_instance_valid(b) else null
+
+
+## Who sits where: the speeder's local seat spots (feet), from its config.
+func seat_offset(seat: String) -> Vector3:
+	var a = cfg.get("seats", {}).get(seat, null)
+	if a is Array and (a as Array).size() >= 3:
+		return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	return Vector3(0.0, -0.6, 0.35) if seat == "driver" else Vector3(0.0, -0.55, 1.5)
+
+
+func seat_names() -> Array:
+	var seats = cfg.get("seats", {})
+	return (seats as Dictionary).keys() if seats is Dictionary and not (seats as Dictionary).is_empty() else ["driver", "rider"]
+
+
+## The seat is free: nobody sits there, nobody is walking to it, and you are not
+## riding (you take the driver's seat).
+func seat_free(seat: String) -> bool:
+	if npc_in(seat) != null or (seat == "driver" and riding):
+		return false
+	for b in _boarding:
+		if str(_boarding[b].seat) == seat:
+			return false
+	return seat in seat_names()
+
+
+## Send `body` to `seat`: it walks up and climbs on (at once, if it is in reach).
+## False if the seat is taken, the speeder is wrecked or the body is dead.
+func board(body: NpcBody, seat: String = "driver") -> bool:
+	if body == null or body.dead or not model.alive() or not seat_free(seat) or npc_seats.values().has(body):
+		return false
+	if _in_reach(body):
+		return seat_npc(body, seat)
+	_boarding[body] = { "seat": seat, "t": 0.0, "free_walk": body.free_walk }
+	if body.nav == null or not body.nav.is_ready:
+		body.free_walk = true          # out in the sand: straight at it, as a pack walks
+	body.go_to(model.position)
+	return true
+
+
+## Sit `body` in `seat` now, wherever it stands.
+func seat_npc(body: NpcBody, seat: String = "driver") -> bool:
+	if body == null or body.dead or not model.alive() or npc_in(seat) != null or (seat == "driver" and riding):
+		return false
+	if _boarding.has(body):
+		body.free_walk = bool(_boarding[body].free_walk)
+		_boarding.erase(body)
+	npc_seats[seat] = body
+	body.stop()
+	body.velocity = Vector3.ZERO
+	body.set_physics_process(false)
+	body.set_process(false)
+	if body.look_body != null and is_instance_valid(body.look_body) and body._look_rest != Vector3.INF:
+		body.look_body.position = body._look_rest
+	_body_collision(body, false)
+	if not body.died.is_connected(_on_rider_died):
+		body.died.connect(_on_rider_died.bind(body))
+	_carry_riders()
+	npc_boarded.emit(body, seat)
+	return true
+
+
+## Put `body` (or, with null, everyone) back on their feet beside the speeder:
+## left, then right, then behind. Their own brain carries on as it was.
+func step_off(body: NpcBody = null) -> bool:
+	var left := false
+	var taken: Array = []
+	for seat in npc_seats.keys():
+		var b = npc_seats[seat]
+		if body != null and b != body:
+			continue
+		npc_seats.erase(seat)
+		if b == null or not is_instance_valid(b):
+			continue
+		var spot := _npc_exit_spot(taken)
+		taken.append(spot)
+		_free_body(b, spot)
+		npc_left.emit(b, seat)
+		left = true
+	if not npc_driven():
+		_npc_cmd = {}
+		model.set_command(0.0, 0.0)
+	return left
+
+
+func _free_body(b: NpcBody, spot: Vector3) -> void:
+	if b.died.is_connected(_on_rider_died):
+		b.died.disconnect(_on_rider_died)
+	_body_collision(b, true)
+	b.global_position = spot
+	b.velocity = Vector3.ZERO
+	b.controller.velocity = Vector3.ZERO
+	b.controller.body_pos = spot
+	b.set_physics_process(true)
+	b.set_process(true)
+	b.stop()
+
+
+func _on_rider_died(b: NpcBody) -> void:
+	# Shot dead in the seat: off it, so the body falls where it was.
+	if npc_seats.values().has(b):
+		step_off(b)
+
+
+## The speeder burst: everyone aboard lands on their feet nearby, a little hurt
+## (thrown_damage, never the last hp).
+func _throw_riders_clear() -> void:
+	var aboard: Array = npc_seats.values().filter(func(b): return b != null and is_instance_valid(b))
+	step_off()
+	var dmg := SpeederBrain.rule("thrown_damage", 15.0)
+	for b: NpcBody in aboard:
+		if not b.dead and b.health.hp > 1:
+			b.apply_damage(minf(dmg, float(b.health.hp - 1)))
+	_boarding.clear()
+
+
+## The NPC driver's frame: its brain's command (or a bot's) through the model.
+func _npc_drive(dt: float) -> void:
+	if brain != null:
+		brain.model = model
+		_npc_cmd = brain.update(dt)
+	else:
+		_npc_cmd = _external
+	model.set_command(float(_npc_cmd.get("throttle", 0.0)), float(_npc_cmd.get("steer", 0.0)),
+		bool(_npc_cmd.get("boost", false)))
+	if bool(_npc_cmd.get("lift", false)):
+		model.lift()
+	for e in model.step(dt):
+		log_events.append(e)
+	_fire(dt, bool(_npc_cmd.get("fire", false)))
+	_sync()
+	if _engine != null:
+		if not _engine.playing:
+			_engine.play()
+		_engine.pitch_scale = 1.1 + clampf(absf(model.speed) / 40.0, 0.0, 1.0) * 0.6
+
+
+## Seated bodies go where the speeder goes, facing its way.
+func _carry_riders() -> void:
+	if npc_seats.is_empty():
+		return
+	var xf := model.transform()
+	var f := model.forward()
+	for seat in npc_seats:
+		var b = npc_seats[seat]
+		if b == null or not is_instance_valid(b):
+			continue
+		b.global_position = xf * seat_offset(str(seat))
+		b.facing = atan2(f.x, f.z)
+		b.rotation.y = b.facing
+		b.velocity = Vector3.ZERO
+		b.controller.body_pos = b.global_position
+
+
+## Bodies walking to a seat: climb on in reach; give up after board_timeout_s.
+func _tick_boarding(dt: float) -> void:
+	if _boarding.is_empty():
+		return
+	for b in _boarding.keys():
+		if b == null or not is_instance_valid(b) or b.dead:
+			_boarding.erase(b)
+			continue
+		var st: Dictionary = _boarding[b]
+		st.t = float(st.t) + dt
+		if _in_reach(b):
+			seat_npc(b, str(st.seat))
+		elif float(st.t) > SpeederBrain.rule("board_timeout_s", 25.0) or not model.alive():
+			b.free_walk = bool(st.free_walk)
+			b.stop()
+			_boarding.erase(b)
+		else:
+			b.go_to(model.position)
+
+
+func _in_reach(b: Node3D) -> bool:
+	var u := model.up()
+	var rel: Vector3 = b.global_position - (model.position - u)
+	var along := rel.dot(u)
+	return (rel - u * along).length() <= float(cfg.get("board_reach", 3.2)) and absf(along) < 2.5
+
+
+func _npc_exit_spot(taken: Array) -> Vector3:
+	var b := model.transform().basis
+	var g := model.ground
+	var u := model.up()
+	for off in [-b.x * 2.6, b.x * 2.6, b.z * 4.0, -b.x * 2.6 + b.z * 2.0, b.x * 2.6 + b.z * 2.0]:
+		var q: Vector3 = model.position + off
+		var at: Vector3 = g.surface_below(q) + u * 0.05 if g != null else Vector3(q.x, 0.05, q.z)
+		if taken.any(func(t): return (t as Vector3).distance_to(at) < 1.0):
+			continue
+		if g == null or g.hit(at + u, 0.6) == "":
+			return at
+	return model.position + u * 0.5
+
+
+func _body_collision(b: Node, on: bool) -> void:
+	for ch in b.get_children():
+		if ch is CollisionShape3D:
+			ch.set_deferred("disabled", not on)
+
+
 # ------------------------------------------------------------------ helpers
 
 func _exit_spot() -> Vector3:
@@ -416,6 +648,7 @@ func _burst() -> void:
 	var at := model.position
 	if riding:
 		dismount()
+	_throw_riders_clear()
 	ExplosionFx.big(get_parent(), at + Vector3(0, 0.6, 0), 0.6)
 	Sound.play("vehicle_boom", at)
 	destroyed.emit(at)

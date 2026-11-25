@@ -1,7 +1,7 @@
 {
   "id": "speeder",
   "label": "Atlantium Sand-boxer",
-  "note": "Issue #42: the one speeder Skrugs sells. Read by src/systems/vehicles/hover_model.gd (how it moves) and speeder_node.gd (how it looks, its hull and guns). It rides `hover_height` above whatever is under it (sand, floors, ramp tops) and turns ballistic when the ground drops away faster than it can follow (`launch_gap` in one frame): off the end of a ramp or over a dune crest. There is no jump button; low gravity makes it a light, floaty sled. No fall or crash damage: only gunfire hurts it. Issue #43: look.scene is the Hyper3D speeder (assets/vehicles/speeder.glb); the primitive sled is the fallback. label is its make and model from the name generator. Issue #82: the Atlantium Sand-boxer replaces the Curlew (assets/vehicles/sandboxer*.glb, one Hyper3D model in four paint jobs from content/look/vehicle_models.json). look.paints names them; SpeederNode takes one by name (empty = look.scene). Skrugs's speeders go round `sold_paints`; the Remnant's black and red one is parked outside the front gate (the 'remnant_speeder' marker in port_town.json).",
+  "note": "Issue #42: the one speeder Skrugs sells. Read by src/systems/vehicles/hover_model.gd (how it moves) and speeder_node.gd (how it looks, its hull and guns). It rides `hover_height` above whatever is under it (sand, floors, ramp tops) and turns ballistic when the ground drops away faster than it can follow (`launch_gap` in one frame): off the end of a ramp or over a dune crest. There is no jump button; low gravity makes it a light, floaty sled. No fall or crash damage: only gunfire hurts it. Issue #43: look.scene is the Hyper3D speeder (assets/vehicles/speeder.glb); the primitive sled is the fallback. label is its make and model from the name generator. Issue #82: the Atlantium Sand-boxer replaces the Curlew (assets/vehicles/sandboxer*.glb, one Hyper3D model in four paint jobs from content/look/vehicle_models.json). look.paints names them; SpeederNode takes one by name (empty = look.scene). Skrugs's speeders go round `sold_paints`; the Remnant's black and red one is parked outside the front gate (the 'remnant_speeder' marker in port_town.json). Issue #609: `seats` are where NPC riders sit, in the speeder's own frame (x right, y up, z back; their feet, sunk into the tub): the driver, and a second rider behind (content/core/vehicles/speeder_drivers.json drives it).",
   "hover_height": 1.05,
   "follow_rate": 14.0,
   "launch_gap": 0.45,
@@ -21,6 +21,10 @@
   "bump_bounce": 0.25,
   "health": 120,
   "board_reach": 3.2,
+  "seats": {
+    "driver": [0.0, -0.62, 0.35],
+    "rider": [0.0, -0.55, 1.55]
+  },
   "look": {
     "length": 5.0,
     "hull": "#c9a46a",
