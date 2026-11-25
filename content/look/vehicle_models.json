@@ -55,6 +55,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#a4a6aa"
     }
@@ -65,6 +66,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_remnant.glb",
+    "weather": { "amount": 1.2 },
     "paint": {
       "body": "#2b2b30",
       "trim": "#a01e1e",
@@ -77,6 +79,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_tide.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#3f8a52",
       "trim": "#3a78d8"
@@ -88,6 +91,7 @@
     "length": 5.0,
     "max_span": 2.7,
     "out": "res://assets/vehicles/sandboxer_crimson.glb",
+    "weather": { "amount": 1.0 },
     "paint": {
       "body": "#8c1428",
       "trim": "#ece7dc"

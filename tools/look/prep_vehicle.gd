@@ -62,6 +62,8 @@ func _prep(id: String, c: Dictionary) -> void:
 		box = _aabb(root)
 	if c.has("paint"):
 		_paint(root, c.paint)
+	if c.has("weather"):
+		_weather(root, c.weather, box)
 	_own(root, root)
 	var out_doc := GLTFDocument.new()
 	var out_state := GLTFState.new()
@@ -138,6 +140,124 @@ static func _paint(root: Node, paint: Dictionary) -> void:
 				mat.roughness_texture = null
 				mat.roughness = float(paint.roughness)
 			mi.mesh.surface_set_material(s, mat)
+
+
+## Issue #628: wear on a clean Rodin texture, so a model sits beside the grimier
+## ones (the racer, the cargo sled) as one family. Runs after the paint, on the
+## painted albedo. Where each texel sits on the hull and which way it faces are
+## baked from the mesh (`_bake_place`), so the wear follows the model, not the UV
+## islands: the paint dulls a little, grime builds up low on the body and runs down
+## the sides in streaks, broad tarnish patches spread over the panels, dust settles
+## on what faces up, and bare-metal chips and dark pits speckle it. `weather`
+## { amount (0..1.5, all of it), grime, dust, rust (colours), seed }.
+static func _weather(root: Node3D, w: Dictionary, box: AABB) -> void:
+	var amt := float(w.get("amount", 1.0))
+	var grime := Color(str(w.get("grime", "#2f251b")))
+	var dust := Color(str(w.get("dust", "#b39468")))
+	var rust := Color(str(w.get("rust", "#6e3d1e")))
+	var chip := Color("#8d8a84")
+	var seed := int(w.get("seed", 7))
+	var patches := FastNoiseLite.new()        # world-space, in metres
+	patches.seed = seed
+	patches.frequency = 0.7
+	patches.fractal_octaves = 4
+	var streaks := FastNoiseLite.new()
+	streaks.seed = seed + 5
+	streaks.frequency = 1.0
+	streaks.fractal_octaves = 2
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var mat := mi.mesh.surface_get_material(s) as BaseMaterial3D
+			if mat == null or mat.albedo_texture == null:
+				continue
+			var img := mat.albedo_texture.get_image()
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_RGBA8)
+			var size := img.get_size()
+			var place := _bake_place(mi, s, root, box, 512)
+			place.resize(size.x, size.y, Image.INTERPOLATE_BILINEAR)
+			var speck := _noise_img(size, seed + 23, 0.09, 1)
+			for y in size.y:
+				for x in size.x:
+					var c := img.get_pixel(x, y)
+					if c.s > 0.35 and c.v > 0.3 and c.h > 0.5 and c.h < 0.72:
+						continue                      # the glow stays clean
+					var pl := place.get_pixel(x, y)  # rgb: where on the box (0..1), a: facing up (0 = not baked)
+					if pl.a < 0.05:
+						continue                      # a gutter between UV islands
+					var wp := box.position + Vector3(pl.r, pl.g, pl.b) * box.size
+					var h := pl.g
+					var up := (pl.a - 0.1) / 0.9
+					var pn := 0.5 + 0.5 * patches.get_noise_3dv(wp)
+					var sn := 0.5 + 0.5 * streaks.get_noise_3d(wp.x * 9.0, wp.y * 0.6, wp.z * 9.0)
+					var k := speck.get_pixel(x, y).r
+					var out := c.lerp(c * Color(0.9, 0.86, 0.8), 0.6 * amt)          # the paint has seen sun and sand
+					var low := smoothstep(0.6, 0.05, h)
+					out = out.lerp(grime, clampf(low * (0.45 + 0.55 * pn) * 0.9 * amt, 0.0, 0.92))
+					var streak := smoothstep(0.58, 0.85, sn) * smoothstep(0.95, 0.35, h) * smoothstep(0.85, 0.3, up)
+					out = out.lerp(grime, clampf(streak * 0.45 * amt, 0.0, 0.6))
+					var tarnish := smoothstep(0.58, 0.78, pn) * (0.5 + 0.5 * low)
+					out = out.lerp(rust, clampf(tarnish * 0.42 * amt, 0.0, 0.6))
+					var settle := smoothstep(0.6, 0.95, up) * smoothstep(0.35, 0.7, 1.0 - pn)
+					out = out.lerp(dust, clampf(settle * 0.45 * amt, 0.0, 0.6))
+					if k > 1.0 - 0.05 * amt:
+						out = out.lerp(chip, 0.65)
+					elif k < 0.04 * amt:
+						out = out.lerp(grime.darkened(0.3), 0.55)
+					out.a = c.a
+					img.set_pixel(x, y, out)
+			mat = mat.duplicate() as BaseMaterial3D
+			mat.albedo_texture = ImageTexture.create_from_image(img)
+			mi.mesh.surface_set_material(s, mat)
+
+
+## Where each texel of a surface's UV map sits on the model: rgb its place in the
+## box (0..1 on each axis), a how far it faces up (0.1 down to 1.0 up; 0 where no
+## triangle covers it). `res` square; the caller scales it to the texture.
+static func _bake_place(mi: MeshInstance3D, s: int, root: Node3D, box: AABB, res: int) -> Image:
+	var img := Image.create(res, res, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.5, 0.5, 0.5, 0.0))
+	var xf := _xf_to(mi, root)
+	var a := mi.mesh.surface_get_arrays(s)
+	var verts: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+	var uvs: PackedVector2Array = a[Mesh.ARRAY_TEX_UV]
+	var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX]
+	if uvs.is_empty():
+		return img
+	if idx.is_empty():
+		idx = PackedInt32Array(range(verts.size()))
+	var inv_size := Vector3.ONE / box.size.max(Vector3.ONE * 0.001)
+	for t in range(0, idx.size(), 3):
+		var p := [xf * verts[idx[t]], xf * verts[idx[t + 1]], xf * verts[idx[t + 2]]]
+		var q := [uvs[idx[t]] * res, uvs[idx[t + 1]] * res, uvs[idx[t + 2]] * res]
+		var n: Vector3 = ((p[1] - p[0]) as Vector3).cross(p[2] - p[0])
+		var up := 0.1 + 0.9 * (0.5 + 0.5 * (n.normalized().y if n.length() > 0.0 else 0.0))
+		var lo: Vector2 = (q[0] as Vector2).min(q[1]).min(q[2]).floor()
+		var hi: Vector2 = (q[0] as Vector2).max(q[1]).max(q[2]).ceil()
+		var d := ((q[1] - q[0]) as Vector2).cross(q[2] - q[0])
+		if absf(d) < 1e-9:
+			continue
+		for py in range(maxi(int(lo.y) - 1, 0), mini(int(hi.y) + 1, res)):
+			for px in range(maxi(int(lo.x) - 1, 0), mini(int(hi.x) + 1, res)):
+				var c := Vector2(px + 0.5, py + 0.5)
+				var w1 := ((c - q[0]) as Vector2).cross(q[2] - q[0]) / d
+				var w2 := ((q[1] - q[0]) as Vector2).cross(c - q[0]) / d
+				var w0 := 1.0 - w1 - w2
+				if w0 < -0.15 or w1 < -0.15 or w2 < -0.15:
+					continue                      # a little past the edge, so seams fill
+				var wp: Vector3 = (p[0] as Vector3) * w0 + (p[1] as Vector3) * w1 + (p[2] as Vector3) * w2
+				var u := ((wp - box.position) * inv_size).clamp(Vector3.ZERO, Vector3.ONE)
+				img.set_pixel(px, py, Color(u.x, u.y, u.z, up))
+	return img
+
+
+static func _noise_img(size: Vector2i, seed: int, freq: float, octaves: int) -> Image:
+	var n := FastNoiseLite.new()
+	n.seed = seed
+	n.frequency = freq
+	n.fractal_octaves = octaves
+	return n.get_image(size.x, size.y, false, false, true)
 
 
 ## Issue #628: `cut_below` (metres above the model's bottom) drops every triangle
