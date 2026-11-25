@@ -33,6 +33,8 @@ var net_copy := false    ## LAN: a guest's copy of the host's fight (NetFight)
 var net_ids := {}        ## LAN, net_copy: the host's ship id -> the copy's here
 var net_sent := 0        ## LAN: the last projectile uid NetFight has looked at
 
+static var readout: Label  ## the combat read-out on screen now (top right), for CreditToast to sit under; freed with the fight
+
 
 ## Start `enc_id` around a ship flying with transform `at` at `speed` m/s.
 ## Returns false (and starts nothing) for an unknown encounter. Pass the scene's
@@ -195,6 +197,7 @@ func _build_hud() -> void:
 	hud_label.add_theme_constant_override("outline_size", 4)
 	hud_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(hud_label)
+	readout = hud_label
 
 
 func _update_hud() -> void:

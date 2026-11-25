@@ -11,7 +11,8 @@ extends Control
 ## frame are one line, their sum. The last balance it saw is static, so money
 ## that moved during a scene change (a payout on arrival) shows on the next
 ## scene's HUD. A reset or a load is not news (WorldState.loads), nor is the
-## F11 credits cheat (settle()).
+## F11 credits cheat (settle()). During a space fight the lines move down
+## under the fight's read-out (SpaceFight.readout), which shares the corner.
 ##
 ## Timings and sizes: content/look/ui.json "credit_toast". It only reads, and
 ## never takes the mouse. Lives on RetroHud.
@@ -30,6 +31,7 @@ var _hold := 3.0
 var _out := 0.6
 var _max := 6
 var _font := 20
+var _fight_gap := 8.0                 ## px between the fight's read-out and the first line
 
 
 func _init() -> void:
@@ -45,6 +47,7 @@ func _ready() -> void:
 	_out = float(cfg.get("out", _out))
 	_max = int(cfg.get("max_rows", _max))
 	_font = int(cfg.get("font_size", _font))
+	_fight_gap = float(cfg.get("fight_gap", _fight_gap))
 	list = VBoxContainer.new()
 	list.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	list.add_theme_constant_override("separation", 0)
@@ -101,7 +104,16 @@ func _place() -> void:
 	list.reset_size()
 	var sz := list.get_combined_minimum_size()
 	list.size = sz
-	list.position = Vector2(view.x - sz.x - RIGHT, TOP)
+	list.position = Vector2(view.x - sz.x - RIGHT, top())
+
+
+## Where the list starts: under the banner, or under the space fight's read-out
+## while one is on screen.
+func top() -> float:
+	var r = SpaceFight.readout
+	if is_instance_valid(r) and r.is_visible_in_tree():
+		return maxf(TOP, r.get_global_rect().end.y + _fight_gap)
+	return TOP
 
 
 ## One change: "+120 credits", green for in, red for out, fading on its own.

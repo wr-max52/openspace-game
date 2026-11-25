@@ -21,11 +21,12 @@
     "speeder_readout": 24
   },
   "credit_toast": {
-    "note": "The credit toast (CreditToast): '+120 credits' / '-40 credits' under the banner's credits, top right, newest on top. Seconds to come up, hold and fade; how many lines at most; the base font size (text_scale sizes it).",
+    "note": "The credit toast (CreditToast): '+120 credits' / '-40 credits' under the banner's credits, top right, newest on top. Seconds to come up, hold and fade; how many lines at most; the base font size (text_scale sizes it); fight_gap: px between a space fight's read-out (top right) and the first line, which move under it during a fight.",
     "in": 0.15,
     "hold": 3.0,
     "out": 0.6,
     "max_rows": 6,
-    "font_size": 20
+    "font_size": 20,
+    "fight_gap": 8
   }
 }
