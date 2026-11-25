@@ -1,0 +1,41 @@
+{
+  "id": "station_favela_fence",
+  "label": "Fence",
+  "location": "ringed_giant_town",
+  "marker": "vendor_3",
+  "reach": 3.5,
+  "buys": [
+    "contraband",
+    "*"
+  ],
+  "bounties": false,
+  "buy_rate": 2.0,
+  "any_rate": 0.5,
+  "resells": false,
+  "sell_rate": 1.6,
+  "stock": [],
+  "prices": {
+    "grenade": 40
+  },
+  "endless_stock": [
+    "grenade"
+  ],
+  "offers": [
+    {
+      "id": "quantonium_armour",
+      "label": "Quantonium armour",
+      "about": "triples your health; wear it like the jetpack",
+      "price": 500,
+      "item": "quantonium_armour",
+      "endless": true,
+      "requires": {
+        "counters": {
+          "bounties_paid": 1
+        }
+      },
+      "locked": "after your first bounty is paid"
+    }
+  ],
+  "pitch": "The %s pays well for things with no serial numbers",
+  "note": "Issue #643: the fence's booth in the station's favela (the port's fence.json in another town: contraband at twice its value, anything else at the gear trader's rate, his armour after your first bounty). Bounties stay at the port's fence. Its marker is put at the booth by StationHull.favela_vendors."
+}

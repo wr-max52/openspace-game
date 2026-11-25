@@ -735,9 +735,12 @@ func _lights() -> void:
 			var r := float(f.r)
 			var rr := hull.gap_r + hull.walk + (r - hull.gap_r - hull.walk) * 0.5
 			var n := 6 if r > 50.0 else 5
+			# Issue #643: a floor's fill may light it its own way (the favela: dimmer, cooler).
+			var lc: Dictionary = (cfg.get("fill", {}).get("floors", {}).get(str(f.id), {}) as Dictionary).get("light", {})
 			for k in n:
 				var a := TAU * (k + 0.25) / n
-				list.append([Vector3(c.x + cos(a) * rr, y + hull.floor_h - 2.5, c.y + sin(a) * rr), "#ffe2b8", 4.0, r * 0.7])
+				list.append([Vector3(c.x + cos(a) * rr, y + hull.floor_h - 2.5, c.y + sin(a) * rr), str(lc.get("color", "#ffe2b8")),
+					float(lc.get("energy", 4.0)), r * 0.7])
 			list.append([Vector3(c.x, y + hull.floor_h - 1.5, c.y), "#cfeaff", 3.0, 22.0])
 	for tn in hull.tunnels:
 		var l := float(tn.length)
