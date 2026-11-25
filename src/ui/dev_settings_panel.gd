@@ -61,6 +61,15 @@ var _off_planet: Array = []            ## GlobeMap.off_planet, last refresh
 var _off_box: VBoxContainer
 var _map_note: Label
 var _no_globe: Label
+var _map_page: Control
+## The cruiser's row flashes when it changes hands, like its pin on the holo:
+## who held it when the Map page last looked ("?" = not looked yet), whether it
+## changed since (the flash waits for the page to be open), and when the flash ends.
+var _cruiser_seen := "?"
+var _cruiser_changed := false
+var _cruiser_flash_end := 0
+var _cruiser_icon: Control
+var _cruiser_poll := 0.0
 var inventory: InventoryPanel          ## the Ledger page
 
 const STUCK_WARNING := "If you are stuck, ask the interactive NPCs for advice, they may have a hint.\n\nAre you sure?"
@@ -174,6 +183,40 @@ func _process(_dt: float) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if visible and _lan_refresh.is_valid():
 		_lan_refresh.call()          # players come and go while the panel is open
+	_watch_cruiser(_dt)
+
+
+## Who holds the cruiser, checked every owners.refresh_s (as the holo does). A
+## change marks the Map page's cruiser row to flash for owners.flash_s, starting
+## when the page is open: straight away if it is, else the next time it opens.
+func _watch_cruiser(dt: float) -> void:
+	_cruiser_poll -= dt
+	if _cruiser_poll <= 0.0:
+		var ow: Dictionary = GlobeMap.look().get("owners", {})
+		_cruiser_poll = float(ow.get("refresh_s", 0.5))
+		var who := CruiserHolo.owner_of(CruiserHolo.CRUISER)
+		if _cruiser_seen == "?":
+			_cruiser_seen = who
+		elif who != _cruiser_seen:
+			_cruiser_seen = who
+			_cruiser_changed = true
+			if _map_open():
+				_refresh_map()
+	if _cruiser_icon != null and is_instance_valid(_cruiser_icon) and cruiser_flash() > 0.0:
+		_cruiser_icon.queue_redraw()
+
+
+func _map_open() -> bool:
+	return visible and tabs != null and _map_page != null and tabs.get_current_tab_control() == _map_page
+
+
+## How white the cruiser's row is right now (0 = its own colour), pulsing twice a
+## second while it flashes, as the holo's pin does.
+func cruiser_flash() -> float:
+	var left := (_cruiser_flash_end - Time.get_ticks_msec()) / 1000.0
+	if left <= 0.0:
+		return 0.0
+	return 0.7 * (0.5 + 0.5 * sin(left * TAU * 2.0))
 
 
 func _physics_process(_dt: float) -> void:
@@ -327,6 +370,7 @@ func _hud_refresh() -> void:
 func _map_tab() -> Control:
 	var page := VBoxContainer.new()
 	page.name = "Map"
+	_map_page = page
 	page.add_theme_constant_override("separation", 6)
 	var h := HBoxContainer.new()
 	h.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -448,13 +492,17 @@ func _legend_row(look: Dictionary, text: String, col := Color(0, 0, 0, 0)) -> HB
 
 
 ## A pin's shape (content/look/map.json) as a small control, for the legend and
-## the off-planet list.
-func _pin_icon(look: Dictionary, r := 5.0) -> Control:
+## the off-planet list. `glow` (optional) returns how far to whiten it (the
+## cruiser's row flashing).
+func _pin_icon(look: Dictionary, r := 5.0, glow := Callable()) -> Control:
 	var icon := Control.new()
 	icon.custom_minimum_size = Vector2.ONE * ceilf(r * 3.6)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	icon.draw.connect(func(): GlobeView.draw_shape(icon, icon.size * 0.5, str(look.get("shape", "circle")),
-		Color(str(look.get("color", "#f2e2b0"))), r))
+	icon.draw.connect(func():
+		var col := Color(str(look.get("color", "#f2e2b0")))
+		if glow.is_valid():
+			col = col.lerp(Color.WHITE, float(glow.call()))
+		GlobeView.draw_shape(icon, icon.size * 0.5, str(look.get("shape", "circle")), col, r))
 	return icon
 
 
@@ -548,9 +596,17 @@ func _refresh_map(centre := false) -> void:
 		+ GlobeMap.off_planet(bodies, demo.world if demo != null else {})
 	for c in _off_box.get_children():
 		c.queue_free()
+	_cruiser_icon = null
+	if _cruiser_changed and _map_open():
+		_cruiser_changed = false
+		_cruiser_flash_end = Time.get_ticks_msec() + int(1000.0 * float(GlobeMap.look().get("owners", {}).get("flash_s", 3.0)))
 	for o in _off_planet:
 		var row := HBoxContainer.new()
-		row.add_child(_pin_icon(GlobeView.pin_look(o), 7.0))     # issue #497: the cruiser by who holds it
+		var is_cruiser := str(o.kind) == "cruiser"
+		var icon := _pin_icon(GlobeView.pin_look(o), 7.0, cruiser_flash if is_cruiser else Callable())   # issue #497: the cruiser by who holds it
+		if is_cruiser:
+			_cruiser_icon = icon       # it flashes when the cruiser changes hands
+		row.add_child(icon)
 		var b := Button.new()
 		b.text = str(o.label)
 		b.toggle_mode = true
