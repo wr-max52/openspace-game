@@ -108,7 +108,9 @@ the node `Engines` in the scene) or leave it out.
 entry to `content/look/vehicle_models.json` (`source`, `out`, `yaw_deg` (180 for Rodin,
 whose noses face +Z), `length`, `max_span`), run
 `godot --headless --path . -s res://tools/look/prep_vehicle.gd -- id=<id>`, and point the
-look's `scene` at `out`. Review it with
+look's `scene` at `out`. Import it (`godot --headless --path . --import`), then run
+`godot --headless --path . -s res://tools/look/vram_textures.gd` and import again: Godot
+extracts the model's textures lossless (21 MiB a 2048 map), and this GPU-compresses them. Review it with
 `godot --path . -s res://tools/look/shoot_vehicles.gd -- sheet=tools/look/sheets/vehicles_final.json`.
 The speeder takes the same kind of model through its look's `scene` in
 `content/core/vehicles/speeder.json`.

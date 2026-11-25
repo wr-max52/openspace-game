@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://7evq0fosun38"
-path="res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.ctex"
+path.s3tc="res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.s3tc.ctex"
+path.etc2="res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "2844b40dec83b895c2850fef713e5d51"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/vehicles/racer_model_emission.png"
-dest_files=["res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.ctex"]
+dest_files=["res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.s3tc.ctex", "res://.godot/imported/racer_model_emission.png-d13c6f2e898279f759f4753b83dda63f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

@@ -116,7 +116,9 @@ to 4 need no new render.
 3. **A repaint baked into a new .glb** from an existing source: an entry in
    `content/look/vehicle_models.json` with the same `source` and a `paint`
    block (`body`, `trim`, `glow`, `metallic`, `roughness`), then
-   `godot --headless --path . -s res://tools/look/prep_vehicle.gd -- id=<id>`.
+   `godot --headless --path . -s res://tools/look/prep_vehicle.gd -- id=<id>`,
+   then import, run `tools/look/vram_textures.gd` and import again (a new
+   paint's textures come out lossless, 21 MiB a map, until that runs).
    The gunship is the courier's source repainted; `freighter_shields`,
    `_hull` and `_boost` are the freighter's upgrade paints.
 4. **A runner-up that is already rendered.** `vehicle_models.json` `options`
