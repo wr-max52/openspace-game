@@ -68,6 +68,8 @@ func _draw() -> void:
 	var pick := wheel.choice()
 	var shown := pick if pick != "" else current_id
 	var line := "Keep" if pick == "" else "Draw"
+	if pick != "" and info.is_valid():
+		line = str((info.call(pick) as Dictionary).get("verb", line))     # slot 9: "Toggle"
 	_text(font, line, mid + Vector2(0, -8), 14, AMBER)
 	var name := "Hands free"
 	if shown != "" and info.is_valid():

@@ -53,6 +53,11 @@ var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle
 var guns: Dictionary = {}           ## id -> Weapon (ammo + timing)
 var combo: SwordCombo
 var wheel := WeaponWheel.new()      ## hold Tab (issue #410)
+## Wheel slots after the holder's that do something instead of drawing, in slot
+## order from 9: [{ id, run: Callable, can: Callable -> bool, info: Callable ->
+## { name, detail, verb } }]. Slot 9 is your droids' safety (DroidController).
+var actions: Array = []
+const ACTION_IDS := ["droid_safety"]
 var look: Dictionary = {}
 var cfg: Dictionary = {}            ## core weapon data by id
 var enabled := true                 ## false while talking at the bar
@@ -123,14 +128,41 @@ func setup(p: CharacterBody3D, a: PlayerAvatar, rig: Node3D, bolts_into: Node3D)
 ## Issue #410: the wheel shows the holder's slots and asks it what may be drawn.
 func _setup_wheel() -> void:
 	var w: Dictionary = look.get("wheel", {})
-	wheel.set_slots(holder.slots)
-	wheel.can_draw = func(id): return holder.can_draw.call(id)
+	wheel.set_slots(holder.slots + ACTION_IDS)
+	wheel.can_draw = func(id):
+		if id in ACTION_IDS:
+			var a := action(id)
+			return not a.is_empty() and bool(a.can.call())    # dim until something is hooked up
+		return holder.can_draw.call(id)
 	wheel.hold_time = float(w.get("hold_time", wheel.hold_time))
 	wheel.dead_zone = float(w.get("dead_zone", wheel.dead_zone))
 	wheel.mouse_pixels = float(w.get("mouse_pixels", wheel.mouse_pixels))
 	if _wheel_view != null:
 		_wheel_view.radius = float(w.get("radius", _wheel_view.radius))
 		_wheel_view.inner = float(w.get("inner", _wheel_view.inner))
+
+
+## A wheel action (slot 9 on: ACTION_IDS): `run` when picked or its number key is
+## pressed, `can` whether it is lit, `info` its name and state on the wheel.
+func add_action(id: String, run: Callable, can: Callable, info: Callable) -> void:
+	actions = actions.filter(func(a): return str(a.id) != id)
+	actions.append({ "id": id, "run": run, "can": can, "info": info })
+
+
+func action(id: String) -> Dictionary:
+	for a in actions:
+		if str(a.id) == id:
+			return a
+	return {}
+
+
+## Runs a wheel action now. False when there is none or it is not available.
+func run_action(id: String) -> bool:
+	var a := action(id)
+	if a.is_empty() or not bool(a.can.call()):
+		return false
+	a.run.call()
+	return true
 
 
 ## Issue #208: the fence fitted an upgrade: each gun takes its data again with
@@ -165,6 +197,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	for n in holder.slots.size():
 		if InputMap.has_action("weapon_%d" % (n + 1)) and event.is_action_pressed("weapon_%d" % (n + 1)):
 			holder.request_slot(n + 1)
+	for k in ACTION_IDS.size():           # 9: the droids' safety, all at once
+		var key := "weapon_%d" % (holder.slots.size() + k + 1)
+		var a := action(ACTION_IDS[k])
+		if not a.is_empty() and InputMap.has_action(key) and event.is_action_pressed(key):
+			a.run.call()                  # it says so itself when there is nothing to toggle
 	if event.is_action_pressed("weapon_last"):
 		holder.request_last()
 	if event.is_action_pressed("weapon_cycle"):
@@ -202,6 +239,9 @@ func _release_cycle() -> void:
 	var id := wheel.release()
 	if was_open:
 		_wheel_closed()
+		if not action(id).is_empty():
+			run_action(id)                # slot 9: toggles, draws nothing
+			return
 		var target := holder.pending if holder.is_swapping() else holder.current
 		if id != "" and id != target:
 			holder.request(id)
@@ -841,6 +881,9 @@ func _build_hud() -> void:
 
 ## What the wheel says about a weapon id: its name, and a gun's rounds.
 func _wheel_info(id: String) -> Dictionary:
+	var a := action(id)
+	if not a.is_empty():
+		return a.info.call()
 	var detail := ""
 	if guns.has(id):
 		var g: Weapon = guns[id]

@@ -478,6 +478,11 @@
     "hauler": { "variant": "olive", "carries": "wreck_red_saber", "route": "deep_hold", "walk_speed": 1.1, "pause_s": 5.0, "load_lift": 1.05 },
     "note": "Issue #148: what is left of the Remnant aboard the crashed starcruiser (src/systems/world/starcruiser_wreck.gd). routes: patrol points in one of the wreck's frames ('level': x, height v, stern-ward w, unpitched; 'hull': the pitched ship's own parts() frame), turned into world points by StarcruiserWreck.site_point. units walk their route and shoot on sight; they answer to no garrison, so nothing out there sounds the town's alarm. A destroyed one comes back on its route after respawn_s. Wreck cleanup: four assassins hold the bridge platform (its landing pad), floating droids drift on every tier, along the gallery and over the hold floor. hauler: an old cargo droid on the starboard deck with the pickup named by 'carries' (pickups/port_town.json, wreck_red_saber) on its back, like the pit hauler."
   },
+  "safety": {
+    "note": "Your droids' safety: with it on, an assassin or floating droid of yours shoots nobody, whatever happens. E beside one toggles it; the weapon wheel's slot 9 (and key 9) toggles all of them (on if any is off, else all off). eye_safe and eye_armed are its eyes' colour either way. A new droid's safety is off. A droid with the laser rig: E still toggles its lasers; its safety goes with slot 9.",
+    "eye_safe": "#4ad0ff",
+    "eye_armed": "#ff3a2a"
+  },
   "labels": {
     "trade": "[E] Trade droids with the %s",
     "menu_trade": "%s  -  you have %d cr, %d of %d droids",
@@ -534,6 +539,17 @@
     "lasers_on": "[E] Turn your %s's lasers on",
     "lasers_off": "[E] Turn your %s's lasers off",
     "lasers_now_on": "Lasers on.",
-    "lasers_now_off": "Lasers off."
+    "lasers_now_off": "Lasers off.",
+    "safety_to_on": "[E] Safety ON for your %s",
+    "safety_to_off": "[E] Safety OFF for your %s",
+    "safety_now_on": "Your %s's safety is ON. It won't shoot anyone.",
+    "safety_now_off": "Your %s's safety is OFF. It fights for you.",
+    "safety_all_on": "Safety ON for all your droids. They won't shoot anyone.",
+    "safety_all_off": "Safety OFF for all your droids. They fight for you.",
+    "safety_none": "You have no droids with a gun.",
+    "wheel_name": "Droids",
+    "wheel_safe": "SAFETY ON",
+    "wheel_armed": "SAFETY OFF",
+    "wheel_verb": "Toggle"
   }
 }

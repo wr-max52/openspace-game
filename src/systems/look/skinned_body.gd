@@ -38,6 +38,12 @@ var _pelvis_rest := Vector3.ZERO
 var _skel_in_body := Transform3D()
 var _order: Array = []             ## bone indices, parents first
 var _finger_bone: Dictionary = {}  ## issue #631: finger bone name -> index (-1 = not in this skin)
+## Issue #324: the hands' holds, kept on every sync (set_hold): side -> { rots:
+## { bone name: Quaternion }, k: 0..1 }.
+var holds: Dictionary = {}
+var _grips: Dictionary = {}        ## issue #324: solved grips (HandGrip.solve), by hand and spec
+var scene_path := ""               ## the model's .glb (issue #324: finger pivots are kept per model and outfit)
+var pivots_seated := false
 
 
 ## Load and attach. Returns null (and changes nothing) if the model or its skeleton
@@ -60,6 +66,7 @@ static func dress(body: Node3D, cfg: Dictionary) -> SkinnedBody:
 	sb.joints = body.get_meta("joints")
 	inst.name = "Skin"
 	body.add_child(inst)
+	sb.scene_path = path
 	sb._fit(cfg)
 	sb._bind(body, cfg.get("bones", {}))
 	if not body.has_meta("skin"):
@@ -247,28 +254,233 @@ func joint_xf(jn: String) -> Transform3D:
 	return t
 
 
-## Issue #631: close a hand's fingers, which the kit has no joints for (sync puts
-## them back to rest). `hand` is the bone prefix ("RightHand"); `fingers` maps a
-## finger ("Index") to { axis: [x, y, z], deg: [base, middle, tip] }: each of its
-## bones (RightHandIndex1..3) turns by deg about its own axis after its rest pose,
-## scaled by `k` (0 = rest, 1 = the full pose). Call after sync(). Missing bones are
-## skipped, so a skin without fingers keeps its hands as they are.
-func pose_fingers(hand: String, fingers: Dictionary, k: float) -> void:
-	for f in fingers:
-		var spec: Dictionary = fingers[f]
-		var a: Array = spec.get("axis", [1, 0, 0])
-		var axis := Vector3(float(a[0]), float(a[1]), float(a[2])).normalized()
-		var degs: Array = spec.get("deg", [])
-		for i in degs.size():
-			var bn := hand + str(f) + str(i + 1)
-			var bi: int = _finger_bone.get(bn, -2)
-			if bi == -2:
-				bi = skeleton.find_bone(bn)
-				_finger_bone[bn] = bi
-			if bi < 0:
+## Issue #324: a model's finger bones (Left/RightHand + Thumb..Pinky + 1..3) do not
+## sit at the glove's own knuckles. The kit's parts.glb carries every outfit's
+## meshes on one skeleton and one Skin, and each outfit's glove is somewhere else:
+## the player's finger creases are 5 to 10 cm from the bones, so a finger bone turned
+## swings its glove finger on a long lever instead of bending it at the knuckle, and
+## no curl could close a fist. Once the outfit is on (CharacterKit), each finger
+## bone's rest is moved onto its crease in the meshes that show (the middle of the
+## vertices it shares with its parent bone), and those meshes get their own Skin
+## with the bind poses moved to match, so the hand looks exactly as before at rest
+## and bends where the glove bends. Worked out once per model and outfit.
+static var _pivots: Dictionary = {}   ## model + shown meshes -> { rests: { bone: local rest }, skins: { mesh: Skin } }
+const PIVOT_RE := "^(Left|Right)Hand(Thumb|Index|Middle|Ring|Pinky)[1-3]$"
+
+
+func seat_finger_pivots() -> void:
+	if pivots_seated:
+		return
+	pivots_seated = true
+	var re := RegEx.create_from_string(PIVOT_RE)
+	var fingers: Array = []
+	for bi in _order_by_depth():
+		if re.search(skeleton.get_bone_name(bi)) != null:
+			fingers.append(bi)
+	if fingers.is_empty():
+		return
+	var meshes: Array = []
+	var names: Array = []
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.skin != null and m.mesh != null and _shown(m) and _weights_any(m, fingers):
+			meshes.append(m)
+			names.append(str(m.name))
+	if meshes.is_empty():
+		return
+	names.sort()
+	var key := scene_path + ":" + ",".join(names)
+	if not _pivots.has(key):
+		_pivots[key] = _work_out_pivots(fingers, meshes)
+	var p: Dictionary = _pivots[key]
+	for bi in fingers:
+		var bn := skeleton.get_bone_name(bi)
+		if p.rests.has(bn):
+			skeleton.set_bone_rest(bi, p.rests[bn])
+			skeleton.set_bone_pose_position(bi, (p.rests[bn] as Transform3D).origin)
+	for m in meshes:
+		if p.skins.has(str(m.name)):
+			(m as MeshInstance3D).skin = p.skins[str(m.name)]
+
+
+## Visible within the model (an outfit hides the pieces it does not wear).
+func _shown(n: Node3D) -> bool:
+	while n != null and n != model.get_parent():
+		if not n.visible:
+			return false
+		n = n.get_parent() as Node3D
+	return true
+
+
+static var _weighted: Dictionary = {}   ## mesh resource id -> any vertex weighted to a finger bone (by bind name)
+
+
+## Has `m` any vertex on a finger bone (kept per mesh resource).
+func _weights_any(m: MeshInstance3D, fingers: Array) -> bool:
+	var id := m.mesh.get_instance_id()
+	if not _weighted.has(id):
+		var names := {}
+		for bi in fingers:
+			names[skeleton.get_bone_name(bi)] = true
+		var finger_binds := {}
+		for i in m.skin.get_bind_count():
+			var b := m.skin.get_bind_bone(i)
+			var bn := skeleton.get_bone_name(b) if b >= 0 else str(m.skin.get_bind_name(i))
+			if names.has(bn):
+				finger_binds[i] = true
+		var any := false
+		for surf in m.mesh.get_surface_count():
+			var arr := m.mesh.surface_get_arrays(surf)
+			var bones = arr[Mesh.ARRAY_BONES]
+			var weights = arr[Mesh.ARRAY_WEIGHTS]
+			if bones == null or weights == null:
 				continue
-			var rest := skeleton.get_bone_rest(bi).basis.get_rotation_quaternion()
-			skeleton.set_bone_pose_rotation(bi, rest * Quaternion(axis, deg_to_rad(float(degs[i]) * k)))
+			for k in bones.size():
+				if weights[k] > 0.0 and finger_binds.has(bones[k]):
+					any = true
+					break
+			if any:
+				break
+		_weighted[id] = any
+	return _weighted[id]
+
+
+## The finger bones' new local rests (turned as they were, each origin on the crease
+## it shares with its parent, skeleton space at rest), and a Skin per mesh with its
+## finger binds moved to match.
+func _work_out_pivots(fingers: Array, meshes: Array) -> Dictionary:
+	var crease := {}       ## bone -> [sum, weight]
+	for m in meshes:
+		var skin: Skin = (m as MeshInstance3D).skin
+		var bind_of := {}
+		var idx_of := {}
+		var finger_bind := {}
+		for i in skin.get_bind_count():
+			var b := skin.get_bind_bone(i)
+			if b < 0:
+				b = skeleton.find_bone(skin.get_bind_name(i))
+			bind_of[i] = b
+			idx_of[b] = i
+			if fingers.has(b):
+				finger_bind[i] = true
+		for surf in (m as MeshInstance3D).mesh.get_surface_count():
+			var arr := (m as MeshInstance3D).mesh.surface_get_arrays(surf)
+			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var bones = arr[Mesh.ARRAY_BONES]
+			var weights = arr[Mesh.ARRAY_WEIGHTS]
+			if bones == null or weights == null or verts.is_empty():
+				continue
+			var per: int = bones.size() / verts.size()
+			for vi in verts.size():
+				var on_finger := false
+				for k in per:
+					if weights[vi * per + k] > 0.0 and finger_bind.has(bones[vi * per + k]):
+						on_finger = true
+						break
+				if not on_finger:
+					continue
+				var wb := {}
+				for k in per:
+					var w: float = weights[vi * per + k]
+					if w > 0.0:
+						wb[bind_of.get(bones[vi * per + k], -1)] = w
+				for b in wb:
+					if not fingers.has(b):
+						continue
+					var pb := skeleton.get_bone_parent(b)
+					if not wb.has(pb) or not idx_of.has(pb):
+						continue
+					var ww: float = minf(wb[b], wb[pb])
+					var at: Vector3 = HandGrip.global_rest(skeleton, pb) * (skin.get_bind_pose(idx_of[pb]) * verts[vi])
+					if not crease.has(b):
+						crease[b] = [Vector3.ZERO, 0.0]
+					crease[b][0] += at * ww
+					crease[b][1] += ww
+	var old_glob := {}
+	var glob := {}
+	var rests := {}
+	for bi in fingers:
+		var rest := HandGrip.global_rest(skeleton, bi)
+		old_glob[bi] = rest
+		if crease.has(bi) and float(crease[bi][1]) > 0.5:
+			rest.origin = crease[bi][0] / float(crease[bi][1])
+		glob[bi] = rest
+		var pb := skeleton.get_bone_parent(bi)
+		var parent: Transform3D = glob[pb] if glob.has(pb) else HandGrip.global_rest(skeleton, pb)
+		rests[skeleton.get_bone_name(bi)] = parent.affine_inverse() * rest
+	var skins := {}
+	for m in meshes:
+		var skin: Skin = ((m as MeshInstance3D).skin as Skin).duplicate()
+		for i in skin.get_bind_count():
+			var bi := skin.get_bind_bone(i)
+			if bi < 0:
+				bi = skeleton.find_bone(skin.get_bind_name(i))
+			if glob.has(bi):
+				skin.set_bind_pose(i, (glob[bi] as Transform3D).affine_inverse() * (old_glob[bi] as Transform3D) * skin.get_bind_pose(i))
+		skins[str(m.name)] = skin
+	return { "rests": rests, "skins": skins }
+
+
+func _order_by_depth() -> Array:
+	var order: Array = []
+	for bi in skeleton.get_bone_count():
+		order.append(bi)
+	order.sort_custom(func(a, b): return _depth(a) < _depth(b))
+	return order
+
+
+## Issue #324: the hand bone for a side ("r" / "l"), the mapped wrist bone's name
+## ("RightHand"), or "" when this skin has none.
+func hand_bone(side: String) -> String:
+	var jn := side + "_wrist"
+	return skeleton.get_bone_name(int(bone_of[jn])) if bone_of.has(jn) else ""
+
+
+## Issue #324: the grip `spec` solved for this skin's `side` hand (HandGrip.solve),
+## kept: { rots, frame }, frame in the hand bone's space. {} without a hand.
+func grip(side: String, spec: Dictionary) -> Dictionary:
+	seat_finger_pivots()
+	var key := side + str(spec.hash())
+	if not _grips.has(key):
+		var hand := hand_bone(side)
+		# The spec is in metres; the skeleton is in its own units (the model is
+		# scaled to fit the body).
+		var in_skel := spec.duplicate()
+		in_skel["radius"] = float(spec.get("radius", 0.029)) / _unit()
+		_grips[key] = HandGrip.solve(skeleton, hand, in_skel) if hand != "" else {}
+	return _grips[key]
+
+
+## Metres per skeleton unit (the model's fit scale).
+func _unit() -> float:
+	return maxf(_skel_in_body.basis.get_scale().x, 0.0001)
+
+
+## Issue #324: where the grip `spec` closes in `side`'s hand, in the kit wrist
+## joint's frame (joint_xf): origin the bar's middle, +Z along the bar toward the
+## thumb, +X out of the palm. Identity without a hand.
+func grip_frame(side: String, spec: Dictionary) -> Transform3D:
+	var g := grip(side, spec)
+	var jn := side + "_wrist"
+	if g.is_empty() or not bone_of.has(jn):
+		return Transform3D()
+	var off: Basis = _offset[int(bone_of[jn])]
+	var f: Transform3D = g.frame
+	return Transform3D((off * f.basis).orthonormalized(), off * f.origin * _unit())
+
+
+## Issue #324: close `side`'s hand round the grip `spec` (HandGrip), `k` of the way
+## from its rest (0) to the full grip (1); an empty spec or k 0 lets it go. Kept on
+## every sync from then on, so the fingers never spring open between frames.
+func set_hold(side: String, spec: Dictionary, k: float = 1.0) -> void:
+	if spec.is_empty() or k <= 0.0:
+		holds.erase(side)
+		return
+	var g := grip(side, spec)
+	if g.is_empty():
+		holds.erase(side)
+		return
+	holds[side] = { "rots": g.rots, "k": clampf(k, 0.0, 1.0) }
 
 
 ## Copy the kit joints onto the bones. Call after the animator and IK have run.
@@ -278,8 +490,29 @@ func sync(body: Node3D) -> void:
 		for layer in skins:
 			if layer is SkinnedBody:
 				(layer as SkinnedBody)._sync_one(body)
+				(layer as SkinnedBody)._apply_holds(holds)
 		return
 	_sync_one(body)
+	_apply_holds(holds)
+
+
+## Issue #324: the holds' finger turns, over the rest pose the sync just put back.
+func _apply_holds(from: Dictionary) -> void:
+	for side in from:
+		var h: Dictionary = from[side]
+		var k := float(h.k)
+		var rots: Dictionary = h.rots
+		for bn in rots:
+			var bi: int = _finger_bone.get(bn, -2)
+			if bi == -2:
+				bi = skeleton.find_bone(bn)
+				_finger_bone[bn] = bi
+			if bi < 0:
+				continue
+			var q: Quaternion = rots[bn]
+			if k < 1.0:
+				q = skeleton.get_bone_rest(bi).basis.get_rotation_quaternion().slerp(q, k)
+			skeleton.set_bone_pose_rotation(bi, q)
 
 
 func _sync_one(body: Node3D) -> void:

@@ -152,7 +152,8 @@ func test_third_person_sword_sits_in_a_closed_fist() -> void:
 	avatar.current = "energy_blade"
 	avatar.drawn = 1.0
 	var hold: Dictionary = avatar.look.energy_blade.hold_3p
-	var palm := Vector3(hold.palm[0], hold.palm[1], hold.palm[2])
+	# Issue #324: the fist's middle is measured from the skin's own bones (HandGrip).
+	var palm: Vector3 = avatar.skin.grip_frame("r", hold.hands.r).origin
 	var grip := Vector3(hold.grip[0], hold.grip[1], hold.grip[2])
 	var sk: Skeleton3D = avatar.skin.skeleton
 	var index2 := sk.find_bone("RightHandIndex2")
