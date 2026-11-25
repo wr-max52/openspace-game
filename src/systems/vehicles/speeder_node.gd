@@ -38,6 +38,9 @@ var demo                              ## town_demo.gd (player, rig, terrain)
 var model: HoverModel
 var cfg: Dictionary = {}
 var rideable := true
+## A race crew's own speeder, parked at their hangout: not yours to climb on
+## (their racers still board it, and it still takes hits).
+var locked := false
 var paint := ""                       ## issue #82: a look.paints name ("" = look.scene)
 var riding := false
 var hull: StaticBody3D
@@ -138,7 +141,7 @@ func player() -> CharacterBody3D:
 
 func can_mount() -> bool:
 	var p := player()
-	if not rideable or riding or not npc_seats.is_empty() or p == null or p.locked or p.piloting or not model.alive():
+	if not rideable or locked or riding or not npc_seats.is_empty() or p == null or p.locked or p.piloting or not model.alive():
 		return false
 	# Along the ground and along up (issue #77: up leans on the ball).
 	var u := model.up()

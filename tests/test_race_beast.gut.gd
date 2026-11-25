@@ -45,6 +45,7 @@ func _accept(t, crew: RaceCrew) -> void:
 	t._player.global_position = s.model.position + Vector3(1.5, 0.5, 0)
 	s.mount()
 	assert_eq(crew.accept(100), "", "race on")
+	await wait_physics_frames(60)          # the crowd gathers a body every few ticks, then the beast comes
 
 
 func test_the_track_beast_is_there_only_while_a_race_runs() -> void:
@@ -52,7 +53,7 @@ func test_the_track_beast_is_there_only_while_a_race_runs() -> void:
 	var crew: RaceCrew = _yard(t)
 	assert_null(crew.track_beast, "no track beast between races")
 	var brief_before := PlanetBeast.brief(t.planet)
-	_accept(t, crew)
+	await _accept(t, crew)
 	assert_not_null(crew.track_beast, "a race starts: the track beast")
 	assert_ne(crew.track_beast, t.beast, "a second beast, not the planet's")
 	await wait_physics_frames(5)
@@ -70,7 +71,7 @@ func test_the_track_beast_is_there_only_while_a_race_runs() -> void:
 func test_killed_it_stays_dead_and_the_planets_beast_lives_on() -> void:
 	var t = await _town()
 	var crew: RaceCrew = _yard(t)
-	_accept(t, crew)
+	await _accept(t, crew)
 	crew.track_beast._die()
 	var pid := str(t.planet.get("id", ""))
 	assert_true(WorldState.has_flag("beast_slain_%s_track" % pid), "its own flag")
@@ -79,20 +80,21 @@ func test_killed_it_stays_dead_and_the_planets_beast_lives_on() -> void:
 	crew._end_race()
 	crew._put_away()
 	await wait_physics_frames(2)
-	_accept(t, crew)
+	await _accept(t, crew)
 	assert_null(crew.track_beast, "the next race: no track beast")
 
 
 func test_racers_steer_round_it_and_die_on_it() -> void:
 	var t = await _town()
 	var crew: RaceCrew = _yard(t)
-	_accept(t, crew)
+	await _accept(t, crew)
 	await wait_physics_frames(5)
 	var head := crew.track_beast.global_position
 	assert_false(crew._beast_avoid(head).is_empty(), "its body is on a racer's avoid list")
 	crew.phase = RaceCrew.Phase.RACING
 	var rc: Dictionary = crew.racers[1]
 	var b: NpcBody = rc.body
+	rc.speeder.seat_npc(b, "driver")       # not their turn to set off yet: sit them on it
 	rc.speeder.place(head, 0.0)
 	await wait_physics_frames(3)
 	assert_true(bool(rc.out), "into it: out of the race")

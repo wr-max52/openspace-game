@@ -90,6 +90,7 @@ var _legs: Array = []                 ## every leg's hip
 var _mandibles: Array = []
 var _antennae: Array = []
 var _trail: Array[Vector3] = []       ## ground points the head has walked, newest first
+var _pose_tick := 0                   ## speeder race lag: far off, the body is posed every 2nd or 4th tick
 var _head_ground := Vector3.ZERO
 var _sink := 0.0                      ## 0 alive .. 1 slumped dead
 var _shape: CollisionShape3D
@@ -540,9 +541,25 @@ func _physics_process(dt: float) -> void:
 		return
 	_wander(dt)
 	_squash = move_toward(_squash, 0.0, dt * 1.6)
-	_pose()
+	_pose_lod()
 	_touch()
 	_tick_fart(dt)
+
+
+## Speeder race lag: posing the body moves every segment, leg and collision
+## sphere. Within pose_full_m of the player it is posed every tick, to
+## pose_half_m every 2nd, further out every 4th (the head still moves every tick).
+func _pose_lod() -> void:
+	_pose_tick += 1
+	var every := 1
+	if player != null and is_instance_valid(player):
+		var d := player.global_position.distance_to(global_position)
+		if d > float(cfg.get("pose_half_m", 400.0)):
+			every = 4
+		elif d > float(cfg.get("pose_full_m", 150.0)):
+			every = 2
+	if _pose_tick % every == 0:
+		_pose()
 
 
 ## Aimless: it crawls in long curves that bend one way, then another, now and

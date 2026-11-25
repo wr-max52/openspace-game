@@ -1,10 +1,11 @@
 extends GutTest
-## Issue #611: the race. The yard crew hang out on foot with no speeders; the
-## leader's buy-in has a floor and needs a speeder of yours; accepting builds their
-## speeders and a crowd; [Z] lines you up and the countdown holds you; win and
-## Dorrin holds the pot (and Skrugs's job is done); lose your speeder and you are
-## out; from the shooting lap a racer with you in its nose fires; the tuned racers
-## out-drive a stock speeder; after the race the speeders and the crowd go.
+## Issue #611: the race. The yard crew hang out on foot by their parked speeders;
+## the leader's buy-in has a floor and needs a speeder of yours; accepting sends
+## them one after another to their speeders and to the grid, and a crowd gathers;
+## [Z] lines you up and the countdown holds you; win and Dorrin holds the pot (and
+## Skrugs's job is done); lose your speeder and you are out; from the shooting lap
+## a racer with you in its nose fires; the tuned racers out-drive a stock speeder;
+## after the race they park again and the crowd goes.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
 const DT := 1.0 / 60.0
@@ -82,7 +83,12 @@ func test_the_crew_hang_out_on_foot_and_the_buy_in_has_a_floor() -> void:
 	assert_not_null(crew, "the yard crew")
 	assert_true(crew.found, "by Dorrin's yard")
 	assert_eq(crew.racers.size(), 3, "three racers")
-	assert_eq(_speeders_of(crew).size(), 0, "no speeders until you accept a race")
+	t._player.global_position = t.mechanic.world_point("customer")
+	await wait_physics_frames(5)
+	assert_eq(_speeders_of(crew).size(), 3, "their speeders parked by them, built as you come near")
+	for sp: SpeederNode in _speeders_of(crew):
+		assert_false(sp.npc_driven(), "nobody aboard")
+		assert_false(sp.can_mount(), "not yours to ride")
 	assert_lt(crew.leader().global_position.distance_to(t.mechanic.world_point("customer")), 40.0, "they hang out by Dorrin's")
 	assert_eq(str(crew.leader().profile.get("outfit", {}).get("head", "")), "guard:black", "the leader in black")
 	WorldState.credits = 99
@@ -133,18 +139,21 @@ func test_accepting_builds_their_speeders_and_a_crowd_and_z_lines_you_up() -> vo
 	assert_eq(crew.accept(100), "", "on")
 	assert_eq(WorldState.credits, 400, "100 cr paid")
 	var theirs := _speeders_of(crew)
-	assert_eq(theirs.size(), 3, "three speeders built")
-	for sp: SpeederNode in theirs:
-		assert_true(sp.npc_driven(), "a racer drives each")
-	assert_between(crew.crowd.size(), 5, 10, "a crowd at the line")
+	assert_eq(theirs.size(), 3, "their three speeders")
+	await wait_physics_frames(30)
+	assert_true(crew.racers[0].speeder.npc_driven() or crew.racers[0].speeder._boarding.size() > 0, "the first heads off at once")
+	assert_false(crew.racers[2].speeder.npc_driven(), "the last waits its turn")
 	assert_eq(Objective.current_key(), "race", "the pointer is the race's")
 	assert_true(crew.line_up(), "[Z] near the grid")
 	var t0 := mine.model.position
-	for i in 900:
+	for i in 4000:
 		if crew.phase == RaceCrew.Phase.COUNTDOWN:
 			break
 		await wait_physics_frames(1)
 	assert_eq(crew.phase, RaceCrew.Phase.COUNTDOWN, "everyone on the grid: the countdown")
+	for sp: SpeederNode in theirs:
+		assert_true(sp.npc_driven(), "a racer drives each")
+	assert_between(crew.crowd.size(), 5, 10, "a crowd at the line")
 	assert_lt(mine.model.position.distance_to(s0.pos), 4.0, "you are on your slot (from %.0f m out)" % t0.distance_to(s0.pos))
 	var held := mine.model.position
 	await wait_physics_frames(60)
@@ -160,7 +169,7 @@ func _race_to_go(t, crew: RaceCrew) -> SpeederNode:
 	var mine := _ride_near(t, s0.pos, float(s0.yaw))
 	crew.accept(100)
 	crew.line_up()
-	for i in 1200:
+	for i in 5000:
 		if crew.phase == RaceCrew.Phase.RACING:
 			break
 		await wait_physics_frames(1)
@@ -204,7 +213,11 @@ func test_win_and_dorrin_holds_the_pot_and_skrugs_job_is_done() -> void:
 	Engine.time_scale = 1.0
 	assert_eq(crew.phase, RaceCrew.Phase.IDLE, "back to hanging out")
 	await wait_physics_frames(2)
-	assert_eq(_speeders_of(crew).size(), 0, "their speeders are put away")
+	assert_eq(_speeders_of(crew).size(), 3, "their speeders stay")
+	for rc in crew.racers:
+		if is_instance_valid(rc.speeder):
+			assert_false(rc.speeder.npc_driven(), "parked, nobody aboard")
+			assert_lt(rc.speeder.model.position.distance_to(crew._park_pos(rc)), 6.0, "back on its spot")
 	assert_eq(crew.crowd.size(), 0, "the crowd has gone")
 
 

@@ -796,6 +796,105 @@ func ground_at(x: float, z: float, below: float = INF) -> float:
 func hit(p: Vector3, r: float) -> String:
 	if void_space:
 		return ""
+	if _ix_stale():
+		_build_index()
+	if not _ix_ok:
+		return _hit_linear(p, r)
+	# Spatially culled with the height index (speeder race lag): every speeder asks
+	# this a few times a physics tick, and a scan of every box, boulder and column
+	# in the world cost the race its frame rate. An item can only be hit when p is
+	# within r of its bounding sphere; small ones are binned by centre, so only
+	# the cells within r + the biggest small radius can hold one. The survivors
+	# run the same tests as _hit_linear, and of several hits the one it would
+	# have found first (boxes, then boulders, then columns, each in order) wins.
+	var nb := _ix_nb
+	var nc := _ix_nc
+	var ctr := _ix_ctr
+	var rad := _ix_rad
+	var reach := r + _ix_small_radius
+	var rv := Vector3(reach, reach, reach)
+	var lo := ((p - rv) / IX_CELL).floor()
+	var hi := ((p + rv) / IX_CELL).floor()
+	var lists: Array = [_ix_big]
+	for cz in range(int(lo.z), int(hi.z) + 1):
+		for cy in range(int(lo.y), int(hi.y) + 1):
+			for cx in range(int(lo.x), int(hi.x) + 1):
+				var ci: int = _ix_grid.get(_ix_key(cx, cy, cz), -1)
+				if ci >= 0:
+					lists.append(_ix_cells[ci])
+	var best_rank := -1
+	var best_id := ""
+	for list in lists:
+		for i in (list as PackedInt32Array):
+			if p.distance_to(ctr[i]) > rad[i] + r:
+				continue
+			var rank: int
+			var id := ""
+			if i < nb:
+				rank = i
+				id = _hit_box(boxes[i], p, r)
+			elif i < nb + nc:
+				rank = nb + _ix_nbd + (i - nb)
+				id = _hit_column(columns[i - nb], p, r)
+			else:
+				rank = nb + (i - nb - nc)
+				id = _hit_boulder(boulders[i - nb - nc], p, r)
+			if id != "" and (best_rank < 0 or rank < best_rank):
+				best_rank = rank
+				best_id = id
+	return best_id
+
+
+func _hit_box(b: Dictionary, p: Vector3, r: float) -> String:
+	if FLOOR_KINDS.has(b.kind) or str(b.get("rise", "")) != "":
+		return ""
+	var mn: Vector3 = b.min
+	var mx: Vector3 = b.max
+	var lp := p
+	if b.has("xf"):
+		if not b.has("hit_inv"):
+			var xf := box_xf(b)
+			b["hit_c"] = xf * ((mn + mx) * 0.5)
+			b["hit_r"] = ((mx - mn) * 0.5).length()
+			b["hit_inv"] = xf.affine_inverse()
+		var rr: float = float(b.hit_r) + r
+		if p.distance_squared_to(b.hit_c) > rr * rr:
+			return ""
+		lp = (b.hit_inv as Transform3D) * p
+	if lp.y - r * 0.5 >= mx.y:
+		return ""
+	var q := Vector3(clampf(lp.x, mn.x, mx.x), clampf(lp.y, mn.y, mx.y), clampf(lp.z, mn.z, mx.z))
+	return str(b.id) if q.distance_squared_to(lp) <= r * r else ""
+
+
+static func _hit_boulder(bd: Dictionary, p: Vector3, r: float) -> String:
+	if float(bd.height) <= RAMP_MAX:
+		return ""
+	var bu: Vector3 = bd.up
+	var rel: Vector3 = p - (bd.center as Vector3)
+	var along := rel.dot(bu)
+	if along - r * 0.5 >= float(bd.height) * 0.85 or along + r < 0.0:
+		return ""
+	return "boulder" if (rel - bu * along).length() <= float(bd.radius) * 0.8 + r else ""
+
+
+static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
+	var cc: Vector3 = c.center
+	if c.has("up"):
+		var up: Vector3 = c.up
+		var rel := p - cc
+		var along := rel.dot(up)
+		if along - r * 0.5 >= float(c.h) or along + r < 0.0:
+			return ""
+		return str(c.id) if (rel - up * along).length() <= float(c.radius) + r else ""
+	if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:
+		return ""
+	return str(c.id) if Vector2(p.x - cc.x, p.z - cc.z).length() <= float(c.radius) + r else ""
+
+
+## The plain scan of every box, boulder and column (hit() with too few items for
+## the index to help, and what the index must equal).
+func _hit_linear(p: Vector3, r: float) -> String:
 	for b in boxes:
 		if FLOOR_KINDS.has(b.kind) or str(b.get("rise", "")) != "":
 			continue
