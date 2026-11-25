@@ -129,3 +129,31 @@ func test_the_locals_do_the_same_once_they_hold_the_town() -> void:
 	assert_true(gc.alarm_up(), "their alarm")
 	s.place(s.model.position + Vector3(60, 0, 0), s.model.yaw)
 	assert_true(await _wait_for(func(): return gc.state == GateChase.State.CHASE, 240), "they ride after you")
+
+
+## No chase can start (the alarm is down) and your row is full: ride it past
+## escape_m and it is a loose speeder, not yours and no alarm on the next mount;
+## climb on again with room in the row and it is yours.
+func test_no_chase_and_a_full_row_leave_it_loose_until_there_is_room() -> void:
+	var t = await _town()
+	var gc: GateChase = t.gate_chase
+	var post: SpeederPost = t.speeder_post
+	WorldState.counters["speeders_owned"] = post.owned_cap()
+	var s := await _steal(t)
+	gc.garrison().alarm.stand_down()
+	s.place(s.model.position + Vector3(1200, 0, 0), s.model.yaw)
+	t._player.global_position = s.model.position
+	assert_true(await _wait_for(func(): return gc.loose > 0, 60), "rode off with no chase: settled")
+	assert_eq(gc.kept, 0, "but the row is full: not yours")
+	assert_null(gc.stolen, "and no longer being stolen")
+	assert_true(s.has_meta("loose"))
+	s.dismount()
+	await wait_physics_frames(2)
+	WorldState.counters["speeders_owned"] = 0
+	t._player.global_position = s.model.position + Vector3(1.5, 0.5, 0)
+	await wait_physics_frames(2)
+	s.mount()
+	assert_false(gc.alarm_up(), "climbing back on raises no alarm")
+	assert_eq(gc.kept, 1, "room in the row now: it is yours")
+	assert_true(post.is_stolen(s), "kept as a stolen one")
+	assert_false(s.has_meta("loose"))
