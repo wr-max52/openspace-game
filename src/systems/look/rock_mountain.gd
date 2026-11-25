@@ -126,22 +126,59 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 		var wa := atan2(t_half + clear * 2.0, float(tiers[-1].radius))
 		ways.append([t_a, wa])
 		ways.append([t_a + PI, wa])
+	# The caves go first, clear of the tunnel and of each other, so the ways up,
+	# the columns and the loose rock all keep out of them, mouth and all (a ramp
+	# stands from the sand: over a cave it would fill it). From a random angle,
+	# round in 2 degree steps to the first clean place.
+	var cave: Dictionary = cfg.get("cave", {})
+	var caves: Array = []
+	var slots: Array = []
+	for i in int(v.get("caves", 1)):
+		var from := rng.randf() * TAU
+		var cav := from
+		var slot := _cave_slot(tiers[0], cav, cave)
+		var tries := 0
+		while (_in_arcs(ways, cav, 0.4) or _near(caves, cav, 1.2) or _blocks_way(zones, slot)) and tries < 180:
+			tries += 1
+			cav = from + TAU * float(tries) / 180.0
+			slot = _cave_slot(tiers[0], cav, cave)
+		if tries >= 180 and not caves.is_empty():
+			break                  # no clean place for another: one fewer cave
+		caves.append(cav)
+		slots.append(slot)
+		zones.append(_zone(Geometry2D.offset_polygon(slot, clear)[0]))
 	var a := rng.randf() * TAU
 	for k in tiers.size():
 		var t: Dictionary = tiers[k]
 		var below = tiers[k - 1] if k > 0 else null
 		var h0 := 0.0 if below == null else float(below.top)
+		# Every tier stands at least `margin` inside the one below at its shelf,
+		# rounded stretches and all: the lobes are deep, and without this a tier
+		# could swell out over the shelf under it (a fin of cliff where the shelf
+		# should be, across a lower tier's ramp).
+		var margin := jag
+		if below != null:
+			var tb: PackedFloat32Array = t.table
+			for i in SAMPLES:
+				tb[i] = minf(tb[i], _room(t, below, TAU * float(i) / float(SAMPLES), margin))
+			t.table = tb
+			t.radius = _mean(tb)
 		var rp := {}
 		var slope := tan(deg_to_rad(float(ramp.get("slope_deg", 28.0))))
 		var landing := float(ramp.get("landing", 3.0))
 		for tries in 12:
 			var ra := _widest(t, below, a + float(tries) * 0.5, 0.6, need)
 			# The arc it will take round the wall, made round before it is built.
+			# Sized by the round wall's own radius (it may sit inside the lobe there),
+			# so the ramp never runs past the round stretch onto the lobes.
 			var w := _lobed(t, ra)
-			var top_a := ra + landing / w
-			var low_a := top_a - ((float(t.top) - h0) / slope + landing) / (w + 1.0)
-			var arc := [(top_a + low_a) * 0.5, (top_a - low_a) * 0.5 + 8.0 / w, 0.0]
-			arc[2] = _most(t, float(arc[0]), float(arc[1]) + 0.2)
+			var arc := []
+			for it in 3:
+				var top_a := ra + landing / w
+				var low_a := top_a - ((float(t.top) - h0) / slope + landing) / (w + 1.0)
+				arc = [(top_a + low_a) * 0.5, (top_a - low_a) * 0.5 + 8.0 / w, 0.0]
+				arc[2] = _most_inside(t, below, float(arc[0]), float(arc[1]) + 0.2, margin)
+				w = float(arc[2])
 			t.smooth.append(arc)
 			rp = _ramp(t, ra, h0, ramp)
 			rp["arc"] = arc
@@ -160,9 +197,12 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 			for tries in 12:
 				var sa := _widest(t, below, float(rp.arc[0]) + PI + float(tries) * 0.45, 0.6, 4.0)
 				var w := _lobed(t, sa)
-				var span := float(n) * size * 0.8 / w
-				var arc := [sa + span * 0.5, span * 0.5 + 5.0 / w, 0.0]
-				arc[2] = _most(t, float(arc[0]), float(arc[1]) + 0.2)
+				var arc := []
+				for it in 3:
+					var span := float(n) * size * 0.8 / w
+					arc = [sa + span * 0.5, span * 0.5 + 5.0 / w, 0.0]
+					arc[2] = _most_inside(t, below, float(arc[0]), float(arc[1]) + 0.2, margin)
+					w = float(arc[2])
 				t.smooth.append(arc)
 				sc = _scramble(t, sa, h0, step, rng)
 				sc["arc"] = arc
@@ -224,18 +264,6 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 			pieces.append({ "poly": poly, "y0": -bury, "tops": [h] })
 
 	# The tiers themselves, with the caves cut in.
-	var cave: Dictionary = cfg.get("cave", {})
-	var caves: Array = []
-	for i in int(v.get("caves", 1)):
-		var cav := rng.randf() * TAU
-		var tries := 0
-		while (_in_arcs(ways, cav, 0.4) or _near(caves, cav, 1.2)) and tries < 24:
-			cav = rng.randf() * TAU
-			tries += 1
-		caves.append(cav)
-	var slots: Array = []
-	for cav in caves:
-		slots.append(_cave_slot(tiers[0], cav, cave))
 	var cave_h := float(cave.get("height", 6.0))
 	var spring := float(tun.get("spring", 11.0))
 	var crown := float(tun.get("crown", 24.0))
@@ -316,6 +344,28 @@ static func _mean(tb: PackedFloat32Array) -> float:
 	return m / float(tb.size())
 
 
+
+
+## How far tier t's foot may reach at angle a and still stand `margin` inside
+## the wall of `below` at its shelf (t leans in by then). Where a ramp or a jump
+## stair up `below` arrives on that shelf, 2.5 m more: room to step off it, past
+## the jag of t's outline.
+static func _room(t: Dictionary, below: Dictionary, a: float, margin: float) -> float:
+	var b := float(t.bury)
+	var f := 1.0 - float(t.shrink) * (float(below.top) + b) / (float(t.top) + b)
+	var m := margin + (2.5 if _in_arcs(below.get("smooth", []), a, 0.15) else 0.0)
+	return (wall(below, a, float(below.top)) - m) / f
+
+
+## A rounded stretch's radius: as far out as the lobes reach across it, but never
+## past _room() anywhere along it (no tier below: the lobes alone).
+static func _most_inside(t: Dictionary, below, centre: float, half: float, margin: float) -> float:
+	var m := _most(t, centre, half)
+	if below == null:
+		return m
+	for i in 25:
+		m = minf(m, _room(t, below, centre - half + half * 2.0 * float(i) / 24.0, margin))
+	return m
 
 
 ## The angle near `a` (within `spread` radians) where the shelf of `below` under
@@ -709,11 +759,11 @@ static func _cave_slot(t: Dictionary, a: float, cfg: Dictionary) -> PackedVector
 	var depth := float(cfg.get("depth", 28.0))
 	var room := float(cfg.get("room", 7.0))
 	var c: Vector2 = t.centre
-	var r := float(t.radius)
+	var far: float = Array(t.table).max()
 	var radial := Vector2.from_angle(a)
 	var side := Vector2.from_angle(a + PI * 0.5) * mouth * 0.5
-	var outer := c + radial * (r + 8.0)
-	var inner := c + radial * (r - depth)
+	var outer: Vector2 = c + radial * (far + 8.0)    # past the furthest lobe
+	var inner := c + radial * (_lobed(t, a) - depth)
 	var slot := PackedVector2Array([outer - side, outer + side, inner + side, inner - side])
 	var ring := PackedVector2Array()
 	for i in 10:
