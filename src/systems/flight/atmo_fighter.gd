@@ -441,11 +441,13 @@ func _go_down(at: Vector3, shot: bool) -> void:
 	mode = Mode.DOWN
 	hull.dead = true
 	respawn_left = p("respawn_s", 120.0)
+	# Issue #404: a copy of it rolls on down and crashes; this one waits hidden.
+	if pilot == null or not pilot.crash_wreck(visual, atmo.crash_velocity if shot else Vector3.ZERO, not shot):
+		if pilot != null:
+			pilot._crash_fx(at)
+		Sound.play("vehicle_boom", at)
 	visual.visible = false
 	_set_solid(false)
-	if pilot != null:
-		pilot._crash_fx(at)
-	Sound.play("vehicle_boom", at)
 	if shot:
 		times_shot_down += 1
 		WorldState.change_standing("imperial_remnant", int(sc.get("kill_standing", -10)), "A Remnant interceptor was shot down.")

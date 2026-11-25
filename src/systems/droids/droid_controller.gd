@@ -92,6 +92,9 @@ var net_copy := false               ## issue #402: the host's game runs this tow
 var net_hit := Callable()           ## (u, amount, shooter, sweep): a hit on a copy, for the host's game
 
 
+var build_later := false              ## issue #574: the town calls build_units(st) itself, over frames
+
+
 func setup(p_demo, p_player: CharacterBody3D, p_gear: GearController) -> void:
 	demo = p_demo
 	player = p_player
@@ -146,6 +149,15 @@ func _ready() -> void:
 		for site in demo.ranches.droid_sites:        # a ranch village's droid stand
 			vendor_sites.append(site)
 	net_copy = demo != null and "lan_shared" in demo and bool(demo.lan_shared)
+	if demo != null and "training_range" in demo and demo.training_range != null:
+		demo.training_range.remote_tamed.connect(_on_remote_tamed)
+	if not build_later:
+		build_units(null)
+
+
+## The wrecks, the patrols and the hauler. Issue #574: `st` (a StagedBuild) spreads
+## them over frames on a handoff; with null (from _ready) all at once.
+func build_units(st: StagedBuild) -> void:
 	if _on_ball() and not roster().wrecks_seeded:
 		var starting_count := int(cfg.get("wrecks", {}).get("ball_starting_count", 8))
 		while roster().wrecks.size() < starting_count:
@@ -154,11 +166,10 @@ func _ready() -> void:
 		roster().wrecks_seeded = true
 	for w in roster().wrecks:
 		_build_wreck(w)
+		await StagedBuild.slice_of(st)
 	if not net_copy:
-		_build_remnant()
+		await _build_remnant(st)
 		_build_hauler()
-	if demo != null and "training_range" in demo and demo.training_range != null:
-		demo.training_range.remote_tamed.connect(_on_remote_tamed)
 
 
 func roster() -> DroidRoster:
@@ -1376,30 +1387,39 @@ func _carry(u: DroidUnit, hc: Dictionary) -> void:
 
 # ------------------------------------------------------------------ the Remnant's droids
 
-func _build_remnant() -> void:
+func _build_remnant(st: StagedBuild = null) -> void:
 	if Story.town_garrison():
-		_build_town_units(cfg.get("remnant", {}))
+		await _build_town_units(cfg.get("remnant", {}), st)
 	else:
-		_build_town_units(_side_cfg(Territory.LOCALS))
-	_build_wreck_site()
+		await _build_town_units(_side_cfg(Territory.LOCALS), st)
+	await _build_wreck_site(st)
 	var outposts = demo.outposts if demo != null and "outposts" in demo else null
 	if outposts == null:
 		return
 	for o in outposts.droid_specs():
 		build_outpost_units(str(o.outpost))
+		await StagedBuild.slice_of(st)
 
 
 ## The main street's patrol droids for one side's block (droids.json "remnant" or
 ## "locals"), on the Remnant's street route.
-func _build_town_units(side: Dictionary) -> void:
+func _build_town_units(side: Dictionary, st: StagedBuild = null) -> void:
 	var station = demo.platform if demo != null and "platform" in demo else null
 	if station is AsteroidWorld and not station.st.is_empty():
 		_build_station_pacers(side, station)
 		return
-	var pts: Array = cfg.get("remnant", {}).get("patrol", [])
-	# Issue #237: a town layout can draw its own street patrol (route "street_patrol").
+	# Issue #607: a planet whose town is a space station: rounds of its walkways.
+	if _build_station_rounds(side):
+		return
+	# Issue #237: a town layout draws its own street patrol (route "street_patrol");
+	# a generated town has one down its main street (TownGen._street_patrol). Issue
+	# #607: the home port's point list (remnant.patrol) is the home port's only:
+	# anywhere else it ran through walls and buildings, so no route, no patrol.
+	var pts: Array = []
 	if demo != null and "town" in demo and demo.town != null and not demo.town.get_route("street_patrol").is_empty():
 		pts = demo.town.get_route("street_patrol").points.map(func(p): return [p[0], 0, p[1]])
+	elif _planet_id() in ["", PlanetGen.home_id()]:      # "": the flat home port (greybox, tests)
+		pts = cfg.get("remnant", {}).get("patrol", [])
 	if pts.is_empty():
 		return
 	var route: Array = pts.map(func(p): return _v3(p))
@@ -1407,6 +1427,62 @@ func _build_town_units(side: Dictionary) -> void:
 		var sp: Dictionary = _side_spec(side, spec)
 		sp["patrol"] = route
 		_spawn_remnant(sp, int(spec.get("start", 0)) % route.size())
+		await StagedBuild.slice_of(st)
+
+
+func _planet_id() -> String:
+	var pl = demo.get("planet") if demo != null else null
+	return str((pl as Dictionary).get("id", "")) if pl is Dictionary else ""
+
+
+## Issue #607: the planet's town is a space station (its "station_town": the
+## ringed giant's): the side's droids walk rounds of the walkways on the floors the
+## station's config lists ("droids": { floors, points }), one floor each in turn,
+## two on a floor half a round apart. The walkway (the gap's railing out to
+## walkway metres) is clear on every floor; the round keeps to its middle. True
+## when this planet's town is a station (even one that lists no floors: then no
+## droids walk it).
+func _build_station_rounds(side: Dictionary) -> bool:
+	var pl = demo.get("planet") if demo != null else null
+	if not pl is Dictionary or ground == null:
+		return false
+	var lm_id := str((pl.get("town", {}) as Dictionary).get("station_town", ""))   # PlanetGen.build: StationHull.town_for
+	if lm_id == "":
+		return false
+	var hull: StationHull = null
+	for lm in StationHull.landmarks(ground.world):
+		if str(lm.get("id", "")) == lm_id:
+			hull = StationHull.for_id(str(lm.get("station", "")))
+	var frame := StationHull.frame(ground, lm_id)
+	if hull == null or frame == Transform3D.IDENTITY:
+		return true
+	var dc: Dictionary = hull.cfg.get("droids", {})
+	var floors: Array = dc.get("floors", [])
+	var units: Array = side.get("units", [])
+	if floors.is_empty() or units.is_empty():
+		return true
+	var n := maxi(4, int(dc.get("points", 16)))
+	var rw := hull.gap_r + hull.walk * 0.5
+	for k in units.size():
+		var fid := str(floors[k % floors.size()])
+		var t := {}
+		var f := {}
+		for tw in hull.towers:
+			for fl in tw.floors:
+				if str(fl.id) == fid:
+					t = tw
+					f = fl
+		if f.is_empty():
+			continue
+		var c: Vector2 = t.c
+		var pts: Array = []
+		for j in n:
+			var a := TAU * j / n
+			pts.append(frame * Vector3(c.x + cos(a) * rw, float(f.y), c.y + sin(a) * rw))
+		var sp := _side_spec(side, units[k])
+		sp["patrol"] = pts
+		_spawn_remnant(sp, (k / floors.size()) * (n / 2))
+	return true
 
 
 ## The moon station: no street patrol under the dome (the home port's route crossed
@@ -1484,7 +1560,7 @@ func clear_outpost_units(id: String) -> void:
 ## no wreck (another planet, a test without one).
 ## Wreck field: the same crew aboard every wreck in "sites" this ground has, less
 ## the routes over a deck that one lost; the hauler only on the original.
-func _build_wreck_site() -> void:
+func _build_wreck_site(st: StagedBuild = null) -> void:
 	var wc: Dictionary = cfg.get("wreck", {})
 	for site in wreck_sites():
 		var id := str(site.landmark)
@@ -1503,8 +1579,10 @@ func _build_wreck_site() -> void:
 			sp["wreck"] = true
 			sp["hostile"] = true
 			_spawn_remnant(sp, int(spec.get("start", 0)) % route.size())
+			await StagedBuild.slice_of(st)
 		if bool(site.get("hauler", false)):
 			_build_wreck_hauler(id)
+			await StagedBuild.slice_of(st)
 
 
 func _build_wreck_hauler(id: String) -> void:
@@ -1716,7 +1794,15 @@ func _remnant_step(dt: float) -> void:
 			u.patrol_i = (u.patrol_i + 1) % pts.size()
 			continue
 		var pace := float(u.spec.get("walk_speed", rc.get("walk_speed", 2.2)))
-		var pos: Vector3 = u.global_position + to.normalized() * minf(pace * dt, to.length())
+		var step := to.normalized() * minf(pace * dt, to.length())
+		var near_m := float(rc.get("block_check_m", 150.0))   # nobody sees a far droid's leg
+		if u.global_position.distance_squared_to(player.global_position) < near_m * near_m \
+				and _blocked(u, u.global_position, step):
+			# Issue #607: a wall (a stall, a hut) on this leg: on to the next point
+			# instead of climbing it or walking through.
+			u.patrol_i = (u.patrol_i + 1) % pts.size()
+			continue
+		var pos: Vector3 = u.global_position + step
 		_put(u, pos)
 		_face(u, to)
 		u.walk(dt, true, pace)
@@ -1932,6 +2018,7 @@ func fire(u: DroidUnit, aim: Vector3, gun: Dictionary) -> Node:
 		dir = dir.rotated(axis.normalized(), rng.randf_range(-spread, spread))
 	u.shots += 1
 	u.last_aim = aim
+	NoiseEvents.emit(origin, float(gun.get("noise_radius", 40.0)), "shot_droid")   # issue #605: bystanders hear it
 	var b = BoltScene.instantiate()
 	b.direction = dir
 	b.speed = float(gun.get("bolt_speed", 30.0))
@@ -2089,7 +2176,12 @@ func _ground_y(p: Vector3) -> float:
 func _put(u: DroidUnit, p: Vector3) -> void:
 	var site := u.spec.has("site")
 	var ray: bool = site or (_player_off_index and u.uid >= 0 and companions.get(u.uid) == u)
-	u.global_position = _ground_point(p, 1.5 if site else INF, ray)
+	# Issue #607: a droid on a round (the Remnant's and the locals' patrols, the
+	# haulers) looks for its floor just over its own feet too, never from your
+	# height: from there a ray found the roof, the railing or the floor above you
+	# stood on, and the droid popped up onto it.
+	var low := site or not u.patrol.is_empty()
+	u.global_position = _ground_point(p, 1.5 if low else INF, ray)
 	_orient(u)
 
 

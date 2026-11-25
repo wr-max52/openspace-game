@@ -79,11 +79,11 @@ func town_steps(town) -> Array:
 		func():
 			_add_alley_cables(town)
 			_add_street_lamps(town),
-		func():
+		func(st: StagedBuild = null):      # issue #574: over frames on a handoff
 			var parts := Node3D.new()
 			parts.name = "Buildings"
 			add_child(parts)
-			kit.flush(parts),
+			await kit.flush_sliced(parts, st),
 		func():
 			_add_lamps(town)
 			_add_banners(town),

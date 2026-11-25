@@ -1,0 +1,72 @@
+{
+  "id": "hauler",
+  "label": "Ironbridge Boxcar",
+  "note": "Issue #627: the box truck, sold only at Skrugs's (his card's sale.models). A big hover box truck: four Sand-boxers' worth of hull, slower to go, stop and turn, heavier bumps, and Shift drifts instead of boosting. `ability` is the freighter's shape (content/core/ships/freighter.json, flight_model.gd): while Shift is held the truck keeps sliding the way it was going at the speed it had, the nose turns `turn_scale` times as fast, and the slide gives way to the nose at `settle` per second; it runs on the boost meter (boost_time, boost_recharge). No ability = boost (the Sand-boxer and the racer). Same HoverModel, hover, ramps and twin lasers. shop_groups: the bench sells it paint and nothing else. scrap_base: what Dorrin pays for it before paint. look.stand_in is its primitive body until issue #628 gives it a Hyper3D one (look.scene). label is a make and model from the name lists (content/core/names/craft.json).",
+  "hover_height": 1.1,
+  "follow_rate": 10.0,
+  "launch_gap": 0.6,
+  "gravity": 10.0,
+  "max_speed": 28.0,
+  "reverse_speed": 7.0,
+  "accel": 10.0,
+  "brake": 26.0,
+  "coast_drag": 4.0,
+  "turn_rate_deg": 85.0,
+  "turn_rate_fast_deg": 45.0,
+  "air_turn_scale": 0.25,
+  "boost_time": 4.0,
+  "boost_recharge": 0.4,
+  "ability": {
+    "kind": "drift",
+    "turn_scale": 2.0,
+    "settle": 0.8
+  },
+  "body_radius": 1.6,
+  "bump_bounce": 0.12,
+  "health": 480,
+  "board_reach": 3.8,
+  "sleep_distance": 60.0,
+  "shop_groups": ["paint"],
+  "scrap_base": 75,
+  "seats": {
+    "driver": [-0.5, -0.1, -2.4]
+  },
+  "look": {
+    "length": 6.8,
+    "base_y": -0.65,
+    "hull": "#c9a46a",
+    "trim": "#d9a21b",
+    "metal": "#4a4c52",
+    "seat": "#3a2a20",
+    "glass": "#22323f",
+    "glow": "#7fe0d0",
+    "paints": {},
+    "sold_paints": [""],
+    "stand_in": [
+      { "shape": "box", "size": [2.6, 0.4, 6.8], "at": [0, -0.4, 0], "mat": "metal" },
+      { "shape": "box", "size": [2.5, 1.4, 1.9], "at": [0, 0.5, -2.35], "mat": "hull" },
+      { "shape": "box", "size": [2.6, 0.45, 0.35], "at": [0, -0.25, -3.3], "mat": "trim" },
+      { "shape": "box", "size": [2.2, 0.55, 0.08], "at": [0, 0.85, -3.28], "rot": [-12, 0, 0], "mat": "glass" },
+      { "shape": "box", "size": [0.08, 0.5, 1.0], "at": [1.26, 0.85, -2.6], "mat": "glass", "mirror": true },
+      { "shape": "box", "size": [0.35, 0.15, 0.05], "at": [0.9, -0.05, -3.31], "mat": "glow", "mirror": true },
+      { "shape": "box", "size": [2.8, 2.0, 4.4], "at": [0, 0.8, 0.95], "mat": "hull" },
+      { "shape": "box", "size": [2.84, 0.25, 4.44], "at": [0, 0.2, 0.95], "mat": "trim" },
+      { "shape": "box", "size": [2.6, 1.8, 0.06], "at": [0, 0.8, 3.17], "mat": "metal" },
+      { "shape": "box", "size": [0.08, 1.8, 0.1], "at": [0, 0.8, 3.21], "mat": "trim" },
+      { "shape": "box", "size": [0.2, 0.5, 6.2], "at": [1.35, -0.45, 0], "mat": "trim", "mirror": true },
+      { "shape": "box", "size": [0.24, 0.04, 5.8], "at": [1.15, -0.63, 0], "mat": "glow", "mirror": true },
+      { "shape": "cyl", "top": 0.14, "bottom": 0.14, "h": 1.6, "at": [1.2, 1.6, -1.33], "mat": "metal", "mirror": true },
+      { "shape": "cyl", "top": 0.1, "bottom": 0.1, "h": 0.04, "at": [1.2, 2.42, -1.33], "mat": "glow", "mirror": true }
+    ]
+  },
+  "laser": {
+    "damage": 18,
+    "rate": 0.16,
+    "mag": 40,
+    "reload": 1.6,
+    "bolt_speed": 90,
+    "range": 140,
+    "color": "#7fe0d0",
+    "muzzle": [1.0, -0.35, -3.2]
+  }
+}
