@@ -1,0 +1,22 @@
+{
+  "note": "Issue #613: the gate chase. Read by src/systems/world/gate_chase.gd (GateChase). Whoever holds the town (the Remnant while Story.town_garrison(), else the locals) parks the gate speeder (the 'remnant_speeder' vehicle marker, now rideable) and a chase speeder (the 'chase_speeder' marker) with two guards beside it. Climb on the gate speeder and the holder's alarm goes up. While their alarm is up and you ride any speeder, the two climb on (a driver and a gunner behind) and ride after you: the driver pursues with SpeederBrain (skill `skill`) and fires the speeder's lasers, the gunner its rifle (the garrison's own brain). Get off and they pull up within pull_up_m and get off to fight you on foot. Get more than escape_m away for give_up_s and they give up, drive home and park. Wrecked, a new chase speeder stands on the marker respawn_s later. Escape on the stolen gate speeder (they give up, or both chasers are dead) and it is yours (an owned speeder, in the row outside the back gate next visit); ride it within sell_m of Skrugs's stall and [Z] sells it to him for sell_price. `holders`: per holder, the gate and chase speeders' paint and the guards' soldier profiles.",
+  "escape_m": 800.0,
+  "give_up_s": 6.0,
+  "pull_up_m": 18.0,
+  "respawn_s": 120.0,
+  "skill": "chaser",
+  "sell_m": 25.0,
+  "sell_price": 350,
+  "holders": {
+    "remnant": { "paint": "remnant", "riders": ["gate_guard", "gate_guard"] },
+    "locals": { "paint": "tide", "riders": ["local_gate_guard", "local_gate_guard"] }
+  },
+  "lines": {
+    "stolen": "The gate speeder! Stop them!",
+    "chase": "They're after you on a speeder!",
+    "lost_them": "You lost them. The speeder's yours.",
+    "gave_up": "They gave up the chase.",
+    "sell": "[Z] Sell it to Skrugs (%d cr)",
+    "sold": "Skrugs counts out %d cr. \"Don't tell me where you got it.\""
+  }
+}

@@ -72,7 +72,7 @@
     "mag": [0.0, -0.14, 0.06],
     "reload_out": [0.24, -0.04, -0.06],
     "muzzle": [0.0, 0.11, 0.48],
-    "aim": { "pos": [-0.13, 0.17, 0.5], "rot": [0, 0, 0], "pivot": [0.0, -0.02, -0.475], "note": "Third person: shouldered, the butt (pivot) in the right shoulder pocket; the gun turns about it to the crosshair." },
+    "aim": { "pos": [-0.13, 0.17, 0.5], "rot": [0, 0, 0], "pivot": [0.0, -0.02, -0.475], "blade_deg": 16, "note": "Third person: shouldered, the butt (pivot) in the right shoulder pocket; the gun turns about it to the crosshair. 'blade_deg': the chest turns this much more into the shot as the gun comes up (on top of the spine's own turn), so the left shoulder comes forward and the left hand reaches the handguard, as a real shooter stands; the gun turns back about its butt by the whole torso turn, and the head turns back too." },
     "aim_fpv": { "pos": [-0.19, 0.1, 0.47], "rot": [4, 13, 0] },
     "fpv_pose": { "r": "trigger", "l": "support" },
     "holster": "back",
@@ -84,7 +84,7 @@
       "passes": 2,
       "hands": {
         "r": { "grip": [0.0, -0.095, -0.12], "bar": [0.0, 0.83, 0.55], "palm": [1.0, 0.0, 0.3], "radius": 0.026, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" },
-        "l": { "grip": [0.0, -0.03, 0.22], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
+        "l": { "grip": [0.0, -0.03, 0.15], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
       }
     }
   },
@@ -113,7 +113,7 @@
     "mag": [0.0, -0.14, 0.06],
     "reload_out": [0.24, -0.04, -0.06],
     "muzzle": [0.0, 0.048, 0.77],
-    "aim": { "pos": [-0.13, 0.17, 0.5], "rot": [0, 0, 0], "pivot": [0.0, -0.02, -0.475] },
+    "aim": { "pos": [-0.13, 0.17, 0.5], "rot": [0, 0, 0], "pivot": [0.0, -0.02, -0.475], "blade_deg": 16 },
     "aim_fpv": { "pos": [-0.19, 0.1, 0.47], "rot": [4, 13, 0] },
     "fpv_pose": { "r": "trigger", "l": "support" },
     "holster": "back",
@@ -125,7 +125,7 @@
       "passes": 2,
       "hands": {
         "r": { "grip": [0.0, -0.095, -0.12], "bar": [0.0, 0.83, 0.55], "palm": [1.0, 0.0, 0.3], "radius": 0.026, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" },
-        "l": { "grip": [0.0, -0.03, 0.22], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
+        "l": { "grip": [0.0, -0.03, 0.15], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
       }
     }
   },

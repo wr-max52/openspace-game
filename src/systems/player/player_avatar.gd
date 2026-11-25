@@ -537,17 +537,26 @@ func animate(dt: float, inp: Dictionary) -> void:
 	var twist := 0.0
 	if upper == BodyAnimator.UPPER_SWORD and not sword_pose.is_empty():
 		twist = float(sword_pose.get("twist", 0.0))
+	var ready_up := 1.0 if held_up else carry.eased()
+	var blade := _blade_deg()
+	if blade != 0.0:
+		twist -= blade * ready_up
 	var out := anim.step(dt, {
 		"speed": speed, "move_local": move_local, "grounded": inp.get("grounded", true),
 		"vy": vel.y, "crouch": inp.get("crouch", false), "sprint": inp.get("sprint", false),
 		"slide": inp.get("slide", false),
 		"upper": upper, "aim_pitch": pitch * (1.6 if first_person else 1.0), "twist": twist,
-		"ready": 1.0 if held_up else carry.eased(),
+		"ready": ready_up,
 	})
 	last_frame = out
 	for jn in out.joints:
 		if joints.has(jn):
 			(joints[jn] as Node3D).rotation_degrees = out.joints[jn]
+	if blade != 0.0:
+		# The head turns back out of the bladed torso, to look down the gun.
+		var back := -_torso_yaw() * ready_up
+		(joints.neck as Node3D).rotation_degrees.y += rad_to_deg(back) * 0.4
+		(joints.head as Node3D).rotation_degrees.y += rad_to_deg(back) * 0.6
 	(joints.pelvis as Node3D).position.y = out.pelvis_y
 	(joints.pelvis as Node3D).position.x = out.pelvis_x
 	var rc: Dictionary = look.get("recoil", {})
@@ -668,6 +677,8 @@ func _place_weapon(upper: String, pitch: float) -> void:
 	var w: Node3D = weapons[current]
 	var grips: Dictionary = w.get_meta("grips", {})
 	var ready := _ready_xf(current, pitch)
+	if not first_person and current != "energy_blade" and _blade_deg() != 0.0:
+		ready = _turned_back(ready, current, grips)
 	if not first_person and current != "energy_blade" and aim_target != Vector3.INF:
 		ready = _aimed_at_target(ready, current, grips)
 	var holster := _holster_xf(current)
@@ -1118,6 +1129,32 @@ func _ready_xf(id: String, _pitch: float) -> Transform3D:
 	var a: Dictionary = spec.get("aim_fpv" if first_person else "aim", {})
 	var rot := _v3(a.get("rot", [0, 0, 0]))
 	return Transform3D(Basis.from_euler(rot * PI / 180.0), _v3(a.get("pos", [0, 0, 0.4])))
+
+
+## Third person, a rifle up: how far the chest turns into the shot on top of the
+## animator's own turn (hand_weapons.json "aim" "blade_deg"), or 0.
+func _blade_deg() -> float:
+	if first_person or current == "" or not weapons.has(current) or carry_kind(current) != "rifle":
+		return 0.0
+	return float(((look.get(current, {}) as Dictionary).get("aim", {}) as Dictionary).get("blade_deg", 0.0))
+
+
+## How far the chest is turned from the way the body faces, about the chest's up
+## (radians, + toward the body's left).
+func _torso_yaw() -> float:
+	var f := SkinnedBody._rel(body, joints.chest).basis.orthonormalized().inverse() * Vector3(0, 0, 1)
+	return -atan2(f.x, f.z)
+
+
+## The aimed gun (chest space) turned back about its butt by the torso's turn, so
+## a bladed stance still points it the way the body faces; aim_at then puts it on
+## the crosshair.
+func _turned_back(xf: Transform3D, id: String, grips: Dictionary) -> Transform3D:
+	var a: Dictionary = (look.get(id, {}) as Dictionary).get("aim", {})
+	var sc := float((look.get(id, {}) as Dictionary).get("scale", 1.0))
+	var pivot: Vector3 = xf * (_v3(a.pivot) * sc if a.has("pivot") else grips.get("r", Vector3.ZERO))
+	var r := Basis(Vector3.UP, -_torso_yaw())
+	return Transform3D(r * xf.basis, pivot + r * (xf.origin - pivot))
 
 
 ## Third person: the gun turned about its aim pivot (the rifle's stock on the

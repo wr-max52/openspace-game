@@ -1,10 +1,11 @@
 extends GutTest
 ## Issue #45: the trip the issue asks for, from the headless trace
-## (scenes/planets_trace.gd, real physics, the real town scene): port -> space ->
-## the asteroid station (issue #99: no fade, a real ball, a sealed round station:
+## (scenes/planets_trace.gd, real physics, the real town scene): port -> open
+## space (issue #573: no planet built there) -> the asteroid station (issue #99: no fade, a real ball, a sealed round station:
 ## ring wall, dome, gate shield, windowed hallway to the pit; its own Oda) -> Z
 ## lands you in the pit -> out through the gate, down the hallway into the pit,
-## onto the rock and round the ball, into the glass -> home, no fade either way.
+## onto the rock and round the ball, into the glass -> open space -> home, no
+## fade at any switch.
 
 const Reader := preload("res://tests/trace_reader.gd")
 var t: Dictionary
@@ -34,11 +35,27 @@ func test_the_station_hangs_in_the_ports_sky() -> void:
 func test_flying_into_it_travels() -> void:
 	assert_gt(float(t.get("FLEW_TO_STATION_S", -1)), 0.0, "reached it")
 	assert_lt(float(t.get("FLEW_TO_STATION_S", 999)), 120.0)
-	assert_eq(t.get("TRAVEL_STARTED"), "grit_station")
-	assert_eq(t.get("SCENE_AFTER_TRAVEL"), "res://scenes/town_demo.tscn", "the same scene, another planet")
-	assert_eq(t.get("PLANET_AFTER_TRAVEL"), "grit_station")
-	assert_eq(t.get("ARRIVAL_MODE"), "handoff", "no fade: the station's scene took over in mid-flight")
+	# Issue #573: leaving the port's bubble is open space first, then the station.
+	assert_eq(t.get("TRAVEL_STARTED"), "open_space")
+	assert_eq(t.get("SCENE_AFTER_TRAVEL"), "res://scenes/town_demo.tscn", "the same scene, another place")
+	assert_eq(t.get("PLANET_AFTER_TRAVEL"), "open_space")
+	assert_eq(t.get("ARRIVAL_MODE"), "handoff", "no fade: open space took over in mid-flight")
 	assert_eq(t.get("FLOWN_SHIP"), t.get("PORT_SHIP"))
+	assert_gt(float(t.get("FLEW_SPACE_TO_STATION_S", -1)), 0.0, "then on to the station")
+	assert_eq(t.get("TRAVEL_FROM_SPACE"), "grit_station")
+	assert_eq(t.get("PLANET_AFTER_SPACE"), "grit_station")
+
+
+## Issue #573: open space has the ship, the sky and the planets ahead, and nothing
+## of a town, both ways.
+func test_open_space_is_empty() -> void:
+	for leg in ["SPACE_OUT", "SPACE_BACK"]:
+		assert_eq(t.get(leg + "_PLANET"), "open_space", leg)
+		assert_eq(t.get(leg + "_GROUND"), "none", leg)
+		_true(leg + "_EMPTY", leg + ": no people, ground or rock built")
+		_true(leg + "_FLYING", leg + ": still flying")
+		var n := str(t.get(leg + "_NEIGHBOURS", "")).split(",")
+		assert_true(n.has("port_desert") and n.has("grit_station"), leg + ": both planets in its sky")
 
 
 func test_a_size_1_asteroid_town() -> void:
@@ -78,7 +95,8 @@ func test_you_arrive_flying_the_same_ship() -> void:
 	_true("ARRIVED_PILOTING")
 	assert_eq(t.get("ARRIVED_STATE"), "FLYING")
 	assert_eq(t.get("ARRIVED_SHIP"), t.get("PORT_SHIP"))
-	assert_between(int(t.get("ARRIVED_ALTITUDE", 0)), 2300, 2800, "where the handoff happened, in its space")
+	# Issue #573: the moon's bubble is 1,200 m (content/core/planets/types.json).
+	assert_between(int(t.get("ARRIVED_ALTITUDE", 0)), 1000, 1400, "where the handoff happened, in its space")
 	assert_eq(int(t.get("STATION_SPACE_ALTITUDE", 0)), 700, "a small rock: space starts low")
 	assert_true(str(t.get("STATION_NEIGHBOURS")).split(",").has("port_desert"), "and home is in its sky")
 
@@ -111,6 +129,8 @@ func test_a_real_ball() -> void:
 
 
 func test_and_home_again() -> void:
+	assert_gt(float(t.get("FLEW_OUT_OF_STATION_S", -1)), 0.0)
+	assert_eq(t.get("PLANET_LEAVING_STATION"), "open_space", "out through open space")
 	assert_gt(float(t.get("FLEW_HOME_S", -1)), 0.0)
 	assert_eq(t.get("PLANET_AFTER_RETURN"), "port_desert")
 	assert_eq(t.get("HOME_AGAIN_TOWN"), "port_town")
@@ -147,7 +167,7 @@ func test_handoffs_are_staged() -> void:
 
 
 func test_the_ship_carries_on_through_a_handoff() -> void:
-	for leg in ["STATION", "HOME"]:
+	for leg in ["SPACE_OUT", "STATION", "SPACE_BACK", "HOME"]:
 		var k := "HANDOFF_%s_" % leg
 		assert_lt(float(t.get(k + "POS_ERR_M", 99)), 0.01, leg + ": exactly where it was")
 		assert_lt(float(t.get(k + "SPEED_ERR", 99)), 0.01, leg + ": at the same speed")
@@ -156,4 +176,16 @@ func test_the_ship_carries_on_through_a_handoff() -> void:
 		_true(k + "FLEW_THROUGH", leg + ": flying all through the staged build")
 		assert_lte(float(t.get(k + "MAX_STEP_JUMP", 99)), 1.05, leg + ": no step moves it further than its speed")
 		assert_lt(float(t.get(k + "MAX_SPEED_STEP", 99)), 10.0, leg + ": no jump in speed")
-		_true(k + "PEOPLE_HIDDEN", leg + ": people built while high up stay hidden")
+		if not leg.begins_with("SPACE"):
+			_true(k + "PEOPLE_HIDDEN", leg + ": people built while high up stay hidden")
+
+
+## Issue #573: open space is the cheapest switch in the game: a flight shell only.
+func test_open_space_switch_is_light() -> void:
+	for leg in ["SPACE_OUT", "SPACE_BACK"]:
+		var k := "HANDOFF_%s_" % leg
+		_true(k + "DONE", leg)
+		assert_eq(t.get(k + "FAILED_STEP"), "", leg)
+		assert_lt(float(t.get(k + "READY_MS", 9999)), 150.0, leg + ": the switch frame")
+		assert_eq(int(t.get(k + "WORLDS_IN_TREE", 0)), 1, leg + ": the planet behind is gone")
+		_true(k + "OLD_SCENE_FREED", leg)

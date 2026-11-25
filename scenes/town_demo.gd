@@ -105,6 +105,7 @@ var speeder_post: SpeederPost         ## issue #42: Skrugs's stall outside the b
 var mechanic: MechanicYard            ## issue #95: Dorrin's speeder yard out in the desert
 var race_courses: Array = []          ## issue #610: this world's race courses (RaceCourse), by Dorrin's and beyond
 var race_crews: Array = []            ## issue #611: the crews who race them (RaceCrew), hanging out on foot
+var gate_chase: GateChase             ## issue #613: the garrison's chase speeder and its two riders, by the gate
 var harmful_surface: HarmfulSurface    ## issue #298: no air outside without armour (the asteroid)
 var barge: PartyBarge                 ## issue #269: the planet's party barge, if it has one
 var beast: PlanetBeast                ## issue #220: the planet's beast (a deadly purple blob), if it has one
@@ -1325,15 +1326,21 @@ func _build_speeder_post() -> void:
 ## markers), parked outside the front gate while the garrison holds it. Not
 ## rideable: they are the Remnant's.
 func _park_gate_speeders() -> void:
-	if not Story.town_garrison():
-		return
+	# Issue #613: whoever holds the town parks it (the locals in their paint), and
+	# it can be ridden: stealing it is GateChase's business.
+	var holder := GateChase.holder()
 	for m in town.markers_with_role("vehicle"):
 		var s := SpeederNode.new()
-		s.setup(self, pilot.ground, {}, false, str(m.get("paint", "")))
+		s.setup(self, pilot.ground, {}, true, GateChase.paint_for(holder, str(m.get("paint", ""))))
 		add_child(s)
 		s.name = str(m.id).to_pascal_case()
 		s.place(town.marker_pos(str(m.id)), deg_to_rad(float(m.get("yaw_deg", 0.0))))
+		s.set_meta("gate_speeder", holder)
 		gate_speeders.append(s)
+	if not town.markers_with_role("vehicle_chase").is_empty() and gate_chase == null:
+		gate_chase = GateChase.new()
+		gate_chase.setup(self, pilot.ground)
+		add_child(gate_chase)
 
 
 ## Issue #76: the barracks pad's interceptor (the town box with a "remnant_ship").

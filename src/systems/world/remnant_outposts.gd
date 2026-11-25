@@ -54,6 +54,7 @@ const GROUND_HALF := 40.0          ## metres of sand collider either side of the
 const GROUND_STEP := 2.0
 const WAKE_DIST := 320.0           ## bodies further than this from the player sleep
 
+var runner: BountyRunner             ## issue #614: a running bounty's speeder and its flight (null if the target stands and fights)
 var demo                           ## town_demo.gd
 var ground: WorldGround
 var outposts: Array = []           ## { id, label, origin, yaw, cfg }
@@ -410,10 +411,19 @@ func spawn_target(o: Dictionary, b: Dictionary) -> NpcBody:
 		g.add_member(t)
 	target = t
 	target_run = int(b.run)
+	if bool(b.get("runner", false)):
+		# Issue #614: a runner keeps a speeder by them, and flees on it.
+		var r := BountyRunner.new()
+		r.setup(demo, demo.pilot.ground if demo.get("pilot") != null else null, t, here, float(o.yaw) - PI * 0.5)
+		add_child(r)
+		runner = r
 	return t
 
 
 func _drop_target() -> void:
+	if runner != null and is_instance_valid(runner):
+		runner.queue_free()
+	runner = null
 	var g = garrisons.get(str(target.get_meta("outpost", "")), demo.garrison)
 	if g != null:
 		g.remove_member(target)

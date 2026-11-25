@@ -268,12 +268,30 @@ func test_an_old_save_keeps_its_first_speeder() -> void:
 	assert_eq(WorldState.speeder_fits[0].parts, ["engine_1"])
 
 
+## Issue #617: speeders won on pink slips (or kept after a chase) are not his to
+## limit: a save keeps them as well as one bought of each model, up to owned_cap.
+func test_won_speeders_are_kept_past_the_one_of_each_rule() -> void:
+	var fits: Array = [SpeederUpgrades.new_fit("tide"), SpeederUpgrades.new_fit("steel")]
+	for p in ["crimson", "remnant", "tide", "steel", "crimson"]:
+		var f := SpeederUpgrades.new_fit(p)
+		f["won"] = true
+		fits.append(f)
+	WorldState.counters["speeders_owned"] = fits.size()
+	WorldState.speeder_fits = fits
+	var t = _town()
+	var post: SpeederPost = t.speeder_post
+	var cap := post.owned_cap()
+	assert_eq(post.speeders.size(), cap, "one bought, the won ones, up to the cap")
+	assert_eq(str(WorldState.speeder_fits[0].paint), "tide", "the first bought one")
+	assert_eq(WorldState.speeder_fits.filter(func(f): return not bool(f.get("won", false))).size(), 1, "only one bought Sand-boxer")
+
+
 func test_the_remnant_parks_a_black_and_red_one_outside_the_front_gate() -> void:
 	var t = _town()
 	assert_eq(t.gate_speeders.size(), 1)
 	var s: SpeederNode = t.gate_speeders[0]
 	assert_eq(s.paint, "remnant")
-	assert_false(s.rideable, "the Remnant's, not the player's")
+	assert_true(s.rideable, "issue #613: the Remnant's, and yours if you steal it")
 	var gate: Vector3 = t.town.marker_pos("gate")
 	assert_gt(s.model.position.x, gate.x + 2.0, "outside the wall")
 	assert_gt(absf(s.model.position.z), 7.0, "off the gate lane")

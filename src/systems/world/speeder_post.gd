@@ -338,11 +338,16 @@ func model_sale(model: String) -> Dictionary:
 	return {}
 
 
-## How many of `model` they own (fits without a model are Sand-boxers).
+## How many of `model` they bought from him (fits without a model are
+## Sand-boxers). Issue #617: speeders won on pink slips ("won") or kept after the
+## gate chase ("stolen") are not his sales, so they never use up his one of each.
 func owned_of(model: String) -> int:
 	var n := 0
 	for i in mini(WorldState.count("speeders_owned"), WorldState.speeder_fits.size()):
-		if SpeederUpgrades.model_of(WorldState.speeder_fits[i]) == model:
+		var f: Dictionary = WorldState.speeder_fits[i]
+		if bool(f.get("won", false)) or bool(f.get("stolen", false)):
+			continue
+		if SpeederUpgrades.model_of(f) == model:
 			n += 1
 	# An old save may count speeders it has no fit for yet: those are Sand-boxers.
 	if model == "speeder":
@@ -368,8 +373,80 @@ func max_total() -> int:
 	return max_owned() * models().size()
 
 
+## Issue #617: the most speeders you can own at all (won on pink slips or kept
+## after a chase): the row outside the back gate's spots (racing rules owned_cap).
+## Skrugs still sells only one of each model (max_total).
+func owned_cap() -> int:
+	var town = demo.get("town") if demo != null else null
+	var row: Array = town.markers_with_role("speeder_spot") if town != null else []
+	return maxi(max_total(), mini(int(RaceCrew.rule("owned_cap", 5.0)), maxi(row.size(), 1)))
+
+
+## Issue #617: a speeder that is now yours (won on pink slips) with `fit` (paint
+## and parts), parked in the row outside the back gate. null if you own all you can.
+func add_owned(fit: Dictionary) -> SpeederNode:
+	if WorldState.count("speeders_owned") >= owned_cap():
+		return null
+	var i := WorldState.count("speeders_owned")
+	WorldState.bump("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())
+	var won := fit.duplicate(true)
+	won["won"] = true                    # not one he sold: kept past the one-of-each rule
+	if WorldState.speeder_fits.size() > i:
+		WorldState.speeder_fits[i] = won
+	else:
+		WorldState.speeder_fits.append(won)
+	var s := _spawn(i)
+	var spot_at := line_spot(i)
+	s.place(spot_at[0], spot_at[1])
+	return s
+
+
+## Issue #613: speeder `s` (the gate speeder you got away on) is yours now, as it
+## stands: with `fit`, counted, saved, in the row next visit. False if you own all
+## you can.
+func adopt(s: SpeederNode, fit: Dictionary) -> bool:
+	if s == null or speeders.has(s) or WorldState.count("speeders_owned") >= owned_cap():
+		return false
+	var i := WorldState.count("speeders_owned")
+	WorldState.bump("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())
+	if WorldState.speeder_fits.size() > i:
+		WorldState.speeder_fits[i] = fit.duplicate(true)
+	else:
+		WorldState.speeder_fits.append(fit.duplicate(true))
+	s.set_meta("slot", i)
+	s.destroyed.connect(func(_at): _lost(s))
+	speeders.append(s)
+	return true
+
+
+## Issue #613: a stolen speeder you own is one Skrugs buys: it is gone, you are
+## paid. Returns the credits paid (0 = not a stolen one of yours).
+func sell_stolen(s: SpeederNode, price: int) -> int:
+	if s == null or not speeders.has(s):
+		return 0
+	if not bool(fit_for(int(s.get_meta("slot", 0))).get("stolen", false)):
+		return 0
+	if s.riding:
+		s.dismount()
+	remove(s)
+	WorldState.credits += price
+	WorldState.log_event("Skrugs bought a speeder with no questions asked.", "back_gate")
+	return price
+
+
+## Whether `s` is a stolen speeder of yours.
+func is_stolen(s: SpeederNode) -> bool:
+	return s != null and speeders.has(s) and bool(fit_for(int(s.get_meta("slot", 0))).get("stolen", false))
+
+
 ## A save from before the one-speeder rule keeps its first speeder of each model
-## (and their fits); the rest are gone.
+## (and their fits); the rest are gone. Issue #617: speeders won on pink slips or
+## kept after a chase ("won" / "stolen" fits) are not his to limit: they stay, up to
+## owned_cap in all.
 func _trim_owned() -> void:
 	var n := WorldState.count("speeders_owned")
 	while WorldState.speeder_fits.size() < mini(n, max_total() * 4):
@@ -378,6 +455,11 @@ func _trim_owned() -> void:
 	var per: Dictionary = {}
 	for i in mini(n, WorldState.speeder_fits.size()):
 		var f: Dictionary = WorldState.speeder_fits[i]
+		if kept.size() >= owned_cap():
+			break
+		if bool(f.get("won", false)) or bool(f.get("stolen", false)):
+			kept.append(f)
+			continue
 		var m := SpeederUpgrades.model_of(f)
 		if int(per.get(m, 0)) < max_owned() and (not model_sale(m).is_empty() or m == "speeder"):
 			per[m] = int(per.get(m, 0)) + 1

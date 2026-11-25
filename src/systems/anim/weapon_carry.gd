@@ -16,8 +16,11 @@ const LOWER_S := 0.5           ## aimed -> rest
 const HOLD_S := 2.5            ## stay up this long after the last reason to aim
 
 ## kind -> [right grip target (chest space), rotation degrees (Godot YXZ euler)]
+## The rifle's is a low ready across the belly, muzzle down and to the left, where
+## both hands reach it (the kit's arm is 0.63 m: the old sling held the handguard
+## 0.8 m from the left shoulder, so the left hand never got there).
 const REST := {
-	"rifle": [Vector3(-0.15, -0.38, 0.17), Vector3(44, 48, -14)],
+	"rifle": [Vector3(-0.14, -0.18, 0.25), Vector3(28, 64, 0)],
 	"pistol": [Vector3(-0.27, -0.5, 0.08), Vector3(78, 8, 0)],
 }
 ## Issue #229: sprinting, a rifle at REST hung across the thighs, so a running leg
