@@ -312,7 +312,9 @@ func test_free_roam_bench_is_dorrins_menu_on_the_speeder_in_his_garage() -> void
 	assert_not_null(post.shop, "free roam: his bench works")
 	WorldState.credits = 1000
 	post.buy()
-	assert_not_null(post.shop.speeder_in_bay(), "a bought speeder waits in his bay")
+	assert_null(post.shop.speeder_in_bay(), "a bought speeder waits out back, not in his garage")
+	post.speeders[0].place(post.world_point("bay"), 0.0)       # driven into the garage
+	assert_not_null(post.shop.speeder_in_bay(), "in his bay now")
 	post.shop.talk()
 	var ids: Array = post.shop.menu.options.map(func(o): return str(o.id))
 	for want in ["group:paint", "group:looks", "group:performance", "buy:grav_lifter", "scrap"]:

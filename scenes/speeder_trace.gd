@@ -149,8 +149,9 @@ func _run() -> void:
 	if s == null:
 		_write()
 		return
-	# Issue #295: in his garage's bay.
-	out("PARKED_IN_GARAGE", Vector2(s.model.position.x - post.world_point("bay").x, s.model.position.z - post.world_point("bay").z).length() < 1.5)
+	# Out back behind his house (his garage holds his own racer).
+	var back: Vector3 = post.parking_spot(0)[0]
+	out("PARKED_OUT_BACK", Vector2(s.model.position.x - back.x, s.model.position.z - back.z).length() < 1.5)
 	demo.bar.end_talk()
 	await frames(5)
 

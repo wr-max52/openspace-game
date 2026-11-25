@@ -19,10 +19,19 @@ extends Node3D
 ##   - Skrugs: an all-red local behind the counter, a TalkSpot on the town's
 ##     ConversationHost, run by the same NpcBrain as the Cantina Owner from his
 ##     own card (content/core/npcs/skrugs_card.json),
-##   - the display speeder on its pad (not rideable),
+##   - his own two speeders, never for sale (stock): the display speeder on its
+##     pad and a racer that always stands in his garage. Both can be ridden, and
+##     climbing on either is theft: he is furious (wrath, his card's "wrath"): the
+##     locals hate you as if you had killed one of them (Townsfolk.outrage: the
+##     same standing hit, their alarm up), he will not talk, and he lobs grenades
+##     at you while you are in range, until you wake in the pit. A stolen one is a
+##     loose speeder: not yours, not saved; both are back next time the town is
+##     built,
 ##   - buying: Skrugs proposes (offer_speeder), the chat box shows the price, and
-##     only the player's click pays. 100 credits off, a speeder parked in his
-##     garage (then beside it), his mood warm. Speeders you own are saved
+##     only the player's click pays. 100 credits off, a speeder parked out back
+##     behind his house (the location's "parking"), his mood warm. Dorrin sells
+##     the same models at the same prices (sell_speeder, SpeederShop), one of each
+##     to a customer whoever sold it. Speeders you own are saved
 ##     (WorldState counter "speeders_owned"); next time, and whenever you respawn
 ##     (ShipPilot.woke), yours waits in the row outside the back gate (the town's
 ##     speeder_spot markers, one spot per LAN player: line_up). Nothing else
@@ -69,7 +78,16 @@ var ground: WorldGround
 var host: ConversationHost
 var spot: TalkSpot                    ## Skrugs's
 var skrugs: Node3D                    ## his body
-var display: SpeederNode
+var display: SpeederNode              ## his own, on the display pad (stock)
+var racer: SpeederNode                ## his own, always in his garage (stock)
+var stock: Array = []                 ## his two speeders: climbing on one is theft (wrath)
+var furious := false                  ## one of them was stolen: grenades, and no talking, until you wake in the pit
+var thefts := 0                       ## his speeders stolen this session (tests, traces)
+var throws := 0                       ## grenades he threw (tests, traces)
+var last_grenade: Grenade             ## the last one (tests)
+var _throw_left := 0.0
+var _barks := 0
+var _grenade_cfg: Dictionary = {}     ## content/core/weapons/grenade.json, read on his first throw
 var speeders: Array = []              ## SpeederNode the player owns, here in the world
 var origin := Vector3.ZERO            ## the landmark's anchor (base height included)
 var yaw := 0.0
@@ -120,16 +138,14 @@ func _ready() -> void:
 		_dress(loc)
 	_build_skrugs()
 	_build_shop()
-	display = SpeederNode.new()
-	display.setup(demo, ground, {}, false, str(HoverModel.load_config("speeder").get("look", {}).get("display_paint", "")))
-	add_child(display)
-	display.place(world_point("display"), yaw + PI * 0.5)
+	_build_stock()
 	_trim_owned()
 	for i in WorldState.count("speeders_owned"):
 		_spawn(i)
 	line_up()
 	if "pilot" in demo and demo.pilot != null:
 		demo.pilot.woke.connect(line_up)
+		demo.pilot.woke.connect(forgive)
 	# Issue #82: each speeder sold is a new paint job, an 8 MB model; load them
 	# now, off the main thread, so buying one does not hitch. Held here so they
 	# stay cached.
@@ -204,6 +220,7 @@ func attach_host(h: ConversationHost) -> void:
 	brain.sale_open = func(): return not at_limit()
 	brain.sale_models = func(): return open_models().map(func(m): return str(m.get("id", "")))
 	spot.opener = _opener
+	spot.available = func(): return not furious     # he won't talk to a thief
 	spot.shortcuts = shortcuts
 	spot.on_shortcut = _on_shortcut
 	brain.extra_brief = brief
@@ -283,26 +300,15 @@ func _on_answer(id: String, accepted: bool) -> void:
 
 
 ## Pay for a new speeder of `model` (issue #627: speeder, racer or hauler) and park
-## it in his garage (beside it once that is full). False (and nothing charged) if
-## he does not sell it, the player cannot afford it, or already owns one.
+## it out back behind his house. False (and nothing charged) if he does not sell
+## it, the player cannot afford it, or already owns one.
 func buy(model: String = "speeder") -> bool:
 	var sale := model_sale(model)
 	if sale.is_empty():
 		return false
-	var price := int(sale.get("price", 100))
-	if WorldState.credits < price or at_limit(model):
+	if sell_speeder(model, [], "Someone bought a %s from Skrugs." % str(sale.get("name", "speeder")), "back_gate") == null:
 		return false
-	WorldState.credits -= price
-	var i := WorldState.count("speeders_owned")
-	while WorldState.speeder_fits.size() < i:
-		fit_for(WorldState.speeder_fits.size())        # an old save's speeders get their fits first
-	WorldState.speeder_fits.resize(i)
-	WorldState.speeder_fits.append(SpeederUpgrades.new_fit(_next_paint(model), model))
-	WorldState.bump("speeders_owned")
-	WorldState.set_flag("bought_speeder")
-	WorldState.log_event("Someone bought a %s from Skrugs." % str(sale.get("name", "speeder")), "back_gate")
 	sales += 1
-	_park(i)
 	if spot != null:
 		var rel := spot.brain.rel
 		rel.mood = "warm"
@@ -312,6 +318,35 @@ func buy(model: String = "speeder") -> bool:
 			var lines: Array = spot.brain.card.get("canned", {}).get("sold", ["She's in the garage."])
 			_answer_line(str(lines[0]))
 	return true
+
+
+## Pay for a new speeder of `model` at his price and park it at `at` ([position,
+## yaw]; [] = his parking, out back). Dorrin's sales come through here too
+## (SpeederShop.buy_speeder). `event` is the log line (%s: the model's name).
+## Returns the new speeder, or null (and nothing charged): not one he sells, too
+## dear, or they own one already.
+func sell_speeder(model: String, at: Array = [], event: String = "", where: String = "") -> SpeederNode:
+	var sale := model_sale(model)
+	if sale.is_empty():
+		return null
+	var price := int(sale.get("price", 100))
+	if WorldState.credits < price or at_limit(model):
+		return null
+	WorldState.credits -= price
+	var i := WorldState.count("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())        # an old save's speeders get their fits first
+	WorldState.speeder_fits.resize(i)
+	WorldState.speeder_fits.append(SpeederUpgrades.new_fit(_next_paint(model), model))
+	WorldState.bump("speeders_owned")
+	WorldState.set_flag("bought_speeder")
+	if event != "":
+		WorldState.log_event(event.replace("%s", str(sale.get("name", "speeder"))), where)
+	if at.size() == 2:
+		var s := _spawn(i)
+		s.place(at[0], at[1])
+		return s
+	return _park(i)
 
 
 ## The most speeders of one model a player owns (his card's sale.max_owned).
@@ -338,7 +373,7 @@ func model_sale(model: String) -> Dictionary:
 	return {}
 
 
-## How many of `model` they bought from him (fits without a model are
+## How many of `model` they bought from him or Dorrin (fits without a model are
 ## Sand-boxers). Issue #617: speeders won on pink slips ("won") or kept after the
 ## gate chase ("stolen") are not his sales, so they never use up his one of each.
 func owned_of(model: String) -> int:
@@ -477,8 +512,8 @@ func _answer_line(text: String) -> void:
 	spot.speak_pulse()
 
 
-## Speeder number `i` at its parking spot (issue #295: the location's "parking":
-## the garage first, then beside it), nose the way the spot says.
+## Speeder number `i` at its parking spot (the location's "parking": out back
+## behind his house), nose the way the spot says.
 func _park(i: int) -> SpeederNode:
 	var s := _spawn(i)
 	var spot_at := parking_spot(i)
@@ -488,7 +523,11 @@ func _park(i: int) -> SpeederNode:
 
 ## Where a bought speeder `i` waits: [position, yaw] (see _park).
 func parking_spot(i: int) -> Array:
-	var spot_cfg: Dictionary = parking[i % parking.size()] if not parking.is_empty() else {}
+	return _spot(parking[i % parking.size()] if not parking.is_empty() else {})
+
+
+## A { at, nose } from the location file: [position on the sand, yaw].
+func _spot(spot_cfg: Dictionary) -> Array:
 	var at := _world(WorldGround._v3(spot_cfg.get("at", [0, 0, 0])))
 	at.y = ground.terrain.height_at(at.x, at.z)
 	var axis := { "+x": Vector3.RIGHT, "-x": Vector3.LEFT, "+z": Vector3.BACK, "-z": Vector3.FORWARD }
@@ -606,7 +645,8 @@ func _build_shop() -> void:
 	add_child(shop)
 
 
-func _physics_process(_dt: float) -> void:
+func _physics_process(dt: float) -> void:
+	tick_wrath(dt)
 	var p: CharacterBody3D = demo._player if demo != null and "_player" in demo else null
 	if shop == null or p == null or shop.busy():
 		return
@@ -620,6 +660,150 @@ func _physics_process(_dt: float) -> void:
 		gear.hud.set_prompt(shop.label("talk") % shop.npc_name())
 	if not p.locked and InputMap.has_action("interact") and Input.is_action_just_pressed("interact"):
 		shop.talk()
+
+
+# ------------------------------------------------------------------ his own speeders (wrath)
+
+## His two speeders, never for sale: the display one on its pad (a Sand-boxer in
+## its display paint) and the racer in his garage (his card's wrath.racer, at the
+## location's "racer" point, nose out). Both rideable; climbing on is theft.
+func _build_stock() -> void:
+	display = SpeederNode.new()
+	display.setup(demo, ground, HoverModel.load_config("speeder"), true,
+		str(HoverModel.load_config("speeder").get("look", {}).get("display_paint", "")))
+	add_child(display)
+	display.name = "DisplaySpeeder"
+	display.place(world_point("display"), yaw + PI * 0.5)
+	stock = [display]
+	if points.has("racer"):
+		var model := str(wrath_cfg().get("racer", "racer"))
+		racer = SpeederNode.new()
+		racer.setup(demo, ground, HoverModel.load_config(model), true, "")
+		add_child(racer)
+		racer.name = "SkrugsRacer"
+		var at := _spot({ "at": [points.racer.x, 0, points.racer.z], "nose": "+x" })
+		racer.place(at[0], at[1])
+		stock.append(racer)
+	for s in stock:
+		s.set_meta("skrugs_stock", true)
+		s.mounted.connect(_on_stock_mounted.bind(s))
+
+
+## His card's "wrath" block.
+func wrath_cfg() -> Dictionary:
+	return card.get("wrath", {})
+
+
+func _wrath_line(key: String) -> String:
+	return str(wrath_cfg().get("lines", {}).get(key, ""))
+
+
+func _on_stock_mounted(s: SpeederNode) -> void:
+	if s.has_meta("stolen_from_skrugs"):
+		return                                 # already stolen: riding it again changes nothing
+	s.set_meta("stolen_from_skrugs", true)
+	stock.erase(s)
+	steal(s)
+
+
+## Speeder `s` of his was stolen: the locals hate you as if you had killed one of
+## them (the same standing hit, their alarm up), and he is furious: grenades and
+## no talking until you wake in the pit.
+func steal(_s: SpeederNode = null) -> void:
+	thefts += 1
+	var tf = demo.get("townsfolk") if demo != null else null
+	if tf != null and is_instance_valid(tf):
+		tf.outrage(_wrath_line("standing"))
+	else:                                      # no locals running (npc brains off): the hit all the same
+		var town = demo.get("town") if demo != null else null
+		var locals: Dictionary = town.data.get("locals", {}) if town != null and town.data is Dictionary else {}
+		WorldState.change_standing("locals", int(locals.get("alarm", {}).get("killed_standing", -8)), _wrath_line("standing"))
+	WorldState.log_event(_wrath_line("event"), "back_gate")
+	if host != null and host.active == spot:
+		host.end_talk()
+	if spot != null:
+		var rel := spot.brain.rel
+		rel.mood = "angry"
+		rel.add_trust(-30, "stole one of my speeders")
+	if not furious:
+		furious = true
+		_throw_left = float(wrath_cfg().get("first_s", 0.8))
+	_toast(_wrath_line("stolen"))
+
+
+## You woke in the pit: he lets it go (as the locals do: Townsfolk.forgive_player).
+func forgive() -> void:
+	furious = false
+
+
+## Furious: a grenade at the player every every_s while they are within throw_m.
+func tick_wrath(dt: float) -> void:
+	if not furious or skrugs == null:
+		return
+	var p: CharacterBody3D = demo._player if demo != null and "_player" in demo else null
+	if p == null or not is_instance_valid(p) or p.get("is_downed") == true:
+		return
+	var target := _wrath_target(p)
+	if target.distance_to(skrugs.global_position) > float(wrath_cfg().get("throw_m", 45.0)):
+		_throw_left = maxf(_throw_left, float(wrath_cfg().get("first_s", 0.8)))
+		return
+	_throw_left -= dt
+	if _throw_left > 0.0:
+		return
+	_throw_left = float(wrath_cfg().get("every_s", 2.4))
+	throw_at(p)
+
+
+## Where the player is (their speeder's middle when riding).
+func _wrath_target(p: CharacterBody3D) -> Vector3:
+	if p.piloting and p.vehicle is SpeederNode and is_instance_valid(p.vehicle):
+		return (p.vehicle as SpeederNode).model.position
+	return p.global_position
+
+
+## Lob one grenade at the player: from his hand, landing where they will be after
+## the flight (a quick one up close, longer far off), led by their speeder's speed.
+func throw_at(p: CharacterBody3D) -> Grenade:
+	if _grenade_cfg.is_empty():
+		_grenade_cfg = CharacterKit._read_json(Grenade.CFG_PATH)
+	var cfg := _grenade_cfg
+	var w := wrath_cfg()
+	var up := Vector3.UP
+	var hand := skrugs.global_position + up * float(w.get("hand_m", 1.9))
+	var target := _wrath_target(p)
+	var vel := Vector3.ZERO
+	if p.piloting and p.vehicle is SpeederNode and is_instance_valid(p.vehicle):
+		var v: SpeederNode = p.vehicle
+		vel = v.model.forward() * v.model.speed
+	var span: Array = w.get("flight_s", [0.8, 1.9])
+	var reach := float(w.get("throw_m", 45.0))
+	var t: float = lerpf(float(span[0]), float(span[1]), clampf(hand.distance_to(target) / maxf(reach, 1.0), 0.0, 1.0))
+	var g := float(cfg.get("gravity", 20.0))
+	var land := target + vel * t
+	var launch := (land - hand) / t + up * (0.5 * g * t)
+	# Out of his hand toward them, so the first step clears his own counter.
+	var flat := Vector3(land.x - hand.x, 0.0, land.z - hand.z)
+	if flat.length() > 0.01:
+		hand += flat.normalized() * 0.6
+	var gr := Grenade.new()
+	gr.setup(cfg, hand, launch, skrugs)
+	gr.player = p
+	gr.host = demo
+	demo.add_child(gr)
+	gr.global_position = hand
+	throws += 1
+	last_grenade = gr
+	var barks: Array = w.get("lines", {}).get("barks", [])
+	if not barks.is_empty():
+		_toast("%s: %s" % [str(card.get("name", "Skrugs")), str(barks[_barks % barks.size()])], 1.8)
+		_barks += 1
+	return gr
+
+
+func _toast(text: String, secs := 3.5) -> void:
+	var gear: GearController = demo.gear if demo != null and "gear" in demo else null
+	if text != "" and gear != null and gear.hud != null:
+		gear.hud.toast(text, secs)
 
 
 # ------------------------------------------------------------------ buying ships (issue #295)

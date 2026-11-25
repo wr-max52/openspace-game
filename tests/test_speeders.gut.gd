@@ -167,7 +167,7 @@ func test_the_post_is_by_the_back_gate() -> void:
 	assert_lt(Vector2(stall.x - gap.x, stall.z - gap.z).length(), 45.0, "a short walk from the back gate")
 	assert_not_null(post.spot, "Skrugs is someone to talk to")
 	assert_true(t.bar.spots.has(post.spot))
-	assert_false(post.display.rideable, "the display model is not for riding")
+	assert_true(post.display.rideable, "his own: ride it and you have stolen it (test_skrugs_wrath)")
 
 
 func test_buying_a_speeder_at_the_stall() -> void:
@@ -182,7 +182,7 @@ func test_buying_a_speeder_at_the_stall() -> void:
 	assert_eq(post.speeders.size(), 1, "one speeder")
 	assert_eq(WorldState.count("speeders_owned"), 1, "saved as owned")
 	var s: SpeederNode = post.speeders[0]
-	assert_lt(s.model.position.distance_to(post.world_point("bay")), 1.5, "issue #295: parked in his garage")
+	assert_lt(s.model.position.distance_to(post.parking_spot(0)[0]), 1.5, "parked out back behind his house")
 	assert_eq(post.spot.brain.rel.mood, "warm", "Skrugs is happy")
 	assert_true(WorldState.has_flag("bought_speeder"))
 	t.bar.end_talk()
@@ -329,7 +329,7 @@ func test_ride_it_and_get_off() -> void:
 	WorldState.credits = 100
 	post.buy()
 	var s: SpeederNode = post.speeders[0]
-	# Issue #295: it waits in his garage inside the wall; ride it on open sand,
+	# It waits out back behind his house inside the wall; ride it on open sand,
 	# out past the back gate, nose to the desert.
 	var gap: Vector3 = t.town.marker_pos("back_gap")
 	var out := Vector3(gap.x, 0, gap.z).normalized()
