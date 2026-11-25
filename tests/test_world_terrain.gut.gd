@@ -89,8 +89,11 @@ func test_the_desert_rocks_are_solid_to_the_ship() -> void:
 	var data := DesertLandforms.load_data()
 	var placed := 0
 	var clear := keep_out.grow(float(data.keep_out_margin))
-	for m in data.mesas + data.hoodoos:
+	for m in data.mesas:
 		if not clear.grow(float(m[2])).has_point(Vector2(m[0], m[1])):
+			placed += 1
+	for s in DesertLandforms.spire_spots(data):
+		if not clear.grow(float(s.radius)).has_point(s.map):
 			placed += 1
 	assert_eq(ground.columns.size(), placed, "every mesa and hoodoo DesertLandforms places, no more")
 	assert_gt(placed, 10)

@@ -585,7 +585,7 @@ static func _rise_local(rise: String, yaw: float) -> String:
 ## Same skip rule as DesertLandforms: nothing within keep_out (grown by the data's
 ## margin), so the columns are exactly the rocks on screen. Sizes follow its meshes:
 ##   mesa   -- tapered shelf, its feet buried 2 m under the ground
-##   hoodoo -- column 0.55r..r, h tall, centred 0.45h up, capped by a 0.9r stone
+##   hoodoo -- a spire (DesertLandforms.spire_spots): its body's column, its height tall
 func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
 	var clear := keep_out.grow(float(data.get("keep_out_margin", 25.0)))
 	if sphere() != null:
@@ -597,12 +597,12 @@ func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
 			columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa",
 				"center": Vector3(m[0], gy, m[1]), "radius": float(m[2]) * 0.9,
 				"top": gy + float(m[3]) * 0.92 - DesertLandforms.MESA_BURY })
-	for hd in data.get("hoodoos", []):
-		if not clear.grow(float(hd[2])).has_point(Vector2(hd[0], hd[1])):
-			var gy := terrain.height_at(hd[0], hd[1])
-			columns.append({ "id": "hoodoo_%d_%d" % [int(hd[0]), int(hd[1])], "kind": "hoodoo",
-				"center": Vector3(hd[0], gy, hd[1]), "radius": float(hd[2]) * 0.9,
-				"top": gy + float(hd[3]) * 0.95 + float(hd[2]) * 0.4 })
+	for s in DesertLandforms.spire_spots(data):
+		var map: Vector2 = s.map
+		if not clear.grow(float(s.radius)).has_point(map):
+			var gy := terrain.height_at(map.x, map.y)
+			columns.append({ "id": s.id, "kind": "hoodoo", "center": Vector3(map.x, gy, map.y),
+				"radius": float(s.column), "top": gy + float(s.height) })
 
 
 ## Issue #77: the same columns, standing along the ball's up at their map spot
@@ -621,12 +621,21 @@ func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 			var h := float(m[3]) * 0.92 - DesertLandforms.MESA_BURY
 			columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa", "center": base,
 				"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
-	for hd in data.get("hoodoos", []):
-		if not clear.grow(float(hd[2])).has_point(Vector2(hd[0], hd[1])):
-			var base := sp.surface_at(hd[0], hd[1])
-			var h := float(hd[3]) * 0.95 + float(hd[2]) * 0.4
-			columns.append({ "id": "hoodoo_%d_%d" % [int(hd[0]), int(hd[1])], "kind": "hoodoo", "center": base,
-				"radius": float(hd[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
+	for s in DesertLandforms.spire_spots(data, sp):
+		var map: Vector2 = s.map
+		if not clear.grow(float(s.radius)).has_point(map):
+			var base := sp.surface_at(map.x, map.y)
+			var h := float(s.height)
+			columns.append({ "id": s.id, "kind": "hoodoo", "center": base,
+				"radius": float(s.column), "up": sp.up_at(base), "h": h, "top": base.y + h })
+	for hd in DesertLandforms.short_spots(data, sp):
+		var map: Vector2 = hd.map
+		if not clear.grow(float(hd.radius)).has_point(map):
+			var base := sp.surface_at(map.x, map.y)
+			# Column 0.55r..r, h tall, centred 0.45h up, capped by a 0.9r stone.
+			var h := float(hd.height) * 0.95 + float(hd.radius) * 0.4
+			columns.append({ "id": hd.id, "kind": "hoodoo", "center": base,
+				"radius": float(hd.radius) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
 
 
 ## Somewhere a ship may set down: inside the desert (beyond it there is sand to
