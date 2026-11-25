@@ -53,6 +53,16 @@ func npc_name() -> String:
 	return str(cfg.get("name", "the mechanic"))
 
 
+## Issue #615: the name of race crew `crew`'s leader (the name engine's), for
+## "beat <leader> of the basin crew".
+func crew_leader(crew: String) -> String:
+	if demo != null and "race_crews" in demo:
+		for rc in demo.race_crews:
+			if is_instance_valid(rc) and rc.id == crew:
+				return rc.leader_name()
+	return label("crew_leader_unknown")
+
+
 func label(key: String) -> String:
 	return str(cfg.get("labels", {}).get(key, key))
 
@@ -142,7 +152,11 @@ func _row(fit: Dictionary, p: Dictionary) -> Dictionary:
 	var id := str(p.get("id", ""))
 	var why := SpeederUpgrades.why_not(fit, id)
 	var text := label("buy") % [str(p.get("label", id)), int(p.get("price", 0))]
-	if why == "owned":
+	var crew := SpeederUpgrades.locked_by(id)
+	if crew != "" and why != "owned":
+		text = label("crew_locked") % [str(p.get("label", id)), int(p.get("price", 0)), crew_leader(crew),
+			str(RaceCrew.load_crew(crew).get("label", crew))]
+	elif why == "owned":
 		text = label("owned") % str(p.get("label", id))
 	elif why.begins_with("needs:"):
 		text = label("locked") % [str(p.get("label", id)), int(p.get("price", 0)),
@@ -199,6 +213,10 @@ func buy(id: String) -> String:
 	var why := SpeederUpgrades.why_not(fit, id)
 	if why != "":
 		return why
+	var crew := SpeederUpgrades.locked_by(id)
+	if crew != "":
+		_say(label("crew_locked_say") % [crew_leader(crew), str(RaceCrew.load_crew(crew).get("label", crew))])
+		return "crew:" + crew
 	var p := SpeederUpgrades.part(id)
 	var price := int(p.get("price", 0))
 	if WorldState.credits < price:

@@ -51,6 +51,10 @@ var demo                              ## town_demo.gd
 var ground: WorldGround
 var player: CharacterBody3D
 var planet_id := ""
+## Issue #612: the flag it dies under ("" = the planet's own, beast_slain_<planet>).
+## A race's track beast is "<planet>_track", so killing it leaves the planet's
+## beast alive (and the planet's beast's flag never touches it).
+var slain_key := ""
 var cfg: Dictionary = {}              ## the species defaults with the planet's block laid over
 var beast_name := "the beast"
 var radius := 3.6
@@ -766,8 +770,9 @@ func _die() -> void:
 	chasing = false
 	if _shape != null:
 		_shape.set_deferred("disabled", true)
-	if planet_id != "":
-		WorldState.set_flag(slain_flag(planet_id))
+	var key := slain_key if slain_key != "" else planet_id
+	if key != "":
+		WorldState.set_flag(slain_flag(key))
 	WorldState.log_event("Killed %s, the beast." % beast_name)
 	_toast(line("slain"))
 	for s in segments:
@@ -781,9 +786,7 @@ func _die() -> void:
 func _touch() -> void:
 	if player == null or not is_instance_valid(player) or bool(player.get("is_downed")):
 		return
-	var parts := [[global_position, radius]]          # the head, then every segment
-	for s in segments:
-		parts.append([(s.node as Node3D).global_position, float(s.r) * 1.2])
+	var parts := body_points()
 	if bool(player.get("piloting")):
 		var v = player.get("vehicle")
 		if v is SpeederNode:
@@ -799,6 +802,39 @@ func _touch() -> void:
 		if chest.distance_to(p[0]) <= float(p[1]) + float(cfg.get("kill_margin", 0.35)):
 			_kill()
 			return
+
+
+## Every part that kills on touch: [[centre, radius]], the head then each
+## segment (issue #612: racers steer round these and die on them too).
+func body_points() -> Array:
+	var parts := [[global_position, radius]]
+	for s in segments:
+		parts.append([(s.node as Node3D).global_position, float(s.r) * 1.2])
+	return parts
+
+
+## True if a speeder at `at` is touching it (the player's own rule).
+func touches_speeder(at: Vector3) -> bool:
+	if dead:
+		return false
+	for p in body_points():
+		if at.distance_to(p[0]) <= float(p[1]) + float(cfg.get("speeder_margin", 1.4)):
+			return true
+	return false
+
+
+## Issue #612: a beast built from an event's block (a race's track beast) rather
+## than the planet's: the planet's beast defaults and its planet block, with
+## `block` over them (home, leash_m, ...), dying under its own `key`.
+func setup_extra(town_demo, world_ground: WorldGround, planet: Dictionary, block: Dictionary, key: String) -> void:
+	setup(town_demo, world_ground, planet)
+	if cfg.is_empty():
+		cfg = defaults()
+	for k in block:
+		cfg[k] = block[k]
+	slain_key = key
+	beast_name = str(cfg.get("name", cfg.get("label", "the beast")))
+	name = "TrackBeast"
 
 
 ## Dead on the spot. Whoever handles a downed player (the town's garrison) wakes

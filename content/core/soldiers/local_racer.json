@@ -1,0 +1,11 @@
+{
+  "id": "local_racer",
+  "base": "local_resident",
+  "label": "Racer",
+  "note": "Issue #611: a speeder racer (content/core/racing/crews/*.json): a port local who hangs out with their crew by a desert place and races you for money. Their crew file sets each one's look (the local body with a guard helmet in the crew's colours) and speeder. Run by the crew's own Townsfolk (role 'local' with nowhere to walk): hurt one and the crew fights back; the town does not hear of it. Only the blocks below differ from local_resident.json.",
+  "patrol": {
+    "pause_s": 8.0,
+    "look_around_deg": 50.0,
+    "look_every_s": 4.0
+  }
+}

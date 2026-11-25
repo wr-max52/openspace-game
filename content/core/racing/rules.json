@@ -1,0 +1,21 @@
+{
+  "note": "Issue #611: rules every race shares. Read by src/systems/racing/race_crew.gd. line_up_reach: how close to the grid (m) your speeder must be for [Z]. countdown_s: seconds per count (3, 2, 1, GO). grid_timeout_s: racers still driving to the grid this long after you line up are set on their slots. beep / go_sound: Sound keys (content/look/sound.json). crowd_profiles: the soldier profiles spectators are drawn from (random local looks). crowd_band: where they stand, beside the start line, [min, max] metres out from each antenna and [min, max] metres behind the line. return_s: after the race, how long the racers have to drive back and park before their speeders are put away. collect: Dorrin's prompt for your winnings. hud: the race HUD's words.",
+  "line_up_reach": 45.0,
+  "countdown_s": 1.0,
+  "grid_timeout_s": 25.0,
+  "beep": "cargo_beep",
+  "go_sound": "quest_start",
+  "crowd_profiles": ["local_resident", "local_patron"],
+  "crowd_band": { "out": [4.0, 14.0], "back": [-6.0, 10.0] },
+  "return_s": 45.0,
+  "collect": "[E] Collect your winnings (%d cr)",
+  "collected": "Dorrin counts out %d cr. \"Not bad.\"",
+  "hud": {
+    "lap": "LAP %d/%d",
+    "place": "%s",
+    "places": ["1st", "2nd", "3rd", "4th"],
+    "go": "GO!",
+    "results": "%d. %s",
+    "you": "You"
+  }
+}
