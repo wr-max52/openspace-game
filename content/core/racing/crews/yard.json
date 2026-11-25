@@ -10,17 +10,17 @@
   "racers": [
     {
       "leader": true,
-      "stand": [7.0, -9.0], "park": [9.5, -14.0],
+      "stand": [7.0, -9.0], "park": [10.6, -15.1],
       "look": { "head": "guard:black", "torso": "local:darker", "legs": "local:darker" },
       "paint": "remnant", "parts": ["engine_1", "turbo_boosters"], "skill": "ace"
     },
     {
-      "stand": [9.0, -7.5], "park": [13.0, -11.0],
+      "stand": [9.0, -7.5], "park": [14.9, -19.3],
       "look": { "head": "guard:blood", "torso": "local:red", "legs": "local:darker" },
       "paint": "crimson", "parts": ["thrusters_1", "soft_top"], "skill": "racer"
     },
     {
-      "stand": [5.5, -10.5], "park": [6.0, -16.5],
+      "stand": [5.5, -10.5], "park": [19.1, -23.5],
       "look": { "head": "guard:desert", "torso": "local:yellow", "legs": "local" },
       "paint": "tide", "parts": [], "skill": "racer"
     }

@@ -222,3 +222,35 @@ func test_the_race_pin_is_where_the_crew_stand() -> void:
 		assert_almost_eq((p.map as Vector2).distance_to(hang), Vector2(float(stand[0]), float(stand[1])).length(), 0.5,
 			"%s: the pin is on the leader's spot by their hangout" % p.id)
 		assert_gt((p.map as Vector2).distance_to(Vector2(float(gate[0]), float(gate[1]))), 60.0, "%s: not out on the start line" % p.id)
+
+
+## Bug: the yard crew's three speeders were parked nose to tail along the way
+## they face, 4.5 m apart for 5 m machines, so they sat inside one another.
+## Every crew parks side by side (or end to end) with room between them, and
+## clear of where the racers stand.
+func test_parked_speeders_have_room_between_them() -> void:
+	var t = await _town()
+	var ground: WorldGround = t.pilot.ground
+	const WIDE := 3.4                    # the widest class (the box truck), for every speeder
+	const ROOM := 1.0
+	for crew: RaceCrew in t.race_crews:
+		var spots := []
+		for rc in crew.racers:
+			var at: Vector3 = crew._park_pos(rc)
+			var up := ground.up_at(at)
+			var fwd: Vector3 = (crew.course.gate_pos(0) - at)
+			fwd = (fwd - up * fwd.dot(up)).normalized()
+			var long := float(HoverModel.load_config(SpeederUpgrades.model_of(rc.cfg)).get("look", {}).get("length", 5.0))
+			spots.append({ "key": rc.key, "at": at, "fwd": fwd, "side": up.cross(fwd).normalized(), "long": long })
+			for other in crew.racers:
+				assert_gt(at.distance_to(other.body.global_position), long * 0.5 + ROOM,
+					"%s parks clear of where %s stands" % [rc.key, other.key])
+		for i in spots.size():
+			for j in range(i + 1, spots.size()):
+				var a: Dictionary = spots[i]
+				var b: Dictionary = spots[j]
+				var off: Vector3 = b.at - a.at
+				var side_gap: float = absf(off.dot(a.side)) - WIDE
+				var end_gap: float = absf(off.dot(a.fwd)) - (a.long + b.long) * 0.5
+				assert_true(side_gap >= ROOM or end_gap >= ROOM,
+					"%s: %s and %s park with room between them (side %.1f m, ends %.1f m)" % [crew.id, a.key, b.key, side_gap, end_gap])
