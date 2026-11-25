@@ -141,51 +141,60 @@ Raw review sheet: `docs/kit/79_raw.png` (`tools/look/sheets/19_issue79_raw.json`
 
 ## Sand nomad heads (native packs)
 
-A sand version of the dune nomads' goggle-mask head (`goggles_head`), plus three
-variations for later NPCs. Each is a kit part `from` the head, fitted into the
-goggle head's box (`kit.fit.parts` in `content/look/character_models.json`), so it
-goes on any body and shows in the character builder.
+The dune nomads' head: round goggles joined at the bridge to a nose-and-mouth
+cover, over a full cloth face wrap. Three variations swap one feature in. Each is
+a kit part `from` the head, fitted into the goggle head's box (`kit.fit.parts` in
+`content/look/character_models.json`), so it goes on any body and shows in the
+character builder.
 
-References: front and side crops of `goggles_head` with its sand recolour
-(`colors/goggles_sand.png`). Settings: Gen-2.5-High, Raw, `quality_override` 30000.
+**Re-rendered from prompts alone.** The first renders used crops of
+`goggles_head` as references, and the references won over the prompts: four
+hollow, holey copies of the brass goggle mask. These have no reference images.
+Settings: Gen-2.5-High, Raw, `quality_override` 30000.
 
 Pack head prompt (`nomad_head`):
 
-> The same alien goggle-mask head as the reference images, recoloured entirely in
-> desert sand tones. A close-fitting sand-coloured cloth hood wraps the whole skull.
-> Over it a long, narrow, unsettling beaked face mask in sun-bleached bone and pale
-> sand, with a thin ridge running up the forehead, two short swept-back horn tabs,
-> and two big round goggle lenses in worn sandstone-coloured rims with ribbed ear
-> discs at the sides. The lenses are dark smoky amber. No skin, no face visible.
-> Freaky, alien, not human. Only the head piece: hood and mask at human head scale,
-> open at the neck, nothing below the neck, no body, no shoulders. Matte dusty
-> materials, no metal shine, gritty painterly realism, no text. Single object,
-> centred, neutral background.
+> A single game character head piece: a desert wanderer's full face covering. A close wrap of thick coarse sand-coloured cloth covers the whole head, face, chin and neck like a hood, with layered folds and frayed edges. Over the eyes, big round goggles with dark smoky amber lenses in worn bone-coloured rims, joined at the bridge to a moulded nose-and-mouth cover: a short rounded snout of stiff pale bone-coloured hide with a ribbed breathing filter at the front, strapped onto the cloth. A tan leather strap runs from the goggles around the back of the head. Sun-faded sand, bone and tan tones.
 
-The variations used the same references with a feature swapped in: a third
-forehead lens and a segmented chitin crest (`nomad_crest`), a ribbed snout split
-into mandible tubes (`nomad_maw`), and swept-back horns with slit lenses
-(`nomad_horn`).
+Every head shares the opening ("A single game character head piece: a desert
+wanderer's full face covering.") and this tail:
+
+> No skin, no face, nothing human showing. One solid closed shape, no holes or gaps. Only the head and neck, cut off cleanly at the base of the neck, no shoulders, no body. Matte dusty materials, no metal shine, gritty painterly realism, no text. Single object, centred, facing straight forward, neutral background.
+
+Variations (the middle of the prompt):
+
+- `nomad_crest`: A close wrap of thick coarse dusty-tan cloth covers the whole head, face, chin and neck like a hood. A tall stiff ridge of wrapped cloth and bone beads runs over the top of the skull from brow to nape. Round goggles with dark amber lenses in bone rims, joined at the bridge to a short rounded nose-and-mouth cover of pale hide with a ribbed filter, strapped onto the cloth. Sand, tan and bone tones.
+- `nomad_maw`: A close wrap of thick coarse sand-coloured cloth covers the whole head and neck like a hood, and a long ragged cloth veil hangs from the nose cover down over the chin and throat. Round goggles with opaque black smoked lenses, completely dark, nothing visible behind them, in bone rims, joined at the bridge to a long nose-and-mouth cover of pale hide, with two ribbed breathing tubes curving from it down into the veil. Sand, rust-brown and bone tones. No eyes, no skin, no face, nothing human showing anywhere.
+- `nomad_horn`: A close wrap of thick coarse pale sand cloth covers the whole head, face, chin and neck like a hood. Two short curved bone horns sweep back from the temples through the cloth. Round goggles with dark amber lenses in bone rims, joined at the bridge to a short rounded nose-and-mouth cover of bone-coloured hide with a ribbed filter, tied on with leather cords. Sand, bone and faded brown tones.
+
+The first `nomad_maw` (c15d179c-0ec4-4f47-909e-de0d3acfa81e) showed human eyes
+and skin through amber lenses; its retry asks for opaque black lenses and "no
+eyes".
 
 | Piece | Generation | Source |
 |---|---|---|
-| nomad (pack head) | bd39fad1-76e8-40cf-91ff-b6dbd0753ea5 | `nomad_head.glb` |
-| nomad_crest | 1be4d472-a09e-4a3a-9b8e-25bf7b6836cf | `nomad_crest_head.glb` |
-| nomad_maw | 2382505a-bd84-4af6-b491-f5217d61690f | `nomad_maw_head.glb` |
-| nomad_horn | be19a337-54eb-4775-abd5-702156e34492 | `nomad_horn_head.glb` |
+| nomad (pack head) | f92e8e0f-e312-47b0-b485-fb12d5691f16 | `nomad_head.glb` |
+| nomad_crest | 720deca5-bdb6-4c9f-80c2-ef89beaaaf79 | `nomad_crest_head.glb` |
+| nomad_maw | 61ef65ea-3181-4ce6-825e-63f347cb3657 | `nomad_maw_head.glb` |
+| nomad_horn | 7a50e1ce-c347-46b7-9052-e03309a1c8f9 | `nomad_horn_head.glb` |
 
-**The references won over the prompts.** All four came back as the goggle head's
-shape, so the variations differ from it (and from each other) only in small details.
-Their colours also came back wrong: a light grey hood and an olive-brass, fully
-metallic mask. The fit bakes the sand in (`recolor`: hood to sand, mask to bone,
-`metallic` 0), each in slightly different tones. The swaps all read the original
-texture, so the second never catches the first's result. Textures are shrunk in the
-fit (`texture_size`: 1024 for the pack head, 512 for the variations) to keep
-`parts.glb` under GitHub's 100 MB file limit (it is about 95 MB now).
+They came back a light beige and fully metallic. The fit bakes each to its own
+sand (`recolor`, one swap, brightness kept, so the bone mask stays lighter than
+the cloth; `metallic` 0). Textures are shrunk in the fit (`texture_size`: 1024 for
+the pack head, 512 for the variations) to keep `parts.glb` under GitHub's 100 MB
+file limit (about 95 MB).
 
-A retry (prompt-only variations, and a pack head from darker matte sand-and-bone
-reference renders with de-lighting) was refused for lack of Hyper3D credits. With
-credits, that retry is the way to get truly different variations.
+**Colours are code, not renders.** Every head has the pack colours as texture
+variants (`kit.part_colors`: `nomad`, `nomad_crest`, `nomad_maw`, `nomad_horn`,
+each `sand`, `madder`, `slate`, `teal`), using the same target colours as the
+cantina owner's tunic, so a head matches its tunic. Each pack style wears the head
+in its tunic colour (`content/core/species/dune_nomads.json`). The party barge's
+nomads (the `desert_nomad` look, no pack style) are `matched`: head, tunic and
+legs take the same random index, and the lists line up by colour.
 
-Review: `docs/kit/nomad_heads.png` (close up, `tools/look/sheets/23_nomad_heads.json`)
-and `docs/kit/nomad_heads_body.png` (on a nomad's body, `24_nomad_heads_body.json`).
+Review: `docs/kit/nomad_heads.png` (close up, before and after,
+`tools/look/sheets/23_nomad_heads.json`), `docs/kit/nomad_heads_body.png` (on a
+nomad's body, `24_nomad_heads_body.json`), `docs/kit/nomad_packs.png` (the four
+pack styles, member and leader, `25_nomad_packs.json`) and
+`docs/kit/nomad_heads_colors.png` (every shape in every colour, as on the barge,
+`26_nomad_heads_colors.json`).

@@ -48,7 +48,8 @@ func test_catalog_lists_every_kit_piece_and_colour() -> void:
 	# Issue #303: the generals' bright blood red and the dark master's void black too.
 	assert_eq(cat.legs.guard, ["black", "blood", "desert", "gunmetal", "locals", "navy", "oxblood", "void", "white"])
 	assert_eq(cat.head.goggles, ["oxblood", "sand", "violet"])
-	assert_eq(cat.head.nomad, [], "the nomad heads are baked sand: no colour variants")
+	assert_eq(cat.head.nomad, ["madder", "sand", "slate", "teal"], "the nomad heads come in the packs' tunic colours")
+	assert_eq(cat.head.nomad_horn, ["madder", "sand", "slate", "teal"])
 
 
 func test_save_survives_a_restart() -> void:

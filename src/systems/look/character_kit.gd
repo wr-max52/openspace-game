@@ -139,11 +139,17 @@ func _wear_outfit(root: Node3D, skin: SkinnedBody, cfg: Dictionary, outfit: Dict
 	var pieces := bool(cfg.get("pieces", false))
 	var worn := {}
 	var keep := {}
+	# "matched": every part picks the same random index (modulo its list), so lists
+	# lined up by colour give a matching outfit: the desert nomad's 16 heads are its
+	# 4 tunic colours over and over, one head shape per round.
+	var matched := bool(cfg.get("matched", false))
+	var pick := rng.randi()
 	for part in parts:
 		var choices: Array = parts[part]
 		if choices.is_empty():
 			continue
-		var choice := str(outfit.get(part, choices[rng.randi() % choices.size()]))
+		var i := pick if matched else rng.randi()
+		var choice := str(outfit.get(part, choices[i % choices.size()]))
 		var color := choice
 		var mesh_name := str(part)
 		if pieces:
