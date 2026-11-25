@@ -182,7 +182,7 @@ func test_buying_a_speeder_at_the_stall() -> void:
 	assert_eq(post.speeders.size(), 1, "one speeder")
 	assert_eq(WorldState.count("speeders_owned"), 1, "saved as owned")
 	var s: SpeederNode = post.speeders[0]
-	assert_lt(s.model.position.distance_to(post.parking_spot(0)[0]), 1.5, "parked out back behind his house")
+	assert_lt(s.model.position.distance_to(post.line_spot(0)[0]), 1.5, "parked in the row outside the back gate")
 	assert_eq(post.spot.brain.rel.mood, "warm", "Skrugs is happy")
 	assert_true(WorldState.has_flag("bought_speeder"))
 	t.bar.end_talk()
@@ -329,7 +329,7 @@ func test_ride_it_and_get_off() -> void:
 	WorldState.credits = 100
 	post.buy()
 	var s: SpeederNode = post.speeders[0]
-	# It waits out back behind his house inside the wall; ride it on open sand,
+	# It waits in the row outside the back gate; ride it on open sand,
 	# out past the back gate, nose to the desert.
 	var gap: Vector3 = t.town.marker_pos("back_gap")
 	var out := Vector3(gap.x, 0, gap.z).normalized()

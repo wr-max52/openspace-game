@@ -312,7 +312,7 @@ func test_free_roam_bench_is_dorrins_menu_on_the_speeder_in_his_garage() -> void
 	assert_not_null(post.shop, "free roam: his bench works")
 	WorldState.credits = 1000
 	post.buy()
-	assert_null(post.shop.speeder_in_bay(), "a bought speeder waits out back, not in his garage")
+	assert_null(post.shop.speeder_in_bay(), "a bought speeder waits in the row outside the gate, not in his garage")
 	post.speeders[0].place(post.world_point("bay"), 0.0)       # driven into the garage
 	assert_not_null(post.shop.speeder_in_bay(), "in his bay now")
 	post.shop.talk()

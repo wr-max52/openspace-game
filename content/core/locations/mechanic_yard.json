@@ -2,7 +2,7 @@
   "id": "mechanic_yard",
   "kind": "post",
   "label": "the mechanic's yard",
-  "note": "Issue #95: Dorrin Vask's speeder yard, out in the desert about a 30 second drive from the back gate. Set in the world as a landmark (content/core/worlds/port_desert.json), so speeders collide with it and the player walks on it; src/systems/world/mechanic_yard.gd dresses it ('visual': false). Local frame: +x faces the town. Issue #295: the garage is wall pieces (back, two sides, a roof lifted by its position's y), open on +x, so a speeder drives in; the lift and the bay are inside it. 'points': where Dorrin stands at his bench, where you stand to talk, and the bay (the lift) where a speeder has to be parked for him to work on it (bay_radius in speeder_upgrades.json still reaches the sand out front). 'parking': where a speeder he sells you waits, on the lift if it is free, else out front ('nose': the way it faces).",
+  "note": "Issue #95: Dorrin Vask's speeder yard, out in the desert about a 30 second drive from the back gate. Set in the world as a landmark (content/core/worlds/port_desert.json), so speeders collide with it and the player walks on it; src/systems/world/mechanic_yard.gd dresses it ('visual': false). Local frame: +x faces the town. Issue #295: the garage is wall pieces (back, two sides, a roof lifted by its position's y), open on +x, so a speeder drives in; the lift and the bay are inside it. 'points': where Dorrin stands at his bench, where you stand to talk, and the bay (the lift) where a speeder has to be parked for him to work on it (bay_radius in speeder_upgrades.json still reaches the sand out front).",
   "buildings": [
     { "id": "garage_back", "shape": "box", "size": [0.4, 5, 9], "position": [-14.8, 0, 0], "visual": false },
     { "id": "garage_side_a", "shape": "box", "size": [12, 5, 0.4], "position": [-9, 0, -4.3], "visual": false },
@@ -15,9 +15,5 @@
     "mechanic": [-0.6, 0, 7],
     "customer": [1.2, 0, 7],
     "bay": [-7, 0, 0]
-  },
-  "parking": [
-    { "at": [-7, 0, 0], "nose": "+x" },
-    { "at": [6, 0, -8], "nose": "+x" }
-  ]
+  }
 }

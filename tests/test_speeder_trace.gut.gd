@@ -40,7 +40,7 @@ func test_buying_one() -> void:
 	assert_eq(int(t.get("OWNED", 0)), 1)
 	assert_eq(t.get("SKRUGS_MOOD"), "warm", "a sale cheers him up")
 	_true("SPEEDER_PARKED")
-	_true("PARKED_OUT_BACK", "out back behind his house")
+	_true("PARKED_IN_ROW", "in the row outside the back gate")
 
 
 func test_ride_it_off_the_ramp() -> void:

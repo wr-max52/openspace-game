@@ -11,7 +11,7 @@ extends Node
 ## A shop with "sells_speeders" (Dorrin's, not Skrugs's bench) also sells every
 ## model Skrugs does, at his prices, one of each to a customer whoever sold it
 ## ("Buy a speeder", there with or without a speeder in the bay; buy_speeder).
-## The new one waits where `sell_spot` says (MechanicYard: his lift, or out front).
+## The new one waits in the row outside the town's back gate, like all new ones.
 ##
 ## It only works on a speeder of yours parked in its bay (within bay_radius of the
 ## bay point). Parts are paid for here and fitted at once (SpeederPost.refit
@@ -36,7 +36,6 @@ var player: CharacterBody3D
 var cfg: Dictionary = {}              ## SpeederUpgrades.shop(id): name, bay_radius, voice, lines, labels
 var bay: Callable                     ## () -> Vector3: the bay, in the world
 var speaker: Node3D                   ## who says the lines (his voice comes from there), may be null
-var sell_spot: Callable               ## () -> [position, yaw]: where a speeder sold here waits ([] = Skrugs's parking)
 var speeders_sold := 0                ## speeders sold here this session (tests, traces)
 var menu: DroidMenu
 var said := ""                        ## the last line, for tests
@@ -245,7 +244,8 @@ func _on_speeders(id: String) -> void:
 	menu.open(label("menu_title") % [npc_name(), WorldState.credits], speeder_options(), _on_speeders, said, true)
 
 
-## Sell them a new speeder of `model` at Skrugs's price; it waits at sell_spot.
+## Sell them a new speeder of `model` at Skrugs's price; it waits in the row
+## outside the back gate (SpeederPost.sell_speeder).
 ## Returns "bought", "owned", "cant_afford" or "unknown".
 func buy_speeder(model: String) -> String:
 	var post := _post()
@@ -257,8 +257,7 @@ func buy_speeder(model: String) -> String:
 	if WorldState.credits < int(post.model_sale(model).get("price", 0)):
 		_say(_line("too_poor"))
 		return "cant_afford"
-	var at: Array = sell_spot.call() if sell_spot.is_valid() else []
-	if post.sell_speeder(model, at, label("event_sold_speeder")) == null:
+	if post.sell_speeder(model, label("event_sold_speeder")) == null:
 		return "unknown"
 	speeders_sold += 1
 	_say(_line("sold_speeder"))

@@ -28,10 +28,10 @@ extends Node3D
 ##     loose speeder: not yours, not saved; both are back next time the town is
 ##     built,
 ##   - buying: Skrugs proposes (offer_speeder), the chat box shows the price, and
-##     only the player's click pays. 100 credits off, a speeder parked out back
-##     behind his house (the location's "parking"), his mood warm. Dorrin sells
-##     the same models at the same prices (sell_speeder, SpeederShop), one of each
-##     to a customer whoever sold it. Speeders you own are saved
+##     only the player's click pays. 100 credits off, a speeder parked in your
+##     spot in the row outside the back gate (line_spot), his mood warm. Dorrin
+##     sells the same models at the same prices (sell_speeder, SpeederShop), one
+##     of each to a customer whoever sold it, and his wait in the same row. Speeders you own are saved
 ##     (WorldState counter "speeders_owned"); next time, and whenever you respawn
 ##     (ShipPilot.woke), yours waits in the row outside the back gate (the town's
 ##     speeder_spot markers, one spot per LAN player: line_up). Nothing else
@@ -300,13 +300,13 @@ func _on_answer(id: String, accepted: bool) -> void:
 
 
 ## Pay for a new speeder of `model` (issue #627: speeder, racer or hauler) and park
-## it out back behind his house. False (and nothing charged) if he does not sell
+## it in the row outside the back gate. False (and nothing charged) if he does not sell
 ## it, the player cannot afford it, or already owns one.
 func buy(model: String = "speeder") -> bool:
 	var sale := model_sale(model)
 	if sale.is_empty():
 		return false
-	if sell_speeder(model, [], "Someone bought a %s from Skrugs." % str(sale.get("name", "speeder")), "back_gate") == null:
+	if sell_speeder(model, "Someone bought a %s from Skrugs." % str(sale.get("name", "speeder")), "back_gate") == null:
 		return false
 	sales += 1
 	if spot != null:
@@ -320,12 +320,12 @@ func buy(model: String = "speeder") -> bool:
 	return true
 
 
-## Pay for a new speeder of `model` at his price and park it at `at` ([position,
-## yaw]; [] = his parking, out back). Dorrin's sales come through here too
-## (SpeederShop.buy_speeder). `event` is the log line (%s: the model's name).
-## Returns the new speeder, or null (and nothing charged): not one he sells, too
-## dear, or they own one already.
-func sell_speeder(model: String, at: Array = [], event: String = "", where: String = "") -> SpeederNode:
+## Pay for a new speeder of `model` at his price and park it: every new speeder,
+## his or Dorrin's (SpeederShop.buy_speeder), waits in your spot in the row
+## outside the back gate (line_spot; his parking out back when the town has no
+## row). `event` is the log line (%s: the model's name). Returns the new speeder,
+## or null (and nothing charged): not one he sells, too dear, or they own one.
+func sell_speeder(model: String, event: String = "", where: String = "") -> SpeederNode:
 	var sale := model_sale(model)
 	if sale.is_empty():
 		return null
@@ -342,10 +342,6 @@ func sell_speeder(model: String, at: Array = [], event: String = "", where: Stri
 	WorldState.set_flag("bought_speeder")
 	if event != "":
 		WorldState.log_event(event.replace("%s", str(sale.get("name", "speeder"))), where)
-	if at.size() == 2:
-		var s := _spawn(i)
-		s.place(at[0], at[1])
-		return s
 	return _park(i)
 
 
@@ -512,16 +508,16 @@ func _answer_line(text: String) -> void:
 	spot.speak_pulse()
 
 
-## Speeder number `i` at its parking spot (the location's "parking": out back
-## behind his house), nose the way the spot says.
+## Speeder number `i`, new: in its spot in the row outside the back gate (line_spot).
 func _park(i: int) -> SpeederNode:
 	var s := _spawn(i)
-	var spot_at := parking_spot(i)
+	var spot_at := line_spot(i)
 	s.place(spot_at[0], spot_at[1])
 	return s
 
 
-## Where a bought speeder `i` waits: [position, yaw] (see _park).
+## The location's "parking" spot `i` (out back behind his house): [position, yaw].
+## Only where speeders wait when the town has no row (line_spot).
 func parking_spot(i: int) -> Array:
 	return _spot(parking[i % parking.size()] if not parking.is_empty() else {})
 

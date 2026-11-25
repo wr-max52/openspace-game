@@ -11,8 +11,8 @@ extends Node3D
 ##   [E] beside him  -- the menu: paint, looks, performance, the Grav Lifter,
 ##                      selling the speeder for scrap, and buying a new one: he
 ##                      sells every model Skrugs does, at Skrugs's prices
-##                      (SpeederShop.buy_speeder). It waits on his lift, or out
-##                      front if the lift is taken (sold_spot).
+##                      (SpeederShop.buy_speeder). It waits in the row outside
+##                      the town's back gate, like every new speeder.
 ##
 ## He only works on a speeder of yours parked in his bay (within bay_radius of the
 ## lift, inside his garage: issue #295 made it wall pieces you can drive into).
@@ -36,7 +36,6 @@ var menu: DroidMenu                   ## the shop's
 var mechanic: Node3D                  ## Dorrin's body
 var xf := Transform3D()               ## the yard's frame (on the ball: along the ground's up)
 var points: Dictionary = {}
-var parking: Array = []               ## [{ at, nose }]: where a speeder he sells waits (the lift first)
 var found := false                    ## the world has the landmark
 var in_reach := false
 var droids: Array = []                ## issue #100: { look: Node3D, center, rx, rz, speed, a } (cargo droids on their loops)
@@ -76,8 +75,6 @@ func _ready() -> void:
 	var loc: Dictionary = cc.get_location(id)
 	for k in loc.get("points", {}):
 		points[k] = WorldGround._v3(loc.points[k])
-	parking = loc.get("parking", [])
-	shop.sell_spot = sold_spot
 	if demo.use_look:
 		_dress(loc)
 	_build_droids()                      # issue #543: there with the look off too, only undressed
@@ -90,11 +87,7 @@ func npc_name() -> String:
 
 ## A point from the location file, in the world, on the sand.
 func world_point(id: String) -> Vector3:
-	return _on_sand(points.get(id, Vector3.ZERO))
-
-
-## A point in the yard's frame, in the world, on the sand.
-func _on_sand(lp: Vector3) -> Vector3:
+	var lp: Vector3 = points.get(id, Vector3.ZERO)
 	var p: Vector3 = xf * Vector3(lp.x, 0.0, lp.z)
 	var sp := ground.sphere()
 	if sp != null:
@@ -109,26 +102,6 @@ func _on_sand(lp: Vector3) -> Vector3:
 ## Your speeder parked in the bay (the nearest one to the lift), or null.
 func speeder_in_bay() -> SpeederNode:
 	return shop.speeder_in_bay() if shop != null else null
-
-
-## Where a speeder he sells waits: [position, yaw]. The first parking spot (his
-## lift) unless a speeder of yours already stands on it, then the next (out front).
-func sold_spot() -> Array:
-	var pick: Dictionary = parking[0] if not parking.is_empty() else { "at": [0, 0, 0], "nose": "+x" }
-	var post = demo.get("speeder_post") if demo != null else null
-	if parking.size() > 1 and post != null:
-		var lift := _parking_point(pick)
-		for s in post.speeders:
-			if is_instance_valid(s) and Vector2(s.model.position.x - lift.x, s.model.position.z - lift.z).length() < 3.0:
-				pick = parking[1]
-				break
-	var axis := { "+x": Vector3.RIGHT, "-x": Vector3.LEFT, "+z": Vector3.BACK, "-z": Vector3.FORWARD }
-	var nose: Vector3 = xf.basis * (axis.get(str(pick.get("nose", "+x")), Vector3.RIGHT) as Vector3)
-	return [_parking_point(pick), atan2(-nose.x, -nose.z)]
-
-
-func _parking_point(spot: Dictionary) -> Vector3:
-	return _on_sand(WorldGround._v3(spot.get("at", [0, 0, 0])))
 
 
 # ------------------------------------------------------------------ frame

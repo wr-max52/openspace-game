@@ -149,9 +149,9 @@ func _run() -> void:
 	if s == null:
 		_write()
 		return
-	# Out back behind his house (his garage holds his own racer).
-	var back: Vector3 = post.parking_spot(0)[0]
-	out("PARKED_OUT_BACK", Vector2(s.model.position.x - back.x, s.model.position.z - back.z).length() < 1.5)
+	# In your spot in the row outside the back gate (his garage holds his own racer).
+	var row: Vector3 = post.line_spot(0)[0]
+	out("PARKED_IN_ROW", Vector2(s.model.position.x - row.x, s.model.position.z - row.z).length() < 1.5)
 	demo.bar.end_talk()
 	await frames(5)
 
