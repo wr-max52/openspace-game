@@ -1,9 +1,10 @@
 extends GutTest
 ## Issue #627: the racer and the box truck. Skrugs sells them beside the
-## Sand-boxer, one of each to a customer; the racer is glass with a tuned
-## Sand-boxer's speed, the truck is a tank whose Shift drifts; the bench sells
-## them paint only; they have Hyper3D bodies (issue #628) over a stand-in fallback; parked
-## speeders sleep while you are far off.
+## Sand-boxer, one of each to a customer; speeder classes: the racer is light
+## (quick off the line, glass), the truck heavy (the best top speed, always slow
+## to get there, a tank whose Shift drifts); the bench sells all three the shared
+## parts; they have Hyper3D bodies (issue #628) over a stand-in fallback;
+## parked speeders sleep while you are far off.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
 
@@ -47,31 +48,53 @@ func _town() -> Node:
 
 # ---- the two models ---------------------------------------------------------------------
 
-func test_the_racer_is_a_tuned_sand_boxer_made_of_glass() -> void:
+func test_the_racer_is_light_quick_and_made_of_glass() -> void:
 	var racer := HoverModel.load_config("racer")
-	var tuned := SpeederUpgrades.apply(HoverModel.load_config("speeder"),
-		{ "parts": ["engine_2", "thrusters_2"], "paint": "", "spent": 0 })
-	for k in ["max_speed", "boost_speed", "accel", "brake"]:
-		assert_almost_eq(float(racer[k]), float(tuned[k]), 0.05, "%s as a fully tuned Sand-boxer" % k)
-	assert_eq(int(racer.health), 30, "two laser bolts")
-	assert_lte(int(racer.health), 2 * int(racer.laser.damage))
+	var sb := HoverModel.load_config("speeder")
+	assert_gt(float(racer.accel), float(sb.accel), "quicker off the line than a Sand-boxer")
+	assert_gt(float(racer.turn_rate_fast_deg), float(sb.turn_rate_fast_deg), "turns sharper at speed")
+	assert_gt(float(racer.boost_speed), float(sb.boost_speed), "boosts harder")
+	assert_eq(int(racer.health), int(sb.health) / 2, "half a Sand-boxer's health")
 	var m := _model("racer")
 	_drive(m, 5.0, 1.0)
-	assert_almost_eq(m.speed, 45.0, 1.0, "top speed 45")
+	assert_almost_eq(m.speed, float(racer.max_speed), 1.0, "top speed")
 	_drive(m, 1.5, 1.0, 0.0, true)
-	assert_gt(m.speed, 55.0, "Shift boosts it")
+	assert_gt(m.speed, float(racer.max_speed) + 10.0, "Shift boosts it")
 
 
-func test_the_truck_is_tough_slow_and_cannot_boost() -> void:
+func test_the_truck_is_tough_fast_flat_out_and_cannot_boost() -> void:
 	var cfg := HoverModel.load_config("hauler")
-	assert_eq(int(cfg.health), 480, "four Sand-boxers")
+	var sb := HoverModel.load_config("speeder")
+	assert_eq(int(cfg.health), 3 * int(sb.health), "three Sand-boxers")
+	assert_gt(float(cfg.max_speed), float(HoverModel.load_config("racer").max_speed), "the best top speed of the three")
 	var m := _model("hauler")
 	assert_eq(m.ability(), "drift")
-	_drive(m, 6.0, 1.0)
-	assert_almost_eq(m.speed, 28.0, 1.0, "top speed 28")
+	_drive(m, 8.0, 1.0)
+	assert_almost_eq(m.speed, float(cfg.max_speed), 1.0, "top speed")
 	_drive(m, 1.0, 1.0, 0.0, true)
 	assert_false(m.boosting(), "no boost on the truck")
-	assert_lte(m.speed, 28.5, "Shift does not make it faster")
+	assert_lte(m.speed, float(cfg.max_speed) + 0.5, "Shift does not make it faster")
+
+
+## Speeder classes: the truck has the top speed, but even fully tuned it gets
+## there slowly; the racer is first off the line.
+func test_the_truck_is_always_slow_off_the_line() -> void:
+	var tuned_truck := SpeederUpgrades.apply(HoverModel.load_config("hauler"),
+		{ "parts": ["engine_2", "thrusters_2"], "model": "hauler" })
+	var sb := HoverModel.load_config("speeder")
+	assert_lt(float(tuned_truck.accel), float(sb.accel), "Twin thrusters still leave it behind a stock Sand-boxer")
+	assert_false(tuned_truck.has("boost_speed"), "an engine gives the truck no boost speed")
+	var truck := _model("", tuned_truck)
+	var boxer := _model("speeder")
+	var racer := _model("racer")
+	_drive(truck, 2.0, 1.0)
+	_drive(boxer, 2.0, 1.0)
+	_drive(racer, 2.0, 1.0)
+	assert_gt(racer.speed, boxer.speed, "two seconds in: the racer leads")
+	assert_gt(boxer.speed, truck.speed, "and the truck is last")
+	_drive(truck, 6.0, 1.0)
+	_drive(boxer, 6.0, 1.0)
+	assert_gt(truck.speed, boxer.speed + 10.0, "flat out, the tuned truck is far faster")
 
 
 func test_the_truck_drifts() -> void:
@@ -125,7 +148,7 @@ func test_one_of_each_saved_with_its_model() -> void:
 	var models: Array = WorldState.speeder_fits.map(func(f): return SpeederUpgrades.model_of(f))
 	assert_eq(models, ["racer", "hauler", "speeder"])
 	var hp: Array = post.speeders.map(func(s): return s.model.max_hp)
-	assert_eq(hp, [30, 480, 120])
+	assert_eq(hp, [60, 360, 120])
 	# Save and boot again: all three back, each its own model.
 	var saved: Dictionary = WorldState.to_save()
 	WorldState.reset()
@@ -178,15 +201,19 @@ func test_only_skrugs_sells_them() -> void:
 
 # ---- the bench -------------------------------------------------------------------------
 
-func test_the_bench_sells_them_paint_only() -> void:
+func test_the_bench_sells_every_model_the_shared_parts() -> void:
 	for model in ["racer", "hauler"]:
-		assert_eq(SpeederUpgrades.groups_for(model), ["paint"])
 		var fit := SpeederUpgrades.new_fit("", model)
-		for g in ["looks", "performance", "lifter"]:
-			assert_true(SpeederUpgrades.in_group_for(g, model).is_empty(), "%s: no %s parts" % [model, g])
-		assert_eq(SpeederUpgrades.why_not(fit, "engine_1"), "wrong_model")
+		for g in ["performance", "race", "lifter"]:
+			assert_eq(SpeederUpgrades.in_group_for(g, model).size(), SpeederUpgrades.in_group(g).size(), "%s: every %s part" % [model, g])
+		for g in ["paint", "looks"]:
+			assert_true(SpeederUpgrades.in_group_for(g, model).is_empty(), "%s: no %s parts (the Sand-boxer's)" % [model, g])
+		assert_eq(SpeederUpgrades.why_not(fit, "engine_1"), "")
 		assert_eq(SpeederUpgrades.why_not(fit, "paint_tide"), "wrong_model", "the Sand-boxer's paints are not hers")
-		assert_false(SpeederUpgrades.fit_part(fit, "engine_1"))
+		assert_true(SpeederUpgrades.fit_part(fit, "engine_1"))
+		assert_eq(SpeederUpgrades.why_not(fit, "engine_2"), "", "tier two after tier one")
+		var cfg := SpeederUpgrades.apply(HoverModel.load_config(model), fit)
+		assert_almost_eq(float(cfg.max_speed), float(HoverModel.load_config(model).max_speed) * 1.12, 0.01, "%s: the engine works" % model)
 		assert_gt(SpeederUpgrades.scrap_value(fit), 35, "her own scrap price")
 	var sb := SpeederUpgrades.new_fit("steel")
 	assert_eq(SpeederUpgrades.why_not(sb, "engine_1"), "", "the Sand-boxer is unchanged")

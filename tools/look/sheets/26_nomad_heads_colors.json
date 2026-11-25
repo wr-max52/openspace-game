@@ -1,0 +1,230 @@
+{
+ "title": "The party barge's dune nomads (desert_nomad look, 'matched'): every nomad head shape in every pack colour, on the matching tunic and legs",
+ "out": "res://docs/kit/nomad_heads_colors.png",
+ "cells": [
+  {
+   "label": "nomad:sand",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "nomad:madder",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "nomad:slate",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "nomad:teal",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  },
+  {
+   "label": "nomad_crest:sand",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_crest_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_crest_head": "res://assets/characters/kit/colors/nomad_crest_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "nomad_crest:madder",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_crest_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_crest_head": "res://assets/characters/kit/colors/nomad_crest_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "nomad_crest:slate",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_crest_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_crest_head": "res://assets/characters/kit/colors/nomad_crest_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "nomad_crest:teal",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_crest_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_crest_head": "res://assets/characters/kit/colors/nomad_crest_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  },
+  {
+   "label": "nomad_maw:sand",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_maw_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_maw_head": "res://assets/characters/kit/colors/nomad_maw_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "nomad_maw:madder",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_maw_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_maw_head": "res://assets/characters/kit/colors/nomad_maw_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "nomad_maw:slate",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_maw_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_maw_head": "res://assets/characters/kit/colors/nomad_maw_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "nomad_maw:teal",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_maw_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_maw_head": "res://assets/characters/kit/colors/nomad_maw_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  },
+  {
+   "label": "nomad_horn:sand",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_horn_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_horn_head": "res://assets/characters/kit/colors/nomad_horn_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "nomad_horn:madder",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_horn_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_horn_head": "res://assets/characters/kit/colors/nomad_horn_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "nomad_horn:slate",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_horn_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_horn_head": "res://assets/characters/kit/colors/nomad_horn_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "nomad_horn:teal",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_horn_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_horn_head": "res://assets/characters/kit/colors/nomad_horn_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  }
+ ]
+}

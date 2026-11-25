@@ -1,7 +1,7 @@
 {
   "id": "skrugs_post_round",
   "kind": "post",
-  "note": "Issue #295: Skrugs's yard in the round port, inside the wall right behind the cantina (the strip between the cantina's round body and the town wall, kept clear by the round kit's skrugs_yard). Same parts as skrugs_post (content/core/locations/skrugs_post.json, which says what each one is) without the ramp, which does not fit inside the wall. Local frame: +x faces the back lane (and down it the back gate), +z the cantina; the landmark turns it 90 degrees. The garage opens onto the lane where it runs straight at the back gate: buy, drive out of the garage, turn right and out through the gate. His stall stands at the gate end of the yard, in front of the display pad and beside the garage's mouth, facing the back gate, so he is the first thing you see coming in from the desert (it was tucked behind his house). 'ship_sell' is outside the back gate on the apron (ships do not fit inside the wall).",
+  "note": "Issue #295: Skrugs's yard in the round port, inside the wall right behind the cantina (the strip between the cantina's round body and the town wall, kept clear by the round kit's skrugs_yard). Same parts as skrugs_post (content/core/locations/skrugs_post.json, which says what each one is) without the ramp, which does not fit inside the wall. Local frame: +x faces the back lane (and down it the back gate), +z the cantina; the landmark turns it 90 degrees. The garage opens onto the lane where it runs straight at the back gate: buy, drive out of the garage, turn right and out through the gate. His stall stands at the gate end of the yard, in front of the display pad and beside the garage's mouth, facing the back gate, so he is the first thing you see coming in from the desert (it was tucked behind his house). 'parking' is out back behind his house, used only when the town has no row of speeder spots outside the back gate (SpeederPost.line_spot; new speeders wait there) (the garage holds his own racer, 'racer', beside the bay, not for sale). 'ship_sell' is outside the back gate on the apron (ships do not fit inside the wall).",
   "buildings": [
     {"id": "house", "shape": "box", "size": [7, 4.2, 7], "position": [-1.5, 0, -6.5], "visual": false},
     {"id": "stall", "shape": "box", "size": [1, 1.1, 3.6], "position": [17, 0, -7], "visual": false},
@@ -16,14 +16,15 @@
     "merchant": [16.15, 0, -7],
     "customer": [18.4, 0, -7],
     "display": [12, 0.3, -6],
-    "bay": [11.5, 0, 4],
+    "bay": [11.5, 0, 2.3],
+    "racer": [11.5, 0, 5.7],
     "bench": [8, 0, -1.9],
     "ship_sell": [32, 0, -34]
   },
   "parking": [
-    {"at": [11.5, 0, 4], "nose": "+x"},
-    {"at": [5.5, 0, -5], "nose": "+x"},
     {"at": [-14, 0, -5], "nose": "+z"},
-    {"at": [-14, 0, 3], "nose": "+z"}
+    {"at": [-14, 0, 3], "nose": "+z"},
+    {"at": [-9, 0, 3], "nose": "+z"},
+    {"at": [-9, 0, -5], "nose": "+z"}
   ]
 }

@@ -63,7 +63,7 @@ func test_parts_change_the_numbers() -> void:
 	var up := SpeederUpgrades.apply(cfg, fit)
 	assert_almost_eq(float(up.max_speed), float(cfg.max_speed) * 1.25, 0.01)
 	assert_almost_eq(float(up.accel), float(cfg.accel) * 1.3, 0.01)
-	assert_almost_eq(float(up.laser.damage), float(cfg.laser.damage) * 1.3, 0.01)
+	assert_almost_eq(float(up.laser.damage), float(cfg.laser.damage) * float(SpeederUpgrades.part("cannons_1").mods["laser.damage"]), 0.01)
 	assert_eq(float(up.turn_rate_deg), float(cfg.turn_rate_deg), "looks parts change nothing else")
 	assert_eq(float(cfg.max_speed), 36.0, "the base config is untouched")
 	assert_has(up.parts, "turbo_boosters")

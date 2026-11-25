@@ -1,7 +1,7 @@
 {
   "id": "salt",
   "label": "the salt crew",
-  "note": "Issue #615: the top rung of the race ladder: three locals who race out of the salt-pan village on the Salt Flats, a long fast oval. They only race you once you have beaten the basin crew (`after`). They shoot from lap 1 and may use all the race gear (issue #616). Same shape as yard.json (read its note).",
+  "note": "Issue #615: the top rung of the race ladder: three locals who race out of the salt-pan village on the Salt Flats, a long fast oval. They only race you once you have beaten the basin crew (`after`). They shoot from lap 1 and may use all the race gear (issue #616). Speeder classes: the leader rides a fully stacked Sand-boxer, the second a fully stacked box truck (on the long oval nothing catches it flat out), the third a racer with first-tier parts. Same shape as yard.json (read its note).",
   "rung": 3,
   "after": "basin",
   "course": "salt_flats",
@@ -24,8 +24,9 @@
       "parts": [
         "engine_2",
         "thrusters_2",
+        "cannons_2",
         "turbo_boosters",
-        "cannons_2"
+        "soft_top"
       ],
       "skill": "ace"
     },
@@ -37,11 +38,12 @@
         "torso": "local:blue",
         "legs": "local:lighter"
       },
-      "paint": "crimson",
+      "model": "hauler",
+      "paint": "",
       "parts": [
         "engine_2",
         "thrusters_2",
-        "cannons_1"
+        "cannons_2"
       ],
       "skill": "ace"
     },
@@ -53,11 +55,11 @@
         "torso": "local:blue",
         "legs": "local"
       },
-      "paint": "tide",
+      "model": "racer",
+      "paint": "",
       "parts": [
-        "engine_2",
-        "thrusters_2",
-        "soft_top"
+        "engine_1",
+        "thrusters_1"
       ],
       "skill": "racer"
     }
