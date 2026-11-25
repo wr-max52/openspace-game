@@ -21,7 +21,14 @@
     "fpv_pose": { "r": "trigger", "l": "support" },
     "holster": "holster_grip",
     "sound": "res://assets/third_party/kenney_starter_kit_fps/sounds/blaster.ogg",
-    "slot": 1
+    "slot": 1,
+    "hold_3p": {
+      "note": "Issue #324: third person, the right fist on the pistol grip (as rifle_blaster's 'r'); the support hand is left as it is.",
+      "passes": 2,
+      "hands": {
+        "r": { "grip": [0.0, -0.055, -0.07], "bar": [0.0, 0.8, 0.6], "palm": [1.0, 0.0, 0.3], "radius": 0.026, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" }
+      }
+    }
   },
   "energy_blade": {
     "model": "",
@@ -29,6 +36,15 @@
     "holster": "l_hip",
     "fpv_pose": { "r": "hilt", "l": "hilt" },
     "aim_fpv": { "one_hand": true },
+    "hold_3p": {
+      "note": "Issues #631, #324: third person, the right fist closed on the hilt (PlayerAvatar._seat_fist). 'one_hand': the left arm walks free. 'grip': the point on the sword the fist closes on (sword space, m). 'passes': re-aims of the arm until the skin's fist is on the grip. 'hands': each hand's grip for HandGrip (src/systems/look/hand_grip.gd): 'radius' m from the bar's axis to the finger bones (the hilt's 2 cm plus half a finger), 'curl' per finger [index, middle, ring, little], 'thumb' 'wrap' or 'along', 'max_deg' per joint [base, middle, tip].",
+      "one_hand": true,
+      "grip": [0.0, -0.085, 0.0],
+      "passes": 2,
+      "hands": {
+        "r": { "radius": 0.029, "tilt_deg": 20, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "wrap", "thumb_radius": 0.032, "max_deg": [90, 105, 80] }
+      }
+    },
     "slot": 2
   },
   "rifle_blaster": {
@@ -62,7 +78,15 @@
     "holster": "back",
     "sound": "res://assets/third_party/kenney_starter_kit_fps/sounds/blaster.ogg",
     "sound_pitch": 0.72,
-    "slot": 3
+    "slot": 3,
+    "hold_3p": {
+      "note": "Issue #324: third person, both hands closed on the gun (PlayerAvatar._seat_hand, HandGrip). Each hand: 'grip' the point it closes on (rifle space, m; on the pistol grip and the handguard, not the kit's grips), 'bar' the grip's axis toward the thumb, 'palm' from the back of the hand toward the grip (rifle space), 'radius' m from the grip's axis to the finger bones, 'curl' per finger (the trigger finger lies along the guard), 'thumb' 'wrap' or 'along'.",
+      "passes": 2,
+      "hands": {
+        "r": { "grip": [0.0, -0.095, -0.12], "bar": [0.0, 0.83, 0.55], "palm": [1.0, 0.0, 0.3], "radius": 0.026, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" },
+        "l": { "grip": [0.0, -0.03, 0.22], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
+      }
+    }
   },
   "sniper_rifle": {
     "note": "The fence's sniper rifle: the rifle's own model, near black (dark), a longer barrel run out of its own (barrel, model space: the model's barrel is centred at y 0.048 and ends at z 0.475, so the tube starts inside it and a collar covers the joint), and a scope whose reticle is drawn on screen as a digital one with the range to the target (digital; PlayerWeapons). ads zoom_steps: right-click aims at the first, a second right-click goes to the next, one more puts it down.",
@@ -95,7 +119,15 @@
     "holster": "back",
     "sound": "res://assets/third_party/kenney_starter_kit_fps/sounds/blaster.ogg",
     "sound_pitch": 0.6,
-    "slot": 4
+    "slot": 4,
+    "hold_3p": {
+      "note": "Issue #324: third person, both hands closed on the gun (PlayerAvatar._seat_hand, HandGrip). Each hand: 'grip' the point it closes on (rifle space, m; on the pistol grip and the handguard, not the kit's grips), 'bar' the grip's axis toward the thumb, 'palm' from the back of the hand toward the grip (rifle space), 'radius' m from the grip's axis to the finger bones, 'curl' per finger (the trigger finger lies along the guard), 'thumb' 'wrap' or 'along'.",
+      "passes": 2,
+      "hands": {
+        "r": { "grip": [0.0, -0.095, -0.12], "bar": [0.0, 0.83, 0.55], "palm": [1.0, 0.0, 0.3], "radius": 0.026, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" },
+        "l": { "grip": [0.0, -0.03, 0.22], "bar": [0.0, 0.0, 1.0], "palm": [0.0, 1.0, 0.0], "radius": 0.036, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "along" }
+      }
+    }
   },
   "throw": {
     "wind": [-0.26, 0.36, -0.32],

@@ -48,6 +48,14 @@ var finish: Callable                ## finish name -> the station's own material
 var counts := {}                    ## what was placed, by kind (tests, review)
 var draws := 0                      ## meshes the last floor ended up as (review)
 var nets := {}                      ## "<tower>/<floor>" -> { alleys: [angle], stops: [{ a, r, face_r }] }: where the crowd walks
+## Issue #643: "<tower>/<floor>" -> [{ at (station frame), yaw, kind }]: where a
+## keeper stands behind a counter (a curio seller's, or a vendor's: kind is its
+## marker). StationCrowd stands a person on each.
+var posts := {}
+var _palette: Array = PAINTS        ## the floor being built: its paints (the favela's own "paints")
+var _neons: Array = NEONS           ## and its neon colours
+var _fv: Dictionary = {}            ## the favela's fill block while it is built ({} on any other floor)
+var _booths: Array = []             ## the favela's booths, chosen before they are queued: [xf, d, w, seed, a, r, out]
 var slowest_ms := 0.0               ## the longest single job (review)
 var slowest := ""
 var _rng := RandomNumberGenerator.new()
@@ -95,6 +103,9 @@ func begin(parent: Node3D, t: Dictionary, i: int) -> bool:
 	_win_r = float(f.r) - StationHull.WALL
 	var here: Array = hull.rooms_of(str(t.id), str(f.id))
 	_room_n = roundi(PI / float(here[0].half)) if not here.is_empty() else 0
+	_palette = _colors(fc.get("paints", []), PAINTS)
+	_neons = _colors(fc.get("neons", []), NEONS)
+	_fv = fc if str(fc.get("use", "")) == "favela" else {}
 	match str(fc.get("use", "")):
 		"homes":
 			_homes(t, f, fc)
@@ -849,9 +860,42 @@ func _hut(xf: Transform3D, hid: String, ring: Dictionary, seed: int) -> void:
 
 # ------------------------------------------------------------------ the favela
 
-## A painted metal in one of a few colours (shared: a few materials a floor).
+## A painted metal in one of a few colours (shared: a few materials a floor): the
+## floor's own palette (the favela's darker, grimier one) or the default.
 func _paint(k: int) -> Material:
-	return mats.painted(PAINTS[absi(k) % PAINTS.size()], 0.7, 0.3)
+	return mats.painted(_palette[absi(k) % _palette.size()], 0.7, 0.3)
+
+
+## Hex strings as Colors; `fallback` when the list is empty.
+static func _colors(list: Array, fallback: Array) -> Array:
+	if list.is_empty():
+		return fallback
+	return list.map(func(c): return Color(str(c)))
+
+
+## Issue #643: a favela wall: painted metal most often, else the station shader's
+## hull plate, corrugated (locker) sheet, rubber or bare hull, so no two neighbours
+## match ("walls" in the favela's block weighs them).
+func _wall_mat() -> Material:
+	var w: Dictionary = _fv.get("walls", {})
+	var roll := _rng.randf() * maxf(0.001, float(w.get("paint", 1.0)) + float(w.get("plate", 0.0)) \
+		+ float(w.get("sheet", 0.0)) + float(w.get("rubber", 0.0)) + float(w.get("hull", 0.0)))
+	var tint: Color = _palette[_rng.randi() % _palette.size()]
+	var two: Color = _palette[_rng.randi() % 2]         # the shader finishes in two tints only: a material each
+	for k in ["paint", "plate", "sheet", "rubber", "hull"]:
+		roll -= float(w.get(k, 1.0 if k == "paint" else 0.0))
+		if roll <= 0.0:
+			match k:
+				"plate":
+					return _t("plate", two.lightened(0.3))
+				"sheet":
+					return _t("locker", two.lightened(0.2))
+				"rubber":
+					return _t("rubber", _palette[1])
+				"hull":
+					return _m("hull")
+			break
+	return mats.painted(tint, 0.7, 0.3)
 
 
 ## What a packed floor keeps clear, as [angle, half width in metres]: its tunnel
@@ -881,9 +925,51 @@ func _favela(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 	var lanes := _lanes(t, f, fc)
 	var net := _net(t, f, lanes)
 	var rings: Array = fc.get("rings", [])
+	var key := str(t.id) + "/" + str(f.id)
+	var y := float(f.y)
+	posts[key] = []
+	_booths = []
+	# Issue #643: the three vendors' booths (StationHull.favela_vendors, the same
+	# spots the station's town puts their markers on), kept clear of the packing.
+	var vendors := hull.favela_vendors()
+	var vlanes: Dictionary = {}
+	for v in vendors:
+		var vr := int(v.ring)
+		if not vlanes.has(vr):
+			vlanes[vr] = lanes.duplicate()
+		(vlanes[vr] as Array).append([float(v.a), float(v.w) * 0.5 + 0.6])
 	for ri in rings.size():
-		_pack_ring(t, float(f.y), rings[ri], lanes, ri, net)
-	_q.append(_lines.bind(t, float(f.y), fc, lanes))
+		_pack_ring(t, y, rings[ri], vlanes.get(ri, lanes), ri, net)
+	for v in vendors:
+		var out := str(v.face) == "out"
+		var xf := radial(t, y, float(v.a)) * Transform3D(Basis.IDENTITY, Vector3(float(v.r), 0, 0))
+		if not out:
+			xf = xf * Transform3D(Basis(UP, PI), Vector3.ZERO)
+		_stop(net, float(v.a), float(v.r), float(v.d), out)
+		_q.append(_vendor_booth.bind(xf, float(v.d), float(v.w), str(v.kind), hash(str(v.marker))))
+		(posts[key] as Array).append({ "at": v.at, "yaw": _yaw_of(xf), "kind": str(v.marker) })
+	# Curio sellers at booths spread round the floor; every other booth as usual.
+	var n_cur := mini(int(fc.get("curios", 0)), _booths.size())
+	var pick := {}
+	for k in n_cur:
+		pick[int(float(k) * _booths.size() / n_cur + _booths.size() / (2.0 * n_cur)) % _booths.size()] = true
+	for i in _booths.size():
+		var b: Array = _booths[i]
+		var curio := pick.has(i)
+		_q.append(_booth.bind(b[0], b[1], b[2], b[3], curio))
+		if curio:
+			var at: Vector3 = (b[0] as Transform3D) * Vector3(float(b[1]) * 0.5 - 1.2, 0, 0)
+			(posts[key] as Array).append({ "at": at, "yaw": _yaw_of(b[0]), "kind": "curio" })
+			_count("curio")
+	_q.append(_lines.bind(t, y, fc, lanes))
+	_q.append(_holo_ads.bind(t, y, fc, lanes))
+
+
+## The yaw a keeper at piece frame `xf` faces (out of its front, +X): the crowd's
+## yaw (atan2 of the facing's x and z).
+static func _yaw_of(xf: Transform3D) -> float:
+	var d := xf.basis * Vector3.RIGHT
+	return atan2(d.x, d.z)
 
 
 ## One ring of packed pieces at `ring.r`, doors facing in (or out).
@@ -916,12 +1002,28 @@ func _pack_ring(t: Dictionary, y: float, ring: Dictionary, lanes: Array, ri: int
 			xf = xf * Transform3D(Basis(UP, PI), Vector3.ZERO)       # +X, its door, back toward the middle
 		_stop(net, mid, r, d, out)
 		if roll < booth:
-			_q.append(_booth.bind(xf, d, w, seed))
+			if _fv.is_empty():
+				_q.append(_booth.bind(xf, d, w, seed))
+			else:
+				_booths.append([xf, d, w, seed, mid, r, out])     # issue #643: some become curio stalls (_favela)
 		elif roll < booth + hut and w >= 4.0:
 			_q.append(_town_hut.bind(xf, seed))
 		else:
 			var h := snappedf(_rng.randf_range(float(hs[0]), float(hs[1])), 0.25)
-			_q.append(_shack.bind(xf, d, w, h, _rng.randf() < stack, seed))
+			var stacked := _rng.randf() < stack
+			match _junk_kind():
+				"container":
+					_q.append(_container.bind(xf, d, w, stacked, seed))
+				"pod":
+					_q.append(_pod.bind(xf, d, w, seed))
+				"hull":
+					_q.append(_hull_home.bind(xf, d, w, h, seed))
+				"satellite":
+					_q.append(_sat_home.bind(xf, d, w, h, seed))
+				"droid":
+					_q.append(_droid_shell.bind(xf, d, w, seed))
+				_:
+					_q.append(_shack.bind(xf, d, w, h, stacked, seed))
 
 
 ## A shack `d` deep (x, its door side +X) and `w` wide: painted walls, a tilted tin
@@ -930,7 +1032,7 @@ func _pack_ring(t: Dictionary, y: float, ring: Dictionary, lanes: Array, ri: int
 func _shack(xf: Transform3D, d: float, w: float, h: float, stacked: bool, seed: int) -> void:
 	kit._xf = xf
 	_rng.seed = seed
-	var paint := _paint(_rng.randi())
+	var paint := _paint(_rng.randi()) if _fv.is_empty() else _wall_mat()
 	var tin := _paint(_rng.randi() + 3)
 	_p(kit.box(d, h, w), paint, Vector3(0, h * 0.5, 0), true)
 	var tilt := Basis(Vector3.BACK, 0.07 if _rng.randf() < 0.5 else -0.07)
@@ -942,9 +1044,14 @@ func _shack(xf: Transform3D, d: float, w: float, h: float, stacked: bool, seed: 
 		var wz := -signf(dz + 0.01) * (w * 0.5 - 0.7)
 		_p(kit.box(0.06, 0.55, 0.8), kit.window_glow, Vector3(d * 0.5 + 0.03, 1.6, wz))
 	if _rng.randf() < 0.4:
-		_p(kit.box(1.0, 0.05, w * 0.8), mats.cloth(FABRICS[_rng.randi() % FABRICS.size()]), Vector3(d * 0.5 + 0.45, 2.45, 0), false,
+		var fab: Color = FABRICS[_rng.randi() % FABRICS.size()]
+		_p(kit.box(1.0, 0.05, w * 0.8), mats.cloth(fab) if _fv.is_empty() else _paint(_rng.randi() + 5), Vector3(d * 0.5 + 0.45, 2.45, 0), false,
 			Basis(Vector3.BACK, -0.3))
-	if not stacked and _rng.randf() < 0.5:
+	if not _fv.is_empty():
+		_neon_sign(d, h, w)
+	if not stacked and not _fv.is_empty() and _rng.randf() < float(_fv.get("roof_junk", 0.0)):
+		_roof_junk(d, w, h + 0.15)
+	elif not stacked and _rng.randf() < 0.5:
 		if _rng.randf() < 0.6:
 			_p(kit.cyl(0.3, 0.3, 0.8, 8), tin, Vector3(-d * 0.2, h + 0.55, w * 0.25))
 		else:
@@ -975,17 +1082,26 @@ func _shack(xf: Transform3D, d: float, w: float, h: float, stacked: bool, seed: 
 
 ## A booth: a counter to the alley under a tilted awning, walls behind and either
 ## side, wares on the counter, a neon sign.
-func _booth(xf: Transform3D, d: float, w: float, seed: int) -> void:
+func _booth(xf: Transform3D, d: float, w: float, seed: int, curio := false) -> void:
 	kit._xf = xf
 	_rng.seed = seed
-	var paint := _paint(_rng.randi())
-	var cloth := mats.cloth(FABRICS[_rng.randi() % FABRICS.size()])
+	var paint := _paint(_rng.randi()) if _fv.is_empty() else _wall_mat()
+	var fab: Color = FABRICS[_rng.randi() % FABRICS.size()]
+	var cloth: Material = mats.cloth(fab) if _fv.is_empty() else _paint(_rng.randi() + 5)     # issue #643: the favela's awnings are scrap sheet
 	_p(kit.box(0.8, 1.0, w - 0.3), kit.crate_woods[_rng.randi() % 3], Vector3(d * 0.5 - 0.4, 0.5, 0), true)
 	_p(kit.box(0.15, 2.6, w), paint, Vector3(-d * 0.5 + 0.08, 1.3, 0), true)
 	for s: float in [-1.0, 1.0]:
 		_p(kit.box(d, 2.6, 0.12), paint, Vector3(0, 1.3, s * (w * 0.5 - 0.06)), true)
 	_p(kit.box(d + 0.7, 0.05, w + 0.2), cloth, Vector3(0.3, 2.75, 0), false, Basis(Vector3.BACK, -0.12))
-	_p(kit.box(0.05, 0.32, w * 0.6), _glow(NEONS[_rng.randi() % NEONS.size()], 3.0), Vector3(d * 0.5 + 0.05, 3.05, 0))
+	_p(kit.box(0.05, 0.32, w * 0.6), _glow(_neons[_rng.randi() % _neons.size()], 3.0), Vector3(d * 0.5 + 0.05, 3.05, 0))
+	if curio:
+		_curios(d, w)
+		_count("booth")
+		return
+	if not _fv.is_empty() and _rng.randf() < 0.4:
+		_scrap(d * 0.5 - 0.4, 1.0, w - 0.8)
+		_count("booth")
+		return
 	var n := 3 + _rng.randi() % 3
 	for k in n:
 		var z := (float(k) + 0.5) / n * (w - 0.8) - (w - 0.8) * 0.5
@@ -1016,7 +1132,7 @@ func _town_hut(xf: Transform3D, seed: int) -> void:
 func _lines(t: Dictionary, y: float, fc: Dictionary, lanes: Array) -> void:
 	var rings: Array = fc.get("rings", [])
 	var per := int(fc.get("lines_per_ring", 18))
-	var bulbs: Array = NEONS.map(func(c): return _glow(c, 3.0))
+	var bulbs: Array = _neons.map(func(c): return _glow(c, 3.0))
 	for ri in range(1, rings.size()):
 		var r0 := float(rings[ri - 1].get("r", 30.0))
 		var r1 := float(rings[ri].get("r", 30.0))
@@ -1025,18 +1141,374 @@ func _lines(t: Dictionary, y: float, fc: Dictionary, lanes: Array) -> void:
 			if not _clear(a, (r0 + r1) * 0.5, 0.5, lanes):
 				continue
 			kit._xf = radial(t, y, a)
-			var hy := _rng.randf_range(4.2, 5.4)
+			var hy := snappedf(_rng.randf_range(4.2, 5.4), 0.1)
 			var span := absf(r1 - r0)
-			_p(kit.box(span, 0.03, 0.03), _m("rail"), Vector3((r0 + r1) * 0.5, hy, 0))
+			var lo := minf(r0, r1)
+			# Issue #643: a mast at each end (up through a roof, or standing in the
+			# alley), and the line sags between them in a few straight runs.
+			for mx: float in [lo, lo + span]:
+				_p(kit.cyl(0.05, 0.06, hy + 0.3, 6), _m("rail"), Vector3(mx, (hy + 0.3) * 0.5, 0))
+				_p(kit.box(0.08, 0.06, 0.3), _m("rail"), Vector3(mx, hy + 0.05, 0))
+			var sag := minf(0.6, span * 0.09)
+			var runs := 4
+			for j in runs:
+				var x0 := lo + span * j / runs
+				var x1 := lo + span * (j + 1) / runs
+				var y0 := hy - _sag(float(j) / runs, sag)
+				var y1 := hy - _sag(float(j + 1) / runs, sag)
+				var run := Vector2(x1 - x0, y1 - y0)
+				_p(kit.box(snappedf(run.length() + 0.02, 0.01), 0.03, 0.03), _m("rail"), Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5, 0), false,
+					Basis(Vector3.BACK, atan2(run.y, run.x)))
 			var washing := _rng.randf() < 0.4
 			var n := maxi(2, floori(span / 0.9))
 			for j in n:
-				var x := minf(r0, r1) + (j + 0.5) * span / n
+				var u := (j + 0.5) / n
+				var x := lo + u * span
+				var ly := hy - _sag(u, sag)
 				if washing:
-					_p(kit.box(0.4, 0.55, 0.02), mats.cloth(FABRICS[(j + k) % FABRICS.size()]), Vector3(x, hy - 0.3, 0))
+					_p(kit.box(0.4, 0.55, 0.02), mats.cloth(FABRICS[(j + k) % FABRICS.size()]), Vector3(x, ly - 0.3, 0))
 				else:
-					_p(kit.ball(0.06, 0.12, false, 6), bulbs[(j + k + ri) % bulbs.size()], Vector3(x, hy - 0.08, 0))
+					_p(kit.ball(0.06, 0.12, false, 6), bulbs[(j + k + ri) % bulbs.size()], Vector3(x, ly - 0.08, 0))
 	_count("lines")
+
+
+## How far a line hangs below its masts `u` of the way along (0..1): a parabola
+## `sag` deep in the middle.
+static func _sag(u: float, sag: float) -> float:
+	return 4.0 * sag * u * (1.0 - u)
+
+
+# ------------------------------------------------------------------ the favela's junk (issue #643)
+
+## Few colours, so few materials (the render rules: a floor's draws are one a material).
+const CONTAINERS := [Color("#7a3a22"), Color("#2c4a66"), Color("#2f4a33")]
+const SKINS := [Color("#8f9499"), Color("#6d7a80")]
+const SOLAR := Color("#1d2b4a")
+const FOILS := [Color("#8a6c2e"), Color("#5e4a22")]
+const DARK := Color("#1c1e22")
+const BONE := Color("#cfc6ae")
+
+
+func _skin(k: int) -> Material:
+	return mats.painted(SKINS[absi(k) % SKINS.size()], 0.55, 0.5)
+
+
+func _dark() -> Material:
+	return mats.painted(DARK, 0.8, 0.3)
+
+
+## A glow for the favela: always one of its neons at one strength (shared).
+func _neon(k: int) -> Material:
+	return _glow(_neons[absi(k) % _neons.size()], 3.0)
+
+
+## Which kind of home a packed spot gets in the favela: a plain shack ("") or one
+## built from space junk, by the favela's "junk" shares.
+func _junk_kind() -> String:
+	if _fv.is_empty():
+		return ""
+	var j: Dictionary = _fv.get("junk", {})
+	var roll := _rng.randf()
+	for k in ["container", "pod", "hull", "satellite", "droid"]:
+		roll -= float(j.get(k, 0.0))
+		if roll < 0.0:
+			return k
+	return ""
+
+
+## A door to the alley in a piece's front (+X at d/2), lit over the top.
+func _door(d: float, z: float, mat: Material = null) -> void:
+	_p(kit.box(0.08, 2.0, 0.9), mat if mat != null else _m("hull"), Vector3(d * 0.5 + 0.03, 1.0, z))
+	_p(kit.box(0.1, 0.06, 1.0), kit.door_glow, Vector3(d * 0.5 + 0.06, 2.12, z))
+
+
+## A neon sign on a piece's front now and then (the favela's "neon_share").
+func _neon_sign(d: float, h: float, w: float) -> void:
+	if _rng.randf() >= float(_fv.get("neon_share", 0.0)):
+		return
+	var c := _neon(_rng.randi())
+	if _rng.randf() < 0.5:
+		_p(kit.box(0.05, 0.28, snappedf(w * 0.55, 0.25)), c, Vector3(d * 0.5 + 0.06, minf(h - 0.3, 2.6), 0))
+	else:
+		_p(kit.box(0.05, 0.9, 0.22), c, Vector3(d * 0.5 + 0.06, minf(h - 0.6, 2.1), w * 0.5 - 0.25))
+	_count("neon")
+
+
+## On a roof `top` high, `d` deep and `w` wide: a dish, a solar wing, an antenna
+## with a red light, or a vent stack.
+func _roof_junk(d: float, w: float, top: float) -> void:
+	var grey := _skin(_rng.randi())
+	match _rng.randi() % 4:
+		0:
+			var x := -d * 0.15
+			_p(kit.cyl(0.05, 0.05, 0.6, 6), _m("rail"), Vector3(x, top + 0.3, 0))
+			var tilt := Basis(Vector3.BACK, 0.55) * Basis(UP, _rng.randf() * TAU)
+			_p(kit.cyl(0.75, 0.1, 0.28, 10), grey, Vector3(x, top + 0.75, 0), false, tilt)
+			_p(kit.cyl(0.03, 0.03, 0.6, 5), _m("rail"), Vector3(x, top + 1.0, 0), false, tilt)
+			_count("dish")
+		1:
+			_p(kit.cyl(0.05, 0.05, 1.0, 6), _m("rail"), Vector3(-d * 0.2, top + 0.5, 0))
+			var ww := snappedf(minf(w * 0.8, 2.4), 0.25)
+			_p(kit.box(0.05, 0.9, ww), _t("tile", SOLAR), Vector3(-d * 0.2, top + 1.15, 0), false, Basis(Vector3.BACK, 0.45))
+			_count("solar")
+		2:
+			var z := w * 0.3
+			_p(kit.cyl(0.03, 0.04, 2.4, 5), _m("rail"), Vector3(-d * 0.25, top + 1.2, z))
+			for k in 3:
+				_p(kit.box(0.04, 0.03, 0.6 - k * 0.15), _m("rail"), Vector3(-d * 0.25, top + 1.0 + k * 0.45, z))
+			_p(kit.ball(0.07, 0.14, false, 6), _glow(Color("#ff3b3b"), 3.0), Vector3(-d * 0.25, top + 2.45, z))
+			_count("antenna")
+		_:
+			_p(kit.cyl(0.35, 0.45, 1.3, 10), _m("hull"), Vector3(-d * 0.2, top + 0.65, -w * 0.2))
+			_p(kit.cyl(0.38, 0.38, 0.08, 10), kit.window_glow, Vector3(-d * 0.2, top + 1.32, -w * 0.2))
+			_count("stack")
+
+
+## A cargo container (corrugated sheet in a faded colour, the end doors to the
+## alley with their lock bars, a hazard band) with a door cut in one leaf;
+## `stacked`, a second one on top and a ladder.
+func _container(xf: Transform3D, d: float, w: float, stacked: bool, seed: int) -> void:
+	kit._xf = xf
+	_rng.seed = seed
+	var h := 2.6
+	var col: Color = CONTAINERS[_rng.randi() % CONTAINERS.size()]
+	_p(kit.box(d, h, w), _t("locker", col), Vector3(0, h * 0.5, 0), true)
+	var leaf := _t("locker", col)
+	for s: float in [-1.0, 1.0]:
+		_p(kit.box(0.06, h - 0.3, snappedf(w * 0.5 - 0.15, 0.05)), leaf, Vector3(d * 0.5 + 0.03, h * 0.5, s * w * 0.25))
+		_p(kit.box(0.05, h - 0.4, 0.05), _m("rail"), Vector3(d * 0.5 + 0.07, h * 0.5, s * (w * 0.25 - 0.35)))
+	var dz := w * 0.25 * (1.0 if _rng.randf() < 0.5 else -1.0)
+	_door(d + 0.08, dz)
+	_p(kit.box(d + 0.02, 0.22, w + 0.02), _t("hazard"), Vector3(0, 0.11, 0))
+	_neon_sign(d + 0.08, h, w)
+	if not stacked:
+		if _rng.randf() < float(_fv.get("roof_junk", 0.0)):
+			_roof_junk(d, w, h)
+		_count("container")
+		return
+	var col2: Color = CONTAINERS[_rng.randi() % CONTAINERS.size()]
+	var off := snappedf(_rng.randf_range(-0.4, 0.4), 0.1)
+	_p(kit.box(d - 0.2, h, w - 0.3), _t("locker", col2), Vector3(-0.1, h * 1.5 + 0.02, off), true)
+	_door(d - 0.2, off - dz * 0.6, _m("hull"))
+	var lz := -dz * 1.6
+	for s: float in [-0.22, 0.22]:
+		_p(kit.box(0.05, h, 0.05), _m("rail"), Vector3(d * 0.5 + 0.25, h * 0.5, lz + s))
+	var ry := 0.4
+	while ry < h:
+		_p(kit.box(0.05, 0.04, 0.48), _m("rail"), Vector3(d * 0.5 + 0.25, ry, lz))
+		ry += 0.4
+	_count("container_stack")
+
+
+## An escape pod on its side: a capsule along the ring on skids, a round hatch
+## to the alley in a lit rim, portholes, a fin.
+func _pod(xf: Transform3D, d: float, w: float, seed: int) -> void:
+	kit._xf = xf
+	_rng.seed = seed
+	var r := snappedf(minf(d * 0.5, 1.5) - 0.05, 0.05)
+	var l := snappedf(maxf(1.0, w - 0.3 - r * 2.0), 0.25)
+	var skin := _skin(_rng.randi())
+	var cy := r + 0.12
+	var along := Basis(Vector3.RIGHT, PI * 0.5)
+	_p(kit.cyl(r, r, l, 10), skin, Vector3(0, cy, 0), true, along)
+	for s: float in [-1.0, 1.0]:
+		_p(kit.ball(r, r * 2.0, true, 10), skin, Vector3(0, cy, s * l * 0.5), false, Basis(Vector3.RIGHT, s * PI * 0.5))
+	var side := Basis(Vector3.BACK, PI * 0.5)
+	_p(kit.cyl(0.62, 0.62, 0.04, 10), kit.door_glow, Vector3(r - 0.02, cy - 0.1, 0), false, side)
+	_p(kit.cyl(0.55, 0.55, 0.1, 10), _m("hull"), Vector3(r + 0.02, cy - 0.1, 0), false, side)
+	for s: float in [-1.0, 1.0]:
+		_p(kit.ball(0.12, 0.24, false, 8), kit.window_glow, Vector3(r * 0.72, cy + r * 0.66, s * l * 0.3))
+		_p(kit.box(snappedf(d * 0.8, 0.05), 0.12, 0.2), _m("rail"), Vector3(0, 0.06, s * l * 0.35))
+	_p(kit.box(0.6, 0.6, 0.05), skin, Vector3(-r * 0.2, cy * 2.0 + 0.1, -l * 0.4))
+	_p(kit.box(0.04, 0.3, l * 0.5), _t("hazard"), Vector3(r * 0.95, cy + 0.45, 0), false, Basis(Vector3.BACK, 0.5))
+	_count("pod")
+
+
+## A home walled in hull plate (panel lines and a lighter trim strip, the door
+## and its light), with the nose of a ship crashed on its roof (a fuselage, a
+## cone, a lit canopy) or an engine nacelle for a chimney.
+func _hull_home(xf: Transform3D, d: float, w: float, h: float, seed: int) -> void:
+	kit._xf = xf
+	_rng.seed = seed
+	var plate := _t("plate", _palette[_rng.randi() % 2].lightened(0.3)) if _rng.randf() < 0.6 else _m("hull")
+	_p(kit.box(d, h, w), plate, Vector3(0, h * 0.5, 0), true)
+	var seam := _dark()
+	for yy: float in [h * 0.36, h * 0.72]:
+		_p(kit.box(0.03, 0.04, w + 0.02), seam, Vector3(d * 0.5 + 0.01, yy, 0))
+		_p(kit.box(d + 0.02, 0.04, 0.03), seam, Vector3(0, yy, w * 0.5 + 0.01))
+		_p(kit.box(d + 0.02, 0.04, 0.03), seam, Vector3(0, yy, -w * 0.5 - 0.01))
+	_p(kit.box(0.04, h, 0.04), seam, Vector3(d * 0.5 + 0.01, h * 0.5, w * 0.1))
+	_p(kit.box(0.05, 0.12, w + 0.04), _m("trim"), Vector3(d * 0.5 + 0.02, h - 0.1, 0))
+	var dz := snappedf(_rng.randf_range(-w * 0.25, w * 0.25), 0.25)
+	_door(d, dz)
+	if w >= 3.25:
+		_p(kit.box(0.06, 0.45, 0.9), kit.window_glow, Vector3(d * 0.5 + 0.03, 1.6, -signf(dz + 0.01) * (w * 0.5 - 0.75)))
+	_neon_sign(d, h, w)
+	_p(kit.box(d + 0.4, 0.12, w + 0.3), _m("hull"), Vector3(0, h + 0.06, 0))
+	var skin := _skin(_rng.randi())
+	var along := Basis(Vector3.RIGHT, PI * 0.5)
+	if _rng.randf() < 0.55:
+		var fr := snappedf(minf(d * 0.3, 0.85), 0.05)
+		var fl := snappedf(w * 0.55, 0.25)
+		var fy := h + 0.12 + fr
+		_p(kit.cyl(fr, fr, fl, 12), skin, Vector3(-d * 0.1, fy, -w * 0.12), false, along)
+		_p(kit.cyl(0.12, fr, 1.0, 12), skin, Vector3(-d * 0.1, fy, -w * 0.12 + fl * 0.5 + 0.5), false, along)
+		_p(kit.ball(fr * 0.7, fr * 0.9, true, 10), kit.window_glow, Vector3(-d * 0.1, fy + fr * 0.55, -w * 0.12 + fl * 0.3))
+		_p(kit.box(0.05, 0.5, 0.7), skin, Vector3(-d * 0.1, fy + fr + 0.2, -w * 0.12 - fl * 0.4))
+		_count("cockpit")
+	else:
+		_p(kit.cyl(0.45, 0.62, 1.7, 12), _m("hull"), Vector3(-d * 0.2, h + 0.97, w * 0.15))
+		_p(kit.cyl(0.47, 0.47, 0.1, 12), kit.window_glow, Vector3(-d * 0.2, h + 1.85, w * 0.15))
+		_p(kit.cyl(0.5, 0.5, 0.12, 12), seam, Vector3(-d * 0.2, h + 0.5, w * 0.15))
+		_count("nacelle")
+	_count("hull_home")
+
+
+## An old satellite for a home: its body in gold foil (the station's brass), the
+## door and a porthole, solar wings up on its roof and a dish.
+func _sat_home(xf: Transform3D, d: float, w: float, h: float, seed: int) -> void:
+	kit._xf = xf
+	_rng.seed = seed
+	var foil := _t("brass", FOILS[_rng.randi() % FOILS.size()])
+	_p(kit.box(d, h, w), foil, Vector3(0, h * 0.5, 0), true)
+	var band := _dark()
+	_p(kit.box(d + 0.04, 0.2, w + 0.04), band, Vector3(0, h * 0.55, 0))
+	_p(kit.box(d + 0.04, 0.12, w + 0.04), band, Vector3(0, 0.06, 0))
+	var dz := snappedf(_rng.randf_range(-w * 0.25, w * 0.25), 0.25)
+	_door(d, dz)
+	_p(kit.ball(0.2, 0.4, false, 8), kit.window_glow, Vector3(d * 0.5, 1.7, -signf(dz + 0.01) * (w * 0.5 - 0.6)))
+	_neon_sign(d, h, w)
+	_p(kit.cyl(0.06, 0.06, 1.4, 6), _m("rail"), Vector3(-d * 0.1, h + 0.7, 0))
+	var ww := snappedf(minf(w * 0.45, 1.6), 0.25)
+	for s: float in [-1.0, 1.0]:
+		_p(kit.box(0.05, 0.85, ww), _t("tile", SOLAR), Vector3(-d * 0.1, h + 1.25, s * (ww * 0.5 + 0.08)), false,
+			Basis(Vector3.BACK, s * 0.25))
+	var x := d * 0.2
+	_p(kit.cyl(0.9, 0.12, 0.32, 10), _skin(0), Vector3(x, h + 0.45, -w * 0.25), false,
+		Basis(Vector3.BACK, -0.6))
+	_p(kit.cyl(0.03, 0.03, 0.7, 5), _m("rail"), Vector3(x, h + 0.7, -w * 0.25), false, Basis(Vector3.BACK, -0.6))
+	_count("satellite")
+
+
+## A dead droid's head for a home: a great shell sunk in the floor, one eye still
+## lit, a door cut in its face, stubs of antennae, a fallen arm along its side.
+func _droid_shell(xf: Transform3D, d: float, w: float, seed: int) -> void:
+	kit._xf = xf
+	_rng.seed = seed
+	var r := snappedf(minf(d, w) * 0.5 + 0.1, 0.05)
+	var cy := snappedf(r * 0.75, 0.05)
+	var shell := _skin(_rng.randi())
+	_p(kit.ball(r, r * 2.0, false, 12), shell, Vector3(0, cy, 0), true)
+	var eye := _neon(_rng.randi())
+	var ez := w * 0.2
+	_p(kit.cyl(0.42, 0.42, 0.1, 12), _dark(), Vector3(r * 0.82, cy + r * 0.45, ez), false,
+		Basis(Vector3.BACK, PI * 0.5 - 0.5))
+	_p(kit.ball(0.3, 0.6, false, 10), eye, Vector3(r * 0.84, cy + r * 0.45, ez))
+	var dx := sqrt(maxf(0.0, r * r - pow(1.0 - cy, 2.0) - 0.2)) - 0.1
+	_p(kit.box(0.4, 2.0, 0.9), _m("hull"), Vector3(dx, 1.0, -ez))
+	_p(kit.box(0.1, 0.06, 1.0), kit.door_glow, Vector3(dx + 0.22, 2.12, -ez))
+	for s: float in [-1.0, 1.0]:
+		_p(kit.cyl(0.05, 0.08, 0.9, 6), _m("rail"), Vector3(-r * 0.2, cy + r * 0.95, s * r * 0.4), false, Basis(Vector3.RIGHT, s * 0.35))
+	_p(kit.cyl(0.18, 0.22, snappedf(w * 0.7, 0.25), 8), shell, Vector3(-r * 0.75, 0.22, 0), false, Basis(Vector3.RIGHT, PI * 0.5))
+	_p(kit.box(0.5, 0.35, 0.4), shell, Vector3(-r * 0.75, 0.2, w * 0.4))
+	_count("droid_shell")
+
+
+## Parts heaped on a booth's counter (front edge `x`, top `y`, `span` wide): a
+## droid head, bolts, a pipe, a cell, a coil.
+func _scrap(x: float, y: float, span: float) -> void:
+	var metals: Array = [_m("hull"), _m("rail"), _skin(1), _paint(0)]
+	var n := 4 + _rng.randi() % 3
+	for k in n:
+		var z := (float(k) + 0.5) / n * span - span * 0.5
+		var m: Material = metals[(k + _rng.randi()) % metals.size()]
+		match _rng.randi() % 4:
+			0:
+				_p(kit.ball(0.13, 0.26, false, 8), m, Vector3(x, y + 0.13, z))
+				_p(kit.ball(0.03, 0.06, false, 6), _glow(Color("#ff3b3b"), 3.0), Vector3(x + 0.12, y + 0.16, z))
+			1:
+				_p(kit.cyl(0.05, 0.05, 0.4, 6), m, Vector3(x, y + 0.05, z), false, Basis(Vector3.RIGHT, PI * 0.5))
+			2:
+				_p(kit.box(0.2, 0.14, 0.12), m, Vector3(x, y + 0.07, z))
+			_:
+				_p(kit.cyl(0.08, 0.08, 0.2, 8), _glow(Color("#7dff6a"), 3.0), Vector3(x, y + 0.1, z))
+	_count("scrap")
+
+
+## A curio seller's counter: odd things, each different: a little satellite, a
+## droid's head, a jar with something glowing in it, a crystal, an old helmet, a
+## star chart, a long skull; a lantern hung over it.
+func _curios(d: float, w: float) -> void:
+	var x := d * 0.5 - 0.4
+	var y := 1.0
+	var span := w - 0.8
+	var n := 4
+	var start := _rng.randi() % 7
+	for k in n:
+		var z := (float(k) + 0.5) / n * span - span * 0.5
+		match (start + k) % 7:
+			0:
+				_p(kit.box(0.16, 0.16, 0.16), _t("brass", FOILS[0]), Vector3(x, y + 0.2, z))
+				for s: float in [-1.0, 1.0]:
+					_p(kit.box(0.02, 0.12, 0.2), _t("tile", SOLAR), Vector3(x, y + 0.2, z + s * 0.19))
+				_p(kit.cyl(0.02, 0.02, 0.12, 5), _m("rail"), Vector3(x, y + 0.06, z))
+			1:
+				_p(kit.ball(0.16, 0.32, false, 10), _skin(0), Vector3(x, y + 0.16, z))
+				_p(kit.ball(0.05, 0.1, false, 6), _glow(Color("#38e1ff"), 3.0), Vector3(x + 0.14, y + 0.2, z))
+			2:
+				_p(kit.cyl(0.1, 0.1, 0.28, 10), _glow(Color("#7dff6a"), 3.0), Vector3(x, y + 0.14, z))
+				_p(kit.cyl(0.11, 0.11, 0.04, 10), _m("rail"), Vector3(x, y + 0.3, z))
+			3:
+				_p(kit.cyl(0.0, 0.08, 0.34, 5), _glow(Color("#b14cff"), 3.0), Vector3(x, y + 0.17, z))
+			4:
+				_p(kit.ball(0.17, 0.3, true, 10), mats.painted(BONE, 0.7, 0.0), Vector3(x, y, z))
+				_p(kit.box(0.04, 0.08, 0.2), kit.window_glow, Vector3(x + 0.15, y + 0.12, z))
+			5:
+				_p(kit.box(0.02, 0.36, 0.5), _m("screen"), Vector3(x - 0.15, y + 0.2, z), false, Basis(Vector3.BACK, 0.25))
+			_:
+				_p(kit.ball(0.12, 0.34, false, 8), mats.painted(BONE, 0.7, 0.0), Vector3(x, y + 0.1, z), false,
+					Basis(Vector3.BACK, PI * 0.5))
+	_p(kit.cyl(0.01, 0.01, 0.5, 4), _m("rail"), Vector3(x - 0.2, 2.35, 0))
+	_p(kit.ball(0.11, 0.22, false, 8), _neon(_rng.randi()), Vector3(x - 0.2, 2.05, 0))
+
+
+## One of the three vendors' booths (gear, fence, droids) by the walkway: a deeper
+## booth like the others, a long sign in its colour, its wares on the counter.
+func _vendor_booth(xf: Transform3D, d: float, w: float, kind: String, seed: int) -> void:
+	_booth(xf, d, w, seed)
+	kit._xf = xf
+	var sign_c: Color = { "gear": Color("#38e1ff"), "fence": Color("#ff4fa3"), "droids": Color("#7dff6a") }.get(kind, Color("#ffd23f"))
+	_p(kit.box(0.06, 0.45, w * 0.9), _glow(sign_c, 3.0), Vector3(d * 0.5 + 0.12, 3.35, 0))
+	var x := d * 0.5 - 0.4
+	match kind:
+		"gear":
+			for s: float in [-0.9, 0.0, 0.9]:
+				_p(kit.ball(0.17, 0.3, true, 10), _skin(1), Vector3(x, 1.0, s))
+			_p(kit.box(0.06, 1.2, 1.6), _m("rail"), Vector3(-d * 0.5 + 0.25, 1.6, 0))
+		"fence":
+			_p(kit.box(0.5, 0.35, 0.6), _m("cargo"), Vector3(x, 1.18, -0.6))
+			_p(kit.box(0.4, 0.3, 0.4), _dark(), Vector3(x, 1.15, 0.5))
+		_:
+			_scrap(x, 1.0, w - 0.8)
+	_count("vendor_booth")
+
+
+## Holo-ad panels on poles along the walkway's edge, facing it, here and there:
+## the screen finish, a dark frame; nothing on a lane.
+func _holo_ads(t: Dictionary, y: float, fc: Dictionary, lanes: Array) -> void:
+	var n := int(fc.get("holo_ads", 0))
+	var r := hull.gap_r + hull.walk + 0.6
+	for k in n:
+		var a := TAU * (k + _rng.randf_range(0.2, 0.8)) / maxi(1, n)
+		if not _clear(a, r, 1.2, lanes):
+			continue
+		kit._xf = radial(t, y, a)
+		var hh := snappedf(_rng.randf_range(3.0, 4.0), 0.1)
+		_p(kit.cyl(0.06, 0.08, hh, 6), _m("rail"), Vector3(r, hh * 0.5, 0))
+		_p(kit.box(0.1, 1.3, 2.0), _dark(), Vector3(r, hh + 0.55, 0))
+		_p(kit.box(0.02, 1.1, 1.8), _m("screen"), Vector3(r - 0.06, hh + 0.55, 0))
+		_p(kit.box(0.02, 0.08, 1.8), _neon(k), Vector3(r - 0.07, hh + 1.12, 0))
+		_count("holo_ad")
 
 
 # ------------------------------------------------------------------ the suites

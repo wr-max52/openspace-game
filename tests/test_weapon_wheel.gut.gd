@@ -24,12 +24,12 @@ func _open(wheel: WeaponWheel) -> void:
 
 # ---- the pure wheel ---------------------------------------------------------------
 
-func test_eight_directions_pick_eight_slots_clockwise_from_the_top() -> void:
-	var dirs := [Vector2(0, -1), Vector2(1, -1), Vector2(1, 0), Vector2(1, 1),
-			Vector2(0, 1), Vector2(-1, 1), Vector2(-1, 0), Vector2(-1, -1)]
-	for i in 8:
-		assert_eq(WeaponWheel.slot_at(dirs[i].normalized(), 0.3), i, "direction %d" % i)
-		assert_eq(WeaponWheel.slot_at(WeaponWheel.slot_dir(i), 0.3), i)
+func test_nine_slots_clockwise_from_the_top() -> void:
+	assert_eq(WeaponWheel.SLOTS, 9, "1-8 the weapons, 9 the droids' safety")
+	assert_eq(WeaponWheel.slot_at(Vector2(0, -1), 0.3), 0, "straight up is slot 1")
+	assert_eq(WeaponWheel.slot_at(Vector2(1, 0), 0.3), 2, "right is slot 3")
+	for i in WeaponWheel.SLOTS:
+		assert_eq(WeaponWheel.slot_at(WeaponWheel.slot_dir(i), 0.3), i, "slot %d" % (i + 1))
 
 
 func test_inside_the_dead_zone_is_the_middle() -> void:
@@ -37,8 +37,8 @@ func test_inside_the_dead_zone_is_the_middle() -> void:
 	assert_eq(WeaponWheel.slot_at(Vector2.ZERO, 0.3), -1)
 
 
-func test_slots_pad_to_eight() -> void:
-	assert_eq(w.slots.size(), 8)
+func test_slots_pad_to_nine() -> void:
+	assert_eq(w.slots.size(), 9)
 	assert_eq(w.id_at(2), "energy_blade")
 	assert_eq(w.id_at(3), "")
 
@@ -104,23 +104,24 @@ func test_mouse_does_nothing_while_closed() -> void:
 func test_an_empty_slot_can_not_be_picked_with_the_mouse() -> void:
 	_open(w)
 	w.move_mouse(Vector2(0, 140))
-	assert_eq(w.highlighted(), 4)
-	assert_false(w.selectable(4))
+	assert_eq(w.highlighted(), 5, "straight down is slot 6 of nine")
+	assert_false(w.selectable(5))
 	assert_eq(w.release(), "", "the mouse may rest on a dimmed slot; letting go there does nothing")
 
 
 func test_a_key_at_an_empty_slot_jumps_to_the_nearest_weapon() -> void:
 	_open(w)
 	w.push_keys(Vector2(0, 1))
-	assert_eq(w.highlighted(), 2, "down is empty: the sword is two steps away, the pistol four")
+	assert_eq(w.highlighted(), 2, "down is empty: the sword is three steps away, the pistol four")
 	assert_eq(w.choice(), "energy_blade")
 	w.push_keys(Vector2(-1, 0))
-	assert_eq(w.highlighted(), 0, "left is empty: the pistol is two steps away, the sword four")
+	assert_eq(w.highlighted(), 0, "left is empty: the pistol is two steps away, the sword five")
 	assert_eq(w.release(), "pistol_blaster")
 
 
 func test_a_key_tie_goes_to_the_lower_slot() -> void:
-	assert_eq(w.nearest_selectable(5), 0, "slot 6 is three steps from the sword and three from the pistol")
+	var t := WeaponWheel.new(["pistol_blaster", "", "", "rifle_blaster"])
+	assert_eq(t.nearest_selectable(6), 0, "slot 7 is three steps from slot 4 and three from slot 1")
 
 
 func test_a_weapon_the_player_may_not_draw_is_skipped_by_the_keys() -> void:
@@ -188,16 +189,17 @@ func test_the_wheel_slots_are_the_number_keys() -> void:
 	assert_eq(pw.wheel.id_at(2), "sniper_rifle")
 	for i in [3, 4, 5, 6]:
 		assert_eq(pw.wheel.id_at(i), "", "4 to 7 are free for guns to come")
-	assert_eq(pw.wheel.id_at(7), "energy_blade", "the sword is key 8, the last slot")
+	assert_eq(pw.wheel.id_at(7), "energy_blade", "the sword is key 8")
+	assert_eq(pw.wheel.id_at(8), "droid_safety", "and 9 is the droids' safety")
 	assert_almost_eq(pw.wheel.hold_time, 0.2, 0.0001, "read from hand_weapons.json")
 
 
-func test_hold_tab_point_up_left_let_go_draws_the_sword() -> void:
+func test_hold_tab_point_at_slot_8_let_go_draws_the_sword() -> void:
 	var pw: PlayerWeapons = _kit()[0]
 	_tab(pw, true)
 	_frames(pw, 0.3)
 	assert_true(pw.wheel.is_open)
-	_point(pw, Vector2(-1, -1).normalized())
+	_point(pw, WeaponWheel.slot_dir(7))
 	_tab(pw, false)
 	_frames(pw, 0.6)
 	assert_false(pw.wheel.is_open)

@@ -22,7 +22,7 @@ const DATA := "res://content/core/droids/droids.json"
 
 static var _cfg: Dictionary = {}
 
-var owned: Array = []       ## [{ uid, kind, variant, cargo: { item id -> count }, up: { upgrade -> level }, lasers_on? }]
+var owned: Array = []       ## [{ uid, kind, variant, cargo: { item id -> count }, up: { upgrade -> level }, lasers_on?, safety? }]
 var wrecks: Array = []      ## [{ uid, kind, variant, pos: [x, y, z] }]
 var wrecks_seeded := false  ## the home ball's starting field is generated once and saved
 var streak := 0             ## range remote bolts blocked in a row
@@ -262,6 +262,44 @@ func set_lasers(uid: int, on: bool) -> bool:
 	return on
 
 
+# ---- safety (E beside it, or the wheel's droid slot for all) ------------------------
+
+## A kind that shoots (assassin, floating): the only ones a safety means anything for.
+static func armed_kind(kind: String) -> bool:
+	return not (kind_cfg(kind).get("gun", {}) as Dictionary).is_empty()
+
+
+## Its safety is on: it shoots nobody, whatever they do (a new droid's is off).
+static func safety_on(d: Dictionary) -> bool:
+	return armed_kind(str(d.get("kind", ""))) and bool(d.get("safety", false))
+
+
+## Turn droid `uid`'s safety on or off. Returns the new state (false for a kind with no gun).
+func set_safety(uid: int, on: bool) -> bool:
+	var d := find(uid)
+	if d.is_empty() or not armed_kind(str(d.kind)):
+		return false
+	d["safety"] = on
+	return on
+
+
+## Your droids with a gun.
+func armed_owned() -> Array:
+	return owned.filter(func(d): return armed_kind(str(d.kind)))
+
+
+## Every armed droid's safety at once: on if any of them is off, else all off.
+## Returns the new state (false with no armed droid).
+func toggle_all_safety() -> bool:
+	var armed := armed_owned()
+	if armed.is_empty():
+		return false
+	var on := armed.any(func(d): return not bool(d.get("safety", false)))
+	for d in armed:
+		d["safety"] = on
+	return on
+
+
 # ---- cargo ----------------------------------------------------------------------
 
 ## Room in droid `d`'s hold for `item_id`: it stacks, or a slot is free.
@@ -463,6 +501,8 @@ func from_save(d: Dictionary) -> void:
 				"cargo": (o.get("cargo", {}) as Dictionary).duplicate(), "up": up }
 			if o.has("lasers_on"):
 				mine["lasers_on"] = bool(o.lasers_on)
+			if o.has("safety"):
+				mine["safety"] = bool(o.safety)
 			mine.variant = look_variant(mine)    # older saves: the random look becomes the base one
 			owned.append(mine)
 	wrecks = []

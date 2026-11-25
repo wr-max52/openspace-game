@@ -31,6 +31,7 @@ const LOOK_PATH := "res://content/look/hand_weapons.json"
 
 const POLE_R := Vector3(-0.5, -0.7, -0.5)
 const POLE_L := Vector3(0.6, -0.7, -0.4)
+const HALF_GRIP := 0.45     ## issue #324: how far a hand that cannot reach its grip closes
 
 var kit: CharacterKit
 var body: Node3D
@@ -44,6 +45,9 @@ var current := ""                  ## weapon in hand (or being drawn/holstered)
 var drawn := 0.0                   ## 0 = holstered, 1 = ready
 var sword_pose: Dictionary = {}    ## from SwordCombo.pose() while the sword is out
 var sword_trail_on := false        ## the swing is cutting: the blade leaves a SwordTrail
+var blade_pull := Vector3.ZERO     ## issue #631: chest space, how far the drawn sword was pulled in to the fist
+var hands_on: Dictionary = { "r": false, "l": false }   ## issue #324: which hands hold the weapon this frame (third person)
+var hands_near: Dictionary = { "r": false, "l": false } ## issue #324: reaching for a grip the arm cannot get to (a half-closed hand)
 var first_person := false
 var facing_yaw := 0.0              ## world yaw the body faces
 var turn_rate := 10.0              ## rad/s
@@ -337,7 +341,10 @@ func muzzle_position() -> Vector3:
 
 
 ## Points along the sword blade in world space (guard -> tip), for hit tests.
-func blade_points(fractions: Array = [0.3, 0.65, 1.0]) -> Array:
+## Issue #631: hits come from the swing's own pose; where a third person fist could
+## not reach it the drawn sword was pulled in to the hand (blade_pull), and
+## `as_drawn` (the swing trail) follows the sword you see instead.
+func blade_points(fractions: Array = [0.3, 0.65, 1.0], as_drawn := false) -> Array:
 	var out: Array = []
 	var w := weapon_node("energy_blade")
 	if w == null:
@@ -345,8 +352,12 @@ func blade_points(fractions: Array = [0.3, 0.65, 1.0]) -> Array:
 	var sword: Node3D = w.get_meta("sword")
 	var blade := sword.get_node("Blade") as Node3D
 	var length := float(sword.get_meta("length", 1.05)) * blade.scale.y
+	var xf := sword.global_transform
+	if not as_drawn and blade_pull != Vector3.ZERO:
+		xf = (joints.chest as Node3D).global_transform \
+			* Transform3D(w.transform.basis, w.transform.origin + blade_pull) * sword.transform
 	for f in fractions:
-		out.append(sword.global_transform * Vector3(0, length * float(f), 0))
+		out.append(xf * Vector3(0, length * float(f), 0))
 	return out
 
 
@@ -557,8 +568,7 @@ func animate(dt: float, inp: Dictionary) -> void:
 	_fpv_grips(upper, dt)
 	_tick_throw(dt)
 	_apply_throw()
-	if skin != null:
-		skin.sync(body)
+	_sync_skin()
 
 
 ## Runs after the camera moves each frame: step the ADS blend and, while any of it
@@ -575,8 +585,7 @@ func _process(delta: float) -> void:
 		GunSights.scope_view(weapons[current], ads_blend > 0.85, float(scope.get("barrel_from", 0.0)))
 	if ads_blend > 0.0 and current != "" and weapons.has(current):
 		_place_weapon(_last_upper, _last_pitch)
-		if skin != null:
-			skin.sync(body)
+		_sync_skin()
 	_draw_sword(delta)
 
 
@@ -595,8 +604,7 @@ func _draw_sword(delta: float) -> void:
 		_place_weapon(_last_upper, _last_pitch)
 		_apply_throw()
 		sword_pose = tick_pose
-		if skin != null:
-			skin.sync(body)
+		_sync_skin()
 	if sword_trail_on:
 		if _trail == null:
 			_trail = SwordTrail.new()
@@ -604,7 +612,7 @@ func _draw_sword(delta: float) -> void:
 		var w := weapon_node("energy_blade")
 		if w != null:
 			_trail.color = (w.get_meta("sword") as Node3D).get_meta("color", _trail.color)
-		var p := blade_points([0.45, 1.0])
+		var p := blade_points([0.45, 1.0], true)
 		if p.size() == 2:
 			_trail.add(p[0], p[1])
 	if _trail != null:
@@ -650,6 +658,9 @@ func _pin_scope(w: Node3D, aimed_cam: Transform3D) -> void:
 
 
 func _place_weapon(upper: String, pitch: float) -> void:
+	blade_pull = Vector3.ZERO
+	hands_on = { "r": false, "l": false }
+	hands_near = { "r": false, "l": false }
 	for id in weapons:
 		(weapons[id] as Node3D).visible = (id == current and current != "")
 	if current == "" or not weapons.has(current):
@@ -727,9 +738,18 @@ func _place_weapon(upper: String, pitch: float) -> void:
 				_v2(_fpv._hand().get("fist_seat", [])) if _fpv != null else Vector2.ZERO)
 			w.transform = fist[0]
 			(joints.r_wrist as Node3D).basis = Basis(Vector3.UP, float(fist[1]))
+		elif not first_person and _hand_spec("r").has("bar"):
+			_seat_hand("r", w, grips.r, POLE_R)
+		elif not first_person and not _hold_3p().is_empty():
+			_seat_fist(w, _v3(_hold_3p().get("grip", [0, 0, 0])) if _hold_3p().has("grip") else grips.r)
+			hands_on.r = true
 	# Issue #229: aimed in, the left hand joins even a one-handed gun.
 	var one_hand := first_person and ads_blend < 0.4 \
 		and bool((look.get(current, {}) as Dictionary).get("aim_fpv", {}).get("one_hand", false))
+	# Issue #631: in third person a weapon with a one-handed hold_3p (the sword)
+	# leaves the left arm to the walk too.
+	if not first_person and bool(_hold_3p().get("one_hand", false)):
+		one_hand = true
 	# A pistol at rest hangs from the right hand alone; the left arm swings free.
 	if carry_kind(current) == "pistol" and up < 0.5:
 		one_hand = true
@@ -744,6 +764,137 @@ func _place_weapon(upper: String, pitch: float) -> void:
 		kit.reach(body, "l", w.transform * at, POLE_L)
 	elif grips.has("l") and drawn > 0.6 and not one_hand:
 		kit.reach(body, "l", w.transform * (grips.l as Vector3), POLE_L)
+		if not first_person and _hand_spec("l").has("bar"):
+			_seat_hand("l", w, grips.l, POLE_L)
+
+
+## Issue #631: the weapon's third person hold (hand_weapons.json "hold_3p"), or {}.
+func _hold_3p() -> Dictionary:
+	return (look.get(current, {}) as Dictionary).get("hold_3p", {})
+
+
+## Issue #631: third person, the right fist closed on the grip. The weapon keeps its
+## pose (the sword's path and hit points come from SwordCombo); the hand comes to
+## it. The wrist turns so the grip runs across the palm, the thumb toward the blade
+## (+Y of the weapon), and the arm is re-aimed until the hand you see, the skin's,
+## has its palm on the grip: a skin's arm is not the kit's length, so the kit's IK
+## alone leaves the skin's hand beside the hilt. The fingers close in _sync_skin.
+func _seat_fist(w: Node3D, grip: Vector3) -> void:
+	var hold := _hold_3p()
+	var g := w.transform * grip                          # chest space
+	var d := w.transform.basis.y.normalized()
+	# Issue #324: where the skin's closed fingers wrap, measured from its own bones
+	# (HandGrip), in the kit wrist's frame: the bar's middle and its axis.
+	var frame := _grip_frame("r")
+	var palm := frame.origin
+	var chest_inv := SkinnedBody._rel(body, joints.chest).affine_inverse() if skin != null else Transform3D()
+	var hand := Basis()
+	for i in int(hold.get("passes", 3)):
+		var el := kit.chest_space(body, joints.r_elbow)
+		var fdir := -el.basis.y.normalized()
+		hand = fist_basis(d, fdir, frame.basis)
+		var err := Vector3.ZERO
+		if skin != null and skin.bone_of.has("r_wrist"):
+			skin.sync(body)
+			err = (chest_inv * skin.joint_xf("r_wrist")).origin - kit.chest_space(body, joints.r_wrist).origin
+		var wrist := g - hand * palm - err                # where the kit's wrist has to be
+		kit.reach(body, "r", wrist + fdir * CharacterKit.HAND_REACH, POLE_R)
+	var el2 := kit.chest_space(body, joints.r_elbow)
+	hand = fist_basis(d, -el2.basis.y.normalized(), frame.basis)
+	(joints.r_wrist as Node3D).basis = (el2.basis.orthonormalized().inverse() * hand).orthonormalized()
+	# Out of the skin's reach (the far end of some swings: the swing keys were made
+	# for the kit's longer arm), the drawn sword comes in to the fist; hits keep the
+	# swing's own pose (blade_points).
+	if skin != null and skin.bone_of.has("r_wrist"):
+		skin.sync(body)
+		var at := (chest_inv * skin.joint_xf("r_wrist")) * palm
+		var miss := g - at
+		if miss.length() > float(hold.get("pull_over", 0.004)):
+			w.transform.origin -= miss
+			blade_pull += miss
+
+
+## Issue #324: third person, `side`'s skin hand closed on a grip that the weapon
+## fixes both ways (a rifle's pistol grip, its handguard): hold_3p "hands" gives
+## `bar` (the grip's axis, toward the thumb) and `palm` (from the back of the hand
+## toward the grip), in the weapon's space. The wrist turns so the hand's grip frame
+## (HandGrip) lines up with them, and the arm is re-aimed until the skin's hand, not
+## just the kit's, closes on the grip point (as _seat_fist does for the sword).
+func _seat_hand(side: String, w: Node3D, grip: Vector3, pole: Vector3) -> void:
+	var spec := _hand_spec(side)
+	var g := w.transform * (_v3(spec.grip) if spec.has("grip") else grip)
+	var z := (w.transform.basis * _v3(spec.get("bar", [0, 0, 1]))).normalized()
+	var p := w.transform.basis * _v3(spec.get("palm", [0, 1, 0]))
+	var x := (p - z * p.dot(z)).normalized()
+	var frame := _grip_frame(side)
+	var hand := (Basis(x, z.cross(x), z) * frame.basis.inverse()).orthonormalized()
+	var wrist_j: Node3D = joints[side + "_wrist"]
+	var elbow_j: Node3D = joints[side + "_elbow"]
+	# Out of the arm's reach (the left hand on a rifle's handguard: the carry and aim
+	# poses hold the gun further out than the kit's arm), the hand stays where the
+	# IK left it and only half closes.
+	var reach := CharacterKit.UPPER_ARM + CharacterKit.FOREARM + CharacterKit.HAND_REACH
+	if (g - kit.chest_space(body, joints[side + "_shoulder"]).origin).length() > reach + 0.02:
+		hands_near[side] = true
+		return
+	var chest_inv := SkinnedBody._rel(body, joints.chest).affine_inverse() if skin != null else Transform3D()
+	for i in int(_hold_3p().get("passes", 2)):
+		var err := Vector3.ZERO
+		if skin != null and skin.bone_of.has(side + "_wrist"):
+			skin.sync(body)
+			err = (chest_inv * skin.joint_xf(side + "_wrist")).origin - kit.chest_space(body, wrist_j).origin
+		var fdir := -kit.chest_space(body, elbow_j).basis.y.normalized()
+		kit.reach(body, side, g - hand * frame.origin - err + fdir * CharacterKit.HAND_REACH, pole)
+	wrist_j.basis = (kit.chest_space(body, elbow_j).basis.orthonormalized().inverse() * hand).orthonormalized()
+	hands_on[side] = true
+
+
+## Issue #631: a right hand's frame (chest space) closed round a grip along `d`:
+## the thumb side toward the blade, the fingers as near the forearm's line `fdir`
+## as the grip allows. `bar` (issue #324) is the grip's frame in the hand
+## (HandGrip): its +Z the bar's axis there; identity takes the bar along the hand's
+## +Z, the fingers down -Y.
+static func fist_basis(d: Vector3, fdir: Vector3, bar: Basis = Basis()) -> Basis:
+	var z := d.normalized()
+	var along := fdir - z * fdir.dot(z)
+	if along.length() < 0.05:
+		along = Vector3.DOWN - z * Vector3.DOWN.dot(z)
+	var y := -along.normalized()
+	var x := y.cross(z).normalized()
+	# The same triad in the hand: the bar's axis, and the hand's own up across it.
+	var kz := bar.z.normalized()
+	var ky := (Vector3.UP - kz * kz.dot(Vector3.UP)).normalized()
+	var kx := ky.cross(kz).normalized()
+	return Basis(x, y, z) * Basis(kx, ky, kz).inverse()
+
+
+## Issue #324: the weapon in hand's third person grip for `side` (hold_3p "hands"),
+## or {}.
+func _hand_spec(side: String) -> Dictionary:
+	return (_hold_3p().get("hands", {}) as Dictionary).get(side, {})
+
+
+## Issue #324: where `side`'s skin hand closes on its grip, in the kit wrist frame
+## (SkinnedBody.grip_frame); the old hand-set palm point without a skin.
+func _grip_frame(side: String) -> Transform3D:
+	var spec := _hand_spec(side)
+	if skin == null or spec.is_empty():
+		return Transform3D(Basis(), Vector3(0.0, -0.09, -0.035))
+	return skin.grip_frame(side, spec)
+
+
+## Copy the joints onto the skin, then close its fingers on the weapon in hand
+## (issue #631: the bones the kit has no joint for go back to rest on every sync).
+func _sync_skin() -> void:
+	if skin == null:
+		return
+	# Issue #324: the hands close round the weapon in hand (HandGrip), as it is drawn;
+	# SkinnedBody keeps the hold on every sync.
+	var k := drawn * drawn * (3.0 - 2.0 * drawn) if weapons.has(current) and not first_person else 0.0
+	for side in ["r", "l"]:
+		var ks := k if hands_on[side] else (k * HALF_GRIP if hands_near[side] else 0.0)
+		skin.set_hold(side, _hand_spec(side), ks)
+	skin.sync(body)
 
 
 ## Sprinting with a pistol at rest, the right arm pumps like the left (the

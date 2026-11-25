@@ -26,6 +26,8 @@ var glass: Node3D
 var dressing: CantinaDressing    ## the back bar and counter (null in the greybox)
 var bottles_served := 0          ## paid drinks she has set on the counter
 var serve_colors: Array = []     ## the colour of each one, in order
+var cower_left := 0.0            ## issue #605: seconds she stays down behind the bar (shooting nearby)
+var _noise_id := -1
 var _serve_queue := 0            ## paid drinks still to bring
 var _serve_t := -1.0             ## >= 0 while carrying one
 var _bottle: Node3D
@@ -134,8 +136,25 @@ func speak_pulse() -> void:
 		_act_left = 1.2
 
 
+## Issue #605: down behind the bar while there is shooting near (Scatter); no
+## drinks or talk till it has been quiet for quiet_s (ConversationHost asks).
+func cowering() -> bool:
+	return cower_left > 0.0
+
+
+func _hear(dt: float) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	cower_left = maxf(0.0, cower_left - dt)
+	var got: Array = Scatter.newest(_noise_id, global_position)
+	_noise_id = int(got[0])
+	if not (got[1] as Dictionary).is_empty():
+		cower_left = Scatter.quiet_s()
+
+
 func _process(dt: float) -> void:
 	_t += dt
+	_hear(dt)
 	if _act_left > 0.0:
 		_act_left -= dt
 		if _act_left <= 0.0 and act != Act.THINKING:
@@ -143,7 +162,7 @@ func _process(dt: float) -> void:
 	_talk_energy = maxf(0.0, _talk_energy - dt * 2.5)
 	_flinch = maxf(0.0, _flinch - dt * 4.0)
 	_tick_serve(dt)
-	var out := anim.step(dt, { "speed": 0.0, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER })
+	var out := anim.step(dt, { "speed": 0.0, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER, "crouch": cowering() })
 	for jn in out.joints:
 		if joints.has(jn):
 			(joints[jn] as Node3D).rotation_degrees = out.joints[jn]

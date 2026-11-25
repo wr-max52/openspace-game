@@ -222,7 +222,9 @@ static func off_planet(bodies: Array, world: Dictionary) -> Array:
 			"label": label if label != "" else str(b.id).capitalize(), "target": "planet:" + str(b.id) })
 	for lm in world.get("landmarks", []):
 		if str(lm.get("kind", "")) == "cruiser":
-			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser" })
+			# Issue #497: coloured by who holds it (the locals' green once they do).
+			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser",
+				"owner": CruiserHolo.owner_of(CruiserHolo.CRUISER) })
 	return out
 
 

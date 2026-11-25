@@ -548,10 +548,9 @@ func _refresh_map(centre := false) -> void:
 		+ GlobeMap.off_planet(bodies, demo.world if demo != null else {})
 	for c in _off_box.get_children():
 		c.queue_free()
-	var pins_look: Dictionary = GlobeMap.look().get("pins", {})
 	for o in _off_planet:
 		var row := HBoxContainer.new()
-		row.add_child(_pin_icon(pins_look.get(str(o.kind), {}), 7.0))
+		row.add_child(_pin_icon(GlobeView.pin_look(o), 7.0))     # issue #497: the cruiser by who holds it
 		var b := Button.new()
 		b.text = str(o.label)
 		b.toggle_mode = true

@@ -138,3 +138,37 @@ func test_new_hilt_is_not_left_in_the_mesh_lists() -> void:
 		assert_true(is_instance_valid(m) and (m as Node).is_inside_tree(), "every listed mesh is live")
 	avatar.set_first_person(true)
 	assert_true(avatar.first_person)
+
+
+# ---- issue #631: third person, the sword in one closed fist
+
+func test_third_person_sword_sits_in_a_closed_fist() -> void:
+	avatar = _skinned()
+	if avatar.skin == null:
+		pass_test("no skin in this checkout")
+		return
+	avatar.build_weapons(["energy_blade"])
+	avatar.set_first_person(false)
+	avatar.current = "energy_blade"
+	avatar.drawn = 1.0
+	var hold: Dictionary = avatar.look.energy_blade.hold_3p
+	# Issue #324: the fist's middle is measured from the skin's own bones (HandGrip).
+	var palm: Vector3 = avatar.skin.grip_frame("r", hold.hands.r).origin
+	var grip := Vector3(hold.grip[0], hold.grip[1], hold.grip[2])
+	var sk: Skeleton3D = avatar.skin.skeleton
+	var index2 := sk.find_bone("RightHandIndex2")
+	for pose in [SwordCombo.GUARD, SwordCombo.BLOCK, SwordCombo.sample(0, 0.36), SwordCombo.sample(0, 0.5)]:
+		avatar.sword_pose = pose
+		for i in 20:
+			avatar.animate(1.0 / 60.0, { "upper": BodyAnimator.UPPER_SWORD })
+		var w := avatar.weapon_node("energy_blade")
+		var g_body: Vector3 = SkinnedBody._rel(avatar.body, avatar.joints.chest) * (w.transform * grip)
+		var in_hand: Vector3 = avatar.skin.joint_xf("r_wrist").affine_inverse() * g_body
+		assert_lt(in_hand.distance_to(palm), 0.03, "the skin's palm is on the hilt")
+		assert_gt(sk.get_bone_pose_rotation(index2).angle_to(sk.get_bone_rest(index2).basis.get_rotation_quaternion()),
+			deg_to_rad(40.0), "the fingers are closed")
+	avatar.drawn = 0.0
+	avatar.current = ""
+	avatar.animate(1.0 / 60.0, { "upper": BodyAnimator.UPPER_FREE })
+	assert_almost_eq(sk.get_bone_pose_rotation(index2).angle_to(sk.get_bone_rest(index2).basis.get_rotation_quaternion()),
+		0.0, 0.01, "put away, the fingers are back at rest")
