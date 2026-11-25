@@ -58,6 +58,7 @@ var in_reach := false
 var menu: DroidMenu
 var races_run := 0
 var track_beast: PlanetBeast          ## issue #612: the second beast, on the course while a race runs
+var pink := false                     ## issue #617: this race is for pink slips (your speeder against the leader's)
 
 var _hud: CanvasLayer
 var _hud_lap: Label
@@ -298,6 +299,8 @@ func menu_options() -> Array:
 		if s > WorldState.credits and k > 0:
 			break
 		out.append({ "id": "buy:%d" % s, "text": line("buy_in", { "stake": s, "pot": s * int(r("multiple", 10)) }) })
+	if slips_offered():
+		out.append({ "id": "slips", "text": line("pink_slips", { "ride": ride_label(leader_ride()) }) })
 	out.append({ "id": "walk", "text": line("walk_away") })
 	return out
 
@@ -318,6 +321,81 @@ func best_lap() -> float:
 func _on_pick(choice: String) -> void:
 	if choice.begins_with("buy:"):
 		accept(int(choice.get_slice(":", 1)))
+	elif choice == "slips":
+		accept_slips()
+
+
+# ------------------------------------------------------------------ pink slips (issue #617)
+
+## Pink slips are on (racing rules) and you have beaten this crew for money.
+func slips_offered() -> bool:
+	return bool(rules().get("pink_slips", true)) and WorldState.has_flag("crew_beaten_" + id)
+
+
+## What the leader rides now: your old speeder if they won it off you, else their own.
+func leader_ride() -> Dictionary:
+	var won: Dictionary = WorldState.race_rides.get(id, {})
+	if not won.is_empty():
+		return won
+	for rc in racers:
+		if bool(rc.cfg.get("leader", false)):
+			return { "paint": str(rc.cfg.get("paint", "")), "parts": (rc.cfg.get("parts", []) as Array).duplicate() }
+	return SpeederUpgrades.new_fit()
+
+
+## "the remnant Sand-boxer (engine II, thrusters II)".
+static func ride_label(fit: Dictionary) -> String:
+	var parts: Array = []
+	for p in fit.get("parts", []):
+		var nm := str(SpeederUpgrades.part(str(p)).get("label", p))
+		parts.append(nm.get_slice(" (", 0).to_lower())
+	var paint := str(fit.get("paint", ""))
+	return "the %sSand-boxer%s" % [(paint + " ") if paint != "" else "", (" (" + ", ".join(PackedStringArray(parts)) + ")") if not parts.is_empty() else ""]
+
+
+## Race the leader for pink slips: "" if it is on; else why not ("ladder",
+## "beaten", "speeder", "full", "busy").
+func accept_slips() -> String:
+	if phase != Phase.IDLE or leader() == null:
+		return "busy"
+	if not ladder_open():
+		_say(leader(), line("not_yet"))
+		return "ladder"
+	if not slips_offered():
+		return "beaten"
+	if your_speeder() == null:
+		_say(leader(), line("no_speeder"))
+		return "speeder"
+	var post = demo.get("speeder_post")
+	if post != null and WorldState.count("speeders_owned") >= post.owned_cap():
+		_say(leader(), line("no_room"))
+		return "full"
+	stake = 0
+	pink = true
+	_start_grid()
+	_say(leader(), line("slips_accept"))
+	return ""
+
+
+## The pink-slip race is over: win and their ride is yours, waiting in the row
+## outside the back gate; lose and the speeder you raced is theirs.
+func _settle_slips(won: bool) -> void:
+	var post = demo.get("speeder_post")
+	if won:
+		var fit := leader_ride()
+		WorldState.race_rides.erase(id)
+		if post != null and post.add_owned(fit) != null:
+			_toast(line("slips_won", { "ride": ride_label(fit) }), 6.0)
+		return
+	var mine := _player_speeder
+	if mine == null or not is_instance_valid(mine) or post == null or not post.speeders.has(mine):
+		return
+	WorldState.race_rides[id] = post.fit_for(int(mine.get_meta("slot", 0))).duplicate(true)
+	if mine.riding:
+		mine.dismount()
+	post.remove(mine)
+	_player_speeder = null
+	_toast(line("slips_lost", { "ride": ride_label(WorldState.race_rides[id]) }), 6.0)
 
 
 ## Take the race at `amount`. "" if it is on; else why not ("poor", "speeder",
@@ -381,8 +459,11 @@ func _start_grid() -> void:
 			continue
 		var cfg: Dictionary = rc.cfg
 		var fit := { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array) + gear_parts() }
+		if bool(cfg.get("leader", false)):
+			var ride := leader_ride()                # issue #617: maybe your old speeder
+			fit = { "paint": str(ride.get("paint", "")), "parts": (ride.get("parts", []) as Array) + gear_parts() }
 		var sp := SpeederNode.new()
-		sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(cfg.get("paint", "")))
+		sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(fit.get("paint", "")))
 		add_child(sp)
 		var park := _ground(_v2(cfg.get("park", cfg.get("stand", [0, 0]))))
 		var to_grid: Dictionary = course.grid_slot(slot)
@@ -766,6 +847,9 @@ func _end_race() -> void:
 	order.append_array(rest)
 	winner = str(order[0]) if not order.is_empty() else ""
 	var pot := stake * int(r("multiple", 10))
+	if pink:
+		_settle_slips(winner == YOU)
+		pink = false
 	if winner == YOU:
 		var first := not WorldState.has_flag("crew_beaten_" + id)
 		WorldState.on_race_won(id, pot)

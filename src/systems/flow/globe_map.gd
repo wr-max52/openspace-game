@@ -196,6 +196,14 @@ static func town_pins(town, town_id: String, to_map: Callable) -> Array:
 		var p := _pin("town_" + m, str(s.get("kind", "vendor")), str(s.get("label", m)), to_map.call(town.marker_pos(m)))
 		p["town"] = true
 		out.append(p)
+	# Issue #617: the row outside the back gate where your speeders wait, once you own one.
+	if WorldState.count("speeders_owned") > 0 and not kind_cfg("speeders").is_empty() and town.has_method("markers_with_role"):
+		var row: Array = town.markers_with_role("speeder_spot")
+		if not row.is_empty():
+			row.sort_custom(func(a, b): return str(a.id).naturalnocasecmp_to(str(b.id)) < 0)
+			var sp := _pin("town_speeders", "speeders", _kind_label("speeders"), to_map.call(town.marker_pos(str(row[0].id))))
+			sp["town"] = true
+			out.append(sp)
 	return out
 
 

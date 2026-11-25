@@ -368,8 +368,40 @@ func max_total() -> int:
 	return max_owned() * models().size()
 
 
+## Issue #617: the most speeders you can own at all (won on pink slips or kept
+## after a chase): the row outside the back gate's spots (racing rules owned_cap).
+## Skrugs still sells only one of each model (max_total).
+func owned_cap() -> int:
+	var town = demo.get("town") if demo != null else null
+	var row: Array = town.markers_with_role("speeder_spot") if town != null else []
+	return maxi(max_total(), mini(int(RaceCrew.rule("owned_cap", 5.0)), maxi(row.size(), 1)))
+
+
+## Issue #617: a speeder that is now yours (won on pink slips) with `fit` (paint
+## and parts), parked in the row outside the back gate. null if you own all you can.
+func add_owned(fit: Dictionary) -> SpeederNode:
+	if WorldState.count("speeders_owned") >= owned_cap():
+		return null
+	var i := WorldState.count("speeders_owned")
+	WorldState.bump("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())
+	var won := fit.duplicate(true)
+	won["won"] = true                    # not one he sold: kept past the one-of-each rule
+	if WorldState.speeder_fits.size() > i:
+		WorldState.speeder_fits[i] = won
+	else:
+		WorldState.speeder_fits.append(won)
+	var s := _spawn(i)
+	var spot_at := line_spot(i)
+	s.place(spot_at[0], spot_at[1])
+	return s
+
+
 ## A save from before the one-speeder rule keeps its first speeder of each model
-## (and their fits); the rest are gone.
+## (and their fits); the rest are gone. Issue #617: speeders won on pink slips or
+## kept after a chase ("won" / "stolen" fits) are not his to limit: they stay, up to
+## owned_cap in all.
 func _trim_owned() -> void:
 	var n := WorldState.count("speeders_owned")
 	while WorldState.speeder_fits.size() < mini(n, max_total() * 4):
@@ -378,6 +410,11 @@ func _trim_owned() -> void:
 	var per: Dictionary = {}
 	for i in mini(n, WorldState.speeder_fits.size()):
 		var f: Dictionary = WorldState.speeder_fits[i]
+		if kept.size() >= owned_cap():
+			break
+		if bool(f.get("won", false)) or bool(f.get("stolen", false)):
+			kept.append(f)
+			continue
 		var m := SpeederUpgrades.model_of(f)
 		if int(per.get(m, 0)) < max_owned() and (not model_sale(m).is_empty() or m == "speeder"):
 			per[m] = int(per.get(m, 0)) + 1

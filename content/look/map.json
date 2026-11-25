@@ -31,6 +31,7 @@
     "outpost": { "shape": "triangle", "color": "#a89a80" },
     "droid_merchant_outpost": { "shape": "diamond", "color": "#5ec8e8" },
     "race": { "shape": "ring", "color": "#ff3b30" },
+    "speeders": { "shape": "square", "color": "#7fe0d0" },
     "post": { "shape": "square", "color": "#e8c050" },
     "wreck": { "shape": "cross", "color": "#b8b0a0" },
     "camp": { "shape": "circle", "color": "#d89060" },

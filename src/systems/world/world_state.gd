@@ -51,6 +51,7 @@ static var native_packs: Dictionary = {}       ## issue #96: pack id -> { rep, f
 static var native_camps: Dictionary = {}       ## issue #96: camp id -> { wrecked_h, looted: { box id -> game hour } }
 static var game_hours := 0.0               ## issue #96: in-game hours played (camps come back, boxes refill, rest)
 static var speeder_fits: Array = []        ## issue #95: one SpeederUpgrades fit per owned speeder, by parking slot
+static var race_rides: Dictionary = {}     ## issue #617: crew id -> the fit their leader rides now (won off you on pink slips); absent = their own
 static var bounty: Dictionary = {}         ## issue #64: { run, key, name, crime, outpost, pay, state: "rolled"|"out"|"dead" }
 static var mode := FREEPLAY                ## issue #200: STORY or FREEPLAY, picked on New Game, kept in the save
 static var ship_fits: Dictionary = {}      ## issue #207: ship id -> [upgrade id] T-89 fitted (ShipUpgrades)
@@ -104,6 +105,7 @@ static func reset() -> void:
 	bounty = {}
 	ships_destroyed = []
 	speeder_fits = []
+	race_rides = {}
 	native_packs = {}
 	native_camps = {}
 	game_hours = 0.0
@@ -1020,6 +1022,7 @@ static func to_save() -> Dictionary:
 		"bounty": bounty.duplicate(),
 		"ships_destroyed": ships_destroyed.duplicate(),
 		"speeder_fits": speeder_fits.duplicate(true),
+		"race_rides": race_rides.duplicate(true),
 		"native_packs": native_packs.duplicate(true),
 		"native_camps": native_camps.duplicate(true),
 		"game_hours": game_hours,
@@ -1069,6 +1072,7 @@ static func from_save(d: Dictionary) -> void:
 	bounty = d.get("bounty", {}).duplicate()
 	ships_destroyed = d.get("ships_destroyed", []).duplicate()
 	speeder_fits = d.get("speeder_fits", []).duplicate(true)
+	race_rides = d.get("race_rides", {}).duplicate(true)
 	native_packs = d.get("native_packs", {}).duplicate(true)
 	native_camps = d.get("native_camps", {}).duplicate(true)
 	game_hours = float(d.get("game_hours", 0.0))
