@@ -90,13 +90,16 @@ func test_the_first_course_is_a_file_by_dorrins_yard() -> void:
 func test_the_courses_rock_towers_are_hoodoos_off_the_line() -> void:
 	var c := RaceCourse.load_course("hoodoo_run")
 	var near := 0
-	for hd in DesertLandforms.load_data().get("hoodoos", []):
+	for hd in DesertLandforms.spire_spots(DesertLandforms.load_data()):
+		var at: Vector2 = hd.map
 		var best := INF
-		for p in c.line:
-			best = minf(best, Vector2(float(p[0]), float(p[1])).distance_to(Vector2(float(hd[0]), float(hd[1]))))
+		for i in c.line.size():
+			var a := Vector2(float(c.line[i][0]), float(c.line[i][1]))
+			var b := Vector2(float(c.line[(i + 1) % c.line.size()][0]), float(c.line[(i + 1) % c.line.size()][1]))
+			best = minf(best, Geometry2D.get_closest_point_to_segment(at, a, b).distance_to(at))
 		if best < 80.0:
 			near += 1
-			assert_gt(best - float(hd[2]), 12.0, "a tower beside the line, not on it")
+			assert_gt(best - float(hd.radius), 12.0, "a tower's skirt beside the line, not on it")
 	assert_eq(near, 5, "five towers to weave round")
 
 

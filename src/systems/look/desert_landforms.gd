@@ -1,7 +1,11 @@
 class_name DesertLandforms
 extends Node3D
-## Mesas, hoodoos and boulders on the desert around the playable town, so the sand
-## outside the gate leads somewhere and the horizon is not empty. Same recipes as
+## Mesas, spires (hoodoos) and boulders on the desert: the mesas and spires
+## spread by latitude and longitude all round the home planet's ball, the boulders
+## round the whole ball too (some in fields at the rocks' feet), so wherever you
+## land there is something on the skyline. Spires are three variations of one
+## reference-style sandstone spire, reused; beside them, the original hoodoos
+## (column and cap stone) at half their old height, for a mix of short and tall. Same recipes as
 ## the beauty corner's `_build_landforms` (the beauty corner is the art reference
 ## and is not edited, so this is a copy driven by content/look/desert_landforms.json).
 ##
@@ -19,6 +23,10 @@ var boulder_count := 0
 var boulder_spots := PackedVector3Array()   ## where they went (the renderer may not say)
 ## { center: Vector3 (on the ground), up, radius, height } for WorldGround.add_boulders.
 var boulders: Array = []
+## The spires placed (spire_spots entries), for tests and the boulder fields.
+var spires: Array = []
+## The short hoodoos placed (short_spots entries).
+var shorts: Array = []
 ## The ball's mesas where they went, { map: Vector2, radius, height } each, and
 ## on which planet, for the F11 map's ground (GlobeTerrain): kept after the scene
 ## goes, so the map can show that planet's ground from another one.
@@ -70,29 +78,51 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	else:
 		_build_local_mesas(terrain, mats, clear, noise, rng, solid)
 
-	# Hoodoos remain a close-to-town ring: [x, z, radius, height].
-	for hd in data.get("hoodoos", []):
-		var r: float = hd[2]
-		var h: float = hd[3]
-		if _hits(clear, hd[0], hd[1], r) or _in_circles(hd[0], hd[1], r):
+	# Spires (the tall skinny rocks): three variations reused everywhere, the race
+	# towers by the Hoodoo Run and, on a ball, more all round the planet.
+	var sp: PlanetSphere = (terrain as PlanetTerrain).sphere if terrain is PlanetTerrain else null
+	var strata := float(data.get("spire_strata", 0.35))
+	spires = []
+	for s in spire_spots(data, sp):
+		var map: Vector2 = s.map
+		if _hits(clear, map.x, map.y, s.radius) or _in_circles(map.x, map.y, s.radius):
+			continue
+		var made := _spire(data, int(s.variant))
+		var g := _ground(terrain, map.x, map.y)
+		var gy := snappedf(_ground_h(terrain, g, map.x, map.y), 1.0)
+		var mi := _add(made.mesh, mats.rock(gy, strata), g, -_skirt_sink(terrain, g, map, float(s.radius)),
+			Vector3(0, s.yaw, 0))
+		if solid:
+			_solid_shape(mi, made.shape)
+		spires.append(s)
+
+	# The original hoodoos, shorter: a fluted column under a cap stone, all round
+	# the ball (the old recipe, beside the tall new spires).
+	shorts = []
+	for hd in short_spots(data, sp):
+		var map: Vector2 = hd.map
+		var r: float = hd.radius
+		var h: float = hd.height
+		if _hits(clear, map.x, map.y, r) or _in_circles(map.x, map.y, r):
 			continue
 		noise.frequency = 1.4 / r
 		var base := _cyl(r * 0.55, r, h, 16)
 		base.rings = 10
-		var g := _ground(terrain, hd[0], hd[1])
-		var gy := _ground_h(terrain, g, hd[0], hd[1])
+		var g := _ground(terrain, map.x, map.y)
+		var gy := snappedf(_ground_h(terrain, g, map.x, map.y), 1.0)
 		var mat := mats.rock(gy, 0.35)
-		var col := _add(_cached("hoodoo/%s/%s/%s" % [r, h, hd[0]], func(): return LookMeshKit.rock(base, noise, 0.28, 3.0, float(hd[0]), 0.4)),
+		var col := _add(_cached("hoodoo/%s/%s/%s" % [r, h, hd.seed], func(): return LookMeshKit.rock(base, noise, 0.28, 3.0, float(hd.seed), 0.4)),
 			mat, g, h * 0.45)
 		var cap := SphereMesh.new()
 		cap.radius = r * 0.9
 		cap.height = r * 0.8
 		cap.radial_segments = 12
 		cap.rings = 6
-		_add(_cached("hoodoo_cap/%s/%s" % [r, hd[1]], func(): return LookMeshKit.rock(cap, noise, 0.3, 0.0, float(hd[1]))), mat, g, h * 0.95,
+		_add(_cached("hoodoo_cap/%s/%s" % [r, hd.seed], func(): return LookMeshKit.rock(cap, noise, 0.3, 0.0, float(hd.seed))), mat, g, h * 0.95,
 			Vector3(0, 0, rng.randf_range(-12, 12)))
 		if solid:
 			_solid(col)
+		shorts.append(hd)
 
 	# Boulders, scattered with a MultiMesh: one draw call for hundreds.
 	var b: Dictionary = data.get("boulders", {})
@@ -108,15 +138,36 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	var xforms: Array[Transform3D] = []
 	var min_dist := float(b.get("min_dist", 165.0))
 	var spread := float(b.get("spread", 1500.0))
+	# On the ball: all round the planet, some in fields at the rocks' feet.
+	var planet_wide := sp != null and bool(b.get("planet_wide", false))
+	var anchors: Array = []          # [map, radius] of every mesa and spire placed
+	if planet_wide:
+		for m in mesa_spots:
+			anchors.append([m.map, float(m.radius)])
+		for s in spires:
+			anchors.append([s.map, float(s.radius)])
+		for hd in shorts:
+			anchors.append([hd.map, float(hd.radius)])
+	var near_share := float(b.get("near_rocks", 0.0))
+	var reach := float(b.get("near_reach", 2.5))
 	for i in want:
-		var ang := rng.randf() * TAU
-		var dist := min_dist + pow(rng.randf(), 1.6) * spread
-		var x := cos(ang) * dist
-		var z := sin(ang) * dist
+		var x: float
+		var z: float
+		if planet_wide:
+			var at := _planet_spot(sp, rng, anchors, near_share, reach)
+			x = at.x
+			z = at.y
+		else:
+			var ang := rng.randf() * TAU
+			var dist := min_dist + pow(rng.randf(), 1.6) * spread
+			x = cos(ang) * dist
+			z = sin(ang) * dist
 		var s := rng.randf_range(0.5, 1.0) * (1.0 + pow(rng.randf(), 3.0) * 5.0)
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.2), s * rng.randf_range(0.8, 1.3)))
 		basis = basis * Basis(Vector3.RIGHT, rng.randf_range(-0.4, 0.4))
 		if _hits(clear, x, z, s * 2.0) or _in_circles(x, z, s * 2.0):
+			continue
+		if planet_wide and (Vector2(x, z).length() < min_dist or _in_rock(sp, anchors, x, z, s * 2.0)):
 			continue
 		var g := _ground(terrain, x, z)
 		xforms.append(Transform3D(g.basis * basis, g.origin + g.basis.y * (-s * 0.25)))
@@ -138,6 +189,78 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	add_child(mmi)
 	if terrain is PlanetTerrain:
 		_on_ball((terrain as PlanetTerrain).sphere)
+
+
+## Every spire this world stands up, { id, map, variant, yaw, radius (the skirt's
+## at the foot), column (a ship's column), height }: the race towers (plateau x,
+## z, `hoodoos`) and, on a ball, the planet-wide ones (latitude, longitude,
+## `planet_hoodoos`). WorldGround reads the same list, so its columns are the
+## rocks on screen.
+static func spire_spots(data: Dictionary, sp: PlanetSphere = null) -> Array:
+	var variants: Array = data.get("spire_variants", [])
+	var out: Array = []
+	if variants.is_empty():
+		return out
+	var col := float(data.get("spire_column", 0.56))
+	var entries: Array = []
+	for e in data.get("hoodoos", []):
+		entries.append([Vector2(float(e[0]), float(e[1])), e])
+	if sp != null:
+		for e in data.get("planet_hoodoos", []):
+			entries.append([sp.map_from_lat_lon(float(e[0]), float(e[1])), e])
+	for pair in entries:
+		var map: Vector2 = pair[0]
+		var e: Array = pair[1]
+		var k := int(e[2]) % variants.size()
+		var v: Dictionary = variants[k]
+		out.append({ "id": "hoodoo_%d_%d" % [int(map.x), int(map.y)], "map": map, "variant": k,
+			"yaw": float(e[3]) if e.size() > 3 else 0.0, "radius": float(v.radius),
+			"column": float(v.radius) * col, "height": float(v.height) })
+	return out
+
+
+## The short (original-recipe) hoodoos on a ball, { id, map, radius, height, seed }
+## from `short_hoodoos` [latitude, longitude, radius, height]. None on a flat world.
+static func short_spots(data: Dictionary, sp: PlanetSphere = null) -> Array:
+	var out: Array = []
+	if sp == null:
+		return out
+	for e in data.get("short_hoodoos", []):
+		var map := sp.map_from_lat_lon(float(e[0]), float(e[1]))
+		out.append({ "id": "hoodoo_%d_%d" % [int(map.x), int(map.y)], "map": map,
+			"radius": float(e[2]), "height": float(e[3]), "seed": float(e[0]) + float(e[1]) * 0.1 })
+	return out
+
+
+## A boulder's map spot on the ball: `share` of them near a rock (a little past its
+## foot, out to `reach` of its radius), the rest anywhere on the planet (uniform on
+## the sphere). Offsets go round the ball, not across the map, so a field stays
+## round however far from the port its rock is.
+static func _planet_spot(sp: PlanetSphere, rng: RandomNumberGenerator, anchors: Array,
+		share: float, reach: float) -> Vector2:
+	if not anchors.is_empty() and rng.randf() < share:
+		var a: Array = anchors[rng.randi() % anchors.size()]
+		var ang := rng.randf() * TAU
+		var d := float(a[1]) * (1.15 + pow(rng.randf(), 1.5) * reach)
+		var up := sp.map_dir((a[0] as Vector2).x, (a[0] as Vector2).y)
+		var t1 := up.cross(Vector3.RIGHT if absf(up.x) < 0.9 else Vector3.BACK).normalized()
+		var t2 := up.cross(t1)
+		var th := d / sp.radius
+		return sp.dir_map(up * cos(th) + (t1 * cos(ang) + t2 * sin(ang)) * sin(th))
+	var y := rng.randf_range(-1.0, 1.0)
+	var phi := rng.randf() * TAU
+	var r := sqrt(maxf(0.0, 1.0 - y * y))
+	return sp.dir_map(Vector3(r * cos(phi), y, r * sin(phi)))
+
+
+## Inside (or touching) a mesa or spire's foot, measured round the ball.
+static func _in_rock(sp: PlanetSphere, anchors: Array, x: float, z: float, pad: float) -> bool:
+	var d := sp.map_dir(x, z)
+	for a in anchors:
+		var ad := sp.map_dir((a[0] as Vector2).x, (a[0] as Vector2).y)
+		if d.angle_to(ad) * sp.radius < float(a[1]) * 1.05 + pad:
+			return true
+	return false
 
 
 func _build_local_mesas(terrain: DesertTerrain, mats: LookMaterials, clear: Rect2,
@@ -178,6 +301,18 @@ func _build_planet_mesas(terrain: PlanetTerrain, mats: LookMaterials, clear: Rec
 		if solid:
 			_solid(placed)
 		mesa_spots.append({ "map": map, "radius": radius, "height": height })
+
+
+## How far the sand dips under a spire's skirt below its centre (6 samples round
+## the foot, at most 8 m), so on a dune's slope the skirt's edge stays buried.
+static func _skirt_sink(terrain: DesertTerrain, g: Transform3D, map: Vector2, radius: float) -> float:
+	var sink := 0.0
+	for i in 6:
+		var a := TAU * float(i) / 6.0
+		var p := map + Vector2(cos(a), sin(a)) * radius
+		var gp := _ground(terrain, p.x, p.y)
+		sink = maxf(sink, (g.origin - gp.origin).dot(g.basis.y))
+	return minf(sink, 8.0)
 
 
 ## The rock shader's ground height on the ball is metres above the bare ball.
@@ -223,6 +358,122 @@ func _cyl(top: float, bottom: float, h: float, seg: int) -> CylinderMesh:
 	c.radial_segments = seg
 	c.rings = 1
 	return c
+
+
+## One spire variation, built once a session: { mesh, shape }. The shape is a
+## trimesh of the very triangles drawn, so what you climb is what you see.
+static func _spire(d: Dictionary, k: int) -> Dictionary:
+	var key := "spire/%d/%s" % [k, hash(d.get("spire_variants", [])[k])]
+	if not _meshes.has(key):
+		var built := spire_mesh(d.get("spire_variants", [])[k], d.get("spire_profile", []),
+			int(d.get("spire_segments", 40)), int(d.get("spire_rings", 46)), float(d.get("spire_bury", 3.0)))
+		_meshes[key] = built.mesh
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(built.faces)
+		_shapes[built.mesh] = shape
+	var mesh: Mesh = _meshes[key]
+	return { "mesh": mesh, "shape": _shapes[mesh] }
+
+
+## A wind-cut sandstone spire: a broad flared skirt, a lumpy lower body of stacked
+## bulges (bands that ride up and down round the column, like melted wax), a long
+## tapering finger split by vertical cracks, a rounded top and a slight lean. The
+## foot is `bury` m under the ground. Returns { mesh, faces } (faces: the triangles,
+## for the collider). Smooth normals: the stone is wind-polished, not faceted.
+static func spire_mesh(v: Dictionary, profile: Array, seg: int, rings: int, bury: float) -> Dictionary:
+	var h := float(v.height)
+	var r0 := float(v.radius)
+	var lean_xz: Array = v.get("lean", [0.0, 0.0])
+	var lean := Vector3(float(lean_xz[0]), 0.0, float(lean_xz[1]))
+	var bands := float(v.get("bands", 4.0))
+	var bulge := float(v.get("bulge", 0.06))
+	var cracks := int(v.get("cracks", 2))
+	var crack_depth := float(v.get("crack_depth", 0.15))
+	var twist := float(v.get("twist", 1.0))
+	var noise := FastNoiseLite.new()
+	noise.seed = int(v.get("seed", 1))
+	noise.frequency = 1.0
+	noise.fractal_octaves = 3
+	var ph := float(int(v.get("seed", 1)) % 97) * 0.37         # this variation's phases
+	var crack_at: Array[float] = []
+	for c in cracks:
+		crack_at.append(TAU * (float(c) + 0.3 * noise.get_noise_1d(c * 7.1)) / float(cracks) + ph)
+
+	var rows: Array[PackedVector3Array] = []
+	# The foot: a ring `bury` m straight under the skirt's edge.
+	var foot := PackedVector3Array()
+	for i in seg:
+		var a := TAU * float(i) / float(seg)
+		foot.append(Vector3(cos(a) * r0, -bury, sin(a) * r0))
+	rows.append(foot)
+	for j in rings:
+		# More rings near the foot, where the skirt turns fast.
+		var t := pow(float(j) / float(rings - 1), 1.25)
+		var base := _profile_at(profile, t) * r0
+		var body := smoothstep(0.08, 0.24, t)             # the skirt stays smooth
+		var split := smoothstep(0.2, 0.6, t)              # cracks deepen up the finger
+		var centre := lean * pow(t, 1.8)
+		var row := PackedVector3Array()
+		for i in seg:
+			var a := TAU * float(i) / float(seg)
+			var ca := cos(a)
+			var sa := sin(a)
+			var wobble := noise.get_noise_3d(ca * 1.3 + ph, t * 2.0, sa * 1.3)
+			# Stacked bulges, offset round the column so they read as lobes, not rings.
+			# Bulbous peaks with narrow grooves between (cubed), not an even ripple.
+			var wave := 0.5 + 0.5 * sin((t * bands + wobble * 1.1 + a / TAU * 0.6) * TAU)
+			var bump := (pow(wave, 2.0) * 2.0 - 0.6) * bulge * body * (1.0 - 0.45 * t)
+			# Two or three broad lobes in plan that turn slowly with height.
+			var lobe := (cos(3.0 * a + twist * t + ph) * 0.06 + cos(2.0 * a - twist * 0.6 * t + ph * 1.7) * 0.05) * body
+			var crack := 0.0
+			for c in crack_at:
+				var dd := wrapf(a - c - 0.25 * sin(t * 5.0 + ph), -PI, PI)
+				crack += exp(-pow(dd / 0.2, 2.0)) * crack_depth * split
+			var fine := noise.get_noise_3d(ca * 3.0 + ph, t * h * 0.08, sa * 3.0) * 0.06
+			var rr := base * maxf(0.15, 1.0 + bump + lobe + fine - crack)
+			var y := t * h
+			row.append(centre + Vector3(ca * rr, y, sa * rr))
+		rows.append(row)
+	var top := lean + Vector3(0.0, h + r0 * 0.04, 0.0)
+
+	var faces: Array = []       # an Array: the lambda below appends to it (a packed array would be copied)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(0)
+	var tri := func(p0: Vector3, p1: Vector3, p2: Vector3, out: Vector3) -> void:
+		# Clockwise from outside (Godot's front face), as LookMeshKit.add_tri.
+		if (p1 - p0).cross(p2 - p0).dot(out) > 0.0:
+			var tmp := p1
+			p1 = p2
+			p2 = tmp
+		for q in [p0, p1, p2]:
+			st.add_vertex(q)
+			faces.append(q)
+	for j in rows.size() - 1:
+		for i in seg:
+			var n := (i + 1) % seg
+			var a := TAU * (float(i) + 0.5) / float(seg)
+			var out := Vector3(cos(a), 0.0, sin(a))
+			tri.call(rows[j][i], rows[j][n], rows[j + 1][n], out)
+			tri.call(rows[j][i], rows[j + 1][n], rows[j + 1][i], out)
+	for i in seg:
+		tri.call(top, rows[-1][i], rows[-1][(i + 1) % seg], Vector3.UP)
+	st.index()
+	st.generate_normals()
+	return { "mesh": st.commit(), "faces": PackedVector3Array(faces) }
+
+
+## The spire's radius (fraction of the skirt's) at height fraction t.
+static func _profile_at(profile: Array, t: float) -> float:
+	if profile.is_empty():
+		return 1.0 - t
+	for k in range(1, profile.size()):
+		var b: Array = profile[k]
+		if t <= float(b[0]):
+			var a: Array = profile[k - 1]
+			var f := inverse_lerp(float(a[0]), float(b[0]), t)
+			return lerpf(float(a[1]), float(b[1]), smoothstep(0.0, 1.0, f))
+	return float(profile[-1][1])
 
 
 ## A broad, weathered plateau with broken shelves and cliff-cut gullies. The
@@ -366,6 +617,16 @@ static func _boulder_shapes(mesh: Mesh, xforms: Array[Transform3D]) -> Array:
 		shape.points = hull
 		out.append([shape, top, rad])
 	return out
+
+
+## A static body with a shape made beforehand (a spire's, from its own triangles).
+func _solid_shape(mi: MeshInstance3D, shape: Shape3D) -> void:
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	mi.add_child(body)
+	solid_count += 1
 
 
 ## The same as mi.create_trimesh_collision(), with the shape made once a session.
