@@ -8,7 +8,7 @@ extends Node
 ## `done` fires at the black: the owner (Garrison) wakes you in the port's pit and
 ## calls clear(), which lifts the black and frees the shot.
 ##
-## Time is real time, so the slow motion does not stretch the rest. Never slows
+## Time is unscaled frame time, so the slow motion does not stretch the rest. Never slows
 ## time on LAN (NetSession: the session's clock is shared). Every number and the
 ## text are content/core/flow/defeated.json.
 
@@ -29,7 +29,6 @@ var _side := Vector3.RIGHT         ## horizontal, the flash shot's side of the b
 var _phase := ""                   ## "flash" or "above": the camera shot on screen
 var _avatar: Node                  ## the player's PlayerAvatar, shown in third person for the shot
 var _was_first := false
-var _last_us := 0
 var _layer: CanvasLayer
 var _flash: ColorRect
 var _black: ColorRect
@@ -54,7 +53,6 @@ func total() -> float:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_last_us = Time.get_ticks_usec()
 	_layer = CanvasLayer.new()
 	_layer.layer = 20
 	add_child(_layer)
@@ -107,10 +105,8 @@ func _unslow() -> void:
 		slowed = false
 
 
-func _process(_dt: float) -> void:
-	var now := Time.get_ticks_usec()
-	step(float(now - _last_us) / 1e6)
-	_last_us = now
+func _process(dt: float) -> void:
+	step(dt / Engine.time_scale if Engine.time_scale > 0.0 else dt)   # unscaled: the slow motion does not stretch the shot
 
 
 ## Advance by `dt` real seconds (the frame does this; traces call it directly).
