@@ -209,8 +209,11 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 	pt.cache_key = "%s/%d" % [str(planet.get("id", "")), int(r)]
 	var site := SpaceTravel.site_of(planet.get("town", {}))
 	pt.configure_site(site.floor, site.walls, site.sunken, 0.0)
+	# The mountains' playas before the race gates' pads: a gate at a tunnel's mouth
+	# stands on its mountain's level sand (the first site a point is inside wins).
 	pt.configure_flat_sites(droid_flat_sites(planet, pt.sphere) + camp_flat_sites(planet, pt.sphere)
 		+ outpost_flat_sites(planet, pt.sphere)
+		+ DesertLandforms.mountain_flat_sites(planet, pt.sphere)
 		+ RaceCourse.flat_sites(str(planet.get("world", {}).get("id", "")), pt.sphere))
 	return pt
 

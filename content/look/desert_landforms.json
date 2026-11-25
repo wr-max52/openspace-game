@@ -1,5 +1,5 @@
 {
-  "note": "Landforms around the playable town, from the beauty corner's horizon (scenes/lookdev/beauty_corner.gd). Metres, town coordinates (origin = town centre, floor y = 0). Each sits on the terrain at its x, z. keep_out_margin = no boulders this close to the town's floor area. planet_mesas are [latitude degrees, longitude degrees, radius, height] for the 5 km-radius home world; they replace the local mesa list on a spherical planet. Spires (the tall skinny rocks, called hoodoos in the code): three variations of one wind-cut sandstone spire, reused everywhere, each a broad flared skirt, a lumpy lower body of stacked bulges, a long tapering finger split by vertical cracks and a rounded top. spire_variants: height and radius (the skirt's, at the foot) in metres, lean = [x, z] metres the top sits off the foot, seed for its noise, bands = bulges up the body, bulge = how far they stand out (fraction of the radius), cracks = vertical cracks and crack_depth, twist = radians the lobes turn from foot to top. spire_profile = [height fraction, radius fraction] shared by all three. spire_column = a ship's column radius as a fraction of the skirt's. spire_strata = the rock shader's strata scale. hoodoos are [x, z, variant, yaw degrees]: the five rock towers the Hoodoo Run race course weaves round (issue #610, content/core/racing/courses/hoodoo_run.json), placed by hand beside its racing line. planet_hoodoos are [latitude, longitude, variant, yaw] all round the ball, clear of the town, outposts, wrecks, camps, courses and mesas (flat worlds have only the race towers). short_hoodoos are the original hoodoos (a fluted column under a cap stone), cut to half their old height for a mix of short old rocks and tall new spires: [latitude, longitude, radius, height] all round the ball, clear of everything above. boulders: on the ball (planet_wide) the same count is spread round the whole planet, near_rocks of them in fields at the feet of the mesas and spires (out to near_reach of the rock's radius past its foot) and the rest anywhere; a flat world keeps the ring min_dist..min_dist + spread round the town.",
+  "note": "Landforms around the playable town, from the beauty corner's horizon (scenes/lookdev/beauty_corner.gd). Metres, town coordinates (origin = town centre, floor y = 0). Each sits on the terrain at its x, z. keep_out_margin = no boulders this close to the town's floor area. Mountains (the big rocks on the 5 km-radius home world, src/systems/look/rock_mountain.gd): climbable piles of rock shelves, four versions reused (the fourth has a tunnel). planet_mountains are [latitude degrees, longitude degrees, version]; each is turned so its first cave faces downhill and sunk to the lowest sand round its foot. course_mountains are ranges of tunnel peaks standing over a race course's racing line on purpose, one long tunnel through them all: { course, path: map [[x, z], ...] (the tunnel's centre line, smoothed: the racing line's way through), peaks: [{ along (m from the path's start), variant, seed (each peak its own), portal (\"start\" or \"end\": that peak's sheer cliff, and the tunnel's portal in it, faces that end of the path) }], lights (runner lights low on both walls of the roofed stretch: spacing_m, inset_m from the wall, size, colour, energy) }; the peaks share one level frame and one levelled playa, overlap where they meet, and the course file puts checkpoint gates at both ends of the tunnel and one in the middle. They replace the local mesa list on a spherical planet. mountain_variants: seed, radius (the foot's, m), tiers (shelves, fewer if they get smaller than top_radius), first_rise (the lowest shelf's height), rise [min, max] m between shelves, shelf [min, max] m each tier is narrower than the one below, asym (how lopsided the shelves are: 0 even all round, 1 a sheer cliff on one side and double-width terraces on the other), jag (m the outline is broken by), points (corners per tier), lobes (how far the outline bulges 1, 2 and 3 times a turn, a fraction of the radius), lean [min, max] (how far a tier's top is set in from its foot), columns (rock columns against each wall), blocks (loose columns per shelf), crags (pinnacles on top), caves, tunnel (optional: a straight arched way right through the foot, width m between its walls, spring m where the arch starts, crown m at its top; its portal is in the sheer side, the far end cuts through the terraces, and the ways up, caves and loose rock keep out of it). mountain: ramp (width, slope_deg no steeper than the player's 45 degree floor limit, landing m flat-ish at the top), step (the jump stairs: rise per column, under the 0.6 m jump, and size), cave (height of its ceiling, mouth width, depth into the foot, room radius), bury (m every block starts under the sand), strata (the rock shader's), pad (the sand is levelled under each mountain out to its reach plus margin_m, easing into the dunes over blend_m). Spires (the tall skinny rocks, called hoodoos in the code): three variations of one wind-cut sandstone spire, reused everywhere, each a broad flared skirt, a lumpy lower body of stacked bulges, a long tapering finger split by vertical cracks and a rounded top. spire_variants: height and radius (the skirt's, at the foot) in metres, lean = [x, z] metres the top sits off the foot, seed for its noise, bands = bulges up the body, bulge = how far they stand out (fraction of the radius), cracks = vertical cracks and crack_depth, twist = radians the lobes turn from foot to top. spire_profile = [height fraction, radius fraction] shared by all three. spire_column = a ship's column radius as a fraction of the skirt's. spire_strata = the rock shader's strata scale. hoodoos are [x, z, variant, yaw degrees]: the five rock towers the Hoodoo Run race course weaves round (issue #610, content/core/racing/courses/hoodoo_run.json), placed by hand beside its racing line. planet_hoodoos are [latitude, longitude, variant, yaw] all round the ball, clear of the town, outposts, wrecks, camps, courses and mesas (flat worlds have only the race towers). short_hoodoos are the original hoodoos (a fluted column under a cap stone), cut to half their old height for a mix of short old rocks and tall new spires: [latitude, longitude, radius, height] all round the ball, clear of everything above. boulders: on the ball (planet_wide) the same count is spread round the whole planet, near_rocks of them in fields at the feet of the mesas and spires (out to near_reach of the rock's radius past its foot) and the rest anywhere; a flat world keeps the ring min_dist..min_dist + spread round the town.",
   "seed": 4242,
   "mesas": [
     [-1500, -3100, 300, 230],
@@ -11,24 +11,133 @@
     [-900, 2500, 420, 250],
     [3100, 900, 300, 190]
   ],
-  "planet_mesas": [
-    [69.64, 90.0, 120, 45],
-    [54.34, -132.49, 157, 62],
-    [43.43, 5.02, 133, 79],
-    [34.23, 142.52, 170, 55],
-    [25.94, -79.97, 146, 72],
-    [18.21, 57.54, 122, 48],
-    [10.81, -164.95, 159, 65],
-    [3.58, -27.45, 135, 82],
-    [-3.58, 110.06, 172, 58],
-    [-10.81, -112.43, 148, 75],
-    [-18.21, 25.08, 124, 51],
-    [-25.94, 162.59, 161, 68],
-    [-34.23, -59.91, 137, 85],
-    [-43.43, 77.6, 174, 61],
-    [-54.34, -144.89, 150, 78],
-    [-69.64, -7.38, 126, 54]
+  "planet_mountains": [
+    [69.64, 90.0, 0],
+    [43.43, 5.02, 2],
+    [34.23, 142.52, 0],
+    [25.94, -79.97, 3],
+    [18.21, 57.54, 2],
+    [10.81, -164.95, 0],
+    [3.58, -27.45, 1],
+    [-3.58, 110.06, 2],
+    [-10.81, -112.43, 3],
+    [-18.21, 25.08, 1],
+    [-25.94, 162.59, 2],
+    [-34.23, -59.91, 0],
+    [-43.43, 77.6, 1],
+    [-54.34, -144.89, 2],
+    [-69.64, -7.38, 0]
   ],
+  "course_mountains": [
+    {
+      "course": "salt_flats",
+      "path": [[-2555.8, 1769.6], [-2620.7, 1801.2], [-2695.6, 1826.8], [-2778.2, 1845.4], [-2866.1, 1856.6], [-2956.4, 1860.0], [-3046.6, 1855.5], [-3133.9, 1843.2], [-3215.6, 1823.5], [-3289.2, 1797.1], [-3352.5, 1764.6]],
+      "peaks": [
+        { "along": 240, "variant": 3, "seed": 41, "portal": "start" },
+        { "along": 413, "variant": 3, "seed": 53 },
+        { "along": 570, "variant": 3, "seed": 67, "portal": "end" }
+      ],
+      "lights": { "spacing_m": 9.0, "inset_m": 1.0, "size": [0.3, 0.22, 1.6], "colour": "#ffb04a", "energy": 3.0 }
+    }
+  ],
+  "mountain_variants": [
+    {
+      "seed": 5,
+      "radius": 115,
+      "tiers": 9,
+      "first_rise": 3.5,
+      "rise": [3.5, 9.5],
+      "shelf": [2.5, 4.0],
+      "jag": 2.0,
+      "points": 36,
+      "lobes": [0.16, 0.16, 0.08],
+      "lean": [0.015, 0.035],
+      "columns": 8,
+      "blocks": 5,
+      "crags": 3,
+      "caves": 1,
+      "asym": 0.85,
+      "top_radius": 12
+    },
+    {
+      "seed": 17,
+      "radius": 100,
+      "tiers": 8,
+      "first_rise": 4.0,
+      "rise": [5.0, 9.5],
+      "shelf": [2.2, 3.6],
+      "jag": 2.2,
+      "points": 32,
+      "lobes": [0.2, 0.12, 0.08],
+      "lean": [0.015, 0.035],
+      "columns": 10,
+      "blocks": 4,
+      "crags": 2,
+      "caves": 2,
+      "asym": 0.95,
+      "top_radius": 12
+    },
+    {
+      "seed": 29,
+      "radius": 130,
+      "tiers": 10,
+      "first_rise": 3.0,
+      "rise": [3.0, 9.0],
+      "shelf": [2.8, 4.4],
+      "jag": 2.0,
+      "points": 40,
+      "lobes": [0.14, 0.2, 0.1],
+      "lean": [0.015, 0.03],
+      "columns": 9,
+      "blocks": 6,
+      "crags": 4,
+      "caves": 2,
+      "asym": 0.75,
+      "top_radius": 12
+    },
+    {
+      "seed": 41,
+      "radius": 120,
+      "tiers": 10,
+      "first_rise": 4.0,
+      "rise": [4.5, 9.0],
+      "shelf": [2.5, 4.0],
+      "jag": 2.0,
+      "points": 36,
+      "lobes": [0.12, 0.12, 0.06],
+      "lean": [0.015, 0.03],
+      "columns": 8,
+      "blocks": 5,
+      "crags": 3,
+      "caves": 1,
+      "asym": 0.85,
+      "top_radius": 12,
+      "tunnel": { "width": 36.0, "spring": 11.0, "crown": 24.0 }
+    }
+  ],
+  "mountain": {
+    "ramp": {
+      "width": 6.0,
+      "slope_deg": 28.0,
+      "landing": 3.0
+    },
+    "step": {
+      "rise": 0.45,
+      "size": 2.6
+    },
+    "cave": {
+      "height": 6.0,
+      "mouth": 6.0,
+      "depth": 28.0,
+      "room": 7.0
+    },
+    "bury": 3.0,
+    "strata": 0.2,
+    "pad": {
+      "margin_m": 30.0,
+      "blend_m": 50.0
+    }
+  },
   "spire_profile": [
     [0.0, 1.0],
     [0.025, 0.86],

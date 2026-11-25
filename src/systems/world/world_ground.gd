@@ -239,7 +239,7 @@ static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
 	var up: Vector3 = c.get("up", Vector3.UP)
 	var rel: Vector3 = p - (c.center as Vector3)
 	var along := rel.dot(up)
-	if (rel - up * along).length() > float(c.radius):
+	if (rel - up * along).length() > float(c.radius) or in_tunnel(c, rel, along, 0.0):
 		return h
 	var top: float = c.get("h", float(c.top) - (c.center as Vector3).y)
 	if top <= along + 0.5:
@@ -284,7 +284,7 @@ func _height_above_linear(p: Vector3, h_start: float) -> float:
 		var up: Vector3 = c.get("up", Vector3.UP)
 		var rel: Vector3 = p - (c.center as Vector3)
 		var along := rel.dot(up)
-		if (rel - up * along).length() > float(c.radius):
+		if (rel - up * along).length() > float(c.radius) or in_tunnel(c, rel, along, 0.0):
 			continue
 		var top: float = c.get("h", float(c.top) - (c.center as Vector3).y)
 		if top <= along + 0.5:
@@ -609,18 +609,19 @@ func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
 ## (where DesertLandforms puts them).
 func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 	var sp := sphere()
-	var planet_mesas: Array = data.get("planet_mesas", [])
-	var use_planet_mesas := not planet_mesas.is_empty()
-	if not use_planet_mesas:
-		planet_mesas = data.get("mesas", [])
-	for m in planet_mesas:
-		var map := sp.map_from_lat_lon(float(m[0]), float(m[1])) if use_planet_mesas \
-			else Vector2(float(m[0]), float(m[1]))
-		if not clear.grow(float(m[2])).has_point(map):
-			var base := sp.surface_at(map.x, map.y)
-			var h := float(m[3]) * 0.92 - DesertLandforms.MESA_BURY
-			columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa", "center": base,
-				"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
+	var mountains := DesertLandforms.mountain_spots(data, sp)
+	for m in mountains:
+		var map: Vector2 = m.map
+		if not clear.grow(float(m.plan.radius)).has_point(map):
+			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id)))
+	if mountains.is_empty():
+		for m in data.get("mesas", []):
+			var map := Vector2(float(m[0]), float(m[1]))
+			if not clear.grow(float(m[2])).has_point(map):
+				var base := sp.surface_at(map.x, map.y)
+				var h := float(m[3]) * 0.92 - DesertLandforms.MESA_BURY
+				columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa", "center": base,
+					"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
 	for s in DesertLandforms.spire_spots(data, sp):
 		var map: Vector2 = s.map
 		if not clear.grow(float(s.radius)).has_point(map):
@@ -895,10 +896,42 @@ static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
 		var along := rel.dot(up)
 		if along - r * 0.5 >= float(c.h) or along + r < 0.0:
 			return ""
-		return str(c.id) if (rel - up * along).length() <= float(c.radius) + r else ""
+		if (rel - up * along).length() > float(c.radius) + r or in_tunnel(c, rel, along, r):
+			return ""
+		return str(c.id)
 	if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:
 		return ""
 	return str(c.id) if Vector2(p.x - cc.x, p.z - cc.z).length() <= float(c.radius) + r else ""
+
+
+## True when a sphere of radius r at `rel` from a mountain's column (`along` its
+## up) is inside the mountain's tunnel (RockMountain.columns): within its walls
+## (off its centre line, across up, by less than half its width), and under its
+## arch where the column's shelf roofs it over (a lower shelf is cut right
+## through, open to the sky). Columns with no tunnel never are.
+static func in_tunnel(c: Dictionary, rel: Vector3, along: float, r: float) -> bool:
+	var tn = c.get("tunnel")
+	if tn == null:
+		return false
+	var half := float(tn.half)
+	var up: Vector3 = c.get("up", Vector3.UP)
+	var p := (c.center as Vector3) + rel
+	var path: PackedVector3Array = tn.path
+	var l := INF
+	for i in path.size() - 1:
+		var ab := path[i + 1] - path[i]
+		ab -= up * ab.dot(up)
+		var ap := p - path[i]
+		ap -= up * ap.dot(up)
+		var t := clampf(ap.dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+		l = minf(l, (ap - ab * t).length())
+	if l > half - r:
+		return false
+	if not bool(tn.roofed):
+		return true
+	var lr := minf(1.0, (l + r) / (half + 1.0))
+	var spring := float(tn.spring)
+	return along + r < spring + (float(tn.crown) - spring) * sqrt(1.0 - lr * lr)
 
 
 ## The plain scan of every box, boulder and column (hit() with too few items for
@@ -946,7 +979,7 @@ func _hit_linear(p: Vector3, r: float) -> String:
 			var along := rel.dot(up)
 			if along - r * 0.5 >= float(c.h) or along + r < 0.0:
 				continue
-			if (rel - up * along).length() <= float(c.radius) + r:
+			if (rel - up * along).length() <= float(c.radius) + r and not in_tunnel(c, rel, along, r):
 				return str(c.id)
 			continue
 		if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:

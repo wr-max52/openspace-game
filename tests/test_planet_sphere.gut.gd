@@ -96,21 +96,55 @@ func test_remote_pads_are_flat_on_the_curved_home_world() -> void:
 				"the outpost's flat ground follows the sphere")
 
 
-func test_home_planet_mesas_are_small_and_globally_distributed() -> void:
-	var mesas: Array = Landforms.load_data().get("planet_mesas", [])
-	assert_eq(mesas.size(), 16)
+func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void:
+	var data := Landforms.load_data()
+	var spots: Array = data.get("planet_mountains", [])
+	assert_eq(spots.size() + (data.get("course_mountains", []) as Array).size(), 16, "as many mountains (a course range counts one) as there were mesas")
 	var min_lat := 90.0
 	var max_lat := -90.0
 	var longitudes := {}
-	for mesa in mesas:
-		min_lat = minf(min_lat, float(mesa[0]))
-		max_lat = maxf(max_lat, float(mesa[0]))
-		longitudes[int(round(float(mesa[1])))] = true
-		assert_lte(float(mesa[2]), 180.0, "mesa radius stays small for a 5 km-radius planet")
-		assert_lte(float(mesa[3]), 90.0, "mesa height is no more than 90 m")
-	assert_lt(min_lat, -65.0, "mesas reach the southern hemisphere")
-	assert_gt(max_lat, 65.0, "mesas reach the northern hemisphere")
-	assert_gt(longitudes.size(), 12, "mesas are spread around the full longitude range")
+	for m in spots:
+		min_lat = minf(min_lat, float(m[0]))
+		max_lat = maxf(max_lat, float(m[0]))
+		longitudes[int(round(float(m[1])))] = true
+	assert_lt(min_lat, -65.0, "mountains reach the southern hemisphere")
+	assert_gt(max_lat, 65.0, "mountains reach the northern hemisphere")
+	assert_gt(longitudes.size(), 12, "mountains are spread around the full longitude range")
+	var cfg: Dictionary = data.mountain
+	assert_lt(float(cfg.step.rise), 0.6, "a jump stair's rise is under the player's 0.6 m jump")
+	assert_lt(float(cfg.ramp.slope_deg), 45.0, "ramps are walkable")
+	for v in data.mountain_variants:
+		var p := RockMountain.plan(v, cfg)
+		assert_lte(float(p.radius), 180.0, "a mountain stays small for a 5 km-radius planet")
+		assert_lte(float(p.height), 90.0, "no more than 90 m to the top shelf")
+		assert_gt((p.tiers as Array).size(), 4, "shelves to climb")
+		assert_gt((p.caves as Array).size(), 0, "a cave in every version")
+	# The tunnel version: a way through wide and high enough to race a speeder through,
+	# on at least two mountains, one of them over the last race's line.
+	var tunnels := 0
+	for m in spots:
+		var v: Dictionary = data.mountain_variants[int(m[2]) % data.mountain_variants.size()]
+		if v.has("tunnel"):
+			tunnels += 1
+	for m in data.get("course_mountains", []):
+		for pk in m.peaks:
+			var v: Dictionary = data.mountain_variants[int(pk.variant)]
+			assert_true(v.has("tunnel"), "every peak of a course range has the tunnel")
+			assert_gt(float(v.tunnel.width), 30.0, "wider than a race gate")
+			tunnels += 1
+	assert_gte(tunnels, 2, "at least two tunnel mountains")
+	# The course range: one tunnel roofed all the way through, under every peak.
+	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	for m in Landforms.mountain_spots(data, sp):
+		if m.has("course"):
+			var tn: Dictionary = m.plan.tunnel
+			var pts := RockMountain._resample(tn.path, 2.0)
+			var open := 0
+			for i in range(int(ceil(tn.gates.s_entry / 2.0)), int(tn.gates.s_exit / 2.0)):
+				if not tn.roofs.any(func(poly): return Geometry2D.is_point_in_polygon(pts[i], poly)):
+					open += 1
+			assert_eq(open, 0, "%s: one tunnel, roofed from end to end" % m.id)
+			assert_gt(float(tn.gates.s_exit) - float(tn.gates.s_entry), 300.0, "a long tunnel through the range")
 
 
 func test_up_turns_with_the_ball() -> void:
@@ -298,7 +332,10 @@ func test_crashing_into_a_leaning_mesa() -> void:
 		if a.state == AtmoFlight.State.CRASHED:
 			break
 	assert_eq(a.state, AtmoFlight.State.CRASHED, "flew into its side")
-	assert_eq(a.last_hit, str(mesa.id))
+	# A mountain is a column per shelf (ids <mountain>_<shelf>): the wider shelves
+	# below the one aimed at may be hit first; any of them is this mountain.
+	var mountain := str(mesa.id).rsplit("_", true, 1)[0]
+	assert_true(a.last_hit.begins_with(mountain + "_"), "hit %s, one of %s's shelves" % [a.last_hit, mountain])
 
 
 func test_a_speeder_drives_straight_round_the_curve() -> void:

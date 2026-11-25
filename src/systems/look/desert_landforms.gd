@@ -71,10 +71,10 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	noise.seed = 31
 	noise.fractal_octaves = 3
 
-	# On the home ball use small mesas distributed by latitude/longitude; flat
-	# worlds keep the original nearby beauty-corner arrangement.
-	if terrain is PlanetTerrain and data.has("planet_mesas"):
-		_build_planet_mesas(terrain as PlanetTerrain, mats, clear, noise, rng, solid)
+	# On the home ball, climbable mountains by latitude/longitude; flat worlds keep
+	# the original nearby beauty-corner mesas.
+	if terrain is PlanetTerrain and data.has("planet_mountains"):
+		_build_planet_mountains(terrain as PlanetTerrain, mats, clear, solid)
 	else:
 		_build_local_mesas(terrain, mats, clear, noise, rng, solid)
 
@@ -281,26 +281,227 @@ func _build_local_mesas(terrain: DesertTerrain, mats: LookMaterials, clear: Rect
 			_solid(mi)
 
 
-func _build_planet_mesas(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2,
-		noise: FastNoiseLite, rng: RandomNumberGenerator, solid: bool) -> void:
+func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2, solid: bool) -> void:
 	var sp := terrain.sphere
 	mesa_spots = []
 	mesa_planet = GameFlow.current_planet_id()
-	for m in data.get("planet_mesas", []):
-		var map := sp.map_from_lat_lon(float(m[0]), float(m[1]))
-		var radius := float(m[2])
-		var height := float(m[3])
-		if _hits(clear, map.x, map.y, radius) or _in_circles(map.x, map.y, radius):
+	var strata := float(data.get("mountain", {}).get("strata", 0.2))
+	for m in mountain_spots(data, sp):
+		var map: Vector2 = m.map
+		var p: Dictionary = m.plan
+		var radius := float(p.radius)
+		# A range on a race course stands over its line on purpose (its tunnel).
+		if _hits(clear, map.x, map.y, radius) or (not m.has("course") and _in_circles(map.x, map.y, radius)):
 			continue
-		var so := float(m[0]) * 0.01 + float(m[1]) * 0.003
-		var mesh := _cached("mesa/%s/%s/%s" % [radius, height, so], func(): return _mesa_mesh(radius, height, noise, so))
-		var g := _ground(terrain, map.x, map.y)
-		var gy := _ground_h(terrain, g, map.x, map.y)
-		var placed := _add(mesh, mats.rock(gy, 0.11), g, height * 0.46 - MESA_BURY,
-			Vector3(0, rng.randf_range(0, 360), 0))
+		var made := _mountain(p, int(m.variant))
+		var pl := RockMountain.placement(sp, map, p)
+		var g: Transform3D = pl.frame
+		var gy := snappedf(sp.altitude(g.origin) - float(pl.sink), 1.0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = made.mesh
+		mi.material_override = mats.rock(gy, strata)
+		mi.transform = Transform3D(g.basis * Basis(Vector3.UP, float(pl.yaw)), g.origin - g.basis.y * float(pl.sink))
+		add_child(mi)
 		if solid:
-			_solid(placed)
-		mesa_spots.append({ "map": map, "radius": radius, "height": height })
+			_solid_shape(mi, made.shape)
+		if p.has("tunnel") and not (m.get("lights", {}) as Dictionary).is_empty():
+			mi.add_child(_runner_lights(p.tunnel, m.lights))
+		mesa_spots.append({ "map": map, "radius": radius, "height": float(p.height) })
+
+
+## A tunnel's runner lights: small glowing blocks low on both walls every
+## `spacing_m` along its roofed stretch, `inset_m` in from the walls, one
+## MultiMesh and one cached glow (no real lights: the render rules' lamps).
+static var _runner_mat: StandardMaterial3D
+static func _runner_lights(tn: Dictionary, cfg: Dictionary) -> MultiMeshInstance3D:
+	var path: PackedVector2Array = tn.path
+	var gates: Dictionary = tn.gates
+	var spacing := float(cfg.get("spacing_m", 9.0))
+	var off := float(tn.half) - float(cfg.get("inset_m", 1.0))
+	var size: Array = cfg.get("size", [0.3, 0.22, 1.6])
+	var pts := RockMountain._resample(path, 1.0)
+	var spots: Array = []         # [point, along]
+	var s := float(gates.get("s_entry", 0.0)) - spacing * 2.0
+	while s <= float(gates.get("s_exit", pts.size() - 1)) + spacing * 2.0:
+		var i := clampi(int(s), 0, pts.size() - 2)
+		spots.append([pts[i], (pts[i + 1] - pts[i]).normalized()])
+		s += spacing
+	var box := BoxMesh.new()
+	box.size = Vector3(float(size[0]), float(size[1]), float(size[2]))
+	if _runner_mat == null:
+		_runner_mat = StandardMaterial3D.new()
+		var c := Color(str(cfg.get("colour", "#ffb04a")))
+		_runner_mat.albedo_color = c
+		_runner_mat.emission_enabled = true
+		_runner_mat.emission = c
+		_runner_mat.emission_energy_multiplier = float(cfg.get("energy", 3.0))
+	box.material = _runner_mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = box
+	mm.instance_count = spots.size() * 2
+	for k in spots.size():
+		var at: Vector2 = spots[k][0]
+		var d: Vector2 = spots[k][1]
+		var side := Vector2(-d.y, d.x)
+		var basis := Basis.looking_at(Vector3(d.x, 0.0, d.y), Vector3.UP)
+		for j in 2:
+			var q: Vector2 = at + side * off * (1.0 if j == 0 else -1.0)
+			mm.set_instance_transform(k * 2 + j, Transform3D(basis, Vector3(q.x, float(size[1]) * 0.5 + 0.15, q.y)))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "RunnerLights"
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mmi
+
+
+## Every mountain on a ball: { id, map, variant, plan } from `planet_mountains`
+## [latitude, longitude, version], and the ranges of `course_mountains` (see
+## _course_range: a few tunnel peaks over a race course's line, one tunnel
+## through them all; these add `course` and `lights`). WorldGround reads the
+## same list.
+static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
+	var variants: Array = data.get("mountain_variants", [])
+	var out: Array = []
+	if variants.is_empty() or sp == null:
+		return out
+	var cfg: Dictionary = data.get("mountain", {})
+	for e in data.get("planet_mountains", []):
+		var k := int(e[2]) % variants.size()
+		out.append({ "id": "mesa_%d_%d" % [int(e[0]), int(e[1])], "map": sp.map_from_lat_lon(float(e[0]), float(e[1])),
+			"variant": k, "plan": RockMountain.plan(variants[k], cfg) })
+	for e in data.get("course_mountains", []):
+		out.append(_course_range(e, variants, cfg, sp))
+	return out
+
+
+## A range over a race course: { course, path: map [[x, z], ...] (the tunnel's
+## centre line, the racing line's way through, smoothed), peaks: [{ along (m from
+## the path's start), variant, seed, portal ("start" or "end": its sheer side's
+## portal faces that end of the path) }], lights }. Its frame is the map's at the
+## path's middle, on the ball's own level there (directions only, so it is the
+## same with or without the flat sites made): every peak and the path in it.
+static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: PlanetSphere) -> Dictionary:
+	var mpath := smooth_path(e.path, 20.0)
+	var total := 0.0
+	for i in mpath.size() - 1:
+		total += mpath[i].distance_to(mpath[i + 1])
+	var mid := along_path(mpath, total * 0.5)
+	var dir := sp.map_dir(mid.x, mid.y)
+	var g := Transform3D(PlanetSphere.tilt_to(sp.up_at(sp.center + dir * sp.radius)), sp.center + dir * sp.radius)
+	var inv := g.affine_inverse()
+	var local := func(m: Vector2) -> Vector2:
+		var l: Vector3 = inv * (sp.center + sp.map_dir(m.x, m.y) * sp.radius)
+		return Vector2(l.x, l.z)
+	var path := PackedVector2Array()
+	for q in mpath:
+		path.append(local.call(q))
+	var peaks: Array = []
+	var k := 0
+	for pk in e.get("peaks", []):
+		k = int(pk.get("variant", 0)) % variants.size()
+		var v: Dictionary = (variants[k] as Dictionary).duplicate(true)
+		v["seed"] = int(pk.get("seed", v.get("seed", 1)))
+		var at: Vector2 = local.call(along_path(mpath, float(pk.get("along", 0.0))))
+		var peak := { "v": v, "at": at }
+		match str(pk.get("portal", "")):
+			"start":
+				peak["cliff_toward"] = (path[0] - at).angle()
+			"end":
+				peak["cliff_toward"] = (path[-1] - at).angle()
+		peaks.append(peak)
+	return { "id": "mesa_%s" % str(e.get("course", "course")), "map": mid, "variant": k,
+		"plan": RockMountain.range_plan(peaks, path, cfg), "course": str(e.get("course", "")),
+		"lights": e.get("lights", {}), "map_path": mpath }
+
+
+## A course's line through map points, smoothed (Catmull-Rom through them, a
+## point every `step` m or so).
+static func smooth_path(points: Array, step: float) -> PackedVector2Array:
+	var p: Array = []
+	for q in points:
+		p.append(Vector2(float(q[0]), float(q[1])))
+	var out := PackedVector2Array()
+	for i in p.size() - 1:
+		var p0: Vector2 = p[maxi(i - 1, 0)]
+		var p1: Vector2 = p[i]
+		var p2: Vector2 = p[i + 1]
+		var p3: Vector2 = p[mini(i + 2, p.size() - 1)]
+		var n := maxi(1, int(ceil(p1.distance_to(p2) / step)))
+		for j in n:
+			var t := float(j) / float(n)
+			out.append(0.5 * (2.0 * p1 + (p2 - p0) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+				+ (3.0 * p1 - p0 - 3.0 * p2 + p3) * t * t * t))
+	out.append(p[-1])
+	return out
+
+
+## The point `s` m along a path (its ends past either end).
+static func along_path(path: PackedVector2Array, s: float) -> Vector2:
+	for i in path.size() - 1:
+		var len := path[i].distance_to(path[i + 1])
+		if s <= len:
+			return path[i].lerp(path[i + 1], clampf(s / len, 0.0, 1.0))
+		s -= len
+	return path[-1]
+
+
+## Level sand under each mountain on the home ball (a playa, as round real
+## yardangs), so dunes do not bury its lower shelves or pile against its caves:
+## the plane square to "up" there through the mean height of the sand round it
+## before levelling, out to the mountain's reach plus the pad's margin, easing
+## back into the dunes over its blend. Boxes on the map, like the camps' and the
+## race gates'; far round the ball the map stretches across (the blend with it).
+static func mountain_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
+	var sites: Array = []
+	if sp == null or str(planet.get("id", "")) != PlanetGen.home_id():
+		return sites
+	var data := load_data()
+	var pad: Dictionary = data.get("mountain", {}).get("pad", {})
+	var margin := float(pad.get("margin_m", 30.0))
+	var blend := float(pad.get("blend_m", 50.0))
+	for m in mountain_spots(data, sp):
+		var map: Vector2 = m.map
+		var base := sp.surface_at(map.x, map.y)
+		var g := Transform3D(PlanetSphere.tilt_to(sp.up_at(base)), base)
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		var sum := 0.0
+		var n := 0
+		# Round each peak of a range (one level plane for them all), else round it.
+		var rounds: Array = []
+		for pk in m.plan.get("peaks", [{ "at": Vector2.ZERO, "radius": float(m.plan.radius) }]):
+			rounds.append([pk.at, float(pk.radius) + margin])
+		for rd in rounds:
+			for ring in [float(rd[1]), float(rd[1]) * 0.5]:
+				for i in 24:
+					var a := TAU * float(i) / 24.0
+					var c2: Vector2 = rd[0]
+					var q := sp.world_to_map(g * Vector3(c2.x + cos(a) * float(ring), 0.0, c2.y + sin(a) * float(ring)))
+					lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+					hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+					sum += sp.elevation(sp.map_dir(q.x, q.y))
+					n += 1
+		var mean := sum / float(n)
+		var th := map.length() / sp.radius
+		var stretch := clampf(th / sin(th), 1.0, 6.0) if th > 0.01 and th < PI - 0.01 else 1.0
+		var mid := sp.center + sp.map_dir(map.x, map.y) * (sp.radius + mean)
+		sites.append({ "rect": Rect2(lo, hi - lo), "y": mean, "plane_c": mid,
+			"plane_u": sp.up_at(mid), "blend": blend * stretch })
+	return sites
+
+
+## One mountain version's mesh and trimesh, built once a session.
+static func _mountain(p: Dictionary, k: int) -> Dictionary:
+	var key := "mountain/%d/%s" % [k, hash(p.height) + hash(p.radius)]
+	if not _meshes.has(key):
+		var built := RockMountain.build(p)
+		_meshes[key] = built.mesh
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(built.faces)
+		_shapes[built.mesh] = shape
+	var mesh: Mesh = _meshes[key]
+	return { "mesh": mesh, "shape": _shapes[mesh] }
 
 
 ## How far the sand dips under a spire's skirt below its centre (6 samples round
