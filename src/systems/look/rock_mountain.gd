@@ -35,10 +35,14 @@ const SAMPLES := 144          ## a tier's radius table: one value every 2.5 degr
 ## its centre at an angle and height is wall(). A piece may also have `bots`, its
 ## bottom's height at each corner (a tunnel's arched ceiling). A version with
 ## `tunnel` { width, spring, crown } adds `tunnel` { a (the angle its cliff portal
-## faces), half, spring, crown, mouth: [m along a, m along a + PI] (where the
-## arch begins, from the centre) }. Made once a session.
-static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
-	var key := "%s/%s" % [hash(v), hash(cfg)]
+## faces), half, spring, crown, path (its centre line, from the portal), gates
+## (see _tunnel_gates), roofs (the roofed tiers' outlines) }. `opts` (a range's
+## peak, range_plan): path (the tunnel's centre line instead of a straight one
+## through the middle), cliff_toward (the angle the sheer side's portal faces),
+## avoid (outlines the ways up and caves keep off: the neighbours' feet). Made
+## once a session.
+static func plan(v: Dictionary, cfg: Dictionary, opts: Dictionary = {}) -> Dictionary:
+	var key := "%s/%s/%s" % [hash(v), hash(cfg), hash(opts)]
 	if _plans.has(key):
 		return _plans[key]
 	var rng := RandomNumberGenerator.new()
@@ -60,6 +64,8 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 	# one side and almost nothing on the other (the cliff), so it always stands
 	# inside the tier below and the ways up never meet a cliff from the sand.
 	var cliff := rng.randf() * TAU
+	if opts.has("cliff_toward"):
+		cliff = float(opts.cliff_toward) - PI
 	var table := PackedFloat32Array()
 	table.resize(SAMPLES)
 	var phases: Array = []
@@ -100,19 +106,23 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 	var step: Dictionary = cfg.get("step", {})
 	var need := float(ramp.get("width", 6.0)) + 2.0
 	var clear := float(cfg.get("clear", 1.5))
-	# The tunnel: a straight slot through the centre, its portal in the sheer side
-	# (where the shelves are narrowest, so the cliff above it is tall). Nothing
-	# else may stand in it (a keep-clear zone and two arcs, like a way's).
+	# The tunnel: a slot along its centre line, straight through the middle with
+	# its portal in the sheer side (where the shelves are narrowest, so the cliff
+	# above it is tall), or a range's path. Nothing else may stand in it (a
+	# keep-clear zone, and arcs like a way's where it passes the walls).
 	var tun: Dictionary = v.get("tunnel", {})
+	var t_path := PackedVector2Array()
 	var t_slot := PackedVector2Array()
 	var t_a := cliff + PI
 	var t_half := float(tun.get("width", 36.0)) * 0.5
 	var t_zone := {}
 	if not tun.is_empty():
-		var reach: float = Array(tiers[0].table).max() + 20.0
-		var ax := Vector2.from_angle(t_a)
-		var sd := Vector2(-ax.y, ax.x) * t_half
-		t_slot = PackedVector2Array([ax * reach - sd, ax * reach + sd, -ax * reach + sd, -ax * reach - sd])
+		if opts.has("path"):
+			t_path = opts.path
+		else:
+			var reach: float = Array(tiers[0].table).max() + 20.0
+			t_path = PackedVector2Array([Vector2.from_angle(t_a) * reach, -Vector2.from_angle(t_a) * reach])
+		t_slot = _path_band(t_path, -t_half, t_half)
 		t_zone = _zone(Geometry2D.offset_polygon(t_slot, clear)[0])
 	# `ways`: the arcs they take, [centre angle, half width], kept clear of columns,
 	# blocks and caves; each tier's wall is smooth (no jag) along its own, a little
@@ -123,9 +133,14 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 	var zones: Array = []
 	if not t_zone.is_empty():
 		zones.append(t_zone)
-		var wa := atan2(t_half + clear * 2.0, float(tiers[-1].radius))
-		ways.append([t_a, wa])
-		ways.append([t_a + PI, wa])
+		var r_lo := float(tiers[-1].radius) * 0.5
+		var r_hi: float = Array(tiers[0].table).max() * 1.2
+		for q in _resample(t_path, 4.0):
+			var dq := (q as Vector2).length()
+			if dq > r_lo and dq < r_hi:
+				ways.append([(q as Vector2).angle(), atan2(t_half + clear * 2.0, dq)])
+	for poly in opts.get("avoid", []):
+		zones.append(_zone(poly))
 	# The caves go first, clear of the tunnel and of each other, so the ways up,
 	# the columns and the loose rock all keep out of them, mouth and all (a ramp
 	# stands from the sand: over a cave it would fill it). From a random angle,
@@ -163,11 +178,17 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 				tb[i] = minf(tb[i], _room(t, below, TAU * float(i) / float(SAMPLES), margin))
 			t.table = tb
 			t.radius = _mean(tb)
+		# Twelve tries round the mountain toward its widest shelves, then a finer
+		# sweep all the way round; with nowhere clean (the tunnel, a cave or a
+		# neighbour's foot everywhere), this shelf has no ramp rather than one
+		# standing in the way.
 		var rp := {}
+		var placed := false
 		var slope := tan(deg_to_rad(float(ramp.get("slope_deg", 28.0))))
 		var landing := float(ramp.get("landing", 3.0))
-		for tries in 12:
-			var ra := _widest(t, below, a + float(tries) * 0.5, 0.6, need)
+		for tries in 48:
+			var ra := _widest(t, below, a + float(tries) * 0.5, 0.6, need) if tries < 12 \
+				else _widest(t, below, a + TAU * float(tries - 12) / 36.0, 0.15, need)
 			# The arc it will take round the wall, made round before it is built.
 			# Sized by the round wall's own radius (it may sit inside the lobe there),
 			# so the ramp never runs past the round stretch onto the lobes.
@@ -182,20 +203,24 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 			t.smooth.append(arc)
 			rp = _ramp(t, ra, h0, ramp)
 			rp["arc"] = arc
-			if not _crosses(zones, _way_zones([rp], clear)) or tries == 11:
+			if not _crosses(zones, _way_zones([rp], clear)):
+				placed = true
 				break
 			t.smooth.pop_back()
-		rp["way"] = "ramp"
-		rp["tier"] = k
-		pieces.append(rp)
-		ways.append(rp.arc)
-		zones.append_array(_way_zones([rp], clear))
+		if placed:
+			rp["way"] = "ramp"
+			rp["tier"] = k
+			pieces.append(rp)
+			ways.append(rp.arc)
+			zones.append_array(_way_zones([rp], clear))
 		if below != null:
 			var sc := {}
+			var stair := false
 			var size := float(step.get("size", 2.6))
 			var n := int(ceil((float(t.top) - h0) / float(step.get("rise", 0.45)))) - 1
-			for tries in 12:
-				var sa := _widest(t, below, float(rp.arc[0]) + PI + float(tries) * 0.45, 0.6, 4.0)
+			for tries in 48:
+				var sa := _widest(t, below, float(rp.arc[0]) + PI + float(tries) * 0.45, 0.6, 4.0) if tries < 12 \
+					else _widest(t, below, float(rp.arc[0]) + PI + TAU * float(tries - 12) / 36.0, 0.15, 4.0)
 				var w := _lobed(t, sa)
 				var arc := []
 				for it in 3:
@@ -206,15 +231,17 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 				t.smooth.append(arc)
 				sc = _scramble(t, sa, h0, step, rng)
 				sc["arc"] = arc
-				if not _crosses(zones, _way_zones(sc.blocks, clear)) or tries == 11:
+				if not _crosses(zones, _way_zones(sc.blocks, clear)):
+					stair = true
 					break
 				t.smooth.pop_back()
-			for sp in sc.blocks:
-				sp["way"] = "step"
-				sp["tier"] = k
-				pieces.append(sp)
-			ways.append(sc.arc)
-			zones.append_array(_way_zones(sc.blocks, clear))
+			if stair:
+				for sp in sc.blocks:
+					sp["way"] = "step"
+					sp["tier"] = k
+					pieces.append(sp)
+				ways.append(sc.arc)
+				zones.append_array(_way_zones(sc.blocks, clear))
 		a = float(rp.arc[0]) + deg_to_rad(rng.randf_range(80.0, 130.0))
 	for t in tiers:
 		t["poly"] = _outline(t, points, jag, rng)
@@ -281,7 +308,7 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 			parts = cut
 			if float(t.top) > crown + 1.5:
 				roofed.append(t)
-				pieces.append_array(_arch(t, t_slot, t_a, t_half, spring, crown, tl))
+				pieces.append_array(_arch(t, t_path, t_half, spring, crown, tl))
 		for slot in slots:
 			var cut: Array = []
 			# The slot starts outside the foot, so a cut never leaves a hole.
@@ -298,9 +325,98 @@ static func plan(v: Dictionary, cfg: Dictionary) -> Dictionary:
 	var out := { "pieces": pieces, "tiers": tiers, "radius": Array(tiers[0].table).max(),
 		"height": float(top.top), "caves": caves }
 	if not t_slot.is_empty() and not roofed.is_empty():
+		var roofs: Array = roofed.map(func(t): return t.poly)
 		out["tunnel"] = { "a": t_a, "half": t_half, "spring": spring, "crown": crown,
-			"mouth": [_reach_along(roofed[0].poly, t_a), _reach_along(roofed[0].poly, t_a + PI)] }
+			"path": t_path, "roofs": roofs, "gates": _tunnel_gates(t_path, roofs) }
 	_plans[key] = out
+	return out
+
+
+## A range: several peaks in one frame (the middle's level ground), one tunnel
+## along `path` through them all. `peaks`: [{ v (the version, its own seed), at
+## (its centre), cliff_toward? }] in the range's frame. Each peak is a plan of its
+## own cut by the whole path, its ways up and caves kept off its neighbours'
+## feet; the rock overlaps where the peaks meet, so the tunnel runs on under it.
+## The same as plan() (pieces, tiers with their own centres, radius from the
+## range's centre, height, caves, tunnel with the range's path and gates) plus
+## `peaks` [{ at, radius }] and `subplans` [{ at, plan }]. Made once a session.
+static func range_plan(peaks: Array, path: PackedVector2Array, cfg: Dictionary) -> Dictionary:
+	var key := "range/%s/%s/%s" % [hash(peaks), hash(path), hash(cfg)]
+	if _plans.has(key):
+		return _plans[key]
+	var out := { "pieces": [], "tiers": [], "radius": 0.0, "height": 0.0, "caves": [], "range": true,
+		"peaks": [], "subplans": [] }
+	var feet: Array = []
+	for pk in peaks:
+		var v: Dictionary = pk.v
+		var lob := 0.0
+		for l in v.get("lobes", []):
+			lob += float(l)
+		feet.append(float(v.get("radius", 90.0)) * (1.0 + lob))
+	var roofs: Array = []
+	var tn := {}
+	for i in peaks.size():
+		var pk: Dictionary = peaks[i]
+		var at: Vector2 = pk.at
+		var local := PackedVector2Array()
+		for q in path:
+			local.append(q - at)
+		var avoid: Array = []
+		for j in peaks.size():
+			if j != i:
+				var ring := PackedVector2Array()
+				for s in 24:
+					ring.append((peaks[j].at as Vector2) - at + Vector2.from_angle(TAU * float(s) / 24.0) * float(feet[j]) * 0.9)
+				avoid.append(ring)
+		var opts := { "path": local, "avoid": avoid }
+		if pk.has("cliff_toward"):
+			opts["cliff_toward"] = float(pk.cliff_toward)
+		var p := plan(pk.v, cfg, opts)
+		out.subplans.append({ "at": at, "plan": p })
+		out.peaks.append({ "at": at, "radius": float(p.radius) })
+		for piece in p.pieces:
+			out.pieces.append(_shifted(piece, at))
+		for t in p.tiers:
+			var tt: Dictionary = t.duplicate()
+			tt["centre"] = at
+			out.tiers.append(tt)
+		out.caves.append_array(p.caves)
+		out.radius = maxf(float(out.radius), at.length() + float(p.radius))
+		out.height = maxf(float(out.height), float(p.height))
+		if p.has("tunnel"):
+			tn = p.tunnel
+			for poly in p.tunnel.roofs:
+				var moved := PackedVector2Array()
+				for q in poly:
+					moved.append(q + at)
+				roofs.append(moved)
+	if not tn.is_empty():
+		out["tunnel"] = { "a": 0.0, "half": tn.half, "spring": tn.spring, "crown": tn.crown,
+			"path": path, "roofs": roofs, "gates": _tunnel_gates(path, roofs) }
+	_plans[key] = out
+	return out
+
+
+## A piece moved by `at` (a range's peak into the range's frame).
+static func _shifted(piece: Dictionary, at: Vector2) -> Dictionary:
+	var out: Dictionary = piece.duplicate()
+	var poly := PackedVector2Array()
+	for q in piece.poly:
+		poly.append(q + at)
+	out["poly"] = poly
+	if piece.has("lean"):
+		var ln: Dictionary = (piece.lean as Dictionary).duplicate()
+		ln["c"] = (ln.c as Vector2) + at
+		out["lean"] = ln
+	if piece.has("strip"):
+		var lift := Vector3(at.x, 0.0, at.y)
+		var inner := PackedVector3Array()
+		var outer := PackedVector3Array()
+		for q in piece.strip.inner:
+			inner.append(q + lift)
+		for q in piece.strip.outer:
+			outer.append(q + lift)
+		out["strip"] = { "inner": inner, "outer": outer }
 	return out
 
 
@@ -388,45 +504,123 @@ static func _widest(t: Dictionary, below, a: float, spread: float, need: float) 
 	return best
 
 
-## A tunnel's arched ceiling under tier t: strips along the slot, each one's
-## corners' undersides on the arch, from the spring line at the walls to the crown.
-static func _arch(t: Dictionary, slot: PackedVector2Array, a: float, half: float, spring: float,
+## A tunnel's arched ceiling under tier t: bands along its centre line, narrower
+## toward the walls, each corner's underside on the arch (a half ellipse from the
+## spring line at the walls to the crown) by its distance off the line. Band
+## edges against another band or the wall are hidden (no faces inside rock).
+static func _arch(t: Dictionary, path: PackedVector2Array, half: float, spring: float,
 		crown: float, tl: Dictionary) -> Array:
 	var out: Array = []
-	var ax := Vector2.from_angle(a)
-	var side := Vector2(-ax.y, ax.x)
-	var reach := (slot[0] as Vector2).dot(ax)
 	var n := 12
 	for j in n:
 		var l0 := -half * cos(PI * float(j) / float(n))
 		var l1 := -half * cos(PI * float(j + 1) / float(n))
-		var strip := PackedVector2Array([ax * reach + side * l0, ax * reach + side * l1,
-			-ax * reach + side * l1, -ax * reach + side * l0])
-		for q in Geometry2D.intersect_polygons(t.poly, strip):
+		for q in Geometry2D.intersect_polygons(t.poly, _path_band(path, l0, l1)):
 			var bots: Array = []
+			var on: Array = []          # which band edge a corner lies on (0 none, 1 l0, 2 l1)
 			for c in q:
-				var l := clampf((c as Vector2).dot(side) / half, -1.0, 1.0)
-				bots.append(spring + (crown - spring) * sqrt(maxf(0.0, 1.0 - l * l)))
-			out.append({ "poly": q, "y0": spring, "bots": bots, "tops": [float(t.top)], "lean": tl })
+				var l := _path_lat(path, c)
+				on.append(1 if absf(l - l0) < 0.05 else (2 if absf(l - l1) < 0.05 else 0))
+				var u := clampf(l / half, -1.0, 1.0)
+				bots.append(spring + (crown - spring) * sqrt(maxf(0.0, 1.0 - u * u)))
+			var hide: Array = []
+			for i in q.size():
+				var a: int = on[i]
+				hide.append(a != 0 and a == int(on[(i + 1) % q.size()]))
+			out.append({ "poly": q, "y0": spring, "bots": bots, "tops": [float(t.top)], "lean": tl, "hide": hide })
 	return out
 
 
-## How far from the centre a polygon reaches along angle a (the arch's start).
-static func _reach_along(poly: PackedVector2Array, a: float) -> float:
-	var ax := Vector2.from_angle(a)
-	var d := 400.0
-	while d > 0.0 and not Geometry2D.is_point_in_polygon(ax * d, poly):
-		d -= 0.5
-	return d
+## The band between l0 and l1 m off a centre line (left positive), mitred at its
+## corners so every corner is exactly that far off both segments it joins.
+static func _path_band(path: PackedVector2Array, l0: float, l1: float) -> PackedVector2Array:
+	var n := path.size()
+	var miters: Array = []
+	for j in n:
+		var na := Vector2.ZERO
+		var nb := Vector2.ZERO
+		if j > 0:
+			var d := (path[j] - path[j - 1]).normalized()
+			na = Vector2(-d.y, d.x)
+		if j < n - 1:
+			var d := (path[j + 1] - path[j]).normalized()
+			nb = Vector2(-d.y, d.x)
+		if j == 0:
+			miters.append(nb)
+		elif j == n - 1:
+			miters.append(na)
+		else:
+			miters.append((na + nb) / (1.0 + na.dot(nb)))
+	var out := PackedVector2Array()
+	for j in n:
+		out.append(path[j] + (miters[j] as Vector2) * l0)
+	for j in range(n - 1, -1, -1):
+		out.append(path[j] + (miters[j] as Vector2) * l1)
+	return out
+
+
+## How far q is off a centre line (left positive), to its nearest segment.
+static func _path_lat(path: PackedVector2Array, q: Vector2) -> float:
+	var best := INF
+	var lat := 0.0
+	for i in path.size() - 1:
+		var a := path[i]
+		var ab := path[i + 1] - a
+		var tt := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+		var d := (q - a - ab * tt).length()
+		if d < best:
+			best = d
+			lat = signf(ab.cross(q - a)) * d
+	return lat
+
+
+## A centre line's points every `step` m along it.
+static func _resample(path: PackedVector2Array, step: float) -> PackedVector2Array:
+	var out := PackedVector2Array([path[0]])
+	var carry := 0.0
+	for i in path.size() - 1:
+		var a := path[i]
+		var b := path[i + 1]
+		var len := a.distance_to(b)
+		var s := step - carry
+		while s <= len:
+			out.append(a.lerp(b, s / len))
+			s += step
+		carry = len - (s - step)
+	if out[-1] != path[-1]:
+		out.append(path[-1])
+	return out
+
+
+## Where a tunnel along `path` is roofed (under any of `roofs`, the roofed tiers'
+## outlines): { entry, middle, exit } (points where the arch begins, halfway
+## along it, where it ends) and { s_entry, s_exit } (m along the path).
+static func _tunnel_gates(path: PackedVector2Array, roofs: Array) -> Dictionary:
+	var pts := _resample(path, 1.0)
+	var first := -1
+	var last := -1
+	for i in pts.size():
+		for poly in roofs:
+			if Geometry2D.is_point_in_polygon(pts[i], poly):
+				if first < 0:
+					first = i
+				last = i
+				break
+	if first < 0:
+		return {}
+	return { "entry": pts[first], "exit": pts[last], "middle": pts[(first + last) / 2],
+		"s_entry": float(first), "s_exit": float(last) }
 
 
 ## Where one goes on the ball: turned so its first cave faces downhill, and sunk to
 ## the lowest sand round its foot (at most `max_sink` m), so the cave is not full of
 ## sand and the foot never floats. { yaw (radians), sink (m) }. Pure maths on the
 ## sphere, so the ship's columns and the drawn rock agree.
-static func placement(sp: PlanetSphere, map: Vector2, p: Dictionary, max_sink: float = 14.0, toward = null) -> Dictionary:
+static func placement(sp: PlanetSphere, map: Vector2, p: Dictionary, max_sink: float = 14.0) -> Dictionary:
 	var base := sp.surface_at(map.x, map.y)
 	var g := Transform3D(PlanetSphere.tilt_to(sp.up_at(base)), base)
+	if p.has("range"):
+		return { "yaw": 0.0, "sink": 0.0, "frame": g }     # its frame is the map's, on its own level sand
 	var r := float(p.radius)
 	var low_a := 0.0
 	var low := INF
@@ -441,20 +635,15 @@ static func placement(sp: PlanetSphere, map: Vector2, p: Dictionary, max_sink: f
 	# Basis(UP, yaw) turns angle atan2(z, x) down by yaw.
 	var caves: Array = p.caves
 	var yaw := (float(caves[0]) - low_a) if not caves.is_empty() else 0.0
-	# A tunnel on a race course: its cliff portal turned to face `toward` (a map
-	# point the racing line runs through it from), not the cave downhill.
-	if toward is Vector2 and p.has("tunnel"):
-		var l := g.affine_inverse() * sp.surface_at((toward as Vector2).x, (toward as Vector2).y)
-		yaw = float(p.tunnel.a) - atan2(l.z, l.x)
 	return { "yaw": yaw, "sink": clampf(-low, 0.0, max_sink), "frame": g }
 
 
 ## The ship's columns for one placed mountain: one per tier (its centre, its
 ## mean radius, its top), along the ball's up. Highest first. A tunnel version's
-## columns carry `tunnel` { side (world, across it), half, spring, crown, roofed }
-## so WorldGround leaves its way through open (WorldGround.in_tunnel).
-static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String, toward = null) -> Array:
-	var pl := placement(sp, map, p, 14.0, toward)
+## columns carry `tunnel` { path (its centre line, world), half, spring, crown,
+## roofed } so WorldGround leaves its way through open (WorldGround.in_tunnel).
+static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String) -> Array:
+	var pl := placement(sp, map, p, 14.0)
 	var g: Transform3D = pl.frame
 	var turn := Basis(Vector3.UP, float(pl.yaw))
 	var out: Array = []
@@ -468,10 +657,11 @@ static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String, t
 			"radius": float(t.radius) * 0.95, "up": g.basis.y, "h": h, "top": at.y + h }
 		if p.has("tunnel"):
 			var tn: Dictionary = p.tunnel
-			var sd := Vector2.from_angle(float(tn.a) + PI * 0.5)
-			col["tunnel"] = { "side": (g.basis * (turn * Vector3(sd.x, 0.0, sd.y))).normalized(),
-				"half": float(tn.half) - 1.0, "spring": float(tn.spring), "crown": float(tn.crown),
-				"roofed": h > float(tn.crown) + 1.5 }
+			var wp := PackedVector3Array()
+			for q in _resample(tn.path, 10.0):
+				wp.append(g * (turn * Vector3(q.x, -float(pl.sink), q.y)))
+			col["tunnel"] = { "path": wp, "half": float(tn.half) - 1.0, "spring": float(tn.spring),
+				"crown": float(tn.crown), "roofed": h > float(tn.crown) + 1.5 }
 		out.append(col)
 	return out
 
@@ -503,6 +693,7 @@ static func build(p: Dictionary) -> Dictionary:
 		var tops: Array = piece.tops
 		var top_at := func(i: int) -> float: return float(tops[i] if tops.size() == n else tops[0])
 		var bots: Array = piece.get("bots", [])
+		var hide: Array = piece.get("hide", [])
 		var bot_at := func(i: int) -> float: return float(bots[i]) if bots.size() == n else y0
 		# The outline at height y: shrunk toward the lean's centre (leaning cliffs).
 		var ln: Dictionary = piece.get("lean", {})
@@ -512,6 +703,8 @@ static func build(p: Dictionary) -> Dictionary:
 			var lc: Vector2 = ln.c
 			return lc + (q - lc) * (1.0 - float(ln.k) * (yy + float(ln.bury)))
 		for i in n:
+			if hide.size() == n and bool(hide[i]):
+				continue           # against another band of a tunnel's ceiling, or the wall
 			var j := (i + 1) % n
 			var a := poly[i]
 			var b := poly[j]

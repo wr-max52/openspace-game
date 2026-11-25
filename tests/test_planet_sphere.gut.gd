@@ -99,7 +99,7 @@ func test_remote_pads_are_flat_on_the_curved_home_world() -> void:
 func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void:
 	var data := Landforms.load_data()
 	var spots: Array = data.get("planet_mountains", [])
-	assert_eq(spots.size() + (data.get("course_mountains", []) as Array).size(), 16, "as many mountains as there were mesas")
+	assert_eq(spots.size() + (data.get("course_mountains", []) as Array).size(), 16, "as many mountains (a course range counts one) as there were mesas")
 	var min_lat := 90.0
 	var max_lat := -90.0
 	var longitudes := {}
@@ -127,11 +127,24 @@ func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void
 		if v.has("tunnel"):
 			tunnels += 1
 	for m in data.get("course_mountains", []):
-		var p := RockMountain.plan(data.mountain_variants[int(m.variant)], cfg)
-		assert_true(p.has("tunnel"), "a course mountain has a tunnel")
-		assert_gt(float(p.tunnel.half) * 2.0, 30.0, "wider than a race gate")
-		tunnels += 1
+		for pk in m.peaks:
+			var v: Dictionary = data.mountain_variants[int(pk.variant)]
+			assert_true(v.has("tunnel"), "every peak of a course range has the tunnel")
+			assert_gt(float(v.tunnel.width), 30.0, "wider than a race gate")
+			tunnels += 1
 	assert_gte(tunnels, 2, "at least two tunnel mountains")
+	# The course range: one tunnel roofed all the way through, under every peak.
+	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	for m in Landforms.mountain_spots(data, sp):
+		if m.has("course"):
+			var tn: Dictionary = m.plan.tunnel
+			var pts := RockMountain._resample(tn.path, 2.0)
+			var open := 0
+			for i in range(int(ceil(tn.gates.s_entry / 2.0)), int(tn.gates.s_exit / 2.0)):
+				if not tn.roofs.any(func(poly): return Geometry2D.is_point_in_polygon(pts[i], poly)):
+					open += 1
+			assert_eq(open, 0, "%s: one tunnel, roofed from end to end" % m.id)
+			assert_gt(float(tn.gates.s_exit) - float(tn.gates.s_entry), 300.0, "a long tunnel through the range")
 
 
 func test_up_turns_with_the_ball() -> void:

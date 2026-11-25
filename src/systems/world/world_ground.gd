@@ -613,7 +613,7 @@ func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 	for m in mountains:
 		var map: Vector2 = m.map
 		if not clear.grow(float(m.plan.radius)).has_point(map):
-			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id), m.toward))
+			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id)))
 	if mountains.is_empty():
 		for m in data.get("mesas", []):
 			var map := Vector2(float(m[0]), float(m[1]))
@@ -894,24 +894,37 @@ static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
 		var up: Vector3 = c.up
 		var rel := p - cc
 		var along := rel.dot(up)
-		if along - r * 0.5 >= float(c.h) or along + r < 0.0 or in_tunnel(c, rel, along, r):
+		if along - r * 0.5 >= float(c.h) or along + r < 0.0:
 			return ""
-		return str(c.id) if (rel - up * along).length() <= float(c.radius) + r else ""
+		if (rel - up * along).length() > float(c.radius) + r or in_tunnel(c, rel, along, r):
+			return ""
+		return str(c.id)
 	if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:
 		return ""
 	return str(c.id) if Vector2(p.x - cc.x, p.z - cc.z).length() <= float(c.radius) + r else ""
 
 
 ## True when a sphere of radius r at `rel` from a mountain's column (`along` its
-## up) is inside the mountain's tunnel (RockMountain.columns): within its walls,
-## and under its arch where the column's shelf roofs it over (a lower shelf is cut
-## right through, open to the sky). Columns with no tunnel never are.
+## up) is inside the mountain's tunnel (RockMountain.columns): within its walls
+## (off its centre line, across up, by less than half its width), and under its
+## arch where the column's shelf roofs it over (a lower shelf is cut right
+## through, open to the sky). Columns with no tunnel never are.
 static func in_tunnel(c: Dictionary, rel: Vector3, along: float, r: float) -> bool:
 	var tn = c.get("tunnel")
 	if tn == null:
 		return false
 	var half := float(tn.half)
-	var l := absf(rel.dot(tn.side as Vector3))
+	var up: Vector3 = c.get("up", Vector3.UP)
+	var p := (c.center as Vector3) + rel
+	var path: PackedVector3Array = tn.path
+	var l := INF
+	for i in path.size() - 1:
+		var ab := path[i + 1] - path[i]
+		ab -= up * ab.dot(up)
+		var ap := p - path[i]
+		ap -= up * ap.dot(up)
+		var t := clampf(ap.dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+		l = minf(l, (ap - ab * t).length())
 	if l > half - r:
 		return false
 	if not bool(tn.roofed):
@@ -964,9 +977,9 @@ func _hit_linear(p: Vector3, r: float) -> String:
 			var up: Vector3 = c.up
 			var rel := p - cc
 			var along := rel.dot(up)
-			if along - r * 0.5 >= float(c.h) or along + r < 0.0 or in_tunnel(c, rel, along, r):
+			if along - r * 0.5 >= float(c.h) or along + r < 0.0:
 				continue
-			if (rel - up * along).length() <= float(c.radius) + r:
+			if (rel - up * along).length() <= float(c.radius) + r and not in_tunnel(c, rel, along, r):
 				return str(c.id)
 			continue
 		if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:

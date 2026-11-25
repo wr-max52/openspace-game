@@ -109,6 +109,11 @@ var _ground_gravity := -1.0
 
 
 func _ready() -> void:
+	# Kilometres out on the ball a float only resolves about half a millimetre,
+	# the size of the default 1 mm contact margin, and the capsule could stick
+	# fast on the seam between two triangles of a long rock ramp (the Salt Flats
+	# range's west peak). 4 mm walks it; the gap under your feet is invisible.
+	safe_margin = 0.004
 	# Without a shape, move_and_slide() collides with nothing and the player walks
 	# through walls. Build one unless the scene already supplies it.
 	var has_shape := false

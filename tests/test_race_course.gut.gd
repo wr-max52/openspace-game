@@ -260,11 +260,31 @@ func test_every_gate_is_on_nearly_flat_sand() -> void:
 			assert_lt(_relief(sp, c, gi, 8.0), 3.5, "%s %s: on flat sand" % [c.id, c.gates[gi].id])
 
 
+## How far apart (m, up the ball) the sand under gate `gi`'s two antennas is.
+func _across(sp: PlanetSphere, c: Dictionary, gi: int) -> float:
+	var line2: Array = []
+	for p in c.line:
+		line2.append(Vector2(float(p[0]), float(p[1])))
+	var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
+	var fwd := RaceCourse._line_dir2(line2, at)
+	var right := Vector2(-fwd.y, fwd.x) * float(c.get("gate_width", 26.0)) * 0.5
+	return absf(sp.elevation(sp.map_dir(at.x + right.x, at.y + right.y)) - sp.elevation(sp.map_dir(at.x - right.x, at.y - right.y)))
+
+
 ## And the planet levels a pad under each, so both antennas stand at one height.
+## A gate in a course range's tunnel stands on the range's level floor instead:
+## one plane for the whole range, so far from its middle it tilts with the ball
+## a few degrees along the line, but the two antennas still stand level.
 func test_the_planet_levels_a_pad_under_every_gate() -> void:
-	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	var planet := PlanetGen.build(PlanetGen.home_id())
+	var sp := PlanetTerrain.for_planet(planet).sphere
+	var ranges: Array = DesertLandforms.mountain_flat_sites(planet, sp)
 	for c in RaceCourse.courses_for("port_desert"):
 		assert_lt(_relief(sp, c, 0, 25.0), 0.3, "%s: the start line and grid are level" % c.id)
 		for gi in range(1, c.gates.size()):
-			assert_lt(_relief(sp, c, gi, 4.0), 0.3, "%s %s: level" % [c.id, c.gates[gi].id])
+			var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
+			if ranges.any(func(site): return (site.rect as Rect2).has_point(at)):
+				assert_lt(_across(sp, c, gi), 0.3, "%s %s: both antennas level on the range's floor" % [c.id, c.gates[gi].id])
+			else:
+				assert_lt(_relief(sp, c, gi, 4.0), 0.3, "%s %s: level" % [c.id, c.gates[gi].id])
 	assert_eq(RaceCourse.flat_sites("moon", sp).size(), 0, "none on a world with no course")
