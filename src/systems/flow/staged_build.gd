@@ -12,6 +12,12 @@ extends Node
 ##   add_poll(name, call)  -- called once a frame with the ms left in this frame's
 ##                            budget until it returns true (waiting on a worker
 ##                            thread, or swapping in finished meshes a few at a time).
+##   add_sliced(name, call) -- issue #574: one big build cut into pieces. `call`
+##                            gets this StagedBuild and is a coroutine that calls
+##                            `await staged.slice()` between its pieces; slice()
+##                            waits for the next frame only once this frame's
+##                            budget is spent. Under run_all() it never waits, so
+##                            the same code builds everything at once.
 ##
 ## The first step of a frame always runs, so the build always moves on; the next
 ## one runs only while the frame is under `budget_ms`. run_all() runs every step
@@ -23,6 +29,7 @@ extends Node
 signal step_done(step_name: String, ms: float)
 signal finished
 signal failed(step_name: String)
+signal _resume                        ## issue #574: wakes a sliced step for this frame
 
 var budget_ms := 5.0                  ## main-thread ms a frame may spend on steps
 var steps: Array = []                 ## { name, call: Callable, poll: bool }
@@ -38,6 +45,10 @@ var total_ms := 0.0                   ## step time over the whole build
 var shell_ms := 0.0                   ## step time run_now() spent before start()
 var started_usec := 0                 ## when start() was called
 var finished_usec := 0                ## when the last step finished
+var _frame_usec := 0                  ## issue #574: when this frame's step time began
+var _slicing := false                 ## a sliced step runs under the budget (not run_all)
+var _sliced_started := false
+var _sliced_done := false
 
 
 func _init() -> void:
@@ -51,6 +62,24 @@ func add(step_name: String, fn: Callable) -> void:
 
 func add_poll(step_name: String, fn: Callable) -> void:
 	steps.append({ "name": step_name, "call": fn, "poll": true })
+
+
+func add_sliced(step_name: String, fn: Callable) -> void:
+	steps.append({ "name": step_name, "call": fn, "poll": true, "sliced": true })
+
+
+## Issue #574: between the pieces of a sliced step. Waits for the next frame once
+## this frame's budget is spent; otherwise (or outside a staged build) goes on.
+func slice() -> void:
+	if not _slicing or (Time.get_ticks_usec() - _frame_usec) / 1000.0 < budget_ms:
+		return
+	await _resume
+
+
+## Issue #574: `sb` may be null (a build outside any staged plan): then never waits.
+static func slice_of(sb: StagedBuild) -> void:
+	if sb != null:
+		await sb.slice()
 
 
 func remaining() -> int:
@@ -108,6 +137,7 @@ func run_frame() -> float:
 		set_process(false)
 		return 0.0
 	var t0 := Time.get_ticks_usec()
+	_frame_usec = t0
 	var ran := 0
 	while index < steps.size() and failed_step == "":
 		var used := (Time.get_ticks_usec() - t0) / 1000.0
@@ -134,9 +164,11 @@ func _run_step(budget_left: float) -> bool:
 	var t0 := Time.get_ticks_usec()
 	var fn: Callable = s.call
 	var ok = false
-	if fn.is_valid():
+	if s.get("sliced", false):
+		ok = _run_sliced(fn, budget_left)
+	elif fn.is_valid():
 		ok = fn.call(budget_left) if s.poll else fn.call()
-	if s.poll and budget_left == INF:
+	if s.poll and budget_left == INF and not s.get("sliced", false):
 		while _is_false(ok) and fn.is_valid():
 			OS.delay_usec(200)        # run_all: wait it out
 			ok = fn.call(INF)
@@ -153,6 +185,31 @@ func _run_step(budget_left: float) -> bool:
 	index += 1
 	step_done.emit(current, float(step_ms[current]))
 	return true
+
+
+## Issue #574: starts the sliced step (it runs until its first wait), or wakes it
+## for this frame. True once it has run to the end.
+func _run_sliced(fn: Callable, budget_left: float) -> bool:
+	if not _sliced_started:
+		_sliced_started = true
+		_sliced_done = false
+		_slicing = budget_left != INF
+		if budget_left == INF:
+			_frame_usec = Time.get_ticks_usec()
+		_drive(fn)
+	elif not _sliced_done:
+		_resume.emit()
+	if _sliced_done:
+		_sliced_started = false
+		_slicing = false
+		return true
+	return false
+
+
+func _drive(fn: Callable) -> void:
+	if fn.is_valid():
+		await fn.call(self)
+	_sliced_done = true
 
 
 static func _is_false(v) -> bool:

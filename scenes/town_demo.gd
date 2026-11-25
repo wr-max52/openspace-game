@@ -175,6 +175,8 @@ func _ready() -> void:
 	for s in build_plan(staging):
 		if staging and s.tier == SHELL:
 			staged.run_now(s.name, s.fn)
+		elif typeof(s.poll) == TYPE_STRING and s.poll == "sliced":
+			staged.add_sliced(s.name, s.fn)      # issue #574: one big build cut into pieces
 		elif s.poll:
 			staged.add_poll(s.name, s.fn)
 		else:
@@ -214,7 +216,7 @@ var ready_ms := 0.0                   ## issue #121: wall ms _ready took (the sc
 func build_plan(staged_build: bool) -> Array:
 	var plan: Array = []
 	var ground_kind := str(planet.get("ground", "terrain"))
-	var add := func(n: String, tier: String, fn: Callable, poll := false) -> void:
+	var add := func(n: String, tier: String, fn: Callable, poll: Variant = false) -> void:   # issue #574: true, or "sliced"
 		plan.append({ "name": n, "tier": tier, "fn": fn, "poll": poll })
 	if ground_kind == "none":
 		_open_space_plan(add)
@@ -243,9 +245,9 @@ func build_plan(staged_build: bool) -> Array:
 		var dressing: Array = decor_steps()
 		for i in dressing.size():
 			var fn: Callable = dressing[i]
-			add.call("decor:%d" % i, LATER, func(): fn.call(); return true)
+			add.call("decor:%d" % i, LATER, func(st: StagedBuild) -> void: await fn.call(st), "sliced")
 		add.call("decor_done", LATER, func(): _decor_done(); return true)
-		add.call("club_look", LATER, func(): _build_club_look(); return true)    # issue #261: the club's room and instruments
+		add.call("club_look", LATER, func(st: StagedBuild) -> void: await _build_club_look(st), "sliced")    # issue #261: the club's room and instruments; #574: over frames
 		add.call("dress_desert", SHELL, func():
 			if terrain != null:
 				_dress_desert()
@@ -303,18 +305,18 @@ func build_plan(staged_build: bool) -> Array:
 			# One piece of an outpost a frame: its ground, nav, look, ship or a trooper.
 			add.call("outpost_sites", LATER, func(_left): return (outposts == null or outposts.build_step()) \
 				and (ranches == null or ranches.build_step()), true)
-		add.call("npc_brains", LATER, func(): _npc_brains(); return true)
+		add.call("npc_brains", LATER, func(st: StagedBuild) -> void: await _npc_brains(st), "sliced")
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
 	add.call("speeders", LATER, func():
 		if with_speeders and pilot != null and has_feature("speeders"):
 			_build_speeder_post()
 			_park_gate_speeders()
 		return true)
-	add.call("droids", LATER, func():
+	var droids_step := func(st: StagedBuild) -> void:
 		if use_look and with_droids and gear != null:
-			_build_droids()
-		return true)
-	add.call("cruiser", LATER, func(): _build_cruiser(); return true)
+			await _build_droids(st)
+	add.call("droids", LATER, droids_step, "sliced")     # issue #574: a droid or two a frame
+	add.call("cruiser", LATER, func(st: StagedBuild) -> void: await _build_cruiser(st), "sliced")   # issue #574: over frames
 	add.call("stations", LATER, func(): _build_stations(); return true)
 	add.call("salesman", LATER, func():
 		if with_salesman and gear != null:
@@ -355,14 +357,19 @@ func build_plan(staged_build: bool) -> Array:
 		if speeder_post != null and gear != null:
 			_build_mechanic()
 		return true)
-	add.call("barge", LATER, func():
+	# Issue #574: built in pieces over frames (a ~330 ms build in one go before);
+	# `barge` is set once it is whole.
+	var barge_step := func(st: StagedBuild) -> void:
 		if with_barge and pilot != null and terrain != null and PartyBarge.lives_on(planet):
-			barge = PartyBarge.new()
-			barge.setup(self, pilot.ground, planet)
-			add_child(barge)
+			var b := PartyBarge.new()
+			b.build_later = true
+			b.setup(self, pilot.ground, planet)
+			add_child(b)
+			await b.build(st)
+			barge = b
 			if player_kit != null:
 				player_kit.weapons.off_record_zone = barge.off_record
-		return true)
+	add.call("barge", LATER, barge_step, "sliced")
 	add.call("surface", LATER, func():
 		if not HarmfulSurface.config(planet).is_empty() and _player != null:
 			harmful_surface = HarmfulSurface.new().setup(self, HarmfulSurface.config(planet))
@@ -544,10 +551,14 @@ func _build_decor() -> void:
 func decor_steps() -> Array:
 	var out: Array = []
 	for i in TownDecor.TOWN_STEPS:
-		out.append(func():
+		out.append(func(st: StagedBuild = null) -> void:    # issue #574: `st` for a piece that slices itself
 			var steps: Array = decor.town_steps(town) if decor != null else []
 			if i < steps.size():
-				steps[i].call())
+				var f: Callable = steps[i]
+				if f.get_argument_count() > 0:
+					await f.call(st)
+				else:
+					f.call())
 	return out
 
 
@@ -561,12 +572,12 @@ func _decor_done() -> void:
 
 ## Issue #261: the cantina dressed as its club (the town's "club" block), and the
 ## band's instruments in front of them.
-func _build_club_look() -> void:
+func _build_club_look(st: StagedBuild = null) -> void:
 	if town.data.get("club", {}).is_empty():
 		return
 	club_look = ClubDressing.new()
 	add_child(club_look)
-	club_look.dress(town, self)
+	await club_look.dress(town, self, st)
 
 
 func _build_shot_camera() -> void:
@@ -941,8 +952,9 @@ func on_own_feet() -> bool:
 		and not bool(p.get("is_downed")) and not GameFlow.in_flight and (p as CharacterBody3D).is_on_floor()
 
 
-## Then the brains that run them all.
-func _npc_brains() -> void:
+## Then the brains that run them all. Issue #574: `st` (may be null) puts each
+## garrison on a frame of its own on a handoff (~96 ms for all of them at once).
+func _npc_brains(st: StagedBuild = null) -> void:
 	lan_shared = NetWorld.shared_town(GameFlow.current_planet_id())
 	if lan_shared:
 		# The host's game runs the town's people; this one only counts you out when
@@ -957,6 +969,7 @@ func _npc_brains() -> void:
 		var town_troops: Array = npcs if outposts == null else npcs.filter(func(n): return not n.has_meta("outpost"))
 		if not town_troops.is_empty():
 			garrison = _make_garrison("Garrison", town_troops, true, Vector3.INF, false, _town_zones())
+			await StagedBuild.slice_of(st)
 		if outposts != null:
 			for o in outposts.outposts:
 				var mine: Array = outposts.guards.filter(func(g): return str(g.get_meta("outpost", "")) == str(o.id))
@@ -964,6 +977,7 @@ func _npc_brains() -> void:
 					continue
 				var first := garrison == null and outposts.garrisons.is_empty()
 				outposts.garrisons[str(o.id)] = _make_garrison("Garrison_" + str(o.id), mine, first, o.origin, true, [outpost_zone(o)])
+				await StagedBuild.slice_of(st)
 		# Issue #187: someone always counts the player out when they are downed, even
 		# with no Remnant left in town or at the outposts (a garrison of nobody).
 		if garrison == null and (outposts == null or outposts.garrisons.is_empty()):
@@ -1336,15 +1350,18 @@ func _build_interceptor() -> void:
 ## Issue #327: one for each "cruiser" landmark of this planet's world (the home
 ## planet's, or the belt cruiser by the ringed giant's station); `cruiser` is the
 ## one here (a planet has one at most).
-func _build_cruiser() -> void:
+func _build_cruiser(st: StagedBuild = null) -> void:
 	if not with_cruiser or pilot == null or pilot.ground == null:
 		return
 	for lm in CruiserHull.landmarks(pilot.ground.world):
 		if cruiser != null or not CruiserHull.has_cruiser(pilot.ground, str(lm.get("id", ""))):
 			continue
-		cruiser = RemnantCruiser.new()
-		cruiser.setup(self, pilot.ground, lm)
-		add_child(cruiser)
+		var c := RemnantCruiser.new()      # issue #574: whole before `cruiser` points at it
+		c.setup(self, pilot.ground, lm)
+		c.build_later = true
+		add_child(c)
+		await c.build(st)
+		cruiser = c
 
 
 ## Space stations (StationHull): one for every "station" landmark of this planet's
@@ -1372,14 +1389,17 @@ func station_at(p: Vector3):
 
 ## Issue #51: companion droids. After the gear (its HUD and E prompt are shared)
 ## and the NPCs (the Remnant's droids answer to the garrison's alarm).
-func _build_droids() -> void:
+func _build_droids(st: StagedBuild = null) -> void:
 	if pilot != null and str(planet.get("id", "")) == PlanetGen.home_id():
 		droid_merchant_outposts = DroidMerchantOutposts.new()
 		droid_merchant_outposts.setup(self, pilot.ground)
 		add_child(droid_merchant_outposts)
+		await StagedBuild.slice_of(st)
 	droids = DroidController.new()
 	droids.setup(self, _player, gear)
+	droids.build_later = true
 	add_child(droids)
+	await droids.build_units(st)
 
 
 ## Issue #95: Dorrin's speeder yard, out in the desert. After the speeders (he
