@@ -59,8 +59,8 @@ var air_time := 0.0                  ## of the current (or last) jump
 var top_height := 0.0                ## highest clearance over the ground on the last jump
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
-var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
+var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
 
 var _pending: Array = []             ## events from between steps (lift), for the next step()
 var _cmd := { "throttle": 0.0, "steer": 0.0, "boost": false }
