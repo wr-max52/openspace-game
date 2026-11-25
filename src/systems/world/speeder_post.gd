@@ -32,6 +32,12 @@ extends Node3D
 ##     hover each physics tick, and a yard of seven cost the town its frame rate.
 ##     Once you own one he does not offer another, and a save with more keeps
 ##     the first.
+##   - issue #627: he sells three models (his card's sale.models: the Sand-boxer,
+##     the racer, the box truck), one of each to a customer (max_owned is per
+##     model). Each fit in WorldState.speeder_fits says its model (none = the
+##     Sand-boxer), and a speeder is built from its own vehicle file. Parked
+##     speeders sleep while you are far off (SpeederNode._sleeps), so three cost
+##     what one did.
 ##   - issue #295, free roam only: [E] at his garage bench is Dorrin's parts menu
 ##     (SpeederShop) for the speeder in his garage,
 ##   - issue #295: he buys ships. One of yours landed within ship_buy's radius
@@ -127,11 +133,12 @@ func _ready() -> void:
 	# Issue #82: each speeder sold is a new paint job, an 8 MB model; load them
 	# now, off the main thread, so buying one does not hitch. Held here so they
 	# stay cached.
-	var look: Dictionary = HoverModel.load_config("speeder").get("look", {})
-	for id in look.get("sold_paints", []):
-		var path := str(look.get("paints", {}).get(id, ""))
-		if path != "" and ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
-			_paint_scenes[path] = null
+	for m in models():                     # issue #627: every model he sells
+		var look: Dictionary = HoverModel.load_config(str(m.get("id", "speeder"))).get("look", {})
+		for id in look.get("sold_paints", []):
+			var path := str(look.get("paints", {}).get(id, look.get("scene", "") if str(id) == "" else ""))
+			if path != "" and ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
+				_paint_scenes[path] = null
 
 
 func _process(_dt: float) -> void:
@@ -195,6 +202,7 @@ func attach_host(h: ConversationHost) -> void:
 	host.add_spot(spot)
 	brain.ship_offer = func(): return _offer_card(ship_offer())
 	brain.sale_open = func(): return not at_limit()
+	brain.sale_models = func(): return open_models().map(func(m): return str(m.get("id", "")))
 	spot.opener = _opener
 	spot.shortcuts = shortcuts
 	spot.on_shortcut = _on_shortcut
@@ -224,8 +232,10 @@ func brief() -> Array:
 func shortcuts() -> Array:
 	var k: Dictionary = card.get("shortcuts", {})
 	var out := []
-	if not at_limit():
-		out.append({ "id": "go_speeder", "label": str(k.get("speeder", "Buy a speeder")) })
+	# Issue #627: a button per model they don't own yet.
+	for m in open_models():
+		var mid := str(m.get("id", ""))
+		out.append({ "id": "go_speeder:" + mid, "label": str(k.get("models", {}).get(mid, k.get("speeder", "Buy a speeder"))) })
 	if not ship_offer().is_empty():
 		out.append({ "id": "go_sell_ship", "label": str(k.get("sell_ship", "Sell my ship")) })
 	return out
@@ -235,15 +245,21 @@ func _on_shortcut(id: String) -> void:
 	if id == "go_sell_ship":
 		_on_ship_offer({ "id": str(ship_offer().get("id", "")) })
 		return
-	var s: Dictionary = card.get("sale", {})
-	_on_offer({ "id": str(s.get("id", "")), "name": str(s.get("name", "")), "price": int(s.get("price", 0)) })
+	var m := model_sale(id.trim_prefix("go_speeder").trim_prefix(":"))
+	if m.is_empty():
+		var opened := open_models()
+		m = opened[0] if not opened.is_empty() else {}
+	_on_offer({ "id": str(m.get("id", "")), "name": str(m.get("name", "")), "price": int(m.get("price", 0)) })
 
 
 func _on_offer(item: Dictionary) -> void:
 	if host == null or host.active != spot:
 		return
-	_offered = item
-	_offered["text"] = str(spot.brain.card.get("sale", {}).get("text", ""))
+	var m := model_sale(str(item.get("id", "")))     # issue #627: the game's model, price and words
+	if m.is_empty() or at_limit(str(m.get("id", ""))):
+		return
+	_offered = { "id": str(m.get("id", "")), "name": str(m.get("name", "")), "price": int(m.get("price", 0)),
+		"text": str(m.get("text", "")) }
 	host.panel.show_sale(_offered, WorldState.credits)
 
 
@@ -263,22 +279,30 @@ func _on_answer(id: String, accepted: bool) -> void:
 		_offered = {}
 		buy_ship()
 		return
-	buy()
+	buy(str(_offered.get("id", "speeder")))
 
 
-## Pay and park a new speeder in his garage (beside it once that is full). False
-## (and nothing charged) if the player cannot afford it or already owns their one.
-func buy() -> bool:
-	var sale: Dictionary = spot.brain.card.get("sale", {}) if spot != null else HoverModel.load_config("speeder")
+## Pay for a new speeder of `model` (issue #627: speeder, racer or hauler) and park
+## it in his garage (beside it once that is full). False (and nothing charged) if
+## he does not sell it, the player cannot afford it, or already owns one.
+func buy(model: String = "speeder") -> bool:
+	var sale := model_sale(model)
+	if sale.is_empty():
+		return false
 	var price := int(sale.get("price", 100))
-	if WorldState.credits < price or at_limit():
+	if WorldState.credits < price or at_limit(model):
 		return false
 	WorldState.credits -= price
+	var i := WorldState.count("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())        # an old save's speeders get their fits first
+	WorldState.speeder_fits.resize(i)
+	WorldState.speeder_fits.append(SpeederUpgrades.new_fit(_next_paint(model), model))
 	WorldState.bump("speeders_owned")
 	WorldState.set_flag("bought_speeder")
-	WorldState.log_event("Someone bought a speeder from Skrugs.", "back_gate")
+	WorldState.log_event("Someone bought a %s from Skrugs." % str(sale.get("name", "speeder")), "back_gate")
 	sales += 1
-	_park(WorldState.count("speeders_owned") - 1)
+	_park(i)
 	if spot != null:
 		var rel := spot.brain.rel
 		rel.mood = "warm"
@@ -290,23 +314,67 @@ func buy() -> bool:
 	return true
 
 
-## The most speeders one player owns (his card's sale.max_owned).
+## The most speeders of one model a player owns (his card's sale.max_owned).
 func max_owned() -> int:
 	return int(card.get("sale", {}).get("max_owned", 1))
 
 
-## They own as many speeders as he sells to one customer.
-func at_limit() -> bool:
-	return WorldState.count("speeders_owned") >= max_owned()
+## Issue #627: the models he sells (his card's sale.models; a card with none sells
+## its one sale as the Sand-boxer).
+func models() -> Array:
+	var sale: Dictionary = card.get("sale", {})
+	var ms: Array = sale.get("models", [])
+	if not ms.is_empty():
+		return ms
+	return [{ "id": "speeder", "name": str(sale.get("name", "speeder")), "price": int(sale.get("price", 100)),
+		"text": str(sale.get("text", "")) }]
+
+
+## His sale card for one model ({} if he does not sell it).
+func model_sale(model: String) -> Dictionary:
+	for m in models():
+		if str(m.get("id", "")) == model:
+			return m
+	return {}
+
+
+## How many of `model` they own (fits without a model are Sand-boxers).
+func owned_of(model: String) -> int:
+	var n := 0
+	for i in mini(WorldState.count("speeders_owned"), WorldState.speeder_fits.size()):
+		if SpeederUpgrades.model_of(WorldState.speeder_fits[i]) == model:
+			n += 1
+	# An old save may count speeders it has no fit for yet: those are Sand-boxers.
+	if model == "speeder":
+		n += maxi(0, WorldState.count("speeders_owned") - WorldState.speeder_fits.size())
+	return n
+
+
+## The models still for sale to them.
+func open_models() -> Array:
+	return models().filter(func(m): return owned_of(str(m.get("id", ""))) < max_owned())
+
+
+## They own as many of `model` as he sells to one customer; with no model, of
+## every model.
+func at_limit(model: String = "") -> bool:
+	if model == "":
+		return open_models().is_empty()
+	return owned_of(model) >= max_owned()
+
+
+## The most speeders one player can own: one of each (issue #627).
+func max_total() -> int:
+	return max_owned() * models().size()
 
 
 ## Issue #617: the most speeders you can own at all (won on pink slips or kept
 ## after a chase): the row outside the back gate's spots (racing rules owned_cap).
-## Skrugs still sells only max_owned.
+## Skrugs still sells only one of each model (max_total).
 func owned_cap() -> int:
 	var town = demo.get("town") if demo != null else null
 	var row: Array = town.markers_with_role("speeder_spot") if town != null else []
-	return maxi(max_owned(), mini(int(RaceCrew.rule("owned_cap", 5.0)), maxi(row.size(), 1)))
+	return maxi(max_total(), mini(int(RaceCrew.rule("owned_cap", 5.0)), maxi(row.size(), 1)))
 
 
 ## Issue #617: a speeder that is now yours (won on pink slips) with `fit` (paint
@@ -318,10 +386,12 @@ func add_owned(fit: Dictionary) -> SpeederNode:
 	WorldState.bump("speeders_owned")
 	while WorldState.speeder_fits.size() < i:
 		fit_for(WorldState.speeder_fits.size())
+	var won := fit.duplicate(true)
+	won["won"] = true                    # not one he sold: kept past the one-of-each rule
 	if WorldState.speeder_fits.size() > i:
-		WorldState.speeder_fits[i] = fit.duplicate(true)
+		WorldState.speeder_fits[i] = won
 	else:
-		WorldState.speeder_fits.append(fit.duplicate(true))
+		WorldState.speeder_fits.append(won)
 	var s := _spawn(i)
 	var spot_at := line_spot(i)
 	s.place(spot_at[0], spot_at[1])
@@ -368,14 +438,29 @@ func is_stolen(s: SpeederNode) -> bool:
 	return s != null and speeders.has(s) and bool(fit_for(int(s.get_meta("slot", 0))).get("stolen", false))
 
 
-## A save from before the one-speeder rule keeps its first speeders (and their
-## fits); the rest are gone. Issue #617: up to owned_cap.
+## A save from before the one-speeder rule keeps its first speeder of each model
+## (and their fits); the rest are gone. Issue #617: speeders won on pink slips or
+## kept after a chase ("won" / "stolen" fits) are not his to limit: they stay, up to
+## owned_cap in all.
 func _trim_owned() -> void:
-	var n := owned_cap()
-	if WorldState.count("speeders_owned") > n:
-		WorldState.counters["speeders_owned"] = n
-	if WorldState.speeder_fits.size() > n:
-		WorldState.speeder_fits.resize(n)
+	var n := WorldState.count("speeders_owned")
+	while WorldState.speeder_fits.size() < mini(n, max_total() * 4):
+		WorldState.speeder_fits.append(SpeederUpgrades.new_fit(_next_paint("speeder")))
+	var kept: Array = []
+	var per: Dictionary = {}
+	for i in mini(n, WorldState.speeder_fits.size()):
+		var f: Dictionary = WorldState.speeder_fits[i]
+		if kept.size() >= owned_cap():
+			break
+		if bool(f.get("won", false)) or bool(f.get("stolen", false)):
+			kept.append(f)
+			continue
+		var m := SpeederUpgrades.model_of(f)
+		if int(per.get(m, 0)) < max_owned() and (not model_sale(m).is_empty() or m == "speeder"):
+			per[m] = int(per.get(m, 0)) + 1
+			kept.append(f)
+	WorldState.speeder_fits.assign(kept)
+	WorldState.counters["speeders_owned"] = kept.size()
 
 
 ## His line in the chat box after a deal, with the new money.
@@ -416,7 +501,9 @@ func line_spot(i: int = 0) -> Array:
 	if row.is_empty():
 		return parking_spot(i)
 	row.sort_custom(func(a, b): return str(a.id).naturalnocasecmp_to(str(b.id)) < 0)
-	var m: Dictionary = row[(NetSession.my_slot() + i) % row.size()]
+	# Issue #627: each player has max_total spots of their own, so two LAN players'
+	# speeders never share one.
+	var m: Dictionary = row[(NetSession.my_slot() * max_total() + i) % row.size()]
 	var at: Vector3 = town.marker_pos(str(m.id))
 	at.y = ground.terrain.height_at(at.x, at.z)
 	return [at, deg_to_rad(float(m.get("yaw_deg", 0.0)))]
@@ -434,19 +521,30 @@ func line_up() -> void:
 
 
 ## Issue #95: speeder `i` with its fit (paint and parts) from WorldState.speeder_fits.
-## A speeder from before upgrades gets a fit here, its old paint job included.
+## A speeder from before upgrades gets a fit here (a Sand-boxer), its old paint
+## job included.
 func fit_for(i: int) -> Dictionary:
-	var paints: Array = HoverModel.load_config("speeder").get("look", {}).get("sold_paints", [""])
 	while WorldState.speeder_fits.size() <= i:
-		var n := WorldState.speeder_fits.size()
-		WorldState.speeder_fits.append(SpeederUpgrades.new_fit(str(paints[n % paints.size()])))   # issue #82: each one a different paint job
+		WorldState.speeder_fits.append(SpeederUpgrades.new_fit(_next_paint("speeder")))
 	return WorldState.speeder_fits[i]
+
+
+## Issue #82: each speeder of a model a different paint job, round its sold_paints.
+func _next_paint(model: String) -> String:
+	var paints: Array = HoverModel.load_config(model).get("look", {}).get("sold_paints", [""])
+	if paints.is_empty():
+		return ""
+	var n := WorldState.speeder_fits.filter(func(f): return SpeederUpgrades.model_of(f) == model).size()
+	if model == "speeder":
+		n = WorldState.speeder_fits.size()      # as before: the Sand-boxer's paint rolls with the count
+	return str(paints[n % paints.size()])
 
 
 func _spawn(i: int) -> SpeederNode:
 	var s := SpeederNode.new()
 	var fit := fit_for(i)
-	s.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(fit.get("paint", "")))
+	var model := SpeederUpgrades.model_of(fit)       # issue #627: built from its own vehicle file
+	s.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config(model), fit), true, str(fit.get("paint", "")))
 	s.set_meta("slot", i)
 	demo.add_child(s)
 	s.destroyed.connect(func(_at): _lost(s))

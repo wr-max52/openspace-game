@@ -561,6 +561,8 @@ func shot(pkt: Array) -> void:
 		b.shooter.avatar.fire_kick()       # their gun kicks and flashes here too
 	scene.add_child(b)
 	b.global_position = pkt[1] as Vector3
+	if not from_ship:
+		NoiseEvents.emit(pkt[1] as Vector3, 45.0, "shot_guest")   # issue #605: bystanders here hear it
 	b.monitoring = false               # a picture of the shot, never a hit
 	b.collision_mask = 0
 	b.remove_from_group("bolts")       # your blade does not deflect it either

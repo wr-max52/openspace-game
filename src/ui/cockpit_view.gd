@@ -358,10 +358,15 @@ func _find_sun(cam: Camera3D, dt: float) -> DirectionalLight3D:
 func _draw() -> void:
 	var vp := get_viewport_rect().size
 	var line := rim(vp)
-	# The glass, down to the dash's edge.
-	var glass := PackedVector2Array([Vector2(vp.x, 0), Vector2(0, 0)])
-	glass.append_array(line)
-	draw_colored_polygon(glass, GLASS)
+	# The glass, down to the dash's edge: a strip from the top of the screen down to
+	# each stretch of the edge (the edge arches, so it is no convex polygon to fill).
+	var glass := PackedVector2Array()
+	for i in line.size() - 1:
+		var a := line[i]
+		var b := line[i + 1]
+		for q in [Vector2(a.x, 0.0), Vector2(b.x, 0.0), b, Vector2(a.x, 0.0), b, a]:
+			glass.append(q)
+	CockpitDash.tris(self, glass, PackedColorArray([GLASS]))
 	# A couple of faint streaks of glare on it, brighter with the sun ahead.
 	var sun_ahead := 0.0
 	for l in lights:

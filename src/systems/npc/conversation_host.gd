@@ -224,7 +224,7 @@ func spot_in_range() -> TalkSpot:
 	var p: Node3D = demo._player
 	var best: TalkSpot = null
 	for s in spots:
-		if s.manual or (s.available.is_valid() and not s.available.call()):
+		if s.manual or (s.available.is_valid() and not s.available.call()) or _hiding(s):
 			continue
 		if s.in_range(p) and (best == null or s.distance_to(p) < best.distance_to(p)):
 			best = s
@@ -233,7 +233,12 @@ func spot_in_range() -> TalkSpot:
 
 ## At the bar front (the Cantina Owner's spot).
 func player_in_range() -> bool:
-	return owner_spot != null and owner_spot.in_range(demo._player)
+	return owner_spot != null and owner_spot.in_range(demo._player) and not _hiding(owner_spot)
+
+
+## Issue #605: their body is down behind the counter (shooting nearby): no talk.
+static func _hiding(s: TalkSpot) -> bool:
+	return s.body != null and is_instance_valid(s.body) and s.body.has_method("cowering") and bool(s.body.cowering())
 
 
 func _process(_dt: float) -> void:
