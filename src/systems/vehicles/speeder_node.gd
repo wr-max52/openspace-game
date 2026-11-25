@@ -72,6 +72,7 @@ var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sit
 var _boarding: Dictionary = {}       ## NpcBody walking to a seat -> { seat, t, free_walk }
 var _npc_cmd: Dictionary = {}        ## what the NPC driver did this frame (the lean reads it)
 var gear: SpeederGear                ## issue #616: seekers, mines, deflector (the parts fitted)
+var hover_steps := 0                 ## issue #617: parked hover ticks run (tests: a sleeping one runs none)
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -253,14 +254,21 @@ func _physics_process(dt: float) -> void:
 	elif npc_driven():
 		_npc_drive(dt)
 	elif rideable:
+		var free_now := can_mount() and not _hijack_claims()
+		_show_prompt(free_now)
+		if free_now and _just("interact"):
+			mount()
+			return
+		# Issue #617: parked and nobody near: no hover tick (a row of five costs what
+		# one did). It wakes as you come within sleep_m.
+		if npc_seats.is_empty() and _asleep():
+			_carry_riders()
+			return
 		model.set_command(0.0, 0.0)
 		for e in model.step(dt):
 			log_events.append(e)
+		hover_steps += 1
 		_sync()
-		var free := can_mount() and not _hijack_claims()
-		_show_prompt(free)
-		if free and _just("interact"):
-			mount()
 	_carry_riders()
 
 
@@ -426,6 +434,14 @@ func _yaw_from(xf: Transform3D) -> float:
 	f -= u * f.dot(u)
 	var local := PlanetSphere.tilt_to(u).inverse() * f
 	return atan2(-local.x, -local.z) if Vector2(local.x, local.z).length() > 0.01 else model.yaw
+
+
+## Issue #617: parked with the player beyond sleep_m (none in the scene: never).
+func _asleep() -> bool:
+	var p := player()
+	if p == null or not is_instance_valid(p):
+		return false
+	return p.global_position.distance_to(model.position) > float(cfg.get("sleep_m", 60.0))
 
 
 # ------------------------------------------------------------------ NPC riders (issue #609)

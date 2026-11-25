@@ -253,16 +253,23 @@ func test_he_does_not_offer_a_second() -> void:
 
 
 func test_an_old_save_keeps_its_first_speeder() -> void:
-	WorldState.counters["speeders_owned"] = 3
-	WorldState.speeder_fits = [SpeederUpgrades.new_fit("tide"), SpeederUpgrades.new_fit("steel"), SpeederUpgrades.new_fit("crimson")]
+	# Issue #617: speeders won on pink slips (or kept after a chase) are yours too,
+	# so a save keeps up to owned_cap (the row outside the back gate); only past
+	# that are the rest gone. Skrugs still sells you only one.
+	var paints := ["tide", "steel", "crimson", "remnant", "tide", "steel", "crimson"]
+	WorldState.counters["speeders_owned"] = paints.size()
+	WorldState.speeder_fits = paints.map(func(p): return SpeederUpgrades.new_fit(p))
 	WorldState.speeder_fits[0].parts = ["engine_1"]
 	var t = _town()
 	var post: SpeederPost = t.speeder_post
-	assert_eq(post.speeders.size(), 1, "the rest are gone")
-	assert_eq(WorldState.count("speeders_owned"), 1)
-	assert_eq(WorldState.speeder_fits.size(), 1)
+	var cap := post.owned_cap()
+	assert_lt(cap, paints.size(), "the test save has more than the cap")
+	assert_eq(post.speeders.size(), cap, "the rest are gone")
+	assert_eq(WorldState.count("speeders_owned"), cap)
+	assert_eq(WorldState.speeder_fits.size(), cap)
 	assert_eq(post.speeders[0].paint, "tide", "the first one, as it was")
 	assert_eq(WorldState.speeder_fits[0].parts, ["engine_1"])
+	assert_true(post.at_limit(), "and Skrugs sells no more")
 
 
 func test_the_remnant_parks_a_black_and_red_one_outside_the_front_gate() -> void:

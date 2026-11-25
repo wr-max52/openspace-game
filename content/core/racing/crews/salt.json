@@ -78,6 +78,11 @@
     ]
   },
   "lines": {
+    "pink_slips": "Pink slips: my {ride} against yours",
+    "slips_accept": "Pink slips? Ha. Winner drives home in both.",
+    "no_room": "Where would you even park it? Your row's full.",
+    "slips_won": "{ride} is yours. It's waiting outside the back gate.",
+    "slips_lost": "They drive off in your speeder. Win it back: race them for pink slips again.",
     "talk": "[E] Talk to {name}",
     "challenge": [
       "So you beat the basin kids. The flats are different. We shoot from the start.",

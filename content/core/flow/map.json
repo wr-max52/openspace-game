@@ -38,6 +38,7 @@
     "outpost": { "label": "Abandoned outpost", "legend": "Ruin", "arrive": 35 },
     "droid_merchant_outpost": { "label": "Droid relay", "legend": "Droid station", "arrive": 25 },
     "race": { "label": "Speeder race", "legend": "Speeder race", "arrive": 40 },
+    "speeders": { "label": "Your speeders", "legend": "Your speeders", "arrive": 15 },
     "post": { "label": "Trader", "legend": "Merchant", "arrive": 25 },
     "wreck": { "label": "Cruiser wreck", "legend": "Wreck", "arrive": 220 },
     "camp": { "label": "Camp", "legend": "Native camp", "arrive": 30 },

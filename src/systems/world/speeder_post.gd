@@ -300,10 +300,38 @@ func at_limit() -> bool:
 	return WorldState.count("speeders_owned") >= max_owned()
 
 
+## Issue #617: the most speeders you can own at all (won on pink slips or kept
+## after a chase): the row outside the back gate's spots (racing rules owned_cap).
+## Skrugs still sells only max_owned.
+func owned_cap() -> int:
+	var town = demo.get("town") if demo != null else null
+	var row: Array = town.markers_with_role("speeder_spot") if town != null else []
+	return maxi(max_owned(), mini(int(RaceCrew.rule("owned_cap", 5.0)), maxi(row.size(), 1)))
+
+
+## Issue #617: a speeder that is now yours (won on pink slips) with `fit` (paint
+## and parts), parked in the row outside the back gate. null if you own all you can.
+func add_owned(fit: Dictionary) -> SpeederNode:
+	if WorldState.count("speeders_owned") >= owned_cap():
+		return null
+	var i := WorldState.count("speeders_owned")
+	WorldState.bump("speeders_owned")
+	while WorldState.speeder_fits.size() < i:
+		fit_for(WorldState.speeder_fits.size())
+	if WorldState.speeder_fits.size() > i:
+		WorldState.speeder_fits[i] = fit.duplicate(true)
+	else:
+		WorldState.speeder_fits.append(fit.duplicate(true))
+	var s := _spawn(i)
+	var spot_at := line_spot(i)
+	s.place(spot_at[0], spot_at[1])
+	return s
+
+
 ## A save from before the one-speeder rule keeps its first speeders (and their
-## fits); the rest are gone.
+## fits); the rest are gone. Issue #617: up to owned_cap.
 func _trim_owned() -> void:
-	var n := max_owned()
+	var n := owned_cap()
 	if WorldState.count("speeders_owned") > n:
 		WorldState.counters["speeders_owned"] = n
 	if WorldState.speeder_fits.size() > n:
