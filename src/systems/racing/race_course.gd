@@ -88,6 +88,69 @@ static func clear_circles(world_id: String) -> Array:
 	return out
 
 
+## Level ground under every gate of the world's courses (PlanetSphere flat
+## sites, like an outpost's pad), and under the start line's grid behind it, so
+## the masts stand at one height and the beam runs flat between them. The pad is
+## the plane square to "up" there through the mean height of the sand across the
+## gate before levelling. The gates themselves go on the flattest stretch of
+## their line (the course files; test_race_course checks the sand there is
+## nearly level already), so a pad only takes out the last ripples and never
+## cuts a notch through a dune. `pad`: { margin_m round the antennas, blend_m
+## out to the open sand }. Call before the sphere has flat sites of its own.
+static func flat_sites(world_id: String, sp: PlanetSphere) -> Array:
+	var sites: Array = []
+	if sp == null:
+		return sites
+	for c in courses_for(world_id):
+		var pad: Dictionary = c.get("pad", {})
+		var margin := float(pad.get("margin_m", 3.0))
+		var blend := float(pad.get("blend_m", 18.0))
+		var half := float(c.get("gate_width", 26.0)) * 0.5 + margin
+		var line2: Array = []
+		for p in c.get("line", []):
+			line2.append(Vector2(float(p[0]), float(p[1])))
+		var gcfg: Dictionary = c.get("grid", {})
+		var rows := int(ceil(float(gcfg.get("slots", 4)) / 2.0))
+		var grid_back := float(gcfg.get("back_m", 10.0)) + float(rows - 1) * float(gcfg.get("row_m", 9.0)) + 4.0
+		var gi := 0
+		for g in c.get("gates", []):
+			var at := Vector2(float(g.at[0]), float(g.at[1]))
+			var fwd := _line_dir2(line2, at)
+			var right := Vector2(-fwd.y, fwd.x)
+			var back := margin + (grid_back if gi == 0 else 6.0)   # the start pad reaches back over the grid
+			var ahead := margin + 6.0
+			# The footprint (across x along), its box on the map, and the mean sand under it.
+			var lo := Vector2(INF, INF)
+			var hi := Vector2(-INF, -INF)
+			var sum := 0.0
+			var n := 0
+			for i in 5:
+				for j in 5:
+					var q := at + right * lerpf(-half, half, i / 4.0) + fwd * lerpf(-back, ahead, j / 4.0)
+					lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+					hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+					sum += sp.elevation(sp.map_dir(q.x, q.y))
+					n += 1
+			var y := sum / float(n)
+			var mid := sp.center + sp.map_dir(at.x, at.y) * (sp.radius + y)
+			sites.append({ "rect": Rect2(lo, hi - lo), "y": y, "plane_c": mid, "plane_u": sp.up_at(mid), "blend": blend })
+			gi += 1
+	return sites
+
+
+## The way a plateau racing line runs past `at` (unit; see _line_dir).
+static func _line_dir2(line2: Array, at: Vector2) -> Vector2:
+	if line2.size() < 2:
+		return Vector2(0, -1)
+	var best := 0
+	for i in line2.size():
+		if (line2[i] as Vector2).distance_squared_to(at) < (line2[best] as Vector2).distance_squared_to(at):
+			best = i
+	var a: Vector2 = line2[(best - 1 + line2.size()) % line2.size()]
+	var b: Vector2 = line2[(best + 1) % line2.size()]
+	return (b - a).normalized()
+
+
 static func look() -> Dictionary:
 	if _look.is_empty():
 		var f := FileAccess.open(LOOK_PATH, FileAccess.READ)
@@ -395,7 +458,8 @@ func _build_record() -> void:
 	record_label.outline_size = 12
 	record_label.modulate = Color(str(look().get("start", "#ff3b30"))).lightened(0.5)
 	var g: Dictionary = gates[0]
-	record_label.position = Vector3(-float(g.half), float(course.get("antenna_height", 7.0)) * 0.55, 0.6)
+	# On its antenna: from the sand at that mast, not the middle of the line.
+	record_label.position = Vector3(-float(g.half), _sand_y(g, -float(g.half)) + float(course.get("antenna_height", 7.0)) * 0.55, 0.6)
 	(_gate_roots[0] as Node3D).add_child(record_label)
 	refresh_record()
 

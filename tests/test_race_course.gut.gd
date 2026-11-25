@@ -218,3 +218,46 @@ func test_gates_are_drawn_only_when_asked_and_flash_back_to_rest() -> void:
 	rc.drop_gates()
 	await wait_physics_frames(2)
 	assert_false(rc.built)
+
+
+# ---- flat ground -----------------------------------------------------------------
+
+## The highest and lowest sand (m above the ball) across a footprint round gate
+## `g` of course `c`: `back` metres behind the line to 8 m past it, 15 m either side.
+func _relief(sp: PlanetSphere, c: Dictionary, gi: int, back: float) -> float:
+	var line2: Array = []
+	for p in c.line:
+		line2.append(Vector2(float(p[0]), float(p[1])))
+	var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
+	var fwd := RaceCourse._line_dir2(line2, at)
+	var right := Vector2(-fwd.y, fwd.x)
+	var lo := INF
+	var hi := -INF
+	for i in 13:
+		for j in 9:
+			var q := at + right * lerpf(-15.0, 15.0, i / 12.0) + fwd * lerpf(-back, 8.0, j / 8.0)
+			var h := sp.elevation(sp.map_dir(q.x, q.y))
+			lo = minf(lo, h)
+			hi = maxf(hi, h)
+	return hi - lo
+
+
+## Gates (and the start's grid) sit where the dunes are nearly level already, so the
+## pad under them never cuts a notch through a crest.
+func test_every_gate_is_on_nearly_flat_sand() -> void:
+	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	sp.flat_sites = []                     # the sand as the dunes make it
+	for c in RaceCourse.courses_for("port_desert"):
+		assert_lt(_relief(sp, c, 0, 40.0), 2.5, "%s: the start line and its grid are on flat sand" % c.id)
+		for gi in range(1, c.gates.size()):
+			assert_lt(_relief(sp, c, gi, 8.0), 3.5, "%s %s: on flat sand" % [c.id, c.gates[gi].id])
+
+
+## And the planet levels a pad under each, so both antennas stand at one height.
+func test_the_planet_levels_a_pad_under_every_gate() -> void:
+	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	for c in RaceCourse.courses_for("port_desert"):
+		assert_lt(_relief(sp, c, 0, 25.0), 0.3, "%s: the start line and grid are level" % c.id)
+		for gi in range(1, c.gates.size()):
+			assert_lt(_relief(sp, c, gi, 4.0), 0.3, "%s %s: level" % [c.id, c.gates[gi].id])
+	assert_eq(RaceCourse.flat_sites("moon", sp).size(), 0, "none on a world with no course")

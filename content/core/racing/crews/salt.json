@@ -14,7 +14,7 @@
     {
       "leader": true,
       "stand": [17.1, 57.5],
-      "park": [19.4, 65.2],
+      "park": [20.2, 67.6],
       "look": {
         "head": "guard:white",
         "torso": "local:lighter",
@@ -32,7 +32,7 @@
     },
     {
       "stand": [14.7, 58.2],
-      "park": [13.7, 66.9],
+      "park": [15.8, 63.5],
       "look": {
         "head": "guard:navy",
         "torso": "local:blue",
@@ -49,7 +49,7 @@
     },
     {
       "stand": [19.5, 56.8],
-      "park": [25.2, 63.5],
+      "park": [24.5, 71.7],
       "look": {
         "head": "guard:white",
         "torso": "local:blue",

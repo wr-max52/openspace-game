@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Race gates on flat ground (2026-11-25)
+
+- **Start lines and checkpoints moved onto flat sand.** Every gate on the
+  Hoodoo Run, Basin Run and Salt Flats now sits on the flattest stretch of its
+  part of the track, instead of across dune crests. The Salt Flats start line
+  moved to the flat west bend, about 400 m from the village.
+- **Level ground under every gate.** The sand under each gate, and under the
+  starting grid, is levelled flat, so both antennas stand at the same height
+  and the beam runs straight along the ground.
+- **Best-lap sign on its antenna.** The best-lap sign at the start line now
+  sits on its antenna instead of floating in the air.
+
 ## Trousers stay on the legs (2026-11-25)
 
 - **No more cloth fin on the thigh.** The villagers' loose trousers (and anyone
