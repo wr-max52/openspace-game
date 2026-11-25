@@ -92,6 +92,9 @@ var net_copy := false               ## issue #402: the host's game runs this tow
 var net_hit := Callable()           ## (u, amount, shooter, sweep): a hit on a copy, for the host's game
 
 
+var build_later := false              ## issue #574: the town calls build_units(st) itself, over frames
+
+
 func setup(p_demo, p_player: CharacterBody3D, p_gear: GearController) -> void:
 	demo = p_demo
 	player = p_player
@@ -146,6 +149,15 @@ func _ready() -> void:
 		for site in demo.ranches.droid_sites:        # a ranch village's droid stand
 			vendor_sites.append(site)
 	net_copy = demo != null and "lan_shared" in demo and bool(demo.lan_shared)
+	if demo != null and "training_range" in demo and demo.training_range != null:
+		demo.training_range.remote_tamed.connect(_on_remote_tamed)
+	if not build_later:
+		build_units(null)
+
+
+## The wrecks, the patrols and the hauler. Issue #574: `st` (a StagedBuild) spreads
+## them over frames on a handoff; with null (from _ready) all at once.
+func build_units(st: StagedBuild) -> void:
 	if _on_ball() and not roster().wrecks_seeded:
 		var starting_count := int(cfg.get("wrecks", {}).get("ball_starting_count", 8))
 		while roster().wrecks.size() < starting_count:
@@ -154,11 +166,10 @@ func _ready() -> void:
 		roster().wrecks_seeded = true
 	for w in roster().wrecks:
 		_build_wreck(w)
+		await StagedBuild.slice_of(st)
 	if not net_copy:
-		_build_remnant()
+		await _build_remnant(st)
 		_build_hauler()
-	if demo != null and "training_range" in demo and demo.training_range != null:
-		demo.training_range.remote_tamed.connect(_on_remote_tamed)
 
 
 func roster() -> DroidRoster:
@@ -1376,22 +1387,23 @@ func _carry(u: DroidUnit, hc: Dictionary) -> void:
 
 # ------------------------------------------------------------------ the Remnant's droids
 
-func _build_remnant() -> void:
+func _build_remnant(st: StagedBuild = null) -> void:
 	if Story.town_garrison():
-		_build_town_units(cfg.get("remnant", {}))
+		await _build_town_units(cfg.get("remnant", {}), st)
 	else:
-		_build_town_units(_side_cfg(Territory.LOCALS))
-	_build_wreck_site()
+		await _build_town_units(_side_cfg(Territory.LOCALS), st)
+	await _build_wreck_site(st)
 	var outposts = demo.outposts if demo != null and "outposts" in demo else null
 	if outposts == null:
 		return
 	for o in outposts.droid_specs():
 		build_outpost_units(str(o.outpost))
+		await StagedBuild.slice_of(st)
 
 
 ## The main street's patrol droids for one side's block (droids.json "remnant" or
 ## "locals"), on the Remnant's street route.
-func _build_town_units(side: Dictionary) -> void:
+func _build_town_units(side: Dictionary, st: StagedBuild = null) -> void:
 	var station = demo.platform if demo != null and "platform" in demo else null
 	if station is AsteroidWorld and not station.st.is_empty():
 		_build_station_pacers(side, station)
@@ -1407,6 +1419,7 @@ func _build_town_units(side: Dictionary) -> void:
 		var sp: Dictionary = _side_spec(side, spec)
 		sp["patrol"] = route
 		_spawn_remnant(sp, int(spec.get("start", 0)) % route.size())
+		await StagedBuild.slice_of(st)
 
 
 ## The moon station: no street patrol under the dome (the home port's route crossed
@@ -1484,7 +1497,7 @@ func clear_outpost_units(id: String) -> void:
 ## no wreck (another planet, a test without one).
 ## Wreck field: the same crew aboard every wreck in "sites" this ground has, less
 ## the routes over a deck that one lost; the hauler only on the original.
-func _build_wreck_site() -> void:
+func _build_wreck_site(st: StagedBuild = null) -> void:
 	var wc: Dictionary = cfg.get("wreck", {})
 	for site in wreck_sites():
 		var id := str(site.landmark)
@@ -1503,8 +1516,10 @@ func _build_wreck_site() -> void:
 			sp["wreck"] = true
 			sp["hostile"] = true
 			_spawn_remnant(sp, int(spec.get("start", 0)) % route.size())
+			await StagedBuild.slice_of(st)
 		if bool(site.get("hauler", false)):
 			_build_wreck_hauler(id)
+			await StagedBuild.slice_of(st)
 
 
 func _build_wreck_hauler(id: String) -> void:
