@@ -146,6 +146,55 @@ func taken() -> bool:
 	return Story.cruiser_taken() if is_home() else WorldState.has_flag(flag())
 
 
+## Issue #497: who holds the home cruiser, from flags alone (nothing new in the
+## save): Territory.REMNANT before it falls and on the dark master's oath,
+## Territory.LOCALS once it is taken and he has left it, "" while he is aboard.
+static func home_holder() -> String:
+	if not Story.cruiser_taken():
+		return Territory.REMNANT
+	if DarkPact.on_cruiser():
+		return ""
+	return Territory.REMNANT if DarkPact.joined() else Territory.LOCALS
+
+
+## Who crews this cruiser now: "remnant" (its own crew, before it falls), "locals"
+## or "oath" (its "holders" block, once taken), "" (nobody: the dark master is
+## aboard, or a cruiser with no holders).
+func holder() -> String:
+	if not taken():
+		return "remnant"
+	if not is_home() or (cfg.get("holders", {}) as Dictionary).is_empty():
+		return ""
+	match home_holder():
+		Territory.LOCALS:
+			return "locals"
+		Territory.REMNANT:
+			return "oath"
+	return ""
+
+
+## The holders block for `h` ("locals", "oath"), or {}.
+func holder_cfg(h: String) -> Dictionary:
+	return cfg.get("holders", {}).get(h, {})
+
+
+## Issue #497: the faction that lends you a bay ship (no alarm, no chase), or "":
+## you steal it. The locals lend to a friend of theirs; the oath's crew to you.
+func lender() -> String:
+	var h := holder()
+	var hc := holder_cfg(h)
+	if h == "locals" and int(WorldState.standing.get("locals", 0)) >= int(hc.get("friend_standing", 15)):
+		return "locals"
+	if h == "oath":
+		return "imperial_remnant"
+	return ""
+
+
+## What borrowing a bay ship costs in the lender's standing.
+func borrow_cost() -> int:
+	return int(holder_cfg(holder()).get("borrow_standing", -2))
+
+
 ## Whether a climb out to space here meets its escort: the home one's while Oda has
 ## you on it; any other's while it is not taken and you are flying for it (nose
 ## within the approach's cone, or already within Z's docking reach of it). Leaving
@@ -264,12 +313,15 @@ func _nearest(to: Vector3, spots: Array) -> float:
 func _tick_crew(spots: Array) -> void:
 	var wake := float(cfg.get("wake_distance", 2600.0))
 	var near := spots.any(func(s): return distance(s) <= wake)
-	if near and not woke and not taken():
+	if near and not woke and holder() != "":
 		_wake()
 	if not _queue.is_empty():
 		(_queue.pop_front() as Callable).call()
-	if taken() and not near and not crew.is_empty():
-		_abandon()                     # the survivors took the pods while you were away
+	if taken() and not near and woke:
+		# The survivors took the pods while you were away (issue #497: and whoever
+		# holds it now is aboard the next time you come).
+		_abandon()
+		woke = false
 	var sleep := float(cfg.get("sleep_distance", 460.0))
 	var now := Time.get_ticks_usec()
 	for g in crew:
@@ -368,20 +420,53 @@ func _wake() -> void:
 	woke = true
 	if not demo.has_method("make_soldier"):
 		return
-	var i := 0
-	for c in cfg.get("crew", []):
-		_queue.append(_add_crew.bind(c, i))
-		i += 1
+	for c in crew_plan():
+		_queue.append(_add_crew.bind(c, int(c.post)))
+	if holder() != "remnant":
+		return                         # issue #497: its new holders bring no general, no droids
 	if not cfg.get("general", {}).is_empty():
 		_queue.append(_add_general)
 	_queue.append(_add_droids)
+
+
+## Who stands where when it wakes: [{ post (its index in "crew"), soldier, at,
+## face, route?, name_key? }]. Its own crew before it falls; once taken, its
+## holders on their posts only (issue #497: the bay and the bridge); nobody while
+## the dark master is aboard.
+func crew_plan() -> Array:
+	var all: Array = cfg.get("crew", [])
+	var out: Array = []
+	var h := holder()
+	if h == "remnant":
+		for i in all.size():
+			var c: Dictionary = (all[i] as Dictionary).duplicate(true)
+			c["post"] = i
+			out.append(c)
+		return out
+	var posts: Dictionary = holder_cfg(h).get("posts", {})
+	for k in posts:
+		var idx := int(k)
+		if idx < 0 or idx >= all.size():
+			continue
+		var c: Dictionary = (all[idx] as Dictionary).duplicate(true)
+		c["post"] = idx
+		c["soldier"] = str(posts[k])
+		c["name_key"] = "npc:%s/%s_%d" % [id, h, idx]     # their own names, not the troopers' they replace
+		out.append(c)
+	return out
+
+
+## Whether its crew shoot you on sight: the Remnant's own crew (issue #193), not
+## on the oath (#303); the locals aboard go by your standing with them (#497).
+func crew_always_hostile() -> bool:
+	return holder() == "remnant" and not DarkPact.joined()
 
 
 func _add_crew(c: Dictionary, i: int) -> NpcBody:
 	var here := frame * WorldGround._v3(c.get("at", [0, 0, 0]))
 	var face := frame.basis * WorldGround._v3(c.get("face", [0, 0, -1]))
 	var g: NpcBody = demo.make_soldier(str(c.get("soldier", "cruiser_trooper")), here + Vector3(0, 0.05, 0),
-		atan2(face.x, face.z), "%s/crew_%d" % [id, i], "npc:%s/crew_%d" % [id, i], self)
+		atan2(face.x, face.z), "%s/crew_%d" % [id, i], str(c.get("name_key", "npc:%s/crew_%d" % [id, i])), self)
 	if g == null:
 		return null
 	_enlist(g)
@@ -418,7 +503,9 @@ func _enlist(g: NpcBody) -> void:
 		# the bay is shot at, not only you once you climb out of it.
 		garrison = demo._make_garrison("Garrison_" + id, [g], false,
 			frame * Vector3(0, CruiserHull.DECK_Y, (CruiserHull.BAY_Z.x + CruiserHull.BAY_Z.y) * 0.5), true)
-		garrison.always_hostile = not DarkPact.joined()     # issue #303: his crew is yours on the oath
+		# Issue #303: his crew is yours on the oath. Issue #497: the locals aboard go by
+		# your standing with them (the garrison takes their faction from its first body).
+		garrison.always_hostile = crew_always_hostile()
 		var outposts = demo.outposts
 		if outposts != null:
 			outposts.garrisons[id] = garrison      # a ship taken from its bay sounds its alarm
@@ -470,6 +557,7 @@ func _abandon() -> void:
 		if garrison != null:
 			garrison.remove_member(g)
 		demo.npcs.erase(g)
+		demo.locals.erase(g)
 		g.queue_free()
 	crew.clear()
 	general = null
@@ -477,6 +565,13 @@ func _abandon() -> void:
 		if is_instance_valid(u) and demo.droids != null:
 			demo.droids.remove_site_unit(u)
 	units.clear()
+	_queue.clear()
+	# Issue #497: the next crew may be someone else's, on a garrison of their own.
+	if garrison != null and is_instance_valid(garrison):
+		if demo.outposts != null and demo.outposts.garrisons.get(id) == garrison:
+			demo.outposts.garrisons.erase(id)
+		garrison.queue_free()
+	garrison = null
 
 
 # ------------------------------------------------------------------ the navmesh

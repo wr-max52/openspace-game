@@ -37,6 +37,7 @@ var _root_rest_origin := Vector3.ZERO
 var _pelvis_rest := Vector3.ZERO
 var _skel_in_body := Transform3D()
 var _order: Array = []             ## bone indices, parents first
+var _finger_bone: Dictionary = {}  ## issue #631: finger bone name -> index (-1 = not in this skin)
 
 
 ## Load and attach. Returns null (and changes nothing) if the model or its skeleton
@@ -244,6 +245,30 @@ func joint_xf(jn: String) -> Transform3D:
 	var t := _skel_in_body * Transform3D(g.basis.orthonormalized() * (_offset[bi] as Basis).inverse(), g.origin)
 	t.basis = t.basis.orthonormalized()
 	return t
+
+
+## Issue #631: close a hand's fingers, which the kit has no joints for (sync puts
+## them back to rest). `hand` is the bone prefix ("RightHand"); `fingers` maps a
+## finger ("Index") to { axis: [x, y, z], deg: [base, middle, tip] }: each of its
+## bones (RightHandIndex1..3) turns by deg about its own axis after its rest pose,
+## scaled by `k` (0 = rest, 1 = the full pose). Call after sync(). Missing bones are
+## skipped, so a skin without fingers keeps its hands as they are.
+func pose_fingers(hand: String, fingers: Dictionary, k: float) -> void:
+	for f in fingers:
+		var spec: Dictionary = fingers[f]
+		var a: Array = spec.get("axis", [1, 0, 0])
+		var axis := Vector3(float(a[0]), float(a[1]), float(a[2])).normalized()
+		var degs: Array = spec.get("deg", [])
+		for i in degs.size():
+			var bn := hand + str(f) + str(i + 1)
+			var bi: int = _finger_bone.get(bn, -2)
+			if bi == -2:
+				bi = skeleton.find_bone(bn)
+				_finger_bone[bn] = bi
+			if bi < 0:
+				continue
+			var rest := skeleton.get_bone_rest(bi).basis.get_rotation_quaternion()
+			skeleton.set_bone_pose_rotation(bi, rest * Quaternion(axis, deg_to_rad(float(degs[i]) * k)))
 
 
 ## Copy the kit joints onto the bones. Call after the animator and IK have run.
