@@ -1,5 +1,5 @@
 {
-  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts.",
+  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #627: a part with a 'model' fits only that vehicle (content/core/vehicles/<model>.json; none = the Sand-boxer), and a vehicle's 'shop_groups' limit the menu (the racer and the box truck: paint only); a vehicle's 'scrap_base' replaces 'base'.",
   "mechanic": {
     "name": "Dorrin Vask",
     "location": "mechanic_yard",
@@ -24,6 +24,7 @@
       "yes_scrap": "Yes, scrap her",
       "no_scrap": "No, keep her",
       "back": "Back",
+      "menu_nothing": "Nothing made for her yet",
       "buy": "%s  (%d cr)",
       "owned": "%s  - fitted",
       "locked": "%s  (%d cr)  - needs %s",
