@@ -6,6 +6,9 @@ extends SceneTree
 ##   godot --headless --path . -s res://tools/look/prep_vehicle.gd -- id=interceptor
 ##   godot --headless --path . -s res://tools/look/prep_vehicle.gd            # every entry
 ##
+## A new model's textures import lossless (21 MiB a map): import it, then run
+## tools/look/vram_textures.gd and import again to GPU-compress them.
+##
 ## Reads content/look/vehicle_models.json:
 ##   { id: { source, out, yaw_deg (turns the raw model so its nose faces -Z),
 ##           length (metres, nose to tail), max_span (metres; shrinks it further if

@@ -14,6 +14,14 @@ Plain English, newest on top. One entry per milestone.
 - **Best-lap sign on its antenna.** The best-lap sign at the start line now
   sits on its antenna instead of floating in the air.
 
+## Trousers stay on the legs (2026-11-25)
+
+- **No more cloth fin on the thigh.** The villagers' loose trousers (and anyone
+  wearing them in the character builder) grew a flap of cloth that swung out
+  after the hand when the arms moved. The lower body no longer follows the
+  arms, for every outfit. The guard's belt line and the player's waistband no
+  longer tug with the shoulders either.
+
 ## Nomad heads re-rendered, dyed to match their packs (2026-11-25)
 
 - **New nomad head.** The dune nomads now wear round goggles joined to a nose

@@ -1991,3 +1991,38 @@ there; between planets, past every bubble, it is open space, its own place.)
   times. Cannon tiers come down to +25% and +50% so a stacked salt crew cannot
   delete a racer in one volley.
 - **A crew's racer names its `model`;** the race gear stays crew-wide.
+
+
+## Vehicle textures are GPU-compressed (2026-11-25)
+
+- **Every texture in `assets/vehicles/` imports VRAM compressed.** The racer,
+  box truck, Sand-boxer, courier and gunship maps came in as lossless 2048
+  imports (21 MiB each with mipmaps, four per paint job), the Sand-boxer's old
+  convention, because Godot only switches an extracted .glb texture to VRAM
+  compressed when the editor draws it in 3D and our imports are headless. All 68
+  loaded together took 1190 MiB of video memory; now 277 MiB. Per-frame cost
+  is unchanged. `tools/look/vram_textures.gd` sets the imports; a new model or
+  paint job runs it after its first import.
+- **BC7 for colour, RGTC for normals, DXT1 for ORM and glow.** Godot's default
+  compressed mode (DXT1 for colour) blocked the racer's thin red stripe into
+  chevrons and banded the canopy up close. BC7 everywhere looked like the
+  lossless import but took 363 MiB and a 13-minute import. The mix is the same
+  as lossless to the eye in close stills of eight vehicles, and its BC7 colour
+  maps add about a minute to a fresh checkout's import. Alternative: smaller maps (`size_limit` 1024).
+  Rejected: the vehicles are what the player looks at up close.
+
+## The lower body never follows the arms (2026-11-25)
+
+- **Every outfit's legs piece drops its arm weights in the fit.** Outfits keep
+  their own Hyper3D weights (`own_weights`), and the auto-rig ties cloth beside
+  the hanging hands (the A-pose) to the hand and forearm. The villager's loose
+  trousers had 2,363 vertices on the arms, up to 83%, down to mid-thigh, so a
+  sheet of trouser cloth flew out after a swung arm; the guard's belt line was
+  35% on the shoulders and the player's waistband 5% on the arms.
+  `fit_parts.gd` (`_off_the_arms`) now takes each legs vertex's arm-chain
+  weight and makes it up from the base body's copied weights (the nearest base
+  leg vertex), as much as it lost, so the cloth eases from one to the other with
+  no seam. Geometry, UVs and the colour textures are unchanged.
+- Alternative: a `reweight` radius like the long coat's in `prep_character.gd`.
+  Rejected: nothing on the legs piece should ever move with the arms, so there
+  is no radius to tune. The torso keeps its arm weights (sleeves, gloves).

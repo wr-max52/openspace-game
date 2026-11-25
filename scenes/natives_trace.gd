@@ -149,6 +149,31 @@ func _run() -> void:
 	out("HORN", nat.horns >= 1)
 	out("HOSTILE_ATTACKS", hostile.state == "attack")
 	out("PLAYER_HURT", hurt)
+	# ---------------------------------------------------------------- run past the leash
+	# Nobody of theirs killed: get far enough away and the hunt (and its timer) is
+	# over for good, not stood down and re-horned every other frame.
+	var horns0: int = nat.horns
+	var leash := float(nat.people.get("hostile", {}).get("chase_leash_m", 160.0))
+	beside(hostile, leash + 60.0)
+	var flips := 0
+	var was: String = str(hostile.state)
+	for i in 60 * 3:
+		player.health.hp = player.max_health
+		await physics_frame
+		if str(hostile.state) != was:
+			flips += 1
+			was = str(hostile.state)
+	out("LEASH_STANDS_DOWN", hostile.state == "travel")
+	out("LEASH_FLIPS", flips)
+	out("LEASH_NO_REHORN", nat.horns == horns0)
+	out("LEASH_TIMER_GONE", not nat._timer_label.visible)
+	beside(hostile, 12.0)                 # back in sight: a new hunt
+	for i in 60 * 6:
+		player.health.hp = player.max_health
+		await physics_frame
+		if hostile.state == "attack":
+			break
+	out("LEASH_REHUNT", hostile.state == "attack")
 	# ---------------------------------------------------------------- survive 5 minutes
 	var survived := 0.0
 	var won := false
