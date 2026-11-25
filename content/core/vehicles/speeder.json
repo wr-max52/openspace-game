@@ -1,7 +1,7 @@
 {
   "id": "speeder",
   "label": "Atlantium Sand-boxer",
-  "note": "Issue #42: the one speeder Skrugs sells. Read by src/systems/vehicles/hover_model.gd (how it moves) and speeder_node.gd (how it looks, its hull and guns). It rides `hover_height` above whatever is under it (sand, floors, ramp tops) and turns ballistic when the ground drops away faster than it can follow (`launch_gap` in one frame): off the end of a ramp or over a dune crest. There is no jump button; low gravity makes it a light, floaty sled. No fall or crash damage: only gunfire hurts it. Issue #43: look.scene is the Hyper3D speeder (assets/vehicles/speeder.glb); the primitive sled is the fallback. label is its make and model from the name generator. Issue #82: the Atlantium Sand-boxer replaces the Curlew (assets/vehicles/sandboxer*.glb, one Hyper3D model in four paint jobs from content/look/vehicle_models.json). look.paints names them; SpeederNode takes one by name (empty = look.scene). Skrugs's speeders go round `sold_paints`; the Remnant's black and red one is parked outside the front gate (the 'remnant_speeder' marker in port_town.json). Issue #609: `seats` are where NPC riders sit, in the speeder's own frame (x right, y up, z back; their feet, sunk into the tub): the driver, and a second rider behind (content/core/vehicles/speeder_drivers.json drives it).",
+  "note": "Issue #42: the one speeder Skrugs sells. Read by src/systems/vehicles/hover_model.gd (how it moves) and speeder_node.gd (how it looks, its hull and guns). It rides `hover_height` above whatever is under it (sand, floors, ramp tops) and turns ballistic when the ground drops away faster than it can follow (`launch_gap` in one frame): off the end of a ramp or over a dune crest. There is no jump button; low gravity makes it a light, floaty sled. No fall or crash damage: only gunfire hurts it. Issue #43: look.scene is the Hyper3D speeder (assets/vehicles/speeder.glb); the primitive sled is the fallback. label is its make and model from the name generator. Issue #82: the Atlantium Sand-boxer replaces the Curlew (assets/vehicles/sandboxer*.glb, one Hyper3D model in four paint jobs from content/look/vehicle_models.json). look.paints names them; SpeederNode takes one by name (empty = look.scene). Skrugs's speeders go round `sold_paints`; the Remnant's black and red one is parked outside the front gate (the 'remnant_speeder' marker in port_town.json). Issue #627: `look.stand_in` is the primitive sled built when there is no model (its pieces: box or cyl, size, at, rot in degrees, which look colour, `mirror` for both sides; `fan` is the spinning rear fan), and `sleep_distance` is how far every player must be before a parked one stops stepping its hover. racer.json and hauler.json are the other models Skrugs sells. Issue #609: `seats` are where NPC riders sit, in the speeder's own frame (x right, y up, z back; their feet, sunk into the tub): the driver, and a second rider behind (content/core/vehicles/speeder_drivers.json drives it).",
   "hover_height": 1.05,
   "follow_rate": 14.0,
   "launch_gap": 0.45,
@@ -21,6 +21,7 @@
   "bump_bounce": 0.25,
   "health": 120,
   "board_reach": 3.2,
+  "sleep_distance": 60.0,
   "seats": {
     "driver": [0.0, -0.62, 0.35],
     "rider": [0.0, -0.55, 1.55]
@@ -44,7 +45,20 @@
       "steel",
       "tide",
       "crimson"
-    ]
+    ],
+    "stand_in": [
+      { "shape": "box", "size": [1.5, 0.5, 3.0], "at": [0, -0.15, 0.1], "mat": "hull" },
+      { "shape": "box", "size": [1.2, 0.35, 1.0], "at": [0, -0.05, -1.75], "rot": [-18, 0, 0], "mat": "hull" },
+      { "shape": "box", "size": [1.56, 0.1, 3.06], "at": [0, 0.12, 0.1], "mat": "trim" },
+      { "shape": "box", "size": [0.7, 0.3, 0.8], "at": [0, 0.15, 0.6], "mat": "seat" },
+      { "shape": "box", "size": [0.9, 0.5, 0.12], "at": [0, 0.3, -0.55], "rot": [-25, 0, 0], "mat": "metal" },
+      { "shape": "cyl", "top": 0.16, "bottom": 0.16, "h": 4.4, "at": [1.25, -0.45, -0.1], "rot": [90, 0, 0], "mat": "trim", "mirror": true },
+      { "shape": "cyl", "top": 0.05, "bottom": 0.05, "h": 0.6, "at": [1.0, -0.3, -1.0], "rot": [0, 0, 50], "mat": "metal", "mirror": true },
+      { "shape": "cyl", "top": 0.05, "bottom": 0.05, "h": 0.6, "at": [1.0, -0.3, 0.9], "rot": [0, 0, 50], "mat": "metal", "mirror": true },
+      { "shape": "box", "size": [0.24, 0.04, 3.8], "at": [1.25, -0.63, -0.1], "mat": "glow", "mirror": true },
+      { "shape": "cyl", "top": 0.6, "bottom": 0.6, "h": 0.35, "at": [0, 0.15, 1.85], "rot": [90, 0, 0], "mat": "metal", "name": "Duct" }
+    ],
+    "fan": { "at": [0, 0.15, 1.85], "blades": 3, "size": [0.12, 1.0, 0.04], "mat": "trim" }
   },
   "laser": {
     "damage": 18,

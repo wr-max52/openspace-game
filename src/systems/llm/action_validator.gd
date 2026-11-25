@@ -63,8 +63,16 @@ static func validate(actions: Array, briefing: Dictionary, ctx: Dictionary) -> D
 					out["price"] = int(menu[id].price)      # the game's price, never the model's
 			"offer_speeder":
 				var sale: Dictionary = briefing.get("sale", {})
+				var model := _sale_model(sale, str(a.get("id", "")))      # issue #627: which model
 				if sale.is_empty():
 					why = "nothing for sale"
+				elif sale.get("models") is Array:
+					if model.is_empty():
+						why = "model not for sale to them"
+					else:
+						out["id"] = str(model.get("id", ""))
+						out["name"] = str(model.get("name", ""))
+						out["price"] = int(model.get("price", 0))      # the game's price, never the model's
 				else:
 					out["id"] = str(sale.get("id", ""))
 					out["name"] = str(sale.get("name", ""))
@@ -134,3 +142,14 @@ static func _drink_id(menu: Dictionary, a: Dictionary) -> String:
 		if id == want or str(menu[id].name).to_lower() == want:
 			return id
 	return ""
+
+
+## Issue #627: the sale's model with id (or name) `want`, among the ones still for
+## sale to them (the briefing's sale.models); the first when `want` is empty.
+static func _sale_model(sale: Dictionary, want: String) -> Dictionary:
+	var models: Array = sale.get("models", []) if sale.get("models") is Array else []
+	var w := want.to_lower().strip_edges()
+	for m in models:
+		if w == "" or str(m.get("id", "")).to_lower() == w or str(m.get("name", "")).to_lower() == w:
+			return m
+	return {}
