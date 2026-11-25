@@ -59,6 +59,14 @@ var menu: DroidMenu
 var races_run := 0
 var track_beast: PlanetBeast          ## issue #612: the second beast, on the course while a race runs
 var pink := false                     ## issue #617: this race is for pink slips (your speeder against the leader's)
+## Issue #618: race feel.
+var race_t := 0.0                     ## seconds since GO
+var clean_gates := 0                  ## checkpoints you took dead centre (each a boost)
+var finish_cam_on := false
+var _lap_t0 := -1.0                   ## race_t when your current lap began
+var _fc_end_ms := 0
+var _fc_layer: CanvasLayer
+var _fc_hidden: Array = []            ## the HUD layers the finish cam hid
 
 var _hud: CanvasLayer
 var _hud_lap: Label
@@ -714,6 +722,9 @@ func go() -> void:
 	_big(str(rules().get("hud", {}).get("go", "GO!")), 1.2)
 	Sound.play(rule_text("go_sound"))
 	course.flash(0, false)
+	race_t = 0.0
+	_lap_t0 = -1.0
+	clean_gates = 0
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
 		_last[YOU] = _player_speeder.model.position
@@ -754,12 +765,10 @@ func _tick_racing(dt: float) -> void:
 			_out(why)
 		elif _last.has(YOU) and you_pos != Vector3.INF:
 			for e in course.step_racer(laps, YOU, _last[YOU], you_pos, true):
-				if str(e.type) == "finish":
-					results.append(YOU)
-				elif str(e.type) == "pass" and int(e.gate) == 0:
-					_cheer()
+				_you_event(e)
 		if you_pos != Vector3.INF:
 			_last[YOU] = you_pos
+	race_t += dt
 	var shoot_lap := int(r("shoot_from_lap", 2))
 	_jeer_left -= dt
 	for rc in racers:
@@ -804,6 +813,171 @@ func _tick_racing(dt: float) -> void:
 		Objective.race = { "text": _gate_text(), "target": "race:%s:%d" % [course.id, laps.next_gate(YOU)], "key": "race" }
 	if results.has(YOU) or player_out != "":
 		_end_race()
+
+
+## One of your crossings (RaceLaps events): the finish, the crowd's cheer, the
+## clean-gate boost and the lap clock (issue #618).
+func _you_event(e: Dictionary) -> void:
+	match str(e.type):
+		"finish":
+			results.append(YOU)
+			_maybe_finish_cam()
+		"pass":
+			if int(e.gate) == 0:
+				_cheer()
+		"start":
+			_lap_t0 = race_t
+		"gate":
+			if float(e.off) <= rule("gate_boost_off", 0.25):
+				_clean_gate()
+		"lap":
+			_lap_done()
+
+
+## Dead centre through a checkpoint: a little boost back, a chime.
+func _clean_gate() -> void:
+	clean_gates += 1
+	if _player_speeder != null and is_instance_valid(_player_speeder):
+		var m := _player_speeder.model
+		var tank := m.p("boost_time", 3.5)
+		m.boost_left = minf(tank, m.boost_left + tank * rule("gate_boost", 0.35))
+	Sound.play("droid_beep")
+
+
+## A lap of yours done: its time against your best on this course.
+func _lap_done() -> void:
+	if _lap_t0 < 0.0:
+		return
+	var t := race_t - _lap_t0
+	_lap_t0 = race_t
+	var key := "race_best_" + course.id
+	var best := int(WorldState.counters.get(key, 0))
+	var ms := int(round(t * 1000.0))
+	if best == 0 or ms < best:
+		WorldState.counters[key] = ms
+		_toast(str(rules().get("hud", {}).get("record", "New lap record: %s")) % clock(t), 3.5)
+		course.refresh_record()
+
+
+## "1:12.4".
+static func clock(t: float) -> String:
+	if t <= 0.0:
+		return "--:--.-"
+	return "%d:%04.1f" % [int(t) / 60, fmod(t, 60.0)]
+
+
+# ------------------------------------------------------------------ finish cam (issue #618)
+
+## You crossed the line: a close finish (another racer within finish_gap_s of the
+## line) or a win gets the finish cam.
+func _maybe_finish_cam() -> void:
+	if not bool(rules().get("finish_cam", true)):
+		return
+	var close := results.size() == 1                # you won
+	var g: Dictionary = course.gates[0]
+	for rc in racers:
+		if bool(rc.out) or rc.speeder == null or not is_instance_valid(rc.speeder):
+			continue
+		var m: HoverModel = rc.speeder.model
+		var gap := absf(((g.pos as Vector3) - m.position).dot(g.fwd)) / maxf(absf(m.speed), 1.0)
+		if gap <= rule("finish_gap_s", 1.0):
+			close = true
+	if close:
+		start_finish_cam()
+
+
+## Time slows to `finish_slow` for finish_cam_s (real seconds); the view cuts to a
+## low side shot of your speeder; the replay filter goes over it.
+func start_finish_cam() -> void:
+	if finish_cam_on or _player_speeder == null or not is_instance_valid(_player_speeder):
+		return
+	finish_cam_on = true
+	Engine.time_scale = rule("finish_slow", 0.33)
+	_fc_end_ms = Time.get_ticks_msec() + int(rule("finish_cam_s", 2.2) * 1000.0)
+	_aim_finish_cam()
+	_player_speeder.cam_override_on = true
+	_player_speeder.cam_override_fov = rule("finish_fov", 50.0)
+	if bool(rules().get("finish_filter", true)):
+		_filter(true)
+
+
+func _aim_finish_cam() -> void:
+	var m := _player_speeder.model
+	var right := m.forward().cross(m.up()).normalized()
+	var at := m.position + right * rule("finish_cam_side_m", 7.0) + m.forward() * 6.0 + m.up() * 0.9
+	_player_speeder.cam_override = Transform3D(Basis.IDENTITY, at).looking_at(m.position + m.up() * 0.6, m.up())
+
+
+func _tick_finish_cam() -> void:
+	if not finish_cam_on:
+		return
+	if Time.get_ticks_msec() >= _fc_end_ms or _player_speeder == null or not is_instance_valid(_player_speeder):
+		stop_finish_cam()
+		return
+	_aim_finish_cam()
+
+
+func stop_finish_cam() -> void:
+	finish_cam_on = false
+	Engine.time_scale = 1.0
+	if _player_speeder != null and is_instance_valid(_player_speeder):
+		_player_speeder.cam_override_on = false
+	_filter(false)
+
+
+## The replay look: letterbox bars, the vignette turned up, a warm wash. No new
+## shaders: two bars and a tint on a canvas layer, and the look's own vignette.
+func _filter(on: bool) -> void:
+	var f: Dictionary = rules().get("finish_filter_look", {})
+	if on and _fc_layer == null:
+		_fc_layer = CanvasLayer.new()
+		_fc_layer.layer = int(f.get("layer", 50))       # over the HUD: a replay has no HUD bars
+		add_child(_fc_layer)
+		var wash := ColorRect.new()
+		wash.color = Color(str(f.get("tint", "#ffb060"))) * Color(1, 1, 1, float(f.get("tint_alpha", 0.12)))
+		wash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fc_layer.add_child(wash)
+		for top in [true, false]:
+			var bar := ColorRect.new()
+			bar.color = Color.BLACK
+			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var px := float(f.get("bar_px", 70.0))
+			bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+			if top:
+				bar.offset_bottom = px
+			else:
+				bar.offset_top = -px
+			_fc_layer.add_child(bar)
+	if _fc_layer != null:
+		_fc_layer.visible = on
+	# A replay has no HUD: hide the other canvas layers while it runs, then put
+	# back exactly the ones that were showing.
+	if on:
+		_fc_hidden.clear()
+		for c in get_tree().root.find_children("*", "CanvasLayer", true, false):
+			var cl := c as CanvasLayer
+			if cl != _fc_layer and cl.visible and cl.layer < _fc_layer.layer:
+				cl.visible = false
+				_fc_hidden.append(cl)
+	else:
+		for cl in _fc_hidden:
+			if is_instance_valid(cl):
+				cl.visible = true
+		_fc_hidden.clear()
+	var look = demo.get("look") if demo != null else null
+	if look != null and is_instance_valid(look) and look.get("vignette") != null:
+		var vm = look.vignette.material
+		if vm is ShaderMaterial:
+			if on:
+				vm.set_shader_parameter("strength", float(f.get("vignette", 0.6)))
+			elif look.has_method("_apply_vignette"):
+				look._apply_vignette()
+
+
+func _exit_tree() -> void:
+	if finish_cam_on:
+		Engine.time_scale = 1.0
 
 
 func _you_pos() -> Vector3:
@@ -976,6 +1150,7 @@ func _gate_text() -> String:
 func _physics_process(dt: float) -> void:
 	if not found:
 		return
+	_tick_finish_cam()
 	match phase:
 		Phase.IDLE:
 			_tick_focus()
@@ -1058,6 +1233,9 @@ func _update_hud() -> void:
 	var place := int(places().get(YOU, 1))
 	var names: Array = h.get("places", ["1st", "2nd", "3rd", "4th"])
 	_hud_lap.text = (str(h.get("lap", "LAP %d/%d")) % [lap_now, total]) + "\n" + str(names[clampi(place - 1, 0, names.size() - 1)])
+	# Issue #618: this lap's clock against your best here.
+	if _lap_t0 >= 0.0:
+		_hud_lap.text += "\n" + str(h.get("split", "%s  best %s")) % [clock(race_t - _lap_t0), clock(best_lap())]
 	_hud_lap.visible = true
 
 
