@@ -566,12 +566,38 @@ static func draw_shape(ci: CanvasItem, at: Vector2, shape: String, col: Color, r
 			ci.draw_polyline(ring.slice(0, 17), col, 1.5, true)
 			return
 		"cruiser":
-			# a long wedge, nose right, with a notch at the stern for the drives
-			pts = PackedVector2Array([at + Vector2(r * 1.5, 0), at + Vector2(-r * 1.2, -r * 0.8),
-				at + Vector2(-r * 0.7, 0), at + Vector2(-r * 1.2, r * 0.8)])
+			draw_cruiser_badge(ci, at, col, r)
+			return
 		_:
 			ci.draw_circle(at, r * 0.85 + 1.0, edge)
 			ci.draw_circle(at, r * 0.85, col)
 			return
 	ci.draw_colored_polygon(pts, col)
 	ci.draw_polyline(pts + PackedVector2Array([pts[0]]), edge, 1.2, true)
+
+
+## Half the size of a cruiser badge drawn at `r` (px): for hit tests and layout.
+static func cruiser_badge_half(r: float) -> Vector2:
+	return Vector2(r * 1.9, r * 1.15)
+
+
+## The cruiser's icon: a small dark frame in `col` with the ship side on inside it
+## (bow right, the bridge tower near the stern, the drives glowing), so it reads as
+## a ship you can click, never as a pointer like your own triangle.
+static func draw_cruiser_badge(ci: CanvasItem, at: Vector2, col: Color, r: float) -> void:
+	var half := cruiser_badge_half(r)
+	var box := Rect2(at - half, half * 2.0)
+	ci.draw_rect(box.grow(1.0), Color(0, 0, 0, 0.85))
+	ci.draw_rect(box, Color(0.04, 0.045, 0.06, 0.92))
+	ci.draw_rect(box, col, false, 1.5)
+	var o := at + Vector2(r * 0.12, r * 0.05)
+	var hull := PackedVector2Array()
+	for p in [Vector2(1.55, 0.18), Vector2(0.55, -0.2), Vector2(-0.25, -0.2), Vector2(-0.4, -0.72),
+			Vector2(-0.95, -0.72), Vector2(-1.05, -0.2), Vector2(-1.4, -0.24), Vector2(-1.4, 0.42),
+			Vector2(-1.05, 0.58), Vector2(0.85, 0.5)]:
+		hull.append(o + p * r)
+	ci.draw_colored_polygon(hull, col)
+	ci.draw_line(o + Vector2(-1.0, 0.16) * r, o + Vector2(0.9, 0.16) * r, Color(0, 0, 0, 0.45), maxf(r * 0.12, 1.0))
+	var glow := Color(0.62, 0.86, 1.0)
+	ci.draw_circle(o + Vector2(-1.52, -0.02) * r, maxf(r * 0.14, 1.0), glow)
+	ci.draw_circle(o + Vector2(-1.52, 0.26) * r, maxf(r * 0.14, 1.0), glow)

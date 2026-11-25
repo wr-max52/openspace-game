@@ -21,7 +21,7 @@ extends RefCounted
 ## does each time it opens.
 ##
 ## Off planet: every planet you can fly to from here (SpaceTravel's bodies) and
-## the Remnant cruiser when this world has one, as { id, kind, label, target }.
+## every Remnant cruiser in the system, as { id, kind, label, target }.
 ##
 ## The waypoint lives in WorldState.map_waypoint (saved): { id, label, target,
 ## planet, arrive }. One pointer at a time: setting it turns any quest's waypoint
@@ -213,18 +213,18 @@ static func spot_pin(map: Vector2) -> Dictionary:
 
 
 ## The places off this planet: [{ id, kind, label, target }]. `bodies` are
-## SpaceTravel's ({ id, name }).
-static func off_planet(bodies: Array, world: Dictionary) -> Array:
+## SpaceTravel's ({ id, name }). Then every cruiser in the system (`cruisers`,
+## system_cruisers), each with the planet it hangs over and who holds it (issue
+## #497: coloured by that, the locals' green once they do).
+static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Array:
 	var out: Array = []
 	for b in bodies:
 		var label := str(b.get("name", ""))
 		out.append({ "id": "planet_" + str(b.id), "kind": "planet",
 			"label": label if label != "" else str(b.id).capitalize(), "target": "planet:" + str(b.id) })
-	for lm in world.get("landmarks", []):
-		if str(lm.get("kind", "")) == "cruiser":
-			# Issue #497: coloured by who holds it (the locals' green once they do).
-			out.append({ "id": str(lm.id), "kind": "cruiser", "label": _kind_label("cruiser"), "target": "cruiser",
-				"owner": CruiserHolo.owner_of(CruiserHolo.CRUISER) })
+	for c in cruisers:
+		out.append({ "id": str(c.id), "kind": "cruiser", "label": line("cruiser_over") % planet_name(str(c.planet)),
+			"target": "cruiser", "planet": str(c.planet), "cfg": str(c.cfg), "owner": cruiser_owner(c) })
 	return out
 
 
@@ -404,17 +404,86 @@ static func _port(id: String) -> Vector3:
 	return b.port if not b.is_empty() else Vector3.INF
 
 
-## The Remnant cruiser in the system frame, over the planet whose world has it
-## (its "cruiser" landmark: a map point and an altitude), or INF when none does.
+## The first Remnant cruiser in the system frame (system_cruisers), or INF when
+## there is none.
 static func system_cruiser() -> Vector3:
+	var all := system_cruisers()
+	return all[0].pos if not all.is_empty() else Vector3.INF
+
+
+static var _cruisers: Array = []
+
+
+## Every Remnant cruiser in the system (each planet's "cruiser" landmarks: the home
+## one over the port's planet, issue #327's by the ringed giant's station), the
+## home planet's first: [{ id (its landmark), cfg (content/core/cruiser/<cfg>.json),
+## planet, pos (system frame) }]. Once a session; its name and who holds it change
+## with the save: cruiser_label, cruiser_owner. A planet has at most one, so the
+## Map page names a cruiser by the planet it hangs over ("cruiser:<planet>").
+static func system_cruisers() -> Array:
+	if not _cruisers.is_empty():
+		return _cruisers
 	for b in system():
-		for lm in PlanetGen.build(str(b.id)).get("world", {}).get("landmarks", []):
-			if str(lm.get("kind", "")) != "cruiser" or not lm.has("at"):
+		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
+		for lm in CruiserHull.landmarks(world):
+			if not lm.has("at"):
 				continue
 			var at: Array = lm.at
 			var r := float(b.radius)
-			return (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
-	return Vector3.INF
+			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
+			_cruisers.append({ "id": str(lm.get("id", "")), "cfg": CruiserHull.config_id(lm), "planet": str(b.id), "pos": pos })
+			break                                # one a planet
+	return _cruisers
+
+
+## The cruiser over planet `planet` (system_cruisers), or {}.
+static func cruiser_on(planet: String) -> Dictionary:
+	for c in system_cruisers():
+		if str(c.planet) == planet:
+			return c
+	return {}
+
+
+## A cruiser's name, as RemnantCruiser.label gives it: its config's label and the
+## name this save gave the ship.
+static func cruiser_label(c: Dictionary) -> String:
+	var cfg := CruiserHull.data_for(str(c.get("cfg", "")))
+	var l := str(cfg.get("label", _kind_label("cruiser")))
+	var n := NameHooks.vessel(cfg, "vessel:" + str(cfg.get("id", c.get("cfg", ""))))
+	return "%s %s" % [l, n] if n != "" else l
+
+
+## Who holds a cruiser now: the home one by RemnantCruiser.home_holder (issue
+## #497: the Remnant, the locals, "" while the dark master is aboard); any other
+## the Remnant's until its general dies (its config's flag), then nobody's ("").
+static func cruiser_owner(c: Dictionary) -> String:
+	var cfg_id := str(c.get("cfg", ""))
+	if cfg_id == "" or cfg_id == CruiserHull.HOME_ID:
+		return CruiserHolo.owner_of(CruiserHolo.CRUISER)
+	return "" if WorldState.has_flag(str(CruiserHull.data_for(cfg_id).get("flag", ""))) else Territory.REMNANT
+
+
+## The hover line for who holds a cruiser.
+static func cruiser_status(c: Dictionary) -> String:
+	match cruiser_owner(c):
+		Territory.REMNANT:
+			return line("cruiser_remnant")
+		Territory.LOCALS:
+			return line("cruiser_locals")
+	return line("cruiser_empty")
+
+
+## A cruiser's icon colour: the pin's red while the Remnant hold it, the locals'
+## green, the owners' "empty" grey once nobody does.
+static func cruiser_color(c: Dictionary) -> Color:
+	var lk := look()
+	var ow: Dictionary = lk.get("owners", {})
+	match cruiser_owner(c):
+		Territory.REMNANT:
+			return Color(str(lk.get("pins", {}).get("cruiser", {}).get("color", "#e0573a")))
+		Territory.LOCALS:
+			return Color(str(ow.get("locals", "#5fd35f")))
+	return Color(str(ow.get("empty", "#a89a80")))
 
 
 ## A planet's name for the map's title and its lines.
