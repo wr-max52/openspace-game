@@ -1,7 +1,7 @@
 {
   "id": "basin",
   "label": "the basin crew",
-  "note": "Issue #615: the second rung of the race ladder: three locals who race out of the droid post in the basin, south of the port, on the Basin Run. They only race you once you have beaten the yard crew (`after`). Same shape as yard.json (read its note); `rung` orders the ladder, `after` is the crew you must beat first, and `rules.gear` the race gear they may use (issue #616).",
+  "note": "Issue #615: the second rung of the race ladder: three locals who race out of the droid post in the basin, south of the port, on the Basin Run. They only race you once you have beaten the yard crew (`after`). Same shape as yard.json (read its note); `rung` orders the ladder, `after` is the crew you must beat first, and `rules.gear` the race gear they may use (issue #616). Speeder classes: the second racer drives a box truck with a racing engine (`model`), the fastest thing here on a straight; the others ride tuned Sand-boxers; they bring seekers and mines.",
   "rung": 2,
   "after": "yard",
   "course": "basin_run",
@@ -23,7 +23,7 @@
       "paint": "steel",
       "parts": [
         "engine_2",
-        "thrusters_2",
+        "thrusters_1",
         "turbo_boosters"
       ],
       "skill": "ace"
@@ -36,7 +36,8 @@
         "torso": "local:lighter",
         "legs": "local:darker"
       },
-      "paint": "tide",
+      "model": "hauler",
+      "paint": "",
       "parts": [
         "engine_2",
         "thrusters_1"
@@ -51,10 +52,11 @@
         "torso": "local:blue",
         "legs": "local:darker"
       },
-      "paint": "steel",
+      "paint": "tide",
       "parts": [
         "engine_1",
-        "thrusters_2",
+        "thrusters_1",
+        "cannons_1",
         "soft_top"
       ],
       "skill": "racer"
@@ -69,7 +71,8 @@
     "off_course_m": 400.0,
     "crowd": [5, 10],
     "gear": [
-      "seekers"
+      "seekers",
+      "mines"
     ]
   },
   "lines": {
@@ -82,7 +85,7 @@
     "talk": "[E] Talk to {name}",
     "challenge": [
       "The yard crew sent you? Cute. Out here we race for real money.",
-      "Two laps of the basin. Seekers allowed. Still want in?"
+      "Two laps of the basin. Seekers and mines allowed. Still want in?"
     ],
     "menu_title": "{name} \u2014 {crew}",
     "menu_body": "{course}: {laps} laps through the gates. {rule} Winner takes {multiple} times the buy-in. Your best lap here: {best}.",

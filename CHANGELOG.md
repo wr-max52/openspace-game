@@ -2,6 +2,29 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Speeder classes: upgrades for every speeder, and a race ladder by ride (2026-11-25)
+
+- **Three classes of speeder.** The Korvane Stiletto is the light one: the
+  quickest off the line, the sharpest turn and the hardest boost, with half a
+  Sand-boxer's armor (60). The Sand-boxer stays the all-rounder (120). The
+  Ironbridge Boxcar is the heavy one: the highest top speed on the sand (44,
+  55 with a racing engine), but it is always slow to get going, even with Twin
+  thrusters, and it has three Sand-boxers' armor (360).
+- **Every speeder takes parts now.** Engines, thrusters, cannons, race gear and
+  the Grav Lifter fit the racer and the box truck as well as the Sand-boxer,
+  at Dorrin's and Skrugs's bench. Paint and looks are still the Sand-boxer's.
+- **The race ladder climbs by ride.** The yard crew race near-stock
+  Sand-boxers with lasers only. The basin crew bring a fast box truck, more
+  tuned Sand-boxers, seekers and mines. The salt crew field a lightly tuned
+  racer beside a fully stacked Sand-boxer and a fully stacked box truck, with
+  every piece of race gear.
+- **Weapons and armor are balanced.** A laser bolt takes about 15% off a
+  Sand-boxer; a seeker (hit and splash) or a mine takes a third, so three
+  wreck one. The racer goes in half that, the truck takes three times as much.
+  Cannon upgrades are now +25% and +50% (were +30% and +70%).
+- Race drivers in a box truck no longer stall their own speed up by drifting
+  on the straights.
+
 ## New version is 1.7 (2026-11-24)
 
 - Share builds are now **OpenSpace V1.7**. Everything below, down to "New

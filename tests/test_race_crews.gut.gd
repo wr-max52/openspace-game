@@ -116,6 +116,83 @@ func test_the_story_never_needs_a_locked_part() -> void:
 			assert_false(txt.contains('"%s"' % id), "the story and board never ask for %s" % id)
 
 
+# ---- speeder classes: who rides what, rung by rung ----------------------------
+
+func _crew_file(id: String) -> Dictionary:
+	return JSON.parse_string(FileAccess.get_file_as_string("res://content/core/racing/crews/%s.json" % id))
+
+
+func _models(crew: Dictionary) -> Array:
+	return (crew.racers as Array).map(func(r): return SpeederUpgrades.model_of(r))
+
+
+func _tier_two(parts: Array) -> bool:
+	return parts.any(func(p): return str(SpeederUpgrades.part(str(p)).get("requires", "")) != "")
+
+
+func test_the_yard_crew_ride_basic_sand_boxers_with_lasers_only() -> void:
+	var yard := _crew_file("yard")
+	assert_eq(_models(yard), ["speeder", "speeder", "speeder"], "all Sand-boxers")
+	assert_true((yard.rules.get("gear", []) as Array).is_empty(), "no race gear: lasers only")
+	for r in yard.racers:
+		assert_false(_tier_two(r.parts), "first-tier parts at most")
+		assert_lte((r.parts as Array).filter(func(p): return str(SpeederUpgrades.part(str(p)).group) == "performance").size(), 1,
+			"one performance part at most")
+
+
+func test_the_basin_crew_bring_a_fast_truck_seekers_and_mines() -> void:
+	var basin := _crew_file("basin")
+	assert_eq(_models(basin).count("hauler"), 1, "one box truck")
+	assert_eq(_models(basin).count("speeder"), 2, "and two Sand-boxers")
+	assert_eq(basin.rules.gear, ["seekers", "mines"])
+	var yard_perf := 0
+	for r in _crew_file("yard").racers:
+		yard_perf += (r.parts as Array).filter(func(p): return str(SpeederUpgrades.part(str(p)).group) == "performance").size()
+	var basin_perf := 0
+	for r in basin.racers:
+		basin_perf += (r.parts as Array).filter(func(p): return str(SpeederUpgrades.part(str(p)).group) == "performance").size()
+		if SpeederUpgrades.model_of(r) == "hauler":
+			assert_has(r.parts, "engine_2", "the truck is a fast one")
+	assert_gt(basin_perf, yard_perf, "more tuned than the yard crew")
+
+
+func test_the_salt_crew_stack_their_sand_boxer_and_truck() -> void:
+	var salt := _crew_file("salt")
+	assert_eq(_models(salt).count("racer"), 1, "a racer")
+	assert_eq(_models(salt).count("hauler"), 1, "a box truck")
+	assert_eq(_models(salt).count("speeder"), 1, "a Sand-boxer")
+	assert_eq(salt.rules.gear, ["seekers", "mines", "deflector", "nitro"], "every piece of race gear")
+	for r in salt.racers:
+		var parts: Array = r.parts
+		if SpeederUpgrades.model_of(r) == "racer":
+			assert_false(_tier_two(parts), "the racer: some upgrades")
+			assert_false(parts.is_empty())
+		else:
+			for top in ["engine_2", "thrusters_2", "cannons_2"]:
+				assert_has(parts, top, "%s: fully stacked" % SpeederUpgrades.model_of(r))
+
+
+func test_a_crew_racer_keeps_its_model_on_pink_slips() -> void:
+	var fit := RaceCrew._own_fit({ "model": "hauler", "paint": "", "parts": ["engine_2"] })
+	assert_eq(fit.model, "hauler")
+	assert_eq(RaceCrew.ride_label(fit), "the Boxcar (racing engine)")
+	assert_eq(RaceCrew.ride_label({ "paint": "steel", "parts": [] }), "the steel Sand-boxer", "no model: a Sand-boxer")
+
+
+## Health and weapons: a bolt is 15% of a Sand-boxer, a seeker (hit and splash)
+## or a mine a third; the racer takes half that, the truck three times.
+func test_hits_to_wreck_each_class() -> void:
+	var seeker: Dictionary = SpeederUpgrades.part("seekers").gear
+	var mine: Dictionary = SpeederUpgrades.part("mines").gear
+	var laser := float(HoverModel.load_config("speeder").laser.damage)
+	var hits := func(hp: float, dmg: float) -> int: return int(ceil(hp / dmg))
+	var want := { "racer": [4, 2, 2], "speeder": [7, 3, 3], "hauler": [20, 9, 9] }
+	for model in want:
+		var hp := float(HoverModel.load_config(model).health)
+		var got := [hits.call(hp, laser), hits.call(hp, float(seeker.damage) + float(seeker.splash_damage)), hits.call(hp, float(mine.vehicle_damage))]
+		assert_eq(got, want[model], "%s: laser bolts, seekers, mines to wreck" % model)
+
+
 func test_the_map_shows_the_races_you_have_heard_of() -> void:
 	var ids := func(): return GlobeMap.race_pins("port_desert").map(func(p): return str(p.id))
 	assert_eq(ids.call().size(), 0, "no speeder, no races heard of")
