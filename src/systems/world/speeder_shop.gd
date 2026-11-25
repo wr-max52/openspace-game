@@ -8,6 +8,11 @@ extends Node
 ##              the Grav Lifter, selling the speeder for scrap), or "bring one
 ##              round" with no speeder in the bay.
 ##
+## A shop with "sells_speeders" (Dorrin's, not Skrugs's bench) also sells every
+## model Skrugs does, at his prices, one of each to a customer whoever sold it
+## ("Buy a speeder", there with or without a speeder in the bay; buy_speeder).
+## The new one waits in the row outside the town's back gate, like all new ones.
+##
 ## It only works on a speeder of yours parked in its bay (within bay_radius of the
 ## bay point). Parts are paid for here and fitted at once (SpeederPost.refit
 ## rebuilds the speeder where it stands). The fit is saved per speeder
@@ -31,6 +36,7 @@ var player: CharacterBody3D
 var cfg: Dictionary = {}              ## SpeederUpgrades.shop(id): name, bay_radius, voice, lines, labels
 var bay: Callable                     ## () -> Vector3: the bay, in the world
 var speaker: Node3D                   ## who says the lines (his voice comes from there), may be null
+var speeders_sold := 0                ## speeders sold here this session (tests, traces)
 var menu: DroidMenu
 var said := ""                        ## the last line, for tests
 var fitted := 0                       ## parts sold this session (tests, traces)
@@ -107,19 +113,29 @@ func _fit(s: SpeederNode) -> Dictionary:
 
 # ------------------------------------------------------------------ the menu
 
-## [E]: the top menu, or "bring one round" with no speeder in the bay.
+## [E]: the top menu, or "bring one round" with no speeder in the bay (a shop
+## that sells speeders opens its menu all the same, with only that in it).
 func talk() -> void:
 	var s := speeder_in_bay()
-	if s == null:
+	if s == null and not sells_speeders():
 		_say(_line("no_speeder"))
 		return
-	_open(_line("hello"), top_options(), _on_top)
+	_open(_line("hello") if s != null else _line("no_speeder"), top_options(), _on_top)
+
+
+## This shop sells speeders too (Dorrin's), and there is a post to sell them from.
+func sells_speeders() -> bool:
+	return bool(cfg.get("sells_speeders", false)) and _post() != null
+
+
+func _post() -> SpeederPost:
+	return demo.speeder_post if demo != null and "speeder_post" in demo else null
 
 
 func top_options() -> Array:
 	var s := speeder_in_bay()
 	if s == null:
-		return []
+		return [{ "id": "speeders", "text": label("menu_speeders") }] if sells_speeders() else []
 	var fit := _fit(s)
 	# Issue #627: only the groups this model takes (the racer and the box truck: paint).
 	var model := SpeederUpgrades.model_of(fit)
@@ -131,6 +147,8 @@ func top_options() -> Array:
 	for p in SpeederUpgrades.in_group_for("lifter", model):
 		opts.append(_row(fit, p))
 	opts.append({ "id": "scrap", "text": label("menu_scrap") % SpeederUpgrades.scrap_value(fit) })
+	if sells_speeders():
+		opts.append({ "id": "speeders", "text": label("menu_speeders") })
 	return opts
 
 
@@ -165,7 +183,9 @@ func _row(fit: Dictionary, p: Dictionary) -> Dictionary:
 
 
 func _on_top(id: String) -> void:
-	if id.begins_with("group:"):
+	if id == "speeders":
+		_open(_line("speeders_hello"), speeder_options(), _on_speeders)
+	elif id.begins_with("group:"):
 		var g := id.substr(6)
 		_open(_line("hello"), group_options(g), _on_group.bind(g))
 	elif id.begins_with("buy:"):
@@ -191,6 +211,57 @@ func _on_group(id: String, group: String) -> void:
 func _reopen(opts: Array, pick: Callable) -> void:
 	if speeder_in_bay() != null:
 		menu.open(label("menu_title") % [npc_name(), WorldState.credits], opts, pick, said, true)
+
+
+# ------------------------------------------------------------------ selling speeders
+
+## One row per model Skrugs sells (his card's sale.models): its name and price,
+## or "you have one" once they own one; then Back.
+func speeder_options() -> Array:
+	var post := _post()
+	if post == null:
+		return []
+	var out: Array = []
+	for m in post.models():
+		var mid := str(m.get("id", ""))
+		var name := str(HoverModel.load_config(mid).get("label", m.get("name", mid)))
+		if post.at_limit(mid):
+			out.append({ "id": "have:" + mid, "text": label("speeder_owned") % name })
+		else:
+			out.append({ "id": "speeder:" + mid, "text": label("buy") % [name, int(m.get("price", 0))] })
+	out.append({ "id": "back", "text": label("back") })
+	return out
+
+
+func _on_speeders(id: String) -> void:
+	if id == "back":
+		talk()
+		return
+	if id.begins_with("speeder:"):
+		buy_speeder(id.substr(8))
+	elif id.begins_with("have:"):
+		_say(_line("have_one"))
+	menu.open(label("menu_title") % [npc_name(), WorldState.credits], speeder_options(), _on_speeders, said, true)
+
+
+## Sell them a new speeder of `model` at Skrugs's price; it waits in the row
+## outside the back gate (SpeederPost.sell_speeder).
+## Returns "bought", "owned", "cant_afford" or "unknown".
+func buy_speeder(model: String) -> String:
+	var post := _post()
+	if not sells_speeders() or post.model_sale(model).is_empty():
+		return "unknown"
+	if post.at_limit(model):
+		_say(_line("have_one"))
+		return "owned"
+	if WorldState.credits < int(post.model_sale(model).get("price", 0)):
+		_say(_line("too_poor"))
+		return "cant_afford"
+	if post.sell_speeder(model, label("event_sold_speeder")) == null:
+		return "unknown"
+	speeders_sold += 1
+	_say(_line("sold_speeder"))
+	return "bought"
 
 
 func _on_scrap(id: String) -> void:

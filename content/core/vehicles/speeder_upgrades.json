@@ -6,9 +6,14 @@
     "reach": 3.4,
     "bay_radius": 16.0,
     "voice": "mechanic",
+    "sells_speeders": true,
+    "speeders_note": "Dorrin sells every model Skrugs does (Skrugs's card's sale.models: the same ids and prices), one of each to a customer whoever sold it (SpeederPost.at_limit). A speeder he sells waits in the row outside the town's back gate, like every new speeder (SpeederPost.line_spot). Skrugs's bench in free roam does not (shops.skrugs).",
     "lines": {
       "hello": "Bring her round to the bay and I'll see what she needs.",
-      "no_speeder": "No speeder in my bay. Drive one into the garage and park it on the lift.",
+      "no_speeder": "No speeder in my bay. Drive one onto the lift for parts, or buy one off me.",
+      "speeders_hello": "Every model Skrugs sells, same price, and mine run better. Which one?",
+      "sold_speeder": "She's yours. I'll have her run over to the row outside the town's back gate.",
+      "have_one": "You've got one of those already. One of each, same as Skrugs.",
       "bought": "Done. She'll feel it.",
       "too_poor": "Come back when your credits can pay for it.",
       "scrapped": "Pleasure doing business. She'll make good spares."
@@ -20,6 +25,9 @@
       "menu_looks": "Looks",
       "menu_performance": "Performance",
       "menu_race": "Race gear",
+      "menu_speeders": "Buy a speeder",
+      "speeder_owned": "%s  - you have one",
+      "event_sold_speeder": "Someone bought a %s at the mechanic's yard.",
       "menu_scrap": "Sell her for scrap  (+%d cr)",
       "confirm_scrap": "Scrap your speeder for %d cr? This can't be undone.",
       "yes_scrap": "Yes, scrap her",
@@ -40,6 +48,7 @@
   "shops": {
     "skrugs": {
       "name": "Skrugs",
+      "sells_speeders": false,
       "reach": 2.6,
       "bay_radius": 8.0,
       "voice": "skrugs",

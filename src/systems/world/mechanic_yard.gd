@@ -8,8 +8,11 @@ extends Node3D
 ## yard and an unarmed assassin droid minding the garage), stands Dorrin at his
 ## bench and runs his shop:
 ##
-##   [E] beside him  -- the menu: paint, looks, performance, the Grav Lifter, and
-##                      selling the speeder for scrap.
+##   [E] beside him  -- the menu: paint, looks, performance, the Grav Lifter,
+##                      selling the speeder for scrap, and buying a new one: he
+##                      sells every model Skrugs does, at Skrugs's prices
+##                      (SpeederShop.buy_speeder). It waits in the row outside
+##                      the town's back gate, like every new speeder.
 ##
 ## He only works on a speeder of yours parked in his bay (within bay_radius of the
 ## lift, inside his garage: issue #295 made it wall pieces you can drive into).
