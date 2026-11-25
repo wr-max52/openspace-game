@@ -348,7 +348,7 @@ func _start_grid() -> void:
 	for rc in racers:
 		rc.finished = false
 		rc.out = false
-		var b: NpcBody = rc.body
+		var b = rc.body
 		if b == null or not is_instance_valid(b) or b.dead:
 			rc.out = true
 			continue
@@ -551,12 +551,12 @@ func _tick_racing(dt: float) -> void:
 	for rc in racers:
 		if bool(rc.out):
 			continue
-		var sp: SpeederNode = rc.speeder
+		var sp = rc.speeder
 		if sp == null or not is_instance_valid(sp) or not sp.model.alive() or not sp.npc_driven():
 			rc.out = true
 			_hold(rc.body)
 			continue
-		var at := sp.model.position
+		var at: Vector3 = sp.model.position
 		for e in course.step_racer(laps, rc.key, _last.get(rc.key, at), at, false):
 			if str(e.type) == "pass" and int(e.gate) == 0:
 				_cheer()
@@ -684,13 +684,13 @@ func _hold(b: NpcBody) -> void:
 ## The racers climb off and stand at their spots; their speeders go.
 func _put_away() -> void:
 	for rc in racers:
-		var sp: SpeederNode = rc.speeder
+		var sp = rc.speeder
 		if sp != null and is_instance_valid(sp):
 			sp.step_off()
 			sp.queue_free()
 		rc.speeder = null
 		rc.brain = null
-		var b: NpcBody = rc.body
+		var b = rc.body
 		if b != null and is_instance_valid(b) and not b.dead:
 			var at := _ground(_v2(rc.cfg.get("stand", [0, 0])))
 			b.global_position = at
