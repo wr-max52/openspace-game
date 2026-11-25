@@ -493,6 +493,7 @@ static func _neighbour(o: Dictionary, at: Vector3, cc) -> Dictionary:
 		"ring": body.get("ring", {}),                     # { inner, outer, color, normal }, radii
 		"haze": body.get("haze", {}),                     # a gas ball's air: SpaceTravel.make_haze
 		"relief": str(body.get("relief", "")),            # its dunes as a flat print (a cubemap), or ""
+		"paint": str(body.get("paint", "")),              # a moon baked as paint on a smooth ball (a cubemap), or ""
 		"relief_tilt": float(body.get("relief_tilt", 1.0)),
 		"relief_crest": float(body.get("relief_crest", 0.12)),
 		"sky_giant": bool(o.get("replaces_sky_painting", false)),

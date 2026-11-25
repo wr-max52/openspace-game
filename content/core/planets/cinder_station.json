@@ -20,6 +20,11 @@
     { "id": "remnant_outpost_lava_basalt", "kind": "location", "location": "remnant_outpost_lava_basalt", "at": [-271, 0, -347], "yaw_deg": 308, "clear": 45 },
     { "id": "remnant_outpost_lava_glow", "kind": "location", "location": "remnant_outpost_lava_glow", "at": [219, 0, -449], "yaw_deg": 244, "clear": 45 }
   ],
+  "body": {
+    "note": "How this moon looks from far off (a neighbour's sky, past types.json space.real_ball_within): a smooth ball with the moon baked onto it as paint, its rock, craters, lava and the station's domes, tunnels, landing pit and outposts, instead of a lumpy low-poly rock. paint: its colours and glow, relief: its ground's normals (tools/planets/bake_moon_paint.gd writes both; re-run when its rock, station or outposts change). Up close it is still its real coarse ball.",
+    "paint": "res://assets/planets/cinder_station_paint.png",
+    "relief": "res://assets/planets/cinder_station_relief.png"
+  },
   "near": "ringed_giant",
   "at": [-27972, 5145, -13642],
   "cantina_owner": { "look": "cantina_owner_station" },

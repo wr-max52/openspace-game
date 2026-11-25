@@ -1,0 +1,29 @@
+[remap]
+
+importer="cubemap_texture"
+type="CompressedCubemap"
+uid="uid://c66arn57m5cs2"
+path.bptc="res://.godot/imported/cinder_station_paint.png-21fe27fb840ca272d61010569a3a2e6a.bptc.ccube"
+path.astc="res://.godot/imported/cinder_station_paint.png-21fe27fb840ca272d61010569a3a2e6a.astc.ccube"
+metadata={
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
+}
+
+[deps]
+
+source_file="res://assets/planets/cinder_station_paint.png"
+dest_files=["res://.godot/imported/cinder_station_paint.png-21fe27fb840ca272d61010569a3a2e6a.bptc.ccube", "res://.godot/imported/cinder_station_paint.png-21fe27fb840ca272d61010569a3a2e6a.astc.ccube"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=true
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+slices/arrangement=2
