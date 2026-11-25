@@ -43,7 +43,8 @@ var _top := 0.0
 var _bow := 0.0
 
 
-func build(b: PartyBarge) -> void:
+## Issue #574: `st` (may be null) cuts the build into pieces over frames.
+func build(b: PartyBarge, st: StagedBuild = null) -> void:
 	barge = b
 	name = "BargeLook"
 	_top = float(b._y[2])
@@ -60,16 +61,23 @@ func build(b: PartyBarge) -> void:
 	for f in mats:
 		if mats[f] is StandardMaterial3D and (mats[f] as StandardMaterial3D).uv1_world_triplanar:
 			mats[f] = ClubTextures.local(mats[f])
-	for mi in b.merged(mats):
+	for mi in await b.merged_sliced(mats, st):
 		b.look.add_child(mi)
+	await StagedBuild.slice_of(st)
 	_skin()
+	await StagedBuild.slice_of(st)
 	_portholes()
+	await StagedBuild.slice_of(st)
 	_repulsors()
 	_top_deck()
+	await StagedBuild.slice_of(st)
 	_band()
+	await StagedBuild.slice_of(st)
 	_lower_deck()
+	await StagedBuild.slice_of(st)
 	_steerage()
 	_console()
+	await StagedBuild.slice_of(st)
 	_finish(self)
 
 

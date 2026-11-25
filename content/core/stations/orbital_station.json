@@ -10,7 +10,7 @@
   "gap_radius": 12.0,
   "walkway": 7.0,
   "shaft_radius": 5.5,
-  "floors_note": "Each tower is a stack of round floors (y: the top of its floor plate, radius: its outer glass wall). The space between one floor's ceiling and the next floor's plate is open to space, crossed only by the glass tube round the elevator. 'rooms': rooms round the outside behind an inner wall with doors, cut by corridors where tunnels leave; false: open from the walkway to the glass (markets). The gap in the middle of each floor (gap_radius) has a glass floor, so you look down the tube through every floor below; the elevator shaft (shaft_radius) runs up its middle, and two bridges join it to the walkway, north-south on one floor, east-west on the next.",
+  "floors_note": "Each tower is a stack of round floors (y: the top of its floor plate, radius: its outer glass wall). The space between one floor's ceiling and the next floor's plate is open to space, crossed only by the glass tube round the elevator. 'rooms': rooms round the outside behind an inner wall with doors, cut by corridors where tunnels leave; false: open from the walkway to the glass (markets). The gap in the middle of each floor (gap_radius) is floored by a shield, not glass (issue #603): you look down the tube through every floor below, and jump the railing to drop through it floor after floor (out under the station from the lowest; over the top floor's gap another shield you jetpack up through onto the roof); the elevator shaft (shaft_radius) runs up its middle, and two bridges join it to the walkway, north-south on one floor, east-west on the next.",
   "towers": [
     { "id": "main", "at": [0, 0], "floors": [
       { "id": "engines", "y": -26.0, "radius": 42.0, "rooms": true },
@@ -100,6 +100,8 @@
     "sleep_m": 120.0,
     "locals_after_s": 8.0
   },
+  "droids_note": "Issue #607: the town's patrol droids (droids.json's 'remnant' or 'locals' units, whoever holds the town) walk rounds of the walkway on these floors, one floor each in turn, two on a floor half a round apart: 'points' corners round the middle of the walkway (the gap's railing out to 'walkway' metres), clear on every floor. No floors: no droids aboard. Not the home port's street points, which ran through the station's walls.",
+  "droids": { "floors": ["markets", "markets_2"], "points": 16 },
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
   "tunnel": { "width": 6.0, "height": 5.0 },
   "hatch": { "length": 4.0, "width": 4.0, "note": "A hatch in the middle of every tunnel's roof, closed by a shield the air cannot pass and you can: jump up through it (the jetpack) and walk the roof between its railings, out in space, like a bridge; drop back through it to get in." },
