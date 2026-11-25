@@ -19,6 +19,9 @@ them still works), and the rest is built new:
     they nearly meet behind the cantina, with only the back lane between them
   - Skrugs's yard behind the cantina (issue #295): a zone the towers, clutter and
     hiding places keep out of (his post itself is a world landmark)
+  - the market: the sellers' yard by the pit (the stalls that trade, in a
+    horseshoe), an L-shaped lamp street of tiny huts with stalls between them,
+    and a bazaar of crooked stalls along wandering lanes; shops on the wall
 
 A walk check (0.25 m grid, player radius, the wall in the way) proves every door
 and hiding place can be reached on foot from its district's resident, and the
@@ -343,102 +346,188 @@ def round_cantina(cfg, boxes, markers, routes, zones, pickups):
 			z["min"], z["max"] = [math.floor(zr[0]), math.floor(zr[1])], [math.ceil(zr[2]), math.ceil(zr[3])]
 
 
+# ---- the market (issue: the sellers' yard) ------------------------------------
+# Oriented rects for the market's crooked stalls and huts. A thing is laid out by
+# its front point and the way it faces; its box is the axis-aligned box round it
+# (what the validator, nav and every reader of min/max sees), and `turn_deg` plus
+# `fit` say the real, turned box inside it (the collider and the look).
+
+FACE_YAW = {"+x": 0.0, "-x": math.pi, "+z": -math.pi / 2, "-z": math.pi / 2}
+
+
+def v_add(a, b, k=1.0):
+	return (a[0] + b[0] * k, a[1] + b[1] * k)
+
+
+def v_rot(v, deg):
+	"""Turn (x, z) by deg, counter-clockwise in (x, z)."""
+	c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+	return (v[0] * c - v[1] * s, v[0] * s + v[1] * c)
+
+
+def v_unit(deg):
+	return (math.cos(math.radians(deg)), math.sin(math.radians(deg)))
+
+
+def wrap_pi(a):
+	return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+def square_up(f, max_turn):
+	"""The cardinal face nearest direction f (x, z), and the turn off it (Godot's
+	yaw sense: Basis(UP, a) turns +X toward -Z), clamped to max_turn degrees.
+	Returns (face, turn_deg, f as clamped)."""
+	yaw = math.atan2(-f[1], f[0])
+	face = min(FACE_YAW, key=lambda k: abs(wrap_pi(yaw - FACE_YAW[k])))
+	turn = max(-math.radians(max_turn), min(math.radians(max_turn), wrap_pi(yaw - FACE_YAW[face])))
+	y = FACE_YAW[face] + turn
+	return face, math.degrees(turn), (math.cos(y), -math.sin(y))
+
+
+def o_rect(c, f, depth, length):
+	"""Corners of a rect centred on c, `depth` along f, `length` across."""
+	u = (-f[1], f[0])
+	return [v_add(v_add(c, u, sx * length / 2), f, sy * depth / 2) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+
+
+def aabb(poly):
+	xs, zs = [p[0] for p in poly], [p[1] for p in poly]
+	return (min(xs), min(zs), max(xs), max(zs))
+
+
+def piece(c, f, face, turn, depth, length):
+	"""One turned box: its axis-aligned rect, and its fit (unturned world size)."""
+	poly = o_rect(c, f, depth, length)
+	fit = [depth, length] if face.endswith("x") else [length, depth]
+	return {"rect": aabb(poly), "poly": poly, "fit": fit, "turn": turn, "face": face}
+
+
+def seg_pt(p, a, b):
+	ab = (b[0] - a[0], b[1] - a[1])
+	l2 = ab[0] ** 2 + ab[1] ** 2 or 1e-9
+	t = max(0.0, min(1.0, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1]) / l2))
+	return math.dist(p, (a[0] + ab[0] * t, a[1] + ab[1] * t))
+
+
+def rect_line_dist(r, line):
+	"""Distance from an axis-aligned rect to a polyline (0 when it crosses)."""
+	best = 1e9
+	for i in range(len(line) - 1):
+		best = min(best, seg_rect_dist(line[i], line[i + 1], r, 0.5))
+		if best <= 0.0:
+			return 0.0
+	return best
+
+
+def wiggle(start, base_deg, length, amp, wave, phase, bend=0.0, step=1.0):
+	"""A street from start: heading base_deg, bending by `bend` over its length,
+	swaying `amp` either side every `wave` metres."""
+	pts = []
+	for i in range(int(length / step) + 1):
+		s = i * step
+		d = v_unit(base_deg + bend * s / length)
+		off = amp * math.sin(2 * math.pi * s / wave + phase) * min(1.0, s / 6.0)
+		pts.append(v_add(v_add(start, d, s), (-d[1], d[0]), off))
+	return pts
+
+
+def wander(pts_rd, wob, wave, phase, step=1.0):
+	"""A bazaar lane through (r, deg) waypoints, wobbling sideways."""
+	pts = [pol(r, a) for r, a in pts_rd]
+	dense = []
+	for i in range(len(pts) - 1):
+		a, b = pts[i], pts[i + 1]
+		n = max(1, int(math.dist(a, b) / step))
+		dense += [v_add(a, (b[0] - a[0], b[1] - a[1]), j / n) for j in range(n)]
+	dense.append(pts[-1])
+	out, acc = [], 0.0
+	for i, p in enumerate(dense):
+		if i:
+			acc += math.dist(dense[i - 1], p)
+		q, o = dense[min(i + 1, len(dense) - 1)], dense[max(i - 1, 0)]
+		t = (q[0] - o[0], q[1] - o[1])
+		l = math.hypot(*t) or 1.0
+		w = wob * math.sin(2 * math.pi * acc / wave + phase) + 0.45 * wob * math.sin(2 * math.pi * acc / (wave * 0.43) + phase * 2.1)
+		out.append(v_add(p, (-t[1] / l, t[0] / l), w))
+	return out
+
+
+def along(line, step=0.5):
+	"""(point, unit tangent, distance along) every `step` metres."""
+	out, acc = [], 0.0
+	for i in range(len(line) - 1):
+		a, b = line[i], line[i + 1]
+		l = math.dist(a, b)
+		if l < 1e-6:
+			continue
+		t = ((b[0] - a[0]) / l, (b[1] - a[1]) / l)
+		k = 0.0
+		while k < l:
+			out.append((v_add(a, t, k), t, acc + k))
+			k += step
+		acc += l
+	return out
+
+
 def market(cfg, boxes, markers, routes, zones):
-	"""Issue #237 part 3: three curved aisles of taller stalls, two cross aisles,
-	shops on the far side of the outer aisle, merchants and shoppers."""
+	"""The sellers' yard by the pit: the stalls that trade in a loose horseshoe
+	open to the pads; out of its back a narrow lamp-lit street, an L that turns
+	toward the huts, its sides tiny huts with a stall or two between each; then
+	the bazaar, the other stalls along wandering lanes in broken runs, every one a
+	little crooked. Shops on the wall as before. Fixed seed."""
 	mc = cfg["market"]
 	st = mc["stall"]
+	rng = random.Random(mc["seed"])
 	a0, a1 = mc["sector"]
-	street = cfg["main_street"]["half"] + 1.0
+	street_z = -(cfg["main_street"]["half"] + 1.0)
 	keep = [tuple(k) for k in mc["keep_out"]]
-	cross = [(pol(c["r"][0], c["deg"]), pol(c["r"][1], c["deg"]), c["width"] / 2) for c in mc["cross"]]
 	taken = [rect_of(b) for b in boxes if b["kind"] not in ("floor", "ring", "pad") and b["zone"] != "ground"]
 	depth_c, h_c = st["counter"]
 	gap_b, thick_b, h_b = st["back"]
 	L = st["length"]
+	D = depth_c + gap_b + thick_b
+	turn_max = mc["turn_max"]
+	r_min, r_max = mc["r"]
+	lanes = []          # (polyline, half width): kept clear
+	placed = []         # {"kind": "seller"|"stall"|"house", "pieces": [piece], ...}
 
-	def clear(r, margin=0.4):
-		near, far = rect_r(r)
-		if near < cfg["ring_road"]["radius"] + 9.0 or far > cfg["radius"] - 3.5 or r[3] > -street:
-			return False
-		for x, z in ((r[0], r[1]), (r[2], r[1]), (r[0], r[3]), (r[2], r[3])):
-			if not in_sector(polar(x, z)[1], (a0, a1)):
+	def ok(rects, margin):
+		for r in rects:
+			near, far = rect_r(r)
+			if near < r_min or far > r_max or r[3] > street_z:
 				return False
-		if any(overlaps(r, k) for k in keep) or any(overlaps(grow(r, margin), t) for t in taken):
-			return False
-		return all(seg_rect_dist(p, q, r) >= w + 0.6 for p, q, w in cross)
+			for x, z in ((r[0], r[1]), (r[2], r[1]), (r[0], r[3]), (r[2], r[3])):
+				if not in_sector(polar(x, z)[1], (a0, a1)):
+					return False
+			g = grow(r, margin)
+			if any(overlaps(g, k) for k in keep) or any(overlaps(g, t) for t in taken):
+				return False
+			if any(overlaps(g, q["rect"]) for p in placed for q in p["pieces"]):
+				return False
+			if any(rect_line_dist(r, ln) < hw + 0.2 for ln, hw in lanes):
+				return False
+		return True
 
-	def stall_at(rf, a, side, half_aisle, r_aisle):
-		"""side +1: the stall is outside the aisle, -1: inside. rf: the counter's front."""
-		nx, nz = math.cos(math.radians(a)), math.sin(math.radians(a))
-		ox, oz = side * nx, side * nz                       # from the aisle into the stall
-		px, pz = pol(rf, a)
-		if abs(nx) >= abs(nz):
-			sg = 1 if ox > 0 else -1
-			face = "-x" if sg > 0 else "+x"
-			def span(d0, d1, along):
-				lo, hi = sorted((px + sg * d0, px + sg * d1))
-				return (lo, pz - along / 2, hi, pz + along / 2)
-			vend = (px + sg * (depth_c + st["vendor"]), pz)
-			look_at = (px - sg * half_aisle, pz)
-		else:
-			sg = 1 if oz > 0 else -1
-			face = "-z" if sg > 0 else "+z"
-			def span(d0, d1, along):
-				lo, hi = sorted((pz + sg * d0, pz + sg * d1))
-				return (px - along / 2, lo, px + along / 2, hi)
-			vend = (px, pz + sg * (depth_c + st["vendor"]))
-			look_at = (px, pz - sg * half_aisle)
-		counter = span(0.0, depth_c, L)
-		back = span(depth_c + gap_b, depth_c + gap_b + thick_b, L)
-		whole = bbox([counter, back])
-		near, far = rect_r(counter)
-		# Its corners must stay out of the aisle (the walk down its middle).
-		if (side > 0 and near < r_aisle + 1.4) or (side < 0 and far > r_aisle - 1.4):
-			return None
-		return {"counter": counter, "back": back, "whole": whole, "face": face, "vendor": vend, "look_at": look_at}
+	def stall(front, f, kind="stall"):
+		face, turn, f = square_up(f, turn_max)
+		counter = piece(v_add(front, f, -depth_c / 2), f, face, turn, depth_c, L)
+		back = piece(v_add(front, f, -(depth_c + gap_b + thick_b / 2)), f, face, turn, thick_b, L)
+		vend = v_add(front, f, -(depth_c + st["vendor"]))
+		return {"kind": kind, "pieces": [counter, back], "vendor": vend, "look_at": v_add(front, f, 2.0), "face": face, "turn": turn}
 
-	rows = []
-	for k, ai in enumerate(mc["aisles"]):
-		h = ai["width"] / 2
-		for side in (-1, 1):
-			if side > 0 and ai.get("outer") == "shops":
-				continue
-			rows.append((k, side, ai["r"] + side * h, h, ai["r"]))
-	span_deg = (a1 - a0) % 360.0
-	total = sum(math.radians(span_deg) * rf for _, _, rf, _, _ in rows)
-	best = None
-	pitch = total / mc["stalls"]
-	for _ in range(30):
-		placed = []
-		for k, side, rf, h, ra in rows:
-			n = max(1, int(math.radians(span_deg) * rf / pitch))
-			for i in range(n):
-				a = a0 + span_deg * (i + 0.5) / n
-				s_ = stall_at(rf, a, side, h, ra)
-				if s_ and clear(s_["whole"]) and not any(overlaps(grow(s_["whole"], 0.5), p["whole"]) for p in placed):
-					s_.update(row=(k, side), a=a)
-					placed.append(s_)
-		if len(placed) >= mc["stalls"]:
-			best = placed
-			break
-		pitch *= 0.93
-	if best is None:
-		raise SystemExit("market: only %d stalls fit" % len(placed))
-	# Exactly `stalls`: drop the extras evenly.
-	extra = len(best) - mc["stalls"]
-	if extra > 0:
-		drop = {int((i + 0.5) * len(best) / extra) for i in range(extra)}
-		best = [p for i, p in enumerate(best) if i not in drop]
-	for i, p in enumerate(best):
-		sid = "stall_%02d" % (i + 1)
-		c, b = p["counter"], p["back"]
-		boxes.append(box(sid, "market", "cover", [c[0], 0, c[1]], [c[2], h_c, c[3]], look="stall", face=p["face"], canopy_lift=st["canopy_lift"]))
-		boxes.append(box(sid + "_back", "market", "solid", [b[0], 0, b[1]], [b[2], h_b, b[3]], look="stall_back"))
-		taken.append(p["whole"])
-	# Shops on the far side of the outer aisle.
+	def house(front, f, w, d):
+		face, turn, f = square_up(f, turn_max)
+		return {"kind": "house", "pieces": [piece(v_add(front, f, -d / 2), f, face, turn, d, w)], "face": face, "turn": turn}
+
+	def put(obj, margin):
+		if ok([q["rect"] for q in obj["pieces"]], margin):
+			placed.append(obj)
+			return True
+		return False
+
+	# Shops on the wall first, where they always were; the stalls keep clear of them.
 	sh = mc["shops"]
-	outer = [ai for ai in mc["aisles"] if ai.get("outer") == "shops"][0]
+	span_deg = (a1 - a0) % 360.0
 	shops = []
 	n = sh["count"]
 	for tries in range(4):
@@ -450,7 +539,8 @@ def market(cfg, boxes, markers, routes, zones):
 			rc = cfg["radius"] - 4.0 - sh["size"] / 2 * (nx + nz)
 			x, z = pol(rc, a)
 			r = (x - sh["size"] / 2, z - sh["size"] / 2, x + sh["size"] / 2, z + sh["size"] / 2)
-			if rect_r(r)[0] < outer["r"] + outer["width"] / 2 + 1.0 or not clear(r, 0.6):
+			if rect_r(r)[0] < sh["min_r"] or any(overlaps(r, k_) for k_ in keep) or r[3] > street_z \
+					or any(overlaps(grow(r, 0.6), t) for t in taken):
 				continue
 			face = ("-x" if math.cos(math.radians(a)) > 0 else "+x") if nx >= nz else ("-z" if math.sin(math.radians(a)) > 0 else "+z")
 			shops.append((r, face))
@@ -458,39 +548,208 @@ def market(cfg, boxes, markers, routes, zones):
 			break
 	for i, (r, face) in enumerate(shops[:n]):
 		boxes.append(box("shop_%d" % (i + 1), "market", "solid", [r[0], 0, r[1]], [r[2], sh["height"], r[3]], look="shop", face=face))
-	# Merchants; the first four are the square port's. The ones that trade
-	# (`sellers`) take the stalls closest to the bay: the inner row first, then
-	# the stalls nearest the top of a ramp out of the pit. The rest stand behind
-	# evenly spread stalls of the others.
-	tops = []
-	for b in boxes:
-		if b["zone"] == "spaceport" and b["kind"] == "ramp":
-			(x0, z0), (x1, z1) = (b["min"][0], b["min"][2]), (b["max"][0], b["max"][2])
-			ends = [(x0, (z0 + z1) / 2), (x1, (z0 + z1) / 2)] if x1 - x0 >= z1 - z0 else [((x0 + x1) / 2, z0), ((x0 + x1) / 2, z1)]
-			tops.append(max(ends, key=lambda e: math.hypot(*e)))
-	rows_in = sorted({p["row"] for p in best}, key=lambda rw: mc["aisles"][rw[0]]["r"] + rw[1])
-	near = sorted(best, key=lambda p: (rows_in.index(p["row"]), min(math.hypot(p["vendor"][0] - t[0], p["vendor"][1] - t[1]) for t in tops)))
-	sellers = near[:mc["sellers"]]
-	rest = [p for p in best if p not in sellers]
+
+	taken.extend(rect_of(b) for b in boxes if b["zone"] == "market" and b["id"].startswith("shop_"))
+
+	# 1. The sellers' yard, open to the pit. Each trader's stall faces the middle.
+	yc = mc["yard"]
+	C = pol(yc["r"], yc["deg"])
+	out = v_unit(yc["deg"])
+	to_pit = (-out[0], -out[1])
+	sellers = {}
+	for s in yc["sellers"]:
+		d = v_rot(to_pit, s["bearing"])
+		f = v_rot((-d[0], -d[1]), rng.uniform(-yc["jitter_deg"], yc["jitter_deg"]))
+		obj = stall(v_add(C, d, s["dist"]), f, "seller")
+		obj["vendor_id"] = s["vendor"]
+		obj["look_at"] = C
+		if not put(obj, 0.5):
+			raise SystemExit("market: the %s stall does not fit in the yard" % s["vendor"])
+		sellers[s["vendor"]] = obj
+
+	# 2. The lamp street: out of the back of the yard, then left at the top.
+	sc = mc["street"]
+	hw = sc["width"] / 2
+	leg1 = wiggle(v_add(C, out, sc["from_yard"]), yc["deg"] + sc["leg1"]["turn"], sc["leg1"]["length"],
+		sc["leg1"]["amp"], sc["leg1"]["wave"], 0.0, sc["leg1"]["bend"])
+	leg2 = wiggle(leg1[-1], sc["leg2"]["deg"], sc["leg2"]["length"], sc["leg2"]["amp"], sc["leg2"]["wave"], 0.0, sc["leg2"]["bend"])
+	street = leg1 + leg2[1:]
+	lanes.append((street, hw))
+	street_len = sum(math.dist(street[i], street[i + 1]) for i in range(len(street) - 1))
+
+	def frontage(line, half_w, side, pick, gap, start, stop, off, tag, burst=0.0):
+		s_next = start
+		for p, t, s in along(line):
+			if s < s_next or s > stop:
+				continue
+			kind, w, d = pick(False)
+			nrm = (-t[1] * side, t[0] * side)
+			f = v_rot((-nrm[0], -nrm[1]), rng.uniform(-turn_max, turn_max))
+			front = v_add(v_add(p, nrm, half_w + 0.25 + rng.uniform(0.0, off)), t, w / 2)
+			obj = stall(front, f) if kind == "stall" else house(front, f, w, d)
+			# Squared up, a corner can poke into the lane: step it back out.
+			short = half_w + 0.25 - min(rect_line_dist(q["rect"], line) for q in obj["pieces"])
+			if short > 0:
+				front = v_add(front, nrm, short)
+				obj = stall(front, f) if kind == "stall" else house(front, f, w, d)
+			obj["tag"] = tag
+			if put(obj, 0.35 if kind == "house" else 0.5):
+				pick(True)
+				s_next = s + w + rng.uniform(*gap)
+				if rng.random() < burst:
+					s_next += rng.uniform(4.0, 9.0)
+			else:
+				s_next = s + 0.5
+
+	hut = mc["hut"]
+
+	def street_mix():
+		state = {"left": 0}
+		def pick(done):
+			if state["left"] > 0:
+				if done:
+					state["left"] -= 1
+				return ("stall", L, D)
+			if done:
+				state["left"] = 1 if rng.random() < sc["one_stall"] else 2
+			return ("house", hut["sizes"][hash(len(placed)) % len(hut["sizes"])], hut["sizes"][(len(placed) * 7) % len(hut["sizes"])])
+		return pick
+
+	for side in (1, -1):
+		frontage(street, hw, side, street_mix(), sc["gap"], 1.0 + (side < 0) * 2.5, street_len - 1.0, 0.4, "street")
+	lamps = []
+	k = 0
+	for p, t, s in along(street):
+		if s >= 2.5 + k * sc["lamp_every"] and s < street_len - 1.0:
+			side = 1 if k % 2 == 0 else -1
+			nrm = (-t[1] * side, t[0] * side)
+			c = v_add(p, nrm, hw - 0.25)
+			hl = mc["lamp"]["size"] / 2
+			lamps.append(((c[0] - hl, c[1] - hl, c[0] + hl, c[1] + hl), square_up((-nrm[0], -nrm[1]), 0.0)[0]))   # its arm over the street
+			k += 1
+
+	# 3. The bazaar: wandering lanes, the other stalls along them in broken runs.
+	bc = mc["bazaar"]
+	baz = [wander([tuple(p) for p in ln["points"]], ln["wob"], ln["wave"], ln["phase"]) for ln in bc["lanes"]]
+	for ln in baz:
+		lanes.append((ln, bc["half_width"]))
+	want = mc["stalls"] - len(sellers) - sum(1 for p in placed if p["kind"] == "stall")
+
+	def bazaar_pick(_done):
+		if rng.random() < bc["hut_share"]:
+			return ("house", hut["sizes"][0], hut["sizes"][0])
+		return ("stall", L, D)
+
+	for ln in baz:
+		for side in (1, -1):
+			frontage(ln, bc["half_width"], side, bazaar_pick, bc["gap"], rng.uniform(0.0, 4.0), 1e9, 1.0, "bazaar", bc["burst"])
+	end = leg1[-1]
+	runs = sorted([p for p in placed if p["kind"] == "stall" and p.get("tag") == "bazaar"], key=lambda p: math.dist(p["vendor"], end))
+	for p in runs[max(0, want):]:      # too many: the far ends go (they moved onto the street)
+		placed.remove(p)
+	tries = 0
+	while sum(1 for p in placed if p["kind"] == "stall") < mc["stalls"] - len(sellers) and tries < 6000:
+		tries += 1
+		a, r = rng.uniform(a0, a1), rng.uniform(r_min + 4.0, r_max - 4.0)
+		obj = stall(pol(r, a), v_rot(v_unit(a + rng.choice([0, 90, 180, 270])), rng.uniform(-20, 20)))
+		obj["tag"] = "loose"
+		put(obj, 0.9)
+	n_stalls = sum(1 for p in placed if p["kind"] in ("stall", "seller"))
+	if n_stalls != mc["stalls"]:
+		raise SystemExit("market: %d stalls, want %d" % (n_stalls, mc["stalls"]))
+
+	# The boxes: sellers first (stall_01..04), then round the market by angle.
+	def turned(pc):
+		extra = {}
+		if abs(pc["turn"]) > 0.05:
+			extra = {"turn_deg": round(pc["turn"], 1), "fit": [r2(pc["fit"][0]), r2(pc["fit"][1])]}
+		return extra
+
+	order = [sellers[s["vendor"]] for s in yc["sellers"]] + sorted(
+		[p for p in placed if p["kind"] == "stall"], key=lambda p: polar(*p["vendor"])[1])
+	for i, p in enumerate(order):
+		sid = "stall_%02d" % (i + 1)
+		p["id"] = sid
+		c, b = p["pieces"]
+		cr, br = c["rect"], b["rect"]
+		boxes.append(box(sid, "market", "cover", [cr[0], 0, cr[1]], [cr[2], h_c, cr[3]], look="stall", face=p["face"],
+			canopy_lift=st["canopy_lift"], **turned(c)))
+		boxes.append(box(sid + "_back", "market", "solid", [br[0], 0, br[1]], [br[2], h_b, br[3]], look="stall_back", **turned(b)))
+	huts = sorted([p for p in placed if p["kind"] == "house"], key=lambda p: polar(*aabb(p["pieces"][0]["poly"])[:2])[1])
+	for i, p in enumerate(huts):
+		pc = p["pieces"][0]
+		r = pc["rect"]
+		boxes.append(box("market_hut_%02d" % (i + 1), "market", "solid", [r[0], 0, r[1]], [r[2], hut["height"][i % len(hut["height"])], r[3]],
+			look="hut_block", face=p["face"], **turned(pc)))
+	for i, (r, face) in enumerate(lamps):
+		boxes.append(box("market_lamp_%02d" % (i + 1), "market", "solid", [r[0], 0, r[1]], [r[2], mc["lamp"]["height"], r[3]], look="street_lamp", face=face))
+	for p in placed:
+		taken.extend(q["rect"] for q in p["pieces"])
+	taken.extend(r for r, _ in lamps)
+
+	# Merchants: vendor_1..4 the traders at their yard stalls (their trade is in
+	# content/core/vendors and droids.json), the rest behind spread-out stalls of
+	# the street and the bazaar, looking out at the lane.
+	for vid, p in sellers.items():
+		m = copy.deepcopy(sq_marker(vid))
+		m["pos"] = [r2(p["vendor"][0]), 0, r2(p["vendor"][1])]
+		m["face"] = [r2(p["look_at"][0]), 0, r2(p["look_at"][1])]
+		markers.append(m)
+	rest = order[len(sellers):]
 	others = mc["merchants"] - len(sellers)
-	for k in range(mc["merchants"]):
-		p = sellers[k] if k < len(sellers) else rest[int((k - len(sellers) + 0.5) * len(rest) / others)]
-		mid = "vendor_%d" % (k + 1)
-		m = copy.deepcopy(sq_marker(mid if k < 4 else "vendor_1"))
+	for k in range(others):
+		p = rest[int((k + 0.5) * len(rest) / others)]
+		mid = "vendor_%d" % (k + len(sellers) + 1)
+		m = copy.deepcopy(sq_marker("vendor_1"))
 		m["id"] = mid
 		m["pos"] = [r2(p["vendor"][0]), 0, r2(p["vendor"][1])]
 		m["face"] = [r2(p["look_at"][0]), 0, r2(p["look_at"][1])]
-		if k >= 4:
-			m["note"] = "Issue #237: a merchant behind a stall in the round port's market."
+		m["note"] = "A merchant behind a stall in the round port's market."
 		markers.append(m)
-	# Shoppers, each up and down a stretch of an aisle.
-	aisles = mc["aisles"]
+
+	# Shoppers: one up and down each leg of the lamp street, the rest along a
+	# stretch of a bazaar lane. Points every few metres, clear of every box.
+	all_rects = taken + [rect_of(b) for b in boxes if b["id"].startswith("shop_")]
+
+	def clear_stretch(line, length):
+		"""The longest clear run along a lane, as stops `stop_m` apart (a shopper
+		pauses at each, so they are a stall or two apart, not every step), each leg
+		clear of every box."""
+		def fine(p):
+			return all(gn.rect_dist(p[0], p[1], r) > 1.2 for r in all_rects) and in_sector(polar(*p)[1], (a0, a1)) \
+				and math.hypot(*p) < r_max and p[1] < street_z
+
+		def leg_ok(a, b):
+			return all(seg_rect_dist(a, b, r) > 1.0 for r in all_rects)
+
+		pts = [p for p, _, _ in along(line, 1.0)]
+		best = []
+		i = 0
+		while i < len(pts):
+			if not fine(pts[i]):
+				i += 1
+				continue
+			run = [pts[i]]
+			j = i
+			while True:
+				k = next((k for k in range(j + 1, len(pts)) if math.dist(pts[k], run[-1]) >= mc["stop_m"]), None)
+				if k is None or not fine(pts[k]) or not leg_ok(run[-1], pts[k]):
+					break
+				run.append(pts[k])
+				j = k
+			if len(run) > len(best):
+				best = run
+			i = j + 1
+		need = max(2, int(round(length / mc["stop_m"])) + 1)
+		return [[r2(x), r2(z)] for x, z in best[:need]]
+
+	walks = [leg1, leg2] + baz
 	for k in range(mc["shoppers"]):
-		ai = aisles[k % len(aisles)]
-		start = a0 + 3.0 + (k // len(aisles)) * (span_deg - mc["stroll_deg"] - 6.0) / max(1, (mc["shoppers"] - 1) // len(aisles))
-		pts = [list(p) for p in arc(ai["r"], start, start + mc["stroll_deg"], 3.0)]
+		pts = clear_stretch(walks[k % len(walks)], mc["stroll_m"])
+		if len(pts) < 2:
+			raise SystemExit("market: no clear stretch for shopper %d" % (k + 1))
 		rid = "stroll_market_%d" % (k + 1)
-		routes.append({"id": rid, "points": pts + list(reversed(pts))[1:], "note": "Issue #237: a shopper up and down an aisle."})
+		routes.append({"id": rid, "points": pts + list(reversed(pts))[1:], "note": "A shopper up and down the market."})
 		mid = "shopper_%d" % (k + 1)
 		m = copy.deepcopy(sq_marker(mid if k < 2 else "shopper_1"))
 		m["id"] = mid
@@ -498,6 +757,9 @@ def market(cfg, boxes, markers, routes, zones):
 		m["patrol"] = rid
 		markers.append(m)
 	zones.append(zone_of("market", [rect_of(b) for b in boxes if b["zone"] == "market"]))
+	print("market: %d stalls (%d on the street), %d huts, %d lamps" % (n_stalls,
+		sum(1 for p in placed if p.get("tag") == "street" and p["kind"] == "stall"), len(huts), len(lamps)))
+
 
 
 def barracks(cfg, boxes, markers, routes, zones):

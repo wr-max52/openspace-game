@@ -92,8 +92,13 @@ func _stall(parent: Node3D, b: Dictionary, i: int, back: Dictionary, trade: Dict
 		var mn := Vector3(float(b.min[0]), float(b.min[1]), float(b.min[2]))
 		var mx := Vector3(float(b.max[0]), float(b.max[1]), float(b.max[2]))
 		var yaw: float = { "+x": 0.0, "-x": PI, "+z": -PI * 0.5, "-z": PI * 0.5 }.get(face, 0.0)
-		kit._xf = Transform3D(Basis(Vector3.UP, yaw), Vector3((mn.x + mx.x) * 0.5, mn.y, (mn.z + mx.z) * 0.5))
 		var size := mx - mn
+		if b.has("turn_deg") and b.has("fit"):
+			# A crooked stall: turned a little off square, its real size in `fit`
+			# (its box is the square box round it).
+			yaw += deg_to_rad(float(b.turn_deg))
+			size = Vector3(float(b.fit[0]), size.y, float(b.fit[1]))
+		kit._xf = Transform3D(Basis(Vector3.UP, yaw), Vector3((mn.x + mx.x) * 0.5, mn.y, (mn.z + mx.z) * 0.5))
 		lx = size.x if along_x else size.z       # depth (customer side is +X)
 		lz = size.z if along_x else size.x       # length along the counter
 		h = size.y
@@ -109,6 +114,8 @@ func _stall(parent: Node3D, b: Dictionary, i: int, back: Dictionary, trade: Dict
 		var bmx := Vector3(float(back.max[0]), float(back.max[1]), float(back.max[2]))
 		var local := kit._xf.affine_inverse() * ((bmn + bmx) * 0.5)
 		var thick := (bmx.x - bmn.x) if along_x else (bmx.z - bmn.z)
+		if back.has("fit"):
+			thick = float(back.fit[0]) if along_x else float(back.fit[1])
 		_back_x = local.x + thick * 0.5
 		_panel_top = bmx.y
 
