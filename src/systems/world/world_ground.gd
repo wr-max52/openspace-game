@@ -609,18 +609,19 @@ func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
 ## (where DesertLandforms puts them).
 func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 	var sp := sphere()
-	var planet_mesas: Array = data.get("planet_mesas", [])
-	var use_planet_mesas := not planet_mesas.is_empty()
-	if not use_planet_mesas:
-		planet_mesas = data.get("mesas", [])
-	for m in planet_mesas:
-		var map := sp.map_from_lat_lon(float(m[0]), float(m[1])) if use_planet_mesas \
-			else Vector2(float(m[0]), float(m[1]))
-		if not clear.grow(float(m[2])).has_point(map):
-			var base := sp.surface_at(map.x, map.y)
-			var h := float(m[3]) * 0.92 - DesertLandforms.MESA_BURY
-			columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa", "center": base,
-				"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
+	var mountains := DesertLandforms.mountain_spots(data, sp)
+	for m in mountains:
+		var map: Vector2 = m.map
+		if not clear.grow(float(m.plan.radius)).has_point(map):
+			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id)))
+	if mountains.is_empty():
+		for m in data.get("mesas", []):
+			var map := Vector2(float(m[0]), float(m[1]))
+			if not clear.grow(float(m[2])).has_point(map):
+				var base := sp.surface_at(map.x, map.y)
+				var h := float(m[3]) * 0.92 - DesertLandforms.MESA_BURY
+				columns.append({ "id": "mesa_%d_%d" % [int(m[0]), int(m[1])], "kind": "mesa", "center": base,
+					"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
 	for s in DesertLandforms.spire_spots(data, sp):
 		var map: Vector2 = s.map
 		if not clear.grow(float(s.radius)).has_point(map):

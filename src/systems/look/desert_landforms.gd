@@ -71,10 +71,10 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	noise.seed = 31
 	noise.fractal_octaves = 3
 
-	# On the home ball use small mesas distributed by latitude/longitude; flat
-	# worlds keep the original nearby beauty-corner arrangement.
-	if terrain is PlanetTerrain and data.has("planet_mesas"):
-		_build_planet_mesas(terrain as PlanetTerrain, mats, clear, noise, rng, solid)
+	# On the home ball, climbable mountains by latitude/longitude; flat worlds keep
+	# the original nearby beauty-corner mesas.
+	if terrain is PlanetTerrain and data.has("planet_mountains"):
+		_build_planet_mountains(terrain as PlanetTerrain, mats, clear, solid)
 	else:
 		_build_local_mesas(terrain, mats, clear, noise, rng, solid)
 
@@ -281,26 +281,97 @@ func _build_local_mesas(terrain: DesertTerrain, mats: LookMaterials, clear: Rect
 			_solid(mi)
 
 
-func _build_planet_mesas(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2,
-		noise: FastNoiseLite, rng: RandomNumberGenerator, solid: bool) -> void:
+func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2, solid: bool) -> void:
 	var sp := terrain.sphere
 	mesa_spots = []
 	mesa_planet = GameFlow.current_planet_id()
-	for m in data.get("planet_mesas", []):
-		var map := sp.map_from_lat_lon(float(m[0]), float(m[1]))
-		var radius := float(m[2])
-		var height := float(m[3])
+	var strata := float(data.get("mountain", {}).get("strata", 0.2))
+	for m in mountain_spots(data, sp):
+		var map: Vector2 = m.map
+		var p: Dictionary = m.plan
+		var radius := float(p.radius)
 		if _hits(clear, map.x, map.y, radius) or _in_circles(map.x, map.y, radius):
 			continue
-		var so := float(m[0]) * 0.01 + float(m[1]) * 0.003
-		var mesh := _cached("mesa/%s/%s/%s" % [radius, height, so], func(): return _mesa_mesh(radius, height, noise, so))
-		var g := _ground(terrain, map.x, map.y)
-		var gy := _ground_h(terrain, g, map.x, map.y)
-		var placed := _add(mesh, mats.rock(gy, 0.11), g, height * 0.46 - MESA_BURY,
-			Vector3(0, rng.randf_range(0, 360), 0))
+		var made := _mountain(p, int(m.variant))
+		var pl := RockMountain.placement(sp, map, p)
+		var g: Transform3D = pl.frame
+		var gy := snappedf(sp.altitude(g.origin) - float(pl.sink), 1.0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = made.mesh
+		mi.material_override = mats.rock(gy, strata)
+		mi.transform = Transform3D(g.basis * Basis(Vector3.UP, float(pl.yaw)), g.origin - g.basis.y * float(pl.sink))
+		add_child(mi)
 		if solid:
-			_solid(placed)
-		mesa_spots.append({ "map": map, "radius": radius, "height": height })
+			_solid_shape(mi, made.shape)
+		mesa_spots.append({ "map": map, "radius": radius, "height": float(p.height) })
+
+
+## Every mountain on a ball: { id, map, variant, plan } from `planet_mountains`
+## [latitude, longitude, version]. WorldGround reads the same list.
+static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
+	var variants: Array = data.get("mountain_variants", [])
+	var out: Array = []
+	if variants.is_empty() or sp == null:
+		return out
+	var cfg: Dictionary = data.get("mountain", {})
+	for e in data.get("planet_mountains", []):
+		var k := int(e[2]) % variants.size()
+		out.append({ "id": "mesa_%d_%d" % [int(e[0]), int(e[1])], "map": sp.map_from_lat_lon(float(e[0]), float(e[1])),
+			"variant": k, "plan": RockMountain.plan(variants[k], cfg) })
+	return out
+
+
+## Level sand under each mountain on the home ball (a playa, as round real
+## yardangs), so dunes do not bury its lower shelves or pile against its caves:
+## the plane square to "up" there through the mean height of the sand round it
+## before levelling, out to the mountain's reach plus the pad's margin, easing
+## back into the dunes over its blend. Boxes on the map, like the camps' and the
+## race gates'; far round the ball the map stretches across (the blend with it).
+static func mountain_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
+	var sites: Array = []
+	if sp == null or str(planet.get("id", "")) != PlanetGen.home_id():
+		return sites
+	var data := load_data()
+	var pad: Dictionary = data.get("mountain", {}).get("pad", {})
+	var margin := float(pad.get("margin_m", 30.0))
+	var blend := float(pad.get("blend_m", 50.0))
+	for m in mountain_spots(data, sp):
+		var map: Vector2 = m.map
+		var reach := float(m.plan.radius) + margin
+		var base := sp.surface_at(map.x, map.y)
+		var g := Transform3D(PlanetSphere.tilt_to(sp.up_at(base)), base)
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		var sum := 0.0
+		var n := 0
+		for ring in [reach, reach * 0.5]:
+			for i in 24:
+				var a := TAU * float(i) / 24.0
+				var q := sp.world_to_map(g * Vector3(cos(a) * float(ring), 0.0, sin(a) * float(ring)))
+				lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+				hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+				sum += sp.elevation(sp.map_dir(q.x, q.y))
+				n += 1
+		var mean := sum / float(n)
+		var th := map.length() / sp.radius
+		var stretch := clampf(th / sin(th), 1.0, 6.0) if th > 0.01 and th < PI - 0.01 else 1.0
+		var mid := sp.center + sp.map_dir(map.x, map.y) * (sp.radius + mean)
+		sites.append({ "rect": Rect2(lo, hi - lo), "y": mean, "plane_c": mid,
+			"plane_u": sp.up_at(mid), "blend": blend * stretch })
+	return sites
+
+
+## One mountain version's mesh and trimesh, built once a session.
+static func _mountain(p: Dictionary, k: int) -> Dictionary:
+	var key := "mountain/%d/%s" % [k, hash(p.height) + hash(p.radius)]
+	if not _meshes.has(key):
+		var built := RockMountain.build(p)
+		_meshes[key] = built.mesh
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(built.faces)
+		_shapes[built.mesh] = shape
+	var mesh: Mesh = _meshes[key]
+	return { "mesh": mesh, "shape": _shapes[mesh] }
 
 
 ## How far the sand dips under a spire's skirt below its centre (6 samples round

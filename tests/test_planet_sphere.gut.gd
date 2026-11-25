@@ -96,21 +96,29 @@ func test_remote_pads_are_flat_on_the_curved_home_world() -> void:
 				"the outpost's flat ground follows the sphere")
 
 
-func test_home_planet_mesas_are_small_and_globally_distributed() -> void:
-	var mesas: Array = Landforms.load_data().get("planet_mesas", [])
-	assert_eq(mesas.size(), 16)
+func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void:
+	var data := Landforms.load_data()
+	var spots: Array = data.get("planet_mountains", [])
+	assert_eq(spots.size(), 16)
 	var min_lat := 90.0
 	var max_lat := -90.0
 	var longitudes := {}
-	for mesa in mesas:
-		min_lat = minf(min_lat, float(mesa[0]))
-		max_lat = maxf(max_lat, float(mesa[0]))
-		longitudes[int(round(float(mesa[1])))] = true
-		assert_lte(float(mesa[2]), 180.0, "mesa radius stays small for a 5 km-radius planet")
-		assert_lte(float(mesa[3]), 90.0, "mesa height is no more than 90 m")
-	assert_lt(min_lat, -65.0, "mesas reach the southern hemisphere")
-	assert_gt(max_lat, 65.0, "mesas reach the northern hemisphere")
-	assert_gt(longitudes.size(), 12, "mesas are spread around the full longitude range")
+	for m in spots:
+		min_lat = minf(min_lat, float(m[0]))
+		max_lat = maxf(max_lat, float(m[0]))
+		longitudes[int(round(float(m[1])))] = true
+	assert_lt(min_lat, -65.0, "mountains reach the southern hemisphere")
+	assert_gt(max_lat, 65.0, "mountains reach the northern hemisphere")
+	assert_gt(longitudes.size(), 12, "mountains are spread around the full longitude range")
+	var cfg: Dictionary = data.mountain
+	assert_lt(float(cfg.step.rise), 0.6, "a jump stair's rise is under the player's 0.6 m jump")
+	assert_lt(float(cfg.ramp.slope_deg), 45.0, "ramps are walkable")
+	for v in data.mountain_variants:
+		var p := RockMountain.plan(v, cfg)
+		assert_lte(float(p.radius), 180.0, "a mountain stays small for a 5 km-radius planet")
+		assert_lte(float(p.height), 90.0, "no more than 90 m to the top shelf")
+		assert_gt((p.tiers as Array).size(), 4, "shelves to climb")
+		assert_gt((p.caves as Array).size(), 0, "a cave in every version")
 
 
 func test_up_turns_with_the_ball() -> void:
@@ -298,7 +306,10 @@ func test_crashing_into_a_leaning_mesa() -> void:
 		if a.state == AtmoFlight.State.CRASHED:
 			break
 	assert_eq(a.state, AtmoFlight.State.CRASHED, "flew into its side")
-	assert_eq(a.last_hit, str(mesa.id))
+	# A mountain is a column per shelf (ids <mountain>_<shelf>): the wider shelves
+	# below the one aimed at may be hit first; any of them is this mountain.
+	var mountain := str(mesa.id).rsplit("_", true, 1)[0]
+	assert_true(a.last_hit.begins_with(mountain + "_"), "hit %s, one of %s's shelves" % [a.last_hit, mountain])
 
 
 func test_a_speeder_drives_straight_round_the_curve() -> void:
