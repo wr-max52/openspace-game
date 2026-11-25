@@ -21,6 +21,13 @@ extends Node3D
 ##   the prize   get away on the stolen gate speeder (they give up, or both are
 ##               dead): it is yours (SpeederPost.adopt, marked stolen). Ride it to
 ##               Skrugs's stall and [Z] sells it to him.
+##   no chase    nobody can come after you (no alarm, no garrison, no riders or
+##               no chase speeder): ride it more than escape_m from where it was
+##               parked and it is yours all the same.
+##   full row    you own all the speeders you can (SpeederPost.owned_cap): a toast
+##               says so and it stays a loose speeder, not yours and not saved.
+##               Riding it again raises no alarm; it becomes yours the next time
+##               you climb on with room in the row.
 ##
 ## The headless test drives tick() and the public calls directly.
 
@@ -37,6 +44,8 @@ var riders: Array = []                ## its two guards (NpcBody)
 var holder_now := ""                  ## "remnant" | "locals"
 var home := Transform3D()             ## the marker: where it parks
 var stolen: SpeederNode               ## the gate speeder you took, while it is not yet yours
+var stolen_from := Vector3.ZERO       ## where it was parked when you took it
+var loose := 0                        ## got away with it, but the row was full
 var chases := 0                       ## chases started (tests, traces)
 var escapes := 0
 var kept := 0
@@ -153,6 +162,10 @@ func _on_gate_mounted(s: SpeederNode) -> void:
 	if not s.has_meta("gate_speeder") or s.has_meta("adopted"):
 		return
 	stolen = s
+	if s.has_meta("loose"):
+		_keep_stolen()                # already got away with it: yours if there is room now
+		return
+	stolen_from = s.model.position
 	var g := garrison()
 	if g != null:
 		g._raise("speeder_stolen", s.model.position)
@@ -186,6 +199,8 @@ func tick(dt: float) -> void:
 				_start_chase()
 			elif stolen != null and is_instance_valid(stolen) and _alive_riders().is_empty():
 				_keep_stolen()            # nobody left to chase you: it is yours
+			elif _rode_off(p, riding_speeder):
+				_keep_stolen()            # no chase could start and you rode off with it
 		State.CHASE:
 			_tick_chase(dt, p, riding_speeder)
 		State.PULL_UP:
@@ -204,6 +219,14 @@ func tick(dt: float) -> void:
 					chaser.brain = null
 				_stand_riders()
 				state = State.IDLE
+
+
+## You are on the stolen speeder, more than escape_m from where it was parked,
+## and nobody is coming after you (the IDLE chase check above did not fire).
+func _rode_off(p, riding_speeder: bool) -> bool:
+	if stolen == null or not is_instance_valid(stolen) or not riding_speeder or p.vehicle != stolen:
+		return false
+	return stolen.model.position.distance_to(stolen_from) > n("escape_m", 800.0)
 
 
 func _alive_riders() -> Array:
@@ -276,9 +299,15 @@ func _keep_stolen() -> void:
 	fit["stolen"] = true
 	if post.adopt(s, fit):
 		s.set_meta("adopted", true)
+		s.remove_meta("loose")
 		demo.gate_speeders.erase(s)
 		kept += 1
 		_toast(line("lost_them"))
+	elif not s.has_meta("loose"):
+		# Your row is full: you got away with it, but it is not yours (not saved).
+		s.set_meta("loose", true)
+		loose += 1
+		_toast(line("row_full"))
 
 
 func _stand_riders() -> void:
