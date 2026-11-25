@@ -2,7 +2,7 @@ extends GutTest
 ## Issue #627: the racer and the box truck. Skrugs sells them beside the
 ## Sand-boxer, one of each to a customer; the racer is glass with a tuned
 ## Sand-boxer's speed, the truck is a tank whose Shift drifts; the bench sells
-## them paint only; they are stand-ins with a box hull until issue #628; parked
+## them paint only; they have Hyper3D bodies (issue #628) over a stand-in fallback; parked
 ## speeders sleep while you are far off.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
@@ -193,23 +193,64 @@ func test_the_bench_sells_them_paint_only() -> void:
 	assert_eq(SpeederUpgrades.in_group_for("performance", "speeder").size(), SpeederUpgrades.in_group("performance").size())
 
 
-# ---- stand-ins and their hull --------------------------------------------------------------
+# ---- their Hyper3D bodies (issue #628) and the stand-in fallback ----------------------
 
-func test_each_stand_in_has_a_box_hull_round_it() -> void:
+func _built(t: Node, cfg: Dictionary) -> SpeederNode:
+	var s := SpeederNode.new()
+	s.setup(t, t.speeder_post.ground, cfg, true)
+	t.add_child(s)
+	s.place(Vector3(300, 0, 300), 0.0)
+	return s
+
+
+func test_each_has_its_model_inside_its_size_with_a_hull_round_it() -> void:
 	var t = _town()
+	var sizes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/look/vehicle_models.json"))
 	for id in ["racer", "hauler"]:
 		var cfg := HoverModel.load_config(id)
-		var s := SpeederNode.new()
-		s.setup(t, t.speeder_post.ground, cfg, true)
-		t.add_child(s)
-		s.place(Vector3(300, 0, 300), 0.0)
-		assert_null(s.visual.get_node_or_null("Model"), "%s: a stand-in until #628" % id)
+		var s := _built(t, cfg)
+		assert_not_null(s.visual.get_node_or_null("Model"), "%s: its Hyper3D model" % id)
+		assert_lte(s._size.z, float(sizes[id].length) + 0.05, "%s: inside its length" % id)
+		assert_lte(s._size.x, float(sizes[id].max_span) + 0.05, "%s: inside its span" % id)
+		assert_almost_eq(s._size.z, float(cfg.look.length), 0.5, "%s: as long as its look says" % id)
+		var cs := s.hull.get_node("Shape") as CollisionShape3D
+		assert_true(cs.shape is ConvexPolygonShape3D, "%s: the hull is the model's own shape" % id)
+		var hb := AABB()
+		var pts: PackedVector3Array = (cs.shape as ConvexPolygonShape3D).points
+		for i in pts.size():
+			hb = AABB(pts[i], Vector3.ZERO) if i == 0 else hb.expand(pts[i])
+		assert_true(hb.has_point(Vector3.ZERO), "%s: a bolt at its middle hits the hull" % id)
+		assert_lte(hb.size.x * 0.5, float(cfg.body_radius) + 0.3, "%s: bumps about where its sides are" % id)
+		s.queue_free()
+
+
+func test_the_racer_has_its_arc_between_the_fork_tips() -> void:
+	var t = _town()
+	var s := _built(t, HoverModel.load_config("racer"))
+	var arc := s.visual.get_node_or_null("Part_glow") as MeshInstance3D
+	assert_not_null(arc, "the arc is bolted on as a look part")
+	var b := arc.mesh.get_aabb()
+	assert_gt(b.size.x, 1.6, "it spans the two booms")
+	assert_lt(b.end.z, -s._size.z * 0.5 + 0.1, "at the very front")
+	var cs := s.hull.get_node("Shape") as CollisionShape3D
+	var front := INF
+	for p: Vector3 in (cs.shape as ConvexPolygonShape3D).points:
+		front = minf(front, p.z)
+	assert_gt(front, b.position.z - 0.01, "light, not metal: the hull leaves it out")
+	s.queue_free()
+
+
+func test_with_no_model_the_stand_in_has_a_box_hull_round_it() -> void:
+	var t = _town()
+	for id in ["racer", "hauler"]:
+		var cfg := HoverModel.load_config(id).duplicate(true)
+		cfg.look.erase("scene")
+		var s := _built(t, cfg)
+		assert_null(s.visual.get_node_or_null("Model"), "%s: the stand-in" % id)
 		var cs := s.hull.get_node("Shape") as CollisionShape3D
 		assert_true(cs.shape is BoxShape3D, "%s: a box hull" % id)
 		var box := AABB(cs.position - (cs.shape as BoxShape3D).size * 0.5, (cs.shape as BoxShape3D).size)
-		assert_almost_eq(box.size.z, float(cfg.look.length), 0.5, "%s: as long as its look" % id)
 		assert_true(box.has_point(Vector3.ZERO), "%s: a bolt at its middle hits the hull" % id)
-		assert_lte(box.size.x * 0.5, float(cfg.body_radius) + 0.3, "%s: bumps about where its sides are" % id)
 		s.queue_free()
 
 

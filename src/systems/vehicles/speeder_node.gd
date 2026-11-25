@@ -828,11 +828,28 @@ func _build_visual() -> void:
 	visual = Node3D.new()
 	visual.name = "Look"
 	add_child(visual)
+	var mat_of := { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
+		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) }
 	var scene := str(look.get("paints", {}).get(paint, look.get("scene", "")))
 	if _build_model(scene, float(look.get("base_y", -0.65))):
+		_build_bolt_ons(look.get("parts", []), mat_of)
 		return
-	_build_stand_in(look, { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
-		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) })
+	_build_stand_in(look, mat_of)
+
+
+## Issue #628: extra pieces bolted onto a model (look.parts, the stand-in's piece
+## format, in the speeder's frame): what Rodin draws badly, like the racer's
+## glowing beam between its fork prongs. Batched and shared like the stand-in;
+## glow pieces stay out of the hull (_model_hull skips the glow material).
+func _build_bolt_ons(pieces: Array, mat_of: Dictionary) -> void:
+	if pieces.is_empty():
+		return
+	var key := str(pieces).hash()
+	if not _stand_ins.has(key):
+		_stand_ins[key] = _stand_in_meshes(pieces)
+	var meshes: Dictionary = _stand_ins[key].meshes
+	for mat_name in meshes:
+		_part(meshes[mat_name], mat_of.get(mat_name, mat_of.hull), Vector3.ZERO).name = "Part_" + str(mat_name)
 
 
 ## Issue #627: the primitive body from data (look.stand_in), built when there is

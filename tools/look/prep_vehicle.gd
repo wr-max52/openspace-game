@@ -55,6 +55,11 @@ func _prep(id: String, c: Dictionary) -> void:
 	box = _aabb(root)
 	turn.position = -box.get_center()
 	box = _aabb(root)
+	if c.has("cut_below"):
+		_cut(root, box.position.y + float(c.cut_below), c.get("cut_plate", []))
+		box = _aabb(root)
+		turn.position.y -= box.get_center().y
+		box = _aabb(root)
 	if c.has("paint"):
 		_paint(root, c.paint)
 	_own(root, root)
@@ -133,6 +138,103 @@ static func _paint(root: Node, paint: Dictionary) -> void:
 				mat.roughness_texture = null
 				mat.roughness = float(paint.roughness)
 			mi.mesh.surface_set_material(s, mat)
+
+
+## Issue #628: `cut_below` (metres above the model's bottom) drops every triangle
+## that dips under that height, for a base Rodin added that the game doesn't want
+## (the cargo sled's display slab). The hull above is hollow, so a thin dark-iron
+## plate just above the cut closes it off: `cut_plate` [width, length] in metres,
+## centred under the hull (default: the bounds of what is left just above the cut,
+## which take in anything that sticks out there).
+static func _cut(root: Node3D, cut_y: float, plate_size: Array) -> void:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		var xf := _xf_to(mi, root)
+		var src := mi.mesh
+		var mesh := ArrayMesh.new()
+		for s in src.get_surface_count():
+			var arrays := src.surface_get_arrays(s)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			if idx.is_empty():
+				idx = PackedInt32Array(range(verts.size()))
+			var keep := PackedInt32Array()
+			for t in range(0, idx.size(), 3):
+				var a := xf * verts[idx[t]]
+				var b := xf * verts[idx[t + 1]]
+				var d := xf * verts[idx[t + 2]]
+				if minf(a.y, minf(b.y, d.y)) < cut_y:
+					continue
+				keep.append_array([idx[t], idx[t + 1], idx[t + 2]])
+				for p in [a, b, d]:
+					if p.y < cut_y + 0.35:
+						lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.z))
+						hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
+			var out := _compact(arrays, keep)
+			if out.is_empty():
+				continue
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out)
+			mesh.surface_set_material(mesh.get_surface_count() - 1, src.surface_get_material(s))
+		mi.mesh = mesh
+	if lo.x == INF:
+		return
+	var plate := MeshInstance3D.new()
+	plate.name = "Underplate"
+	var bm := BoxMesh.new()
+	bm.size = Vector3(hi.x - lo.x - 0.08, 0.06, hi.y - lo.y - 0.08)
+	if plate_size.size() >= 2:
+		bm.size = Vector3(float(plate_size[0]), 0.06, float(plate_size[1]))
+	plate.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color("#2e2b27")
+	m.metallic = 0.5
+	m.roughness = 0.75
+	bm.material = m
+	plate.position = Vector3(0.0 if plate_size.size() >= 2 else (lo.x + hi.x) * 0.5, cut_y + 0.03, (lo.y + hi.y) * 0.5)
+	root.add_child(plate)
+
+
+## The surface arrays cut down to the vertices `keep` uses, reindexed.
+static func _compact(arrays: Array, keep: PackedInt32Array) -> Array:
+	if keep.is_empty():
+		return []
+	var remap := {}
+	var order := PackedInt32Array()
+	var idx := PackedInt32Array()
+	for i in keep:
+		if not remap.has(i):
+			remap[i] = order.size()
+			order.append(i)
+		idx.append(remap[i])
+	var out := []
+	out.resize(Mesh.ARRAY_MAX)
+	for k in Mesh.ARRAY_MAX:
+		var a = arrays[k]
+		if a == null or k == Mesh.ARRAY_INDEX:
+			continue
+		if k == Mesh.ARRAY_TANGENT:
+			var t := PackedFloat32Array()
+			for i in order:
+				t.append_array([a[i * 4], a[i * 4 + 1], a[i * 4 + 2], a[i * 4 + 3]])
+			out[k] = t
+		elif a is PackedVector3Array or a is PackedVector2Array or a is PackedColorArray:
+			var b = a.duplicate()
+			b.resize(order.size())
+			for j in order.size():
+				b[j] = a[order[j]]
+			out[k] = b
+	out[Mesh.ARRAY_INDEX] = idx
+	return out
+
+
+static func _xf_to(n: Node3D, top: Node) -> Transform3D:
+	var xf := Transform3D.IDENTITY
+	var p: Node = n
+	while p != top:
+		xf = (p as Node3D).transform * xf
+		p = p.get_parent()
+	return xf
 
 
 static func _own(n: Node, owner: Node) -> void:

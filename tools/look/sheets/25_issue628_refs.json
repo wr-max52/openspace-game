@@ -1,0 +1,9 @@
+{
+  "title": "Issue #628: reference crops of the reshaped racer and box truck stand-ins, fed to Hyper3D Rodin",
+  "crops": "res://assets/vehicles/source/refs",
+  "views": ["front34", "side", "rear34", "top"],
+  "cells": [
+    { "name": "racer628", "speeder": "racer" },
+    { "name": "hauler628", "speeder": "hauler" }
+  ]
+}
