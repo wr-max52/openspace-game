@@ -36,6 +36,7 @@ var flashes := 0                      ## gate flashes started (tests, traces)
 var _gate_roots: Array = []           ## one Node3D per gate (while built)
 var _gate_parts: Array = []           ## per gate: { lamps: Array, strip: MeshInstance3D }
 var _flash: Dictionary = {}           ## gate index -> { t, you }
+var record_label: Label3D             ## issue #618: your best lap here, on the start line's antenna
 var _check := 0.0
 static var _look: Dictionary = {}
 static var _mats: Dictionary = {}
@@ -380,6 +381,31 @@ func build_gates() -> void:
 		_gate_parts.append({ "lamps": lamps, "strips": strips })
 	for i in _flash:
 		_paint(i, "you" if bool(_flash[i].you) else "pass", "flash_energy")
+	_build_record()
+
+
+## Issue #618: a small panel on the start line's left antenna: your best lap.
+func _build_record() -> void:
+	if _gate_roots.is_empty():
+		return
+	record_label = Label3D.new()
+	record_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	record_label.font_size = 64
+	record_label.pixel_size = 0.01
+	record_label.outline_size = 12
+	record_label.modulate = Color(str(look().get("start", "#ff3b30"))).lightened(0.5)
+	var g: Dictionary = gates[0]
+	record_label.position = Vector3(-float(g.half), float(course.get("antenna_height", 7.0)) * 0.55, 0.6)
+	(_gate_roots[0] as Node3D).add_child(record_label)
+	refresh_record()
+
+
+## The panel shows your best lap now (after a record).
+func refresh_record() -> void:
+	if record_label == null or not is_instance_valid(record_label):
+		return
+	var best := float(WorldState.counters.get("race_best_" + id, 0)) / 1000.0
+	record_label.text = "%s\nBEST LAP %s" % [label().to_upper(), RaceCrew.clock(best)]
 
 
 ## The beam across a gate: one straight bar from one mast's foot to the other's,
@@ -418,4 +444,5 @@ func drop_gates() -> void:
 			r.queue_free()
 	_gate_roots.clear()
 	_gate_parts.clear()
+	record_label = null
 	built = false

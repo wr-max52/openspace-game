@@ -52,6 +52,7 @@ var air_time := 0.0                  ## of the current (or last) jump
 var top_height := 0.0                ## highest clearance over the ground on the last jump
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
+var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 
 var _pending: Array = []             ## events from between steps (lift), for the next step()
 var _cmd := { "throttle": 0.0, "steer": 0.0, "boost": false }
@@ -224,10 +225,10 @@ func _drive(dt: float) -> void:
 		boost_left = minf(p("boost_time", 3.5), boost_left + dt * p("boost_recharge", 0.45))
 	var target := 0.0
 	if throttle > 0.0:
-		target = throttle * (p("boost_speed", 52.0) if lit else p("max_speed", 36.0))
+		target = throttle * (p("boost_speed", 52.0) if lit else p("max_speed", 36.0)) * (1.0 + tow * p("tow_speed", 0.0))
 	elif throttle < 0.0:
 		target = throttle * p("reverse_speed", 9.0)
-	var rate := p("accel", 16.0)
+	var rate := p("accel", 16.0) * (1.0 + tow * p("tow_accel", 0.0))
 	if throttle == 0.0:
 		rate = p("coast_drag", 6.0)
 	elif signf(target) != signf(speed) and absf(speed) > 0.5:
