@@ -77,7 +77,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			or event is InputEventMouseMotion and not look_blocked and DisplayServer.get_name() == "headless":
 		rig.add_yaw(-event.relative.x * mouse_sensitivity * _zoom)
 		rig.add_pitch(-event.relative.y * mouse_sensitivity * _zoom)
-	if event.is_action_pressed(toggle_action):
+	# A ship or speeder that has the camera (set_override) changes its own views on
+	# V; the on-foot view stays the one you got in with (issue #637).
+	if event.is_action_pressed(toggle_action) and not _override:
 		toggle_view()
 
 
