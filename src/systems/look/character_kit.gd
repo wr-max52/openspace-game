@@ -97,6 +97,7 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 	var skin := SkinnedBody.dress(root, p.get("model", {}))
 	if skin != null:
 		_wear_outfit(root, skin, p.model, outfit)
+		skin.seat_finger_pivots()     # issue #324: the fingers bend at this outfit's knuckles
 		if p.has("tint"):
 			_tint(skin.model, Color.html(str(p.tint)))
 		root.set_meta("skin", skin)
@@ -111,6 +112,7 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 		var layer_choices: Dictionary = layer.get("outfit", {})
 		layer_outfit.merge(layer_choices, true)
 		_wear_outfit(root, layer_skin, layer, layer_outfit)
+		layer_skin.seat_finger_pivots()
 		skins.append(layer_skin)
 	if not skins.is_empty():
 		root.set_meta("skins", skins)

@@ -1000,6 +1000,8 @@ func _go_limp(was_moving: Vector3) -> void:
 		was_moving += Ragdoll.blast_fling(global_position, _blast_from, _blast_reach, tilt.y, cfg)
 	ragdoll = Ragdoll.new(joints, cfg)
 	ragdoll.start(was_moving, kick, get_world_3d().direct_space_state, [get_rid()])
+	if look_body.has_meta("skin"):
+		(look_body.get_meta("skin") as SkinnedBody).holds.clear()   # issue #324: the hands let go
 	if look_body.has_meta("weapon"):
 		var w: Node3D = look_body.get_meta("weapon")
 		look_body.remove_meta("weapon")
@@ -1152,7 +1154,10 @@ func _animate(dt: float, move: Vector3) -> void:
 	# A rigged model (SkinnedBody, characters.json "model") follows the joints only
 	# when told to, after they have moved this frame.
 	if look_body.has_meta("skin"):
+		var gun := _close_on_gun(w)
 		(look_body.get_meta("skin") as SkinnedBody).sync(look_body)
+		if gun:
+			_gun_into_fist(w)
 		_place_blade()
 
 
@@ -1199,6 +1204,11 @@ func hold_blade(color: Color, hilt: String = "", length: float = -1.0, grip = nu
 	var skin: SkinnedBody = look_body.get_meta("skin") if look_body.has_meta("skin") else null
 	if skin != null and skin.bone_of.has("r_wrist"):
 		_blade_bone = int(skin.bone_of.r_wrist)
+		# Issue #324: a skin with finger bones closes its fist on the hilt, and the
+		# hilt goes where that fist is (the profile's `grip` is for one without).
+		var fist := _fist_blade_grip(skin)
+		if fist != Transform3D():
+			blade_grip = fist
 	blade_drawn = drawn
 	blade_out = 1.0 if drawn else 0.0
 	_blade_lit = -1.0
@@ -1206,6 +1216,88 @@ func hold_blade(color: Color, hilt: String = "", length: float = -1.0, grip = nu
 	blade.top_level = true
 	_place_blade()
 	return blade
+
+
+## Issue #324: the hands' grips from content/look/hand_weapons.json ("hold_3p"),
+## read once: weapon id -> hold_3p.
+static var _holds: Dictionary = {}
+const HALF_GRIP := 0.45     ## how far the left hand closes on a gun it cannot reach
+
+
+static func hold_3p(id: String) -> Dictionary:
+	if _holds.is_empty():
+		var all := CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+		for k in all:
+			if all[k] is Dictionary and (all[k] as Dictionary).has("hold_3p"):
+				_holds[k] = all[k].hold_3p
+		_holds["_read"] = {}
+	return _holds.get(id, {})
+
+
+static func _v3(a) -> Vector3:
+	return Vector3(float(a[0]), float(a[1]), float(a[2])) if a is Array and a.size() >= 3 else Vector3.ZERO
+
+
+## Issue #324: a gun in hand (the troopers' rifles, a pistol): the right wrist turns
+## so the gun's grip runs through the skin's fist (HandGrip's frame lined up with
+## the grip's `bar` and `palm`), and the fingers close on it; the left hand half
+## closes (the carry holds the gun past the kit's left arm). Before the skin's sync.
+## False (and the gun hands let go) when nothing is held.
+func _close_on_gun(w: Node3D) -> bool:
+	var skin: SkinnedBody = look_body.get_meta("skin")
+	var hold := hold_3p("pistol_blaster" if w != null and str(w.get_meta("carry", "rifle")) == "pistol" else "rifle_blaster")
+	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
+	if w == null or not w.visible or r.is_empty() or not skin.bone_of.has("r_wrist"):
+		if blade == null:
+			skin.set_hold("r", {})
+		skin.set_hold("l", {})
+		return false
+	var z := (w.transform.basis * _v3(r.get("bar", [0, 1, 0]))).normalized()
+	var p := w.transform.basis * _v3(r.get("palm", [1, 0, 0]))
+	var x := (p - z * p.dot(z)).normalized()
+	var frame := skin.grip_frame("r", r)
+	var hand := (Basis(x, z.cross(x), z) * frame.basis.inverse()).orthonormalized()
+	# The arm re-aimed once so the fist's middle, not the wrist, comes to the grip.
+	var g := w.transform * _v3(r.get("grip", [0, 0, 0]))
+	var fdir := -kit.chest_space(look_body, joints.r_elbow).basis.y.normalized()
+	kit.reach(look_body, "r", g - hand * frame.origin + fdir * CharacterKit.HAND_REACH, Vector3(-0.5, -0.7, -0.5))
+	var el := kit.chest_space(look_body, joints.r_elbow)
+	(joints.r_wrist as Node3D).basis = (el.basis.orthonormalized().inverse() * hand).orthonormalized()
+	skin.set_hold("r", r, 1.0)
+	var l: Dictionary = (hold.get("hands", {}) as Dictionary).get("l", {})
+	skin.set_hold("l", l, HALF_GRIP)
+	return true
+
+
+## Issue #324: after the sync, the gun moved the last few centimetres into the
+## skin's fist (the skin's arm is not the kit's length, so the kit's IK leaves its
+## hand beside the grip). The gun keeps its turn, so its aim does not change.
+func _gun_into_fist(w: Node3D) -> void:
+	var skin: SkinnedBody = look_body.get_meta("skin")
+	var hold := hold_3p("pistol_blaster" if str(w.get_meta("carry", "rifle")) == "pistol" else "rifle_blaster")
+	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
+	var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
+	var fist: Vector3 = to_chest * (skin.joint_xf("r_wrist") * skin.grip_frame("r", r).origin)
+	var g := w.transform * _v3(r.get("grip", [0, 0, 0]))
+	var miss := fist - g
+	if miss.length() < 0.12:       # a bigger gap is a pose the hand never reaches: leave it
+		w.transform.origin += miss
+
+
+## Issue #324: the blade in the skin's closed fist: the sword's grip point
+## (energy_blade hold_3p "grip") on the middle of the fist's bar, the blade out past
+## the thumb, in the hand bone's space. Identity when the skin has no finger bones.
+func _fist_blade_grip(skin: SkinnedBody) -> Transform3D:
+	var hold := hold_3p("energy_blade")
+	var spec: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
+	var g := skin.grip("r", spec) if not spec.is_empty() else {}
+	if g.is_empty():
+		return Transform3D()
+	var f: Transform3D = g.frame
+	var y := f.basis.z.normalized()
+	var x := f.basis.x.normalized()
+	var b := Basis(x, y, x.cross(y)).orthonormalized()
+	return Transform3D(b, f.origin * skin._unit() - b * _v3(hold.get("grip", [0, -0.085, 0])))
 
 
 ## The held blade gone from the body (its owner's fell as a pickup; one sword, not two).
@@ -1241,6 +1333,10 @@ func _place_blade() -> void:
 		return
 	var hand := _blade_hand_xf()
 	var swing := clampf(blade_out * 2.0, 0.0, 1.0)
+	if look_body.has_meta("skin"):
+		# Issue #324: the fist closes as the hilt comes up into it (kept from the next sync).
+		var spec: Dictionary = (hold_3p("energy_blade").get("hands", {}) as Dictionary).get("r", {})
+		(look_body.get_meta("skin") as SkinnedBody).set_hold("r", spec, swing * swing * (3.0 - 2.0 * swing))
 	if swing >= 1.0:
 		blade.global_transform = hand
 	else:
