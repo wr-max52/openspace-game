@@ -26,6 +26,8 @@ var glass: Node3D
 var dressing: CantinaDressing    ## the back bar and counter (null in the greybox)
 var bottles_served := 0          ## paid drinks she has set on the counter
 var serve_colors: Array = []     ## the colour of each one, in order
+var cower_left := 0.0            ## issue #605: seconds she stays down behind the bar (shooting nearby)
+var _noise_id := -1
 var _serve_queue := 0            ## paid drinks still to bring
 var _serve_t := -1.0             ## >= 0 while carrying one
 var _bottle: Node3D
@@ -34,8 +36,6 @@ var _to := Vector3.ZERO
 var _t := 0.0
 var _act_left := 0.0
 var _talk_energy := 0.0
-var cower_left := 0.0                 ## issue #605: seconds she stays down behind the bar (shooting nearby)
-var _noise_id := -1
 
 
 func _init(materials: LookMaterials = null, archetype: String = "cantina_owner") -> void:
