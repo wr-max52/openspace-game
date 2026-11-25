@@ -1,10 +1,11 @@
 {
-  "note": "How the player's hand weapons look and sit. Issue #25: the pistol and rifle are Hyper3D models (assets/gear/,  metres, muzzle +Z) shown with its own textures (retint false). Models are CC0 (Kenney, via the MIT starter kit; see assets/third_party/kenney_starter_kit_fps/LICENSE.md) and are retinted at runtime so they read as worn gunmetal, not toys. All transforms are chest space (+Z forward, +X the character's left). Grips and muzzle are in model space, before scale.",
+  "note": "How the player's hand weapons look and sit. Issue #25: the pistol and rifle are Hyper3D models (assets/gear/,  metres, muzzle +Z) shown with its own textures (retint false). Models are CC0 (Kenney, via the MIT starter kit; see assets/third_party/kenney_starter_kit_fps/LICENSE.md) and are retinted at runtime so they read as worn gunmetal, not toys. 'emitter': false leaves off the glowing ring and core PlayerAvatar puts round the muzzle (the orange tip); the pistol and rifle have none, the muzzle flash still shows when firing. All transforms are chest space (+Z forward, +X the character's left). Grips and muzzle are in model space, before scale.",
   "pistol_blaster": {
     "model": "res://assets/gear/pistol.glb",
     "scale": 1.0,
     "retint": false,
     "tint": { "glow": "#ff7a3a" },
+    "emitter": false,
     "dark": { "body_mul": 0.28, "accent_mul": 0.8, "glow": 0.6, "rim": 0.3, "fill": 0.35 },
     "ads": { "sight": [0.0, 0.111, -0.105], "relief": 0.26, "mag": 1.25, "blend_s": 0.15 },
     "sights": {
@@ -52,6 +53,7 @@
     "scale": 1.0,
     "retint": false,
     "tint": { "glow": "#ff5a2a" },
+    "emitter": false,
     "dark": { "body_mul": 0.28, "accent_mul": 0.8, "glow": 0.6, "rim": 0.3, "fill": 0.35 },
     "ads": { "sight": [0.0, 0.172, -0.1], "relief": 0.11, "mag": 2.5, "blend_s": 0.15 },
     "cut": {
