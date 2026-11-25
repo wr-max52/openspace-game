@@ -130,3 +130,32 @@ func test_the_holo_shows_the_locals_holding_it() -> void:
 	var row: Dictionary = GlobeMap.off_planet([], ItemKit._read_json("res://content/core/worlds/port_desert.json")).filter(
 		func(o): return str(o.kind) == "cruiser").front()
 	assert_eq(str(row.owner), Territory.LOCALS, "and the Map page's cruiser row")
+
+
+## The Map page's cruiser row flashes when it changes hands, like the holo's pin:
+## straight away with the page open, else the next time it opens.
+func test_the_map_row_flashes_when_it_changes_hands() -> void:
+	WorldState.new_game(WorldState.STORY)
+	var panel := DevSettingsPanel.new()
+	add_child_autofree(panel)
+	panel.demo = { "world": ItemKit._read_json("res://content/core/worlds/port_desert.json"), "planet": {}, "town": null }
+	panel.tabs.add_child(panel._map_tab())     # the Map page alone: the others want a real town
+	panel.tabs.current_tab = panel._map_page.get_index()
+	panel.visible = true
+	panel._refresh_map()
+	panel._watch_cruiser(1.0)
+	assert_not_null(panel._cruiser_icon, "the Map page has a cruiser row")
+	assert_eq(panel.cruiser_flash(), 0.0, "nothing changed: no flash")
+	_taken_he_is_dead()
+	panel._watch_cruiser(1.0)
+	assert_gt(panel._cruiser_flash_end, Time.get_ticks_msec(), "the locals took it: the row flashes")
+	assert_not_null(panel._cruiser_icon, "on the rebuilt row")
+	# Closed when it changes hands again: it waits for the page to open.
+	panel._cruiser_flash_end = 0
+	panel.visible = false
+	WorldState.new_game(WorldState.STORY)      # back before it fell: the Remnant's
+	panel._watch_cruiser(1.0)
+	assert_eq(panel.cruiser_flash(), 0.0, "not while the panel is shut")
+	panel.visible = true
+	panel._refresh_map()
+	assert_gt(panel._cruiser_flash_end, Time.get_ticks_msec(), "it flashes once the Map page opens")
