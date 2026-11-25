@@ -1861,6 +1861,8 @@ func _build_desert(staged_build := false) -> void:
 	else:
 		terrain.build(use_look)          # greybox: collider only
 	if terrain is PlanetTerrain:
+		# The 1 km of fine sand under the camera comes in only this low (0 = always).
+		(terrain as PlanetTerrain).mid_below_agl = float(world.get("detail", {}).get("ground_detail_below", 0.0))
 		PlanetSphere.current = (terrain as PlanetTerrain).sphere
 		tree_exiting.connect(func():
 			if PlanetSphere.current == (terrain as PlanetTerrain).sphere:
