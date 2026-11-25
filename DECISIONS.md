@@ -1968,3 +1968,26 @@ there; between planets, past every bubble, it is open space, its own place.)
   with their own "where you are" line (a card may now carry `place`). The port
   only, since the briefing describes the port.
 
+
+## Speeders come in three classes, and race crews climb by ride (2026-11-25)
+
+- **Light, medium, heavy, like kart racers' weight classes.** The racer is the
+  light class (acceleration, handling and boost, low armor), the Sand-boxer the
+  all-rounder, the box truck the heavy class (the best top speed and armor,
+  poor acceleration and turning). Acceleration is the truck's hard limit: its
+  base is under half the Sand-boxer's, so Twin thrusters (x1.6) still leave it
+  behind a stock Sand-boxer off the line. Alternative: a per-model cap on
+  upgrades. Left for later: one more rule where a low base number does it.
+- **One parts list for every model.** `shared_groups` in speeder_upgrades.json
+  makes performance, race gear and the lifter fit every vehicle, instead of a
+  copy of each part per model. Paint and looks stay per model because they are
+  the Sand-boxer's mesh and paint jobs. A mod on a number a model lacks (the
+  truck's boost speed) is skipped.
+- **Damage is set by hits to wreck, anchored on the Sand-boxer.** The
+  Sand-boxer (120) and the laser bolt (18) stay as they were, because gate
+  chases, hijacks and on-foot fights use them. Seekers and mines come down to a
+  third of a Sand-boxer each (vehicle combat racers make a missile a big
+  setback, not a kill), the racer takes half the armor and the truck three
+  times. Cannon tiers come down to +25% and +50% so a stacked salt crew cannot
+  delete a racer in one volley.
+- **A crew's racer names its `model`;** the race gear stays crew-wide.
