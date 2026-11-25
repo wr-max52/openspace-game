@@ -2,6 +2,11 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7 (2026-11-24)
+
+- Share builds are now **OpenSpace V1.7**. Everything below, down to "New
+  version is 1.6.4", is in it.
+
 ## Seamless flight: cruise between planets, and a sun in the middle (issues #575 and #576, 2026-11-15)
 
 - **In open space the ship speeds up on its own.** Away from every planet its
