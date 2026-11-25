@@ -29,6 +29,21 @@
     "holster": "l_hip",
     "fpv_pose": { "r": "hilt", "l": "hilt" },
     "aim_fpv": { "one_hand": true },
+    "hold_3p": {
+      "note": "Issue #631: third person, the right fist closed on the hilt (PlayerAvatar._seat_fist). 'one_hand': the left arm walks free. 'grip': the point on the sword the fist closes on (sword space, m; first person keeps the sword's own). 'palm': where that point sits in the hand's frame (m; -Y down the fingers, +X the palm, +Z the thumb side): the middle of the curled fingers (fitted to a 2 cm hilt). 'passes': re-aims of the arm until the skin's palm is on the grip. 'fingers': the skin's finger bones (hand + finger + 1..3), each turned 'deg' about its own 'axis' after rest (SkinnedBody.pose_fingers).",
+      "one_hand": true,
+      "grip": [0.0, -0.085, 0.0],
+      "palm": [0.02, -0.1, -0.04],
+      "passes": 2,
+      "hand": "RightHand",
+      "fingers": {
+        "Index": { "axis": [1, 0, 0], "deg": [63, 72, 45] },
+        "Middle": { "axis": [1, 0, 0], "deg": [63, 72, 45] },
+        "Ring": { "axis": [1, 0, 0], "deg": [56, 64, 40] },
+        "Pinky": { "axis": [1, 0, 0], "deg": [49, 56, 35] },
+        "Thumb": { "axis": [0.707, 0, 0.707], "deg": [0, 45, 25] }
+      }
+    },
     "slot": 2
   },
   "rifle_blaster": {
