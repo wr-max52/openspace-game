@@ -100,6 +100,8 @@
     "sleep_m": 120.0,
     "locals_after_s": 8.0
   },
+  "droids_note": "Issue #607: the town's patrol droids (droids.json's 'remnant' or 'locals' units, whoever holds the town) walk rounds of the walkway on these floors, one floor each in turn, two on a floor half a round apart: 'points' corners round the middle of the walkway (the gap's railing out to 'walkway' metres), clear on every floor. No floors: no droids aboard. Not the home port's street points, which ran through the station's walls.",
+  "droids": { "floors": ["markets", "markets_2"], "points": 16 },
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
   "tunnel": { "width": 6.0, "height": 5.0 },
   "hatch": { "length": 4.0, "width": 4.0, "note": "A hatch in the middle of every tunnel's roof, closed by a shield the air cannot pass and you can: jump up through it (the jetpack) and walk the roof between its railings, out in space, like a bridge; drop back through it to get in." },
