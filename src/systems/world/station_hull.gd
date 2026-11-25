@@ -55,6 +55,10 @@ var doors: Array = []              ## { tower, floor (index), xf, size }: the sh
 var hatches: Array = []            ## { tunnel, xf, size }: the shield in each tunnel's roof (you pass, the air does not)
 var rooms: Dictionary = {}         ## "<tower>/<floor>" -> [{ a (its door's angle), half (half its angle), open }]
 var tubes: Array = []              ## { tower, floor (index), c, r, y0, y1 }: the shield round the gap between two floors (SpaceStation draws it)
+## Issue #603: { tower, floor (index), c, r0, r1, y }: the shield across the gap round the
+## shaft on every floor (and over the top floor's gap), a flat ring you fall or jetpack
+## through: no collider, only the look (SpaceStation draws it).
+var gap_shields: Array = []
 var _built := false
 
 
@@ -552,6 +556,7 @@ func _build() -> void:
 	hatches = []
 	rooms = {}
 	tubes = []
+	gap_shields = []
 	for t in towers:
 		var fl: Array = t.floors
 		for i in fl.size():
@@ -647,16 +652,19 @@ func _floor(t: Dictionary, i: int) -> void:
 	var doors_at := _door_angles(t, y)
 	var door_gaps: Array = doors_at.map(func(a): return [a, tunnel_w * 0.5])
 	var ceil_y := y + floor_h
-	# The plate, the gap's glass floor (the shaft's own floor at the bottom).
+	# The plate, the gap's shield floor (the shaft's own floor at the bottom). Issue
+	# #603: the gap is not glass you stand on but a shield you drop through, floor
+	# after floor, out under the station from the lowest one (as the tunnels' hatches).
 	_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
-	_ring(pre + "_gap_glass", c, shaft_r, gap_r, y - 0.4, y, "floor", "glass_floor", [], 24)
+	gap_shields.append({ "tower": str(t.id), "floor": i, "c": c, "r0": shaft_r, "r1": gap_r, "y": y - 0.05 })
 	if i == 0:
 		_ring(pre + "_pit", c, 0.0, shaft_r, y - plate, y, "floor", "deck", [], 12)
 	# A glowing band round the plate's edge outside, and the underside's trim.
 	_ring(pre + "_edge_glow", c, r + 0.05, r + 0.35, y - 0.75, y - 0.45, "decor", "glow")
 	_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
 	if top:
-		_ring(pre + "_skylight", c, shaft_r, gap_r, ceil_y, ceil_y + 0.3, "solid", "glass", [], 24)
+		# Over the top floor's gap, a shield too: jetpack up through it onto the roof.
+		gap_shields.append({ "tower": str(t.id), "floor": i, "c": c, "r0": shaft_r, "r1": gap_r, "y": ceil_y + 0.15 })
 		_ring(pre + "_shaft_cap", c, 0.0, shaft_r, ceil_y, ceil_y + plate, "solid", "hull", [], 12)
 	else:
 		# Round the gap between this floor and the next: a shield, not glass. It keeps
@@ -796,10 +804,17 @@ func _tower_dressing(t: Dictionary) -> void:
 	var high: Dictionary = fl[-1]
 	var y0 := float(low.y) - plate
 	var r0 := float(low.r) * 0.55
+	# Issue #603: open round the gap, so a drop through the lowest floor's gap shield
+	# falls out under the station; the shaft's core runs on down the middle.
 	for k in 4:
 		var rr := r0 * (1.0 - k * 0.22)
-		_ring("%s_keel_%d" % [str(t.id), k], c, 0.0, rr, y0 - (k + 1) * 3.0, y0 - k * 3.0, "solid", "hull", [], 24)
-	_ring("%s_keel_glow" % str(t.id), c, r0 * 0.3, r0 * 0.36, y0 - 13.0, y0 - 12.0, "decor", "glow", [], 24)
+		var ky0 := y0 - (k + 1) * 3.0
+		var ky1 := y0 - k * 3.0
+		_ring("%s_keel_core_%d" % [str(t.id), k], c, 0.0, minf(rr, shaft_r), ky0, ky1, "solid", "hull", [], 12)
+		if rr > gap_r + 0.5:
+			_ring("%s_keel_%d" % [str(t.id), k], c, gap_r, rr, ky0, ky1, "solid", "hull", [], 24)
+	_ring("%s_keel_glow" % str(t.id), c, shaft_r - 1.0, shaft_r - 0.4, y0 - 13.0, y0 - 12.0, "decor", "glow", [], 24)
+	_ring("%s_keel_rim" % str(t.id), c, gap_r, gap_r + 0.4, y0 - 0.3, y0, "decor", "glow", [], 24)
 	var roof := float(high.y) + floor_h + plate
 	var mast_h := float(high.r) * 0.45
 	_add("%s_mast" % str(t.id), Transform3D(Basis.IDENTITY, Vector3(c.x, roof + mast_h * 0.5, c.y)),
@@ -862,7 +877,7 @@ func _tunnel(tn: Dictionary) -> void:
 
 ## Out on a tunnel's roof walk (between its railings, up to a few metres over it)
 ## or on a floor's roof, in the open space under the next floor (through the gap's
-## shield): the station's frame. Not aboard (you are outside), but not fallen out
+## shield), or on the top floor's roof (up through its gap shield): the station's frame. Not aboard (you are outside), but not fallen out
 ## either.
 func on_roof(local: Vector3) -> bool:
 	for tn in tunnels:
@@ -876,6 +891,17 @@ func on_roof(local: Vector3) -> bool:
 		var c: Vector2 = tb.c
 		if Vector2(local.x - c.x, local.z - c.y).length() <= float(f.r) + 0.5 \
 				and local.y >= float(tb.y0) + plate - 0.5 and local.y <= float(tb.y1) + 0.5:
+			return true
+	# Issue #603: up through the top floor's gap shield, out on the tower's roof.
+	for t in towers:
+		var fl: Array = t.floors
+		if fl.is_empty():
+			continue
+		var top: Dictionary = fl[-1]
+		var c: Vector2 = t.c
+		var roof := float(top.y) + floor_h + plate
+		if Vector2(local.x - c.x, local.z - c.y).length() <= float(top.r) + 0.5 \
+				and local.y >= roof - 0.5 and local.y <= roof + 6.0:
 			return true
 	return false
 

@@ -10,7 +10,7 @@
   "gap_radius": 12.0,
   "walkway": 7.0,
   "shaft_radius": 5.5,
-  "floors_note": "Each tower is a stack of round floors (y: the top of its floor plate, radius: its outer glass wall). The space between one floor's ceiling and the next floor's plate is open to space, crossed only by the glass tube round the elevator. 'rooms': rooms round the outside behind an inner wall with doors, cut by corridors where tunnels leave; false: open from the walkway to the glass (markets). The gap in the middle of each floor (gap_radius) has a glass floor, so you look down the tube through every floor below; the elevator shaft (shaft_radius) runs up its middle, and two bridges join it to the walkway, north-south on one floor, east-west on the next.",
+  "floors_note": "Each tower is a stack of round floors (y: the top of its floor plate, radius: its outer glass wall). The space between one floor's ceiling and the next floor's plate is open to space, crossed only by the glass tube round the elevator. 'rooms': rooms round the outside behind an inner wall with doors, cut by corridors where tunnels leave; false: open from the walkway to the glass (markets). The gap in the middle of each floor (gap_radius) is floored by a shield, not glass (issue #603): you look down the tube through every floor below, and jump the railing to drop through it floor after floor (out under the station from the lowest; over the top floor's gap another shield you jetpack up through onto the roof); the elevator shaft (shaft_radius) runs up its middle, and two bridges join it to the walkway, north-south on one floor, east-west on the next.",
   "towers": [
     { "id": "main", "at": [0, 0], "floors": [
       { "id": "engines", "y": -26.0, "radius": 42.0, "rooms": true },
