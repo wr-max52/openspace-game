@@ -1,0 +1,19 @@
+{
+  "note": "Issue #610: how a race gate looks. Read by src/systems/racing/race_course.gd. A gate is two relay antennas (RelayAntenna, the droid relays' array) with a knee-high glowing strip between them. At rest the start/finish is `start` and a checkpoint `checkpoint`. A racer going through flashes it `pass` (anyone) or `you` (the player) at full `flash_energy`, then `mid` after mid_s, then back to rest at flash_s. One shared material per colour and step for every gate in the world (docs/RENDER_RULES.md: no per-gate materials, no real lights). strip_height, strip_glow and strip_pieces: the strip's height (m), how much brighter than the lamps it glows (a solid glow: see-through vanished into the red sand at dusk; it has no collider, you drive through it), how many pieces it follows the sand in, and how far over the sand it floats (strip_lift, m: the drawn sand's ripples stand proud of the terrain's height at some presets).",
+  "start": "#ff3b30",
+  "checkpoint": "#d08a1e",
+  "pass": "#fff2c0",
+  "you": "#3dff7a",
+  "rest_energy": 2.4,
+  "flash_energy": 7.0,
+  "mid_energy": 3.2,
+  "mid_s": 0.3,
+  "flash_s": 1.0,
+  "strip_height": 0.45,
+  "strip_glow": 1.4,
+  "strip_pieces": 6,
+  "strip_lift": 0.35,
+  "steel": "#71777a",
+  "dark": "#202225",
+  "trim": "#8e3a26"
+}
