@@ -34,6 +34,8 @@ var _to := Vector3.ZERO
 var _t := 0.0
 var _act_left := 0.0
 var _talk_energy := 0.0
+var hit_body: TalkHit                 ## issue #606: bolts find her (hit marker, flinch), no damage
+var _flinch := 0.0
 
 
 func _init(materials: LookMaterials = null, archetype: String = "cantina_owner") -> void:
@@ -44,6 +46,12 @@ func _init(materials: LookMaterials = null, archetype: String = "cantina_owner")
 	joints = body.get_meta("joints")
 	glass = kit.make_bar_glass()
 	(joints.chest as Node3D).add_child(glass)
+	hit_body = TalkHit.make(self)
+
+
+## Issue #606: shot or cut (TalkHit): a jolt back through the chest.
+func flinch() -> void:
+	_flinch = 1.0
 
 
 func set_act(a: int, seconds: float = 0.0) -> void:
@@ -133,6 +141,7 @@ func _process(dt: float) -> void:
 		if _act_left <= 0.0 and act != Act.THINKING:
 			act = Act.IDLE
 	_talk_energy = maxf(0.0, _talk_energy - dt * 2.5)
+	_flinch = maxf(0.0, _flinch - dt * 4.0)
 	_tick_serve(dt)
 	var out := anim.step(dt, { "speed": 0.0, "grounded": true, "upper": BodyAnimator.UPPER_HOLSTER })
 	for jn in out.joints:
@@ -185,4 +194,4 @@ func _upper(_dt: float) -> void:
 	else:
 		var a := _t * wipe_speed
 		kit.reach(body, "r", glass_at + Vector3(-0.07 + 0.03 * cos(a), 0.06 + 0.035 * sin(a), 0.0), Vector3(-0.5, -0.7, -0.5))
-	chest.rotation_degrees.x += 1.2 * sin(_t * 1.5)
+	chest.rotation_degrees.x += 1.2 * sin(_t * 1.5) - 14.0 * _flinch
