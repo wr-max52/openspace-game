@@ -67,6 +67,8 @@ var _lean := Vector2.ZERO        ## smoothed (pitch, roll) for the eye
 var _jolt_xf := Transform3D.IDENTITY
 static var _hulls: Dictionary = {}   ## issue #82: model -> its hull shape (see _model_hull)
 static var _stand_ins: Dictionary = {}   ## issue #627: a stand-in's pieces -> its meshes per colour and bounds
+static var _yokes: Dictionary = {}       ## look.yoke + its material -> a yoke in the world, copied into every speeder of that look
+var _mat_of: Dictionary = {}             ## the look's materials by name (hull, trim, metal, seat, glow, glass)
 var _engine: AudioStreamPlayer3D   ## issue #16: the speeder's drone while you ride
 ## Issue #95: the mechanic's looks parts (cfg.parts) and how big the body is.
 var _size := Vector3(2.4, 1.2, 5.0)
@@ -110,6 +112,7 @@ func _ready() -> void:
 	_build_visual()
 	_build_parts()
 	_build_hull()
+	_build_yoke()               # after the hull: not part of its shape
 	_engine = Sound.loop("speeder_engine", self)
 	if rideable:
 		gun = WeaponActor.new()
@@ -775,8 +778,8 @@ func _player_avatar() -> PlayerAvatar:
 	return av if av != null and is_instance_valid(av) else null
 
 
-## Climbing on a show_driver speeder: your body stays in view, standing at rest in
-## the driver's seat with the weapon in hand put out of sight, drawn from outside
+## Climbing on a show_driver speeder: your body stays in view, sat in the
+## driver's seat (BodyAnimator.sit_pose) with the weapon in hand put out of sight, drawn from outside
 ## (never first person) and carried by the speeder rather than the player node
 ## (whose yaw the camera rig keeps turning). True if it is shown.
 func _seat_player() -> bool:
@@ -791,6 +794,13 @@ func _seat_player() -> bool:
 			"upper": BodyAnimator.UPPER_FREE, "cam_yaw": av.facing_yaw })
 	for w in av.weapons.values():
 		(w as Node3D).visible = false    # the next animate on foot shows the one in hand again
+	# Sat down at the bars (the next animate on foot stands it up again).
+	var sit := BodyAnimator.sit_pose()
+	for jn in sit.joints:
+		if av.joints.has(jn):
+			(av.joints[jn] as Node3D).rotation_degrees = sit.joints[jn]
+	(av.joints.pelvis as Node3D).position = Vector3(0.0, float(sit.pelvis_y), 0.0)
+	av._sync_skin()
 	av.top_level = true
 	_place_seated()
 	return true
@@ -902,6 +912,7 @@ func _build_visual() -> void:
 	add_child(visual)
 	var mat_of := { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
 		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) }
+	_mat_of = mat_of
 	var scene := str(look.get("paints", {}).get(paint, look.get("scene", "")))
 	if _build_model(scene, float(look.get("base_y", -0.65))):
 		_build_bolt_ons(look.get("parts", []), mat_of)
@@ -922,6 +933,27 @@ func _build_bolt_ons(pieces: Array, mat_of: Dictionary) -> void:
 	var meshes: Dictionary = _stand_ins[key].meshes
 	for mat_name in meshes:
 		_part(meshes[mat_name], mat_of.get(mat_name, mat_of.hull), Vector3.ZERO).name = "Part_" + str(mat_name)
+
+
+## The driver's yoke (look.yoke: at, scale, mat), for an open cockpit where you
+## see the driver (show_driver): the ship cockpit's own yoke (CockpitView.build_yoke,
+## a ram's-horn wheel of tube with rubber grips, a trigger cap, a thumb hat and a
+## boss), in one of the look's colours. It stays put. Copied from another racer's
+## while one is about, so racers share its meshes and materials.
+func _build_yoke() -> void:
+	var y: Dictionary = cfg.get("look", {}).get("yoke", {})
+	if y.is_empty() or visual == null:
+		return
+	var skin: Material = _mat_of.get(str(y.get("mat", "metal")), _mat_of.get("hull"))
+	var key := str(y) + str(skin.get_instance_id() if skin != null else 0)
+	# Copied from a racer's yoke still in the world (no orphan template), else built.
+	var from = _yokes.get(key)
+	var yoke: Node3D = (from as Node3D).duplicate() if from != null and is_instance_valid(from) else CockpitView.build_yoke(skin)
+	_yokes[key] = yoke
+	yoke.name = "Yoke"
+	yoke.position = _v3(y.get("at", [0, 0, 0]))
+	yoke.scale = Vector3.ONE * float(y.get("scale", 1.0))
+	visual.add_child(yoke)
 
 
 ## Issue #627: the primitive body from data (look.stand_in), built when there is
