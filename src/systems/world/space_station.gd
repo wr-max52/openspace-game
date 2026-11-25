@@ -35,6 +35,7 @@ const StationFill := preload("res://src/systems/world/station_fill.gd")
 const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const StationCrowd := preload("res://src/systems/world/station_crowd.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
+const CharBody := preload("res://src/systems/player/character_body.gd")
 
 var demo                               ## town_demo.gd
 var ground: WorldGround
@@ -45,7 +46,7 @@ var id := ""
 var frame := Transform3D.IDENTITY
 var inv := Transform3D.IDENTITY
 var vessel_name := ""
-var cars: Array = []                   ## per tower: { tower, c, stops, body, at, i, dir, wait, moving, doors: [[floor, CollisionShape3D, Node3D]] }
+var cars: Array = []                   ## per tower: { tower, c, stops, body, look, at, prev, tick, i, dir, wait, moving, doors: [[floor, CollisionShape3D, Node3D]] }
 var falls := 0                         ## times you were pulled back aboard (traces, tests)
 var rides := 0                         ## elevator stops reached with you aboard the car (traces)
 var fill: StationFill                  ## issue #315: what is in the floors (with the look layer only)
@@ -306,9 +307,14 @@ func _build_elevators() -> void:
 		_root.add_child(body)
 		var y0: float = e.stops[0]
 		body.position = Vector3(c.x, y0, c.y)
+		var look: Node3D = null
 		if demo != null and demo.use_look:
-			_dress_car(body, r)
-		var car := { "tower": str(e.tower), "c": c, "stops": e.stops, "body": body, "at": y0, "i": 0, "dir": 1,
+			look = Node3D.new()
+			look.name = "Look"
+			body.add_child(look)
+			_dress_car(look, r)
+		var car := { "tower": str(e.tower), "c": c, "stops": e.stops, "body": body, "look": look, "at": y0,
+			"prev": y0, "tick": 0, "i": 0, "dir": 1,
 			"wait": float(el.get("wait", 3.5)), "moving": false, "target": 0, "doors": [], "rider": false }
 		for d in hull.doors:
 			if str(d.tower) != str(e.tower):
@@ -322,10 +328,10 @@ func _build_elevators() -> void:
 			db.add_child(dcs)
 			_root.add_child(db)
 			db.transform = d.xf
-			var look: Node3D = null
+			var door_look: Node3D = null
 			if demo != null and demo.use_look:
-				look = _mesh_box(d.size, _door_mat(), d.xf)
-			car.doors.append([int(d.floor), dcs, look])
+				door_look = _mesh_box(d.size, _door_mat(), d.xf)
+			car.doors.append([int(d.floor), dcs, door_look])
 		cars.append(car)
 		_set_doors(car)
 
@@ -341,6 +347,8 @@ func _step_car(car: Dictionary, dt: float, player: Vector3) -> void:
 	var on_car := Vector2(player.x - c.x, player.z - c.y).length() <= float(el.get("car_radius", 4.5)) + 0.3 \
 		and absf(player.y - float(car.at)) < 2.5
 	var n := stops.size()
+	car.prev = float(car.at)                 # issue #604: where it was last tick (draw_y)
+	car.tick = Engine.get_physics_frames()
 	if bool(car.moving):
 		var ty := float(stops[int(car.target)])
 		car.at = move_toward(float(car.at), ty, float(el.get("speed", 4.0)) * dt)
@@ -393,6 +401,29 @@ func _called_floor(car: Dictionary, player: Vector3) -> int:
 	return -1
 
 
+## Issue #604: the car's height to draw this frame (the station's frame). The car
+## moves on the physics tick; the player and the camera are drawn between ticks
+## (CharacterBody.render_origin), so a car drawn at its tick height steps against
+## them and its riders shake. Its look and the crowd's riders (StationCrowd) are
+## drawn here instead: the point between last tick and this one, like the player.
+static func draw_y(car: Dictionary) -> float:
+	var at := float(car.at)
+	if not CharBody.smoothing_active() or Engine.get_physics_frames() - int(car.get("tick", 0)) > 1:
+		return at
+	return lerpf(float(car.get("prev", at)), at, clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0))
+
+
+## Each frame: the cars' looks at their drawn height (draw_y).
+func _smooth_cars() -> void:
+	for car in cars:
+		var look = car.get("look")
+		if look == null:
+			continue
+		var off := draw_y(car) - float(car.at)
+		if (look as Node3D).position.y != off:
+			(look as Node3D).position.y = off
+
+
 ## Open the doors of the floor the car has stopped at; close the rest.
 func _set_doors(car: Dictionary) -> void:
 	for d in car.doors:
@@ -402,7 +433,7 @@ func _set_doors(car: Dictionary) -> void:
 			(d[2] as Node3D).visible = not open
 
 
-func _dress_car(body: AnimatableBody3D, r: float) -> void:
+func _dress_car(body: Node3D, r: float) -> void:
 	var deck := CylinderMesh.new()
 	deck.top_radius = r
 	deck.bottom_radius = r
@@ -748,6 +779,7 @@ func _build_label() -> void:
 
 
 func _process(_dt: float) -> void:
+	_smooth_cars()
 	if _label == null or demo == null:
 		return
 	var pilot = demo.get("pilot")
