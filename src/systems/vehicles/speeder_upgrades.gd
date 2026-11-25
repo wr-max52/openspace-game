@@ -78,7 +78,7 @@ static func _model_cfg(model: String) -> Dictionary:
 ## The menu groups the bench offers this model (every group when it lists none).
 static func groups_for(model: String) -> Array:
 	var g = _model_cfg(model).get("shop_groups", null)
-	return g if g is Array else ["paint", "looks", "performance", "lifter"]
+	return g if g is Array else ["paint", "looks", "performance", "lifter", "race"]
 
 
 ## Part `p` goes on this model: its group is one the model takes, and it is made

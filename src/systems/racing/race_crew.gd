@@ -380,7 +380,7 @@ func _start_grid() -> void:
 			rc.out = true
 			continue
 		var cfg: Dictionary = rc.cfg
-		var fit := { "paint": str(cfg.get("paint", "")), "parts": cfg.get("parts", []) }
+		var fit := { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array) + gear_parts() }
 		var sp := SpeederNode.new()
 		sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(cfg.get("paint", "")))
 		add_child(sp)
@@ -502,6 +502,35 @@ func _on_first_beat() -> void:
 			g.hud.toast_after(SpeederUpgrades.data().get("mechanic", {}).get("labels", {}).get("unlocked_toast", "%s now at Dorrin's.") % str(p.get("label", p.get("id", ""))), 4.0)
 
 
+# ------------------------------------------------------------------ race gear (issue #616)
+
+const GEAR_PARTS := { "seekers": "seekers", "mines": "mines", "deflector": "deflector", "nitro": "nitro_2" }
+
+
+## The parts the crew's rules allow them (rules.gear: seekers, mines, deflector, nitro).
+func gear_parts() -> Array:
+	var out: Array = []
+	for g in crew.get("rules", {}).get("gear", []):
+		if GEAR_PARTS.has(str(g)):
+			out.append(GEAR_PARTS[str(g)])
+	return out
+
+
+## A racer allowed to fight now: a seeker at you when you are in its nose, a
+## mine when you are close behind it. Chances per second from rules.json.
+func _use_gear(sp: SpeederNode, dt: float) -> void:
+	if sp.gear == null or _player_speeder == null or not is_instance_valid(_player_speeder):
+		return
+	var to := _player_speeder.model.position - sp.model.position
+	var ahead := to.dot(sp.model.forward())
+	if sp.gear.can_seek() and ahead > 0.0 and sp.gear.pick_target(sp) == _player_speeder.hull \
+			and _rng.randf() < rule("seeker_chance_s", 0.35) * dt:
+		sp.gear.fire_seeker(sp, _player_speeder.hull)
+	elif sp.gear.can_mine() and ahead < 0.0 and to.length() < rule("mine_behind_m", 30.0) \
+			and _rng.randf() < rule("mine_chance_s", 0.6) * dt:
+		sp.gear.drop_mine(sp)
+
+
 ## Someone crossed the line: the crowd waves.
 func _cheer() -> void:
 	for b in crowd:
@@ -607,6 +636,7 @@ func go() -> void:
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
 		_last[YOU] = _player_speeder.model.position
+		_player_speeder.gear.refill()           # issue #616: a full load of race gear at the start
 	var start := _line_start()
 	var route: Array = []
 	for k in course.line.size():
@@ -672,6 +702,8 @@ func _tick_racing(dt: float) -> void:
 		var lap_now := laps.lap(rc.key) + 1
 		var shoot := shoot_lap > 0 and lap_now >= shoot_lap and player_out == "" and you_pos != Vector3.INF and not bool(rc.finished)
 		rc.brain.shoot_at = you_pos if shoot else Vector3.INF
+		if shoot:
+			_use_gear(sp, dt)
 		if shoot and rc.brain.command.get("fire", false) and _jeer_left <= 0.0:
 			_jeer_left = 6.0
 			_say(rc.body, line("jeers"))
@@ -723,6 +755,7 @@ func _end_race() -> void:
 	phase = Phase.RETURN
 	_return_t = 0.0
 	Objective.race = {}
+	SpeederMine.clear_all()                 # issue #616: no mines left lying on the course
 	# Finishers first, then whoever was furthest round.
 	var order: Array = results.duplicate()
 	var rest: Array = []

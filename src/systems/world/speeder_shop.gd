@@ -125,7 +125,7 @@ func top_options() -> Array:
 	var model := SpeederUpgrades.model_of(fit)
 	var groups := SpeederUpgrades.groups_for(model)
 	var opts := []
-	for g in ["paint", "looks", "performance"]:
+	for g in ["paint", "looks", "performance", "race"]:   # issue #616: race gear
 		if groups.has(g):
 			opts.append({ "id": "group:" + g, "text": label("menu_" + g) })
 	for p in SpeederUpgrades.in_group_for("lifter", model):

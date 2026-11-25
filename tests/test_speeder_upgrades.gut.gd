@@ -21,7 +21,7 @@ func after_each() -> void:
 # ---- the parts -----------------------------------------------------------------------
 
 func test_every_part_is_complete() -> void:
-	var groups := ["paint", "looks", "performance", "lifter"]
+	var groups := ["paint", "looks", "performance", "lifter", "race"]   # issue #616: race gear
 	for p in SpeederUpgrades.parts():
 		assert_gt(int(p.get("price", 0)), 0, str(p.id))
 		assert_has(groups, str(p.get("group", "")), str(p.id))

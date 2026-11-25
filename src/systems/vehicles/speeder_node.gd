@@ -24,6 +24,7 @@ extends Node3D
 ## alive. A speeder with NPCs aboard is not yours to climb on.
 
 const ChaseCamera := preload("res://src/systems/camera/chase_camera.gd")
+const GROUP := "speeders"             ## issue #616: every speeder in the world (seekers lock on, mines go off)
 const WeaponActor := preload("res://src/systems/combat/weapon_actor.gd")
 const Weapon := preload("res://src/systems/combat/weapon.gd")
 
@@ -72,6 +73,7 @@ var brain: SpeederBrain              ## drives while an NPC sits in the driver's
 var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sitting there
 var _boarding: Dictionary = {}       ## NpcBody walking to a seat -> { seat, t, free_walk }
 var _npc_cmd: Dictionary = {}        ## what the NPC driver did this frame (the lean reads it)
+var gear: SpeederGear                ## issue #616: seekers, mines, deflector (the parts fitted)
 ## Issue #627: parked speeders sleep (no hover step) while the player is beyond
 ## the config's sleep_distance, so owning one of each costs what one did.
 var asleep := false
@@ -84,10 +86,13 @@ func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bo
 	rideable = can_ride
 	paint = paint_job
 	model = HoverModel.new(cfg, ground)
+	gear = SpeederGear.new(cfg)
 	name = "Speeder" if can_ride else "DisplaySpeeder"
 
 
 func _ready() -> void:
+	if rideable:
+		add_to_group(GROUP)
 	_build_visual()
 	_build_parts()
 	_build_hull()
@@ -226,6 +231,10 @@ func threat_velocity() -> Vector3:
 
 ## Bolts land here (the hull's parent). Riding or parked, the hull takes it.
 func apply_damage(amount: float) -> void:
+	if gear != null and model.alive() and gear.absorb():
+		_lift_glow = 1.0                 # issue #616: the deflector took it: a flash round the hull
+		Sound.play("ship_hit", model.position)
+		return
 	var killed := model.apply_damage(amount)
 	for e in model.events:
 		log_events.append(e)
@@ -258,6 +267,8 @@ func _physics_process(dt: float) -> void:
 		return
 	_t += dt
 	_jolt_xf = jolt.step(dt)
+	if gear != null:
+		gear.step(dt)
 	_tick_boarding(dt)
 	if riding:
 		_ride(dt)
@@ -299,6 +310,12 @@ func _ride(dt: float) -> void:
 				model.lift()
 		else:
 			fire = _held("jump") or _held("fire") or _held("flight_fire")
+		# Issue #616: race gear. Right mouse fires a seeker at the speeder in your
+		# nose (straight if none); the grenade key drops a mine behind.
+		if gear != null and (_just("alt_fire") or _just("flight_missile")):
+			gear.fire_seeker(self, gear.pick_target(self))
+		if gear != null and _just("throw"):
+			gear.drop_mine(self)
 	else:
 		model.set_command(float(_external.get("throttle", 0.0)), float(_external.get("steer", 0.0)),
 			bool(_external.get("boost", false)))
@@ -1153,3 +1170,5 @@ func _update_hud() -> void:
 		"\nAIRBORNE" if model.airborne else ""]
 	if model.has_lifter():
 		_readout.text += "\nLIFTER %s" % ("READY [SPACE]" if model.lift_ready() else "%.1fs" % model.lift_cooldown)
+	if gear != null and gear.has_any():
+		_readout.text += gear.hud_text()

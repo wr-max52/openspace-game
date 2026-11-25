@@ -1,5 +1,5 @@
 {
-  "note": "Issue #611: rules every race shares. Read by src/systems/racing/race_crew.gd. line_up_reach: how close to the grid (m) your speeder must be for [Z]. countdown_s: seconds per count (3, 2, 1, GO). grid_timeout_s: racers still driving to the grid this long after you line up are set on their slots. beep / go_sound: Sound keys (content/look/sound.json). crowd_profiles: the soldier profiles spectators are drawn from (random local looks). crowd_band: where they stand, beside the start line, [min, max] metres out from each antenna and [min, max] metres behind the line. return_s: after the race, how long the racers have to drive back and park before their speeders are put away. collect: Dorrin's prompt for your winnings. hud: the race HUD's words.",
+  "note": "Issue #611: rules every race shares. Read by src/systems/racing/race_crew.gd. line_up_reach: how close to the grid (m) your speeder must be for [Z]. countdown_s: seconds per count (3, 2, 1, GO). grid_timeout_s: racers still driving to the grid this long after you line up are set on their slots. beep / go_sound: Sound keys (content/look/sound.json). crowd_profiles: the soldier profiles spectators are drawn from (random local looks). crowd_band: where they stand, beside the start line, [min, max] metres out from each antenna and [min, max] metres behind the line. return_s: after the race, how long the racers have to drive back and park before their speeders are put away. collect: Dorrin's prompt for your winnings. Issue #616: seeker_chance_s and mine_chance_s, a racer's chance each second (while it may fight) of firing a seeker at you in its nose or dropping a mine with you within mine_behind_m behind it. hud: the race HUD's words.",
   "line_up_reach": 45.0,
   "countdown_s": 1.0,
   "grid_timeout_s": 25.0,
@@ -8,6 +8,9 @@
   "crowd_profiles": ["local_resident", "local_patron"],
   "crowd_band": { "out": [4.0, 14.0], "back": [-6.0, 10.0] },
   "return_s": 45.0,
+  "seeker_chance_s": 0.35,
+  "mine_chance_s": 0.6,
+  "mine_behind_m": 30.0,
   "collect": "[E] Collect your winnings (%d cr)",
   "collected": "Dorrin counts out %d cr. \"Not bad.\"",
   "hud": {
