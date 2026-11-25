@@ -17,7 +17,7 @@
    }
   },
   {
-   "label": "nomad (new pack head)",
+   "label": "nomad (pack head)",
    "model": "res://assets/characters/kit/parts.glb",
    "show": [
     "nomad_head",

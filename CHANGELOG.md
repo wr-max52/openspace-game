@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Nomad heads re-rendered, dyed to match their packs (2026-11-25)
+
+- **New nomad head.** The dune nomads now wear round goggles joined to a nose
+  cover, over a full cloth face wrap, instead of the hollow goggle mask. Three
+  variations come with it: a bone-bead crest, a long veil with breathing tubes,
+  and short curved horns.
+- **Heads match the tunic.** Every head comes in the four pack colours (sand,
+  madder, slate, teal), and each pack wears its tunic's colour. The leader keeps
+  the helmet.
+- **The party barge's nomads match too.** They now all wear a nomad head (one of
+  the four shapes, never the helmet), in the same colour as their tunic and legs.
+
 ## New version is 1.7 (2026-11-24)
 
 - Share builds are now **OpenSpace V1.7**. Everything below, down to "New

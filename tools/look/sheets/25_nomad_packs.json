@@ -1,0 +1,118 @@
+{
+ "title": "The four dune nomad pack styles (content/core/species/dune_nomads.json): a member in the nomad head and the leader in the helmet, each head in the pack's tunic colour",
+ "out": "res://docs/kit/nomad_packs.png",
+ "cells": [
+  {
+   "label": "sun_bleached member",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "sun_bleached leader",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "cantina_owner_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "cantina_owner_head": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_sand.png",
+    "player_legs": "res://assets/characters/kit/colors/player_sand.png"
+   }
+  },
+  {
+   "label": "rust member",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "rust leader",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "cantina_owner_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "cantina_owner_head": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_madder.png",
+    "player_legs": "res://assets/characters/kit/colors/player_rust.png"
+   }
+  },
+  {
+   "label": "dull_dye member",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "dull_dye leader",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "cantina_owner_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "cantina_owner_head": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_slate.png",
+    "player_legs": "res://assets/characters/kit/colors/player_dusk.png"
+   }
+  },
+  {
+   "label": "bone member",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "nomad_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "nomad_head": "res://assets/characters/kit/colors/nomad_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  },
+  {
+   "label": "bone leader",
+   "model": "res://assets/characters/kit/parts.glb",
+   "show": [
+    "cantina_owner_head",
+    "cantina_owner_torso",
+    "player_legs"
+   ],
+   "textures": {
+    "cantina_owner_head": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "cantina_owner_torso": "res://assets/characters/kit/colors/cantina_owner_teal.png",
+    "player_legs": "res://assets/characters/kit/colors/player_olive.png"
+   }
+  }
+ ]
+}
