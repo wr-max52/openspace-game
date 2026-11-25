@@ -731,15 +731,27 @@ class CrowdHit:
 	var crowd
 	var who: Dictionary
 	var damage_usec := 0
+	## Issue #606: HitFeedback reads it for the kill marker (true once the hit killed).
+	var dead: bool:
+		get:
+			return bool(who.get("dead", false))
 
+	# The stamp goes on after the hurt (a first hit rouses the fighters), so the
+	# marker reads it fresh.
 	func apply_damage(amount: float) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount)
+		damage_usec = Time.get_ticks_usec()
 
 	func apply_damage_from(amount: float, shooter: Node) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount, shooter)
+		damage_usec = Time.get_ticks_usec()
 
 	func apply_blade_hit(amount: float, sweep: Vector3) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount, null, sweep)
+		damage_usec = Time.get_ticks_usec()
