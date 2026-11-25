@@ -416,10 +416,28 @@ func _burst() -> void:
 	var at := model.position
 	if riding:
 		dismount()
-	ExplosionFx.big(get_parent(), at + Vector3(0, 0.6, 0), 0.6)
-	Sound.play("vehicle_boom", at)
+	if not _crash():
+		ExplosionFx.big(get_parent(), at + Vector3(0, 0.6, 0), 0.6)
+		Sound.play("vehicle_boom", at)
 	destroyed.emit(at)
 	queue_free()
+
+
+## Issue #404: with the look on, the speeder's own model tumbles on, hits the sand,
+## splits and burns (CrashWreck); a small blast here, the big one at impact. False
+## (greybox, no ground): it pops as it always did.
+func _crash() -> bool:
+	if visual == null or model.ground == null or demo == null or not bool(demo.get("use_look")):
+		return false
+	var g: WorldGround = model.ground
+	var start := { "pos": global_position, "basis": global_transform.basis, "up": model.up(),
+		"vel": model.forward() * model.speed + model.up() * model.vy }
+	var w := CrashWreck.spawn(get_parent(), "speeder", visual, start, func(p: Vector3) -> Vector3: return g.surface_below(p))
+	if w == null:
+		return false
+	visual = null
+	ExplosionFx.big(get_parent(), global_position + model.up() * 0.6, 0.3)
+	return true
 
 
 func _just(action: String) -> bool:

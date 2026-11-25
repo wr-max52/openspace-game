@@ -1,0 +1,62 @@
+{
+  "_doc": "Issue #404: how a destroyed vehicle crashes (CrashPath, CrashWreck). Times in seconds, angles in degrees, distances in metres. Per kind: speeder, ship, barge.",
+  "default": {
+    "spin_deg_s": 260.0,
+    "pitch_deg_s": 35.0,
+    "hop_m_s": 6.0,
+    "gravity": 14.0,
+    "drag": 0.35,
+    "max_fall_s": 12.0,
+    "impact_size": 1.0,
+    "sink_m": 0.6,
+    "sink_s": 3.0,
+    "split_deg": 16.0,
+    "split_gap_m": 0.5,
+    "flame_s": 25.0,
+    "smoke_s": 60.0,
+    "flame_radius": 0.35,
+    "flame_length": 1.8,
+    "smoke_size": 0.6,
+    "burnt_alpha": 0.62,
+    "despawn_m": 160.0,
+    "despawn_check_s": 1.0
+  },
+  "speeder": {
+    "spin_deg_s": 320.0,
+    "hop_m_s": 7.0,
+    "impact_size": 0.6,
+    "sink_m": 0.3,
+    "split_gap_m": 0.9,
+    "flame_radius": 0.32,
+    "flame_length": 1.9,
+    "smoke_size": 0.5
+  },
+  "ship": {
+    "spin_deg_s": 150.0,
+    "pitch_deg_s": 22.0,
+    "hop_m_s": 2.0,
+    "impact_size": 1.0,
+    "sink_m": 1.2,
+    "sink_s": 4.0,
+    "split_deg": 12.0,
+    "split_gap_m": 2.6,
+    "flame_radius": 0.6,
+    "flame_length": 3.2,
+    "smoke_size": 1.0,
+    "despawn_m": 400.0
+  },
+  "barge": {
+    "spin_deg_s": 0.0,
+    "pitch_deg_s": 4.0,
+    "hop_m_s": 0.0,
+    "impact_size": 1.6,
+    "sink_m": 1.6,
+    "sink_s": 6.0,
+    "split_deg": 9.0,
+    "split_gap_m": 3.0,
+    "flame_radius": 0.9,
+    "flame_length": 4.0,
+    "smoke_size": 1.6,
+    "despawn_m": 500.0
+  }
+}

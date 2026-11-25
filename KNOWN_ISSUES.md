@@ -8,6 +8,29 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After crash animations, part 1: speeders (issue #404, 2026-11-24)
+
+**Checked:** `tests/test_crash.gut.gd` (4: the same start gives the same path; on
+flat sand and on dunes, for every kind, it never goes under the sand and ends
+exactly on it; it keeps going and rolls; the wreck goes spiral, sink, burn,
+cold in order, splits in two and frees itself once out of sight and far away).
+`test_smoke`, `test_ip_neutral`, a headless town boot, and a rendered probe in
+the port (a gate speeder knocked out at 22 m/s, 7 m up: stills in
+`docs/lookdev/crash/`).
+
+- **Speeders only.** Flying ships shot down, parked ships and the party barge
+  still blow up as before; they are the next PR (the path, the numbers and the
+  wreck already take "ship" and "barge").
+- **The cut is rough:** triangles are kept whole on whichever side their middle
+  is, so the break is jagged and open (no cap). It reads as torn metal under the
+  smoke; there is no inside.
+- **Lit parts stay lit:** the burnt tint is a dark overlay, so emissive trim
+  (the speeder's teal skids, a bright tank) still glows a little.
+- **The fire's light** is one shadowless OmniLight3D a wreck while the flames
+  last (25 s); several crashes at once add one each.
+- **No hook test** (a real speeder destroyed in a scene starts one crash): the
+  probe did it on screen; GUT does not build a speeder with the look on.
+
 ## After the cruise and the star system (issues #575, #576, 2026-11-14)
 
 **Checked:** `tests/test_star_system.gut.gd` (8: cruise passes today's top
