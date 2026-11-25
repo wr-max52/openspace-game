@@ -359,6 +359,34 @@ static func cower_pose() -> Dictionary:
 	return _cower
 
 
+## Sat at the controls of an open-cockpit speeder (the racer, show_driver): leaning
+## back a little, thighs out ahead, shins down and forward, feet flat, hands out on
+## the bars. { joints, pelvis_y }: the soles rest at the body's origin, ahead of
+## the hips, so pelvis_y is the hips' height over the floor the feet are on.
+const SIT_HIP := 78.0           ## thighs forward of straight down (deg)
+const SIT_KNEE := 60.0          ## shins bent back from the thighs (deg)
+
+static func sit_pose() -> Dictionary:
+	var j := {}
+	for n in JOINTS:
+		j[n] = Vector3.ZERO
+	j.l_hip = Vector3(-SIT_HIP, 0.0, 7.0)
+	j.r_hip = Vector3(-SIT_HIP, 0.0, -7.0)
+	j.l_knee = Vector3(SIT_KNEE, 0.0, 0.0)
+	j.r_knee = Vector3(SIT_KNEE, 0.0, 0.0)
+	j.l_ankle = Vector3(SIT_HIP - SIT_KNEE, 0.0, 0.0)     # foot pitch = -(hip + knee + ankle): flat
+	j.r_ankle = Vector3(SIT_HIP - SIT_KNEE, 0.0, 0.0)
+	j.spine = Vector3(-8.0, 0.0, 0.0)                    # sat back into the seat
+	j.head = Vector3(8.0, 0.0, 0.0)                      # eyes up the track again
+	j.l_shoulder = Vector3(-24.0, -5.0, 0.0)            # upper arms down by the sides, forearms turned in
+	j.r_shoulder = Vector3(-24.0, 5.0, 0.0)
+	j.l_elbow = Vector3(-62.0, 0.0, 0.0)                  # forearms out, low, to the grips
+	j.r_elbow = Vector3(-62.0, 0.0, 0.0)
+	var h := deg_to_rad(SIT_HIP)
+	var shin := deg_to_rad(SIT_HIP - SIT_KNEE)
+	return { "joints": j, "pelvis_y": ANKLE_ABOVE_SOLE + THIGH * cos(h) + SHIN * cos(shin) - HIP_Y }
+
+
 static func dance_pose(seconds: float) -> Dictionary:
 	var t := fposmod(seconds, DANCE_LOOP_S)
 	var i := int(t / DANCE_SEG_S) % DANCE_MOVES

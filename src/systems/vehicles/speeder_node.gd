@@ -22,11 +22,15 @@ extends Node3D
 ## drives it through the same HoverModel as the player. step_off() puts a body
 ## back on its feet beside it; at 0 hull every rider is thrown clear, hurt but
 ## alive. A speeder with NPCs aboard is not yours to climb on.
+##
+## Riding hides your body, except in a speeder whose config sets show_driver (the
+## racer's open cockpit): there you sit in the driver's seat, as an NPC does.
 
 const ChaseCamera := preload("res://src/systems/camera/chase_camera.gd")
 const GROUP := "speeders"             ## issue #616: every speeder in the world (seekers lock on, mines go off)
 const WeaponActor := preload("res://src/systems/combat/weapon_actor.gd")
 const Weapon := preload("res://src/systems/combat/weapon.gd")
+const BodyAnimator := preload("res://src/systems/anim/body_animator.gd")
 
 signal mounted
 signal dismounted
@@ -63,6 +67,8 @@ var _lean := Vector2.ZERO        ## smoothed (pitch, roll) for the eye
 var _jolt_xf := Transform3D.IDENTITY
 static var _hulls: Dictionary = {}   ## issue #82: model -> its hull shape (see _model_hull)
 static var _stand_ins: Dictionary = {}   ## issue #627: a stand-in's pieces -> its meshes per colour and bounds
+static var _yokes: Dictionary = {}       ## look.yoke + its material -> a yoke in the world, copied into every speeder of that look
+var _mat_of: Dictionary = {}             ## the look's materials by name (hull, trim, metal, seat, glow, glass)
 var _engine: AudioStreamPlayer3D   ## issue #16: the speeder's drone while you ride
 ## Issue #95: the mechanic's looks parts (cfg.parts) and how big the body is.
 var _size := Vector3(2.4, 1.2, 5.0)
@@ -87,6 +93,7 @@ var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
 var _dust: CPUParticles3D            ## dust streaking past while you boost
+var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -105,6 +112,7 @@ func _ready() -> void:
 	_build_visual()
 	_build_parts()
 	_build_hull()
+	_build_yoke()               # after the hull: not part of its shape
 	_engine = Sound.loop("speeder_engine", self)
 	if rideable:
 		gun = WeaponActor.new()
@@ -162,8 +170,8 @@ func mount() -> bool:
 	p.vehicle = self
 	p.locked = true
 	p.velocity = Vector3.ZERO
-	p.visible = false
 	p.process_mode = Node.PROCESS_MODE_DISABLED
+	p.visible = _seat_player()
 	_player_collision(false)
 	if demo.terrain != null:
 		demo.terrain.follow(null)
@@ -203,6 +211,7 @@ func dismount() -> bool:
 		p.rotation.y = rig.rig.yaw
 		if "player_kit" in demo and demo.player_kit != null and demo.player_kit.avatar != null:
 			demo.player_kit.avatar.facing_yaw = rig.rig.yaw
+	_unseat_player()
 	if p.has_method("align_to_ground"):
 		p.call("align_to_ground", true)
 	else:
@@ -341,6 +350,7 @@ func _ride(dt: float) -> void:
 		log_events.append(e)
 	_fire(dt, fire)
 	_sync()
+	_place_seated()
 	if _engine != null:
 		if not _engine.playing:
 			_engine.play()
@@ -598,6 +608,8 @@ func seat_npc(body: NpcBody, seat: String = "driver") -> bool:
 	if body.look_body != null and is_instance_valid(body.look_body) and body._look_rest != Vector3.INF:
 		body.look_body.position = body._look_rest
 	_body_collision(body, false)
+	if seat == "driver" and bool(cfg.get("show_driver", false)):
+		_sit_npc(body)
 	if not body.died.is_connected(_on_rider_died):
 		body.died.connect(_on_rider_died.bind(body))
 	_carry_riders()
@@ -631,6 +643,11 @@ func step_off(body: NpcBody = null) -> bool:
 func _free_body(b: NpcBody, spot: Vector3) -> void:
 	if b.died.is_connected(_on_rider_died):
 		b.died.disconnect(_on_rider_died)
+	if b.has_meta("seated_weapon"):
+		var w = b.get_meta("seated_weapon")
+		b.remove_meta("seated_weapon")
+		if w != null and is_instance_valid(w):
+			(w as Node3D).visible = true    # their own walk poses them again from here
 	_body_collision(b, true)
 	b.global_position = spot
 	b.velocity = Vector3.ZERO
@@ -686,11 +703,14 @@ func _carry_riders() -> void:
 		return
 	var xf := model.transform()
 	var f := model.forward()
+	# A seated driver at a yoke (show_driver) bobs with the look, as the yoke does.
+	var at_yoke := bool(cfg.get("show_driver", false)) and visual != null
 	for seat in npc_seats:
 		var b = npc_seats[seat]
 		if b == null or not is_instance_valid(b):
 			continue
-		b.global_position = xf * seat_offset(str(seat))
+		var frame := xf * visual.transform if at_yoke and str(seat) == "driver" else xf
+		b.global_position = frame * seat_offset(str(seat))
 		b.facing = atan2(f.x, f.z)
 		b.rotation.y = b.facing
 		b.velocity = Vector3.ZERO
@@ -756,6 +776,98 @@ func _exit_spot() -> Vector3:
 		if g == null or g.hit(at + u, 0.6) == "":
 			return at
 	return model.position + u * 0.5
+
+
+# ------------------------------------------------------------------ your body in the seat
+
+## Your avatar (the M11 body, in whatever outfit), or null (the greybox has none).
+func _player_avatar() -> PlayerAvatar:
+	if demo == null or not ("player_kit" in demo) or demo.player_kit == null:
+		return null
+	var av = demo.player_kit.avatar
+	return av if av != null and is_instance_valid(av) else null
+
+
+## Climbing on a show_driver speeder: your body stays in view, sat in the
+## driver's seat (BodyAnimator.sit_pose) with the weapon in hand put out of sight, drawn from outside
+## (never first person) and carried by the speeder rather than the player node
+## (whose yaw the camera rig keeps turning). True if it is shown.
+func _seat_player() -> bool:
+	var av := _player_avatar()
+	if av == null or not bool(cfg.get("show_driver", false)):
+		return false
+	seated_avatar = av
+	av.set_first_person(false)
+	# Settle into the idle stance (it was mid-stride walking up).
+	for i in 30:
+		av.animate(1.0 / 30.0, { "velocity": Vector3.ZERO, "grounded": true,
+			"upper": BodyAnimator.UPPER_FREE, "cam_yaw": av.facing_yaw })
+	for w in av.weapons.values():
+		(w as Node3D).visible = false    # the next animate on foot shows the one in hand again
+	_sit(av.joints)             # the next animate on foot stands it up again
+	av._sync_skin()
+	av.top_level = true
+	_place_seated()
+	return true
+
+
+## The seated body goes where the hull goes: the driver's seat, facing the nose,
+## leaning, bobbing and sinking with the look (as the NPC riders sit, plus the lean).
+func _place_seated() -> void:
+	if seated_avatar == null or not is_instance_valid(seated_avatar):
+		return
+	var frame := model.transform()
+	if visual != null:
+		frame = frame * visual.transform
+	seated_avatar.global_transform = Transform3D(frame.basis.orthonormalized() * Basis(Vector3.UP, PI),
+		frame * seat_offset("driver"))
+
+
+## Getting off: the body is the player node's again, as it was before climbing on.
+func _unseat_player() -> void:
+	var av = seated_avatar
+	seated_avatar = null
+	if av == null or not is_instance_valid(av):
+		return
+	av.top_level = false
+	var rig = demo.get("_rig") if demo != null else null
+	av.set_first_person(rig != null and rig.rig != null and rig.rig.is_first_person())
+	var p := player()
+	var tilt = p.get("tilt") if p != null else null
+	av.align_to_ground(tilt if tilt is Basis else Basis.IDENTITY)
+	av.reset_render_smoothing()
+
+
+## Joints (the kit's skeleton, the player's or an NPC's) sat down at the bars.
+static func _sit(joints: Dictionary) -> void:
+	var sit := BodyAnimator.sit_pose()
+	for jn in sit.joints:
+		if joints.has(jn):
+			(joints[jn] as Node3D).rotation_degrees = sit.joints[jn]
+	if joints.has("pelvis"):
+		(joints.pelvis as Node3D).position = Vector3(0.0, float(sit.pelvis_y), 0.0)
+
+
+## A rival at the wheel of a show_driver speeder sits as you do, hands on the
+## yoke, its weapon out of sight until it steps off. Seated, its body is not
+## animated (seat_npc stops its processing), so the pose holds.
+func _sit_npc(b: NpcBody) -> void:
+	if b.joints.is_empty() or b.look_body == null or not is_instance_valid(b.look_body):
+		return                                 # the greybox capsule: nothing to pose
+	_sit(b.joints)
+	if b.look_body.has_meta("weapon"):
+		var w: Node3D = b.look_body.get_meta("weapon")
+		if w != null and is_instance_valid(w) and w.visible:
+			w.visible = false
+			b.set_meta("seated_weapon", w)
+	if b.look_body.has_meta("skin"):
+		var sk := b.look_body.get_meta("skin") as SkinnedBody
+		sk.holds.clear()                       # the hands let go of the gun
+		sk.sync(b.look_body)
+
+
+func _exit_tree() -> void:
+	_unseat_player()           # gone with you aboard (a scene change): give the body back
 
 
 func _player_collision(on: bool) -> void:
@@ -833,6 +945,7 @@ func _build_visual() -> void:
 	add_child(visual)
 	var mat_of := { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
 		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) }
+	_mat_of = mat_of
 	var scene := str(look.get("paints", {}).get(paint, look.get("scene", "")))
 	if _build_model(scene, float(look.get("base_y", -0.65))):
 		_build_bolt_ons(look.get("parts", []), mat_of)
@@ -853,6 +966,27 @@ func _build_bolt_ons(pieces: Array, mat_of: Dictionary) -> void:
 	var meshes: Dictionary = _stand_ins[key].meshes
 	for mat_name in meshes:
 		_part(meshes[mat_name], mat_of.get(mat_name, mat_of.hull), Vector3.ZERO).name = "Part_" + str(mat_name)
+
+
+## The driver's yoke (look.yoke: at, scale, mat), for an open cockpit where you
+## see the driver (show_driver): the ship cockpit's own yoke (CockpitView.build_yoke,
+## a ram's-horn wheel of tube with rubber grips, a trigger cap, a thumb hat and a
+## boss), in one of the look's colours. It stays put. Copied from another racer's
+## while one is about, so racers share its meshes and materials.
+func _build_yoke() -> void:
+	var y: Dictionary = cfg.get("look", {}).get("yoke", {})
+	if y.is_empty() or visual == null:
+		return
+	var skin: Material = _mat_of.get(str(y.get("mat", "metal")), _mat_of.get("hull"))
+	var key := str(y) + str(skin.get_instance_id() if skin != null else 0)
+	# Copied from a racer's yoke still in the world (no orphan template), else built.
+	var from = _yokes.get(key)
+	var yoke: Node3D = (from as Node3D).duplicate() if from != null and is_instance_valid(from) else CockpitView.build_yoke(skin)
+	_yokes[key] = yoke
+	yoke.name = "Yoke"
+	yoke.position = _v3(y.get("at", [0, 0, 0]))
+	yoke.scale = Vector3.ONE * float(y.get("scale", 1.0))
+	visual.add_child(yoke)
 
 
 ## Issue #627: the primitive body from data (look.stand_in), built when there is
