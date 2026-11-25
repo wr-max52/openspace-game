@@ -11,6 +11,9 @@ extends Node3D
 ## they stand for real locals (NpcBody, the "fighter" profile) run by a Townsfolk of
 ## the station's own, one a tick; once the alarm is down they are puppets again. The
 ## dead fall as ragdolls and are back after respawn_s seconds of play.
+## Issue #605: shooting near them (any noise Scatter counts, on their floor) and
+## those on the walkway run to the nearest stall or open room and crouch there; the
+## rest crouch where they are. Quiet for quiet_s, they stand and go on.
 ##
 ## The render rules (docs/station/STATION_FILL.md) for people:
 ##   - built one a frame, once the camera first comes within build_within
@@ -37,6 +40,7 @@ var rides := 0                      ## elevator rides finished (traces, tests)
 var crossings := 0                  ## tunnels crossed (traces, tests)
 var stops := 0                      ## times someone stood at a stall, booth, door or room (traces)
 var kills := 0
+var scares := 0                     ## people sent to hide by a fight (issue #605; traces, tests)
 var posed := 0                      ## bodies posed last frame (review)
 var cost_ms := 0.0                  ## this node's own time a frame, smoothed (review)
 var built := false
@@ -50,6 +54,7 @@ var _folk                           ## Townsfolk running the fighters (made when
 var _rousing: Array = []
 var _calm_t := 0.0
 var _cam_local := Vector3.INF
+var _noise_id := 0                  ## the last NoiseEvents id read (issue #605)
 
 
 func setup(space_station, town_demo, station_hull: StationHull) -> void:
@@ -59,6 +64,7 @@ func setup(space_station, town_demo, station_hull: StationHull) -> void:
 	cfg = hull.cfg.get("crowd", {})
 	name = "Crowd"
 	_rng.seed = int(cfg.get("seed", 315))
+	_noise_id = NoiseEvents.last_id()
 
 
 func _ready() -> void:
@@ -183,6 +189,7 @@ func _frame_work(dt: float) -> void:
 			built = true
 	_frame += 1
 	_tick_fight(dt)
+	_hear()
 	var due: Array = []
 	var show_dy := float(cfg.get("show_dy", 30.0))
 	var people_m := float(cfg.get("people_m", 100.0))
@@ -241,7 +248,8 @@ func _pose(p: Dictionary) -> void:
 	var body: Node3D = p.body
 	if not body.has_meta("joints"):
 		return
-	var fr: Dictionary = _walk[int(float(p.phase) / TAU * CYCLE) % CYCLE] if bool(p.moving) else _stand
+	var fr: Dictionary = _walk[int(float(p.phase) / TAU * CYCLE) % CYCLE] if bool(p.moving) \
+		else (BodyAnimatorT.cower_pose() if bool(p.get("cower", false)) else _stand)
 	var joints: Dictionary = body.get_meta("joints")
 	var jr: Dictionary = fr.joints
 	for jn in jr:
@@ -288,6 +296,15 @@ func _step(p: Dictionary, dt: float) -> void:
 		"stood":
 			stops += 1
 			legs.pop_front()
+		"hide":
+			# Issue #605: crouched until it has been quiet for quiet_s.
+			p.cower = true
+			act.t = float(act.t) - dt
+			if act.has("face"):
+				p.yaw = lerp_angle(float(p.yaw), float(act.face), minf(1.0, dt * 6.0))
+			if float(act.t) <= 0.0:
+				p.cower = false
+				legs.pop_front()
 		_:
 			legs.pop_front()
 
@@ -296,7 +313,7 @@ func _step(p: Dictionary, dt: float) -> void:
 func _go(p: Dictionary, act: Dictionary, dt: float) -> bool:
 	var pts: Array = act.pts
 	var i := int(act.get("i", 0))
-	var left := float(p.speed) * (2.0 if bool(act.get("fast", false)) else 1.0) * dt
+	var left := float(p.speed) * (2.0 if bool(act.get("fast", false)) else 1.0) * float(act.get("run", 1.0)) * dt
 	var pos: Vector3 = p.pos
 	while i < pts.size() and left > 0.0:
 		var to: Vector3 = pts[i]
@@ -396,7 +413,7 @@ func _plan(p: Dictionary) -> void:
 
 ## Down a lane to a spot on an aisle (the fill's walking net) or into an open room,
 ## stand there a while, and back out the same way.
-func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool:
+func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float, cover := false) -> bool:
 	var c: Vector2 = t.c
 	var y := float(f.y)
 	var rw := float(p.rw)
@@ -407,6 +424,10 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool:
 	var face := INF
 	if not net.is_empty() and not (net.stops as Array).is_empty():
 		var st: Dictionary = net.stops[_rng.randi() % (net.stops as Array).size()]
+		if cover:                           # issue #605: the nearest, not any
+			for s2 in net.stops:
+				if absf(wrapf(float(s2.a) - a, -PI, PI)) < absf(wrapf(float(st.a) - a, -PI, PI)):
+					st = s2
 		var alley := _nearest(net.alleys, float(st.a))
 		if alley == INF:
 			return false
@@ -419,6 +440,10 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool:
 		if rooms.is_empty():
 			return false
 		var room: Dictionary = rooms[_rng.randi() % rooms.size()]
+		if cover:
+			for r2 in rooms:
+				if absf(wrapf(float(r2.a) - a, -PI, PI)) < absf(wrapf(float(room.a) - a, -PI, PI)):
+					room = r2
 		var r0 := hull.gap_r + hull.walk
 		var deep := float(cfg.get("room_deep", {}).get(str(f.id), 2.0))
 		var ra := float(room.a)
@@ -429,6 +454,15 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool:
 		var reach := r0 + _rng.randf_range(1.5, maxf(1.6, deep))
 		path = [o + x * (rw), o + x * (r0 - 0.6), o + x * (r0 + 1.0), o + x * (r0 + 1.0) + z * side, o + x * reach + z * side]
 		face = atan2(x.x, x.z)
+	if cover:
+		var sc := Scatter.cfg()
+		p.legs.append({ "kind": "go", "pts": [_pt(c, y, rw, a)] + _arc(c, y, rw, a, _angle(c, path[0])) + path,
+			"run": float(sc.get("run_mult", 2.4)) })
+		p.legs.append({ "kind": "hide", "t": Scatter.quiet_s(), "face": face })
+		var out := path.duplicate()
+		out.reverse()
+		p.legs.append({ "kind": "go", "pts": out })
+		return true
 	p.legs.append({ "kind": "go", "pts": [_pt(c, y, rw, a)] + _arc(c, y, rw, a, _angle(c, path[0])) + path })
 	var stand_s: Array = cfg.get("stop_s", [4.0, 12.0])
 	p.legs.append({ "kind": "stood" })
@@ -577,6 +611,7 @@ func hurt(p: Dictionary, amount: float, by: Node = null, sweep := Vector3.ZERO) 
 func _kill(p: Dictionary, amount := 0.0, by: Node = null, sweep := Vector3.ZERO) -> void:
 	p.dead = true
 	p.legs = []
+	p.cower = false
 	p.back_at = WorldState.clock + float(cfg.get("respawn_s", 180.0))
 	(p.hit as CrowdHit).collision_layer = 0
 	kills += 1
@@ -615,6 +650,7 @@ func _respawn(p: Dictionary) -> void:
 		(p.ragdoll as Ragdoll).stop()
 		p.ragdoll = null
 	p.dead = false
+	p.cower = false
 	p.hp = float(cfg.get("person_hp", 60))
 	var body: Node3D = p.body
 	var holder: Node3D = p.node
@@ -723,6 +759,49 @@ func _tick_fight(dt: float) -> void:
 	for p in people:
 		if p.fighter != null:
 			_settle(p)
+
+
+# ------------------------------------------------------------------ a fight starts (issue #605)
+
+## Noises since last frame: everyone on that floor in its reach goes to hide.
+func _hear() -> void:
+	var news := NoiseEvents.after(_noise_id)
+	if news.is_empty():
+		return
+	var dy := float(Scatter.cfg().get("floor_dy", 8.0))
+	for e in news:
+		_noise_id = maxi(_noise_id, int(e.id))
+		var local := (e as Dictionary).duplicate()
+		local.pos = station.inv * (e.pos as Vector3)
+		for p in people:
+			if not p.dead and p.fighter == null and Scatter.hears(local, p.pos, dy):
+				_scare(p, local.pos)
+
+
+## Hide from a fight at `at` (station frame): on the walkway, run to the nearest
+## stall or open room and crouch there, then back out; anywhere else (down an
+## aisle, in a room, in a tunnel) crouch where they are and go on after. Already
+## hiding: the quiet starts again. Riding the elevator: ride on.
+func _scare(p: Dictionary, at: Vector3) -> void:
+	var legs: Array = p.legs
+	for l in legs:
+		if str(l.kind) == "hide":
+			l.t = Scatter.quiet_s()
+			return
+	if not legs.is_empty() and str(legs[0].kind) in ["board", "ride"]:
+		return
+	scares += 1
+	var pos: Vector3 = p.pos
+	var away := atan2(pos.x - at.x, pos.z - at.z)
+	var t: Dictionary = p.tower
+	var f: Dictionary = t.floors[int(p.fi)]
+	var c: Vector2 = t.c
+	var r := Vector2(pos.x - c.x, pos.z - c.y).length()
+	if absf(pos.y - float(f.y)) < 0.5 and r >= hull.gap_r + 0.3 and r <= hull.gap_r + hull.walk - 0.3:
+		legs.clear()
+		if _plan_stop(p, t, f, atan2(pos.z - c.y, pos.x - c.x), true):
+			return
+	legs.push_front({ "kind": "hide", "t": Scatter.quiet_s(), "face": away })
 
 
 ## What bolts and blades hit: one per person.
