@@ -57,6 +57,7 @@ var said := ""                        ## the last line spoken (tests)
 var in_reach := false
 var menu: DroidMenu
 var races_run := 0
+var track_beast: PlanetBeast          ## issue #612: the second beast, on the course while a race runs
 
 var _hud: CanvasLayer
 var _hud_lap: Label
@@ -370,6 +371,7 @@ func _start_grid() -> void:
 		laps.add_racer(rc.key)
 		slot += 1
 	_spawn_crowd()
+	_spawn_beast()
 	Objective.race = { "text": line("go_line"), "target": "race:%s:0" % course.id, "key": "race" }
 
 
@@ -397,6 +399,67 @@ func _spawn_crowd() -> void:
 			b.face_point(g.pos)
 			b.set_meta("pad", _pad(at))
 			crowd.append(b)
+
+
+# ------------------------------------------------------------------ the track beast (issue #612)
+
+## The flag the course's track beast dies under (beast_slain_<this>).
+func beast_key() -> String:
+	var b: Dictionary = course.course.get("beast", {})
+	var planet_id := str(demo.planet.get("id", "")) if demo != null and "planet" in demo else ""
+	return str(b.get("key", planet_id + "_track"))
+
+
+## A race starts: the course's beast, if it has one and it is not dead, crawls in
+## on the course (leashed round it).
+func _spawn_beast() -> void:
+	var block: Dictionary = (course.course.get("beast", {}) as Dictionary).duplicate()
+	if block.is_empty() or PlanetBeast.is_slain(beast_key()) or demo == null:
+		return
+	if "with_beast" in demo and not demo.with_beast:
+		return
+	if not block.has("home"):
+		var c := Vector2.ZERO
+		var line_pts: Array = course.course.get("line", [])
+		for p in line_pts:
+			c += Vector2(float(p[0]), float(p[1]))
+		c /= maxf(1.0, float(line_pts.size()))
+		block["home"] = [c.x, c.y]
+	var b := PlanetBeast.new()
+	b.setup_extra(demo, ground, demo.planet if "planet" in demo else {}, block, beast_key())
+	add_child(b)
+	track_beast = b
+
+
+func _remove_beast() -> void:
+	if track_beast != null and is_instance_valid(track_beast):
+		track_beast.queue_free()
+	track_beast = null
+
+
+## The beast's body near `at`, for a racer to steer round.
+func _beast_avoid(at: Vector3) -> Array:
+	var out: Array = []
+	if track_beast == null or not is_instance_valid(track_beast) or track_beast.dead:
+		return out
+	var parts := track_beast.body_points()
+	for i in range(0, parts.size(), 2):
+		var p: Array = parts[i]
+		if (p[0] as Vector3).distance_to(at) < 80.0:
+			out.append({ "pos": p[0], "radius": float(p[1]) + 1.0 })
+	return out
+
+
+## A racer drove into it: dead, as you would be, and out of the race.
+func _eaten(rc: Dictionary) -> void:
+	rc.out = true
+	var sp = rc.speeder
+	var b = rc.body
+	if sp != null and is_instance_valid(sp):
+		sp.step_off()
+		sp.apply_damage(1.0e6)
+	if b != null and is_instance_valid(b) and not b.dead:
+		b.apply_damage(float(b.health.hp) + 9999.0)
 
 
 ## Someone crossed the line: the crowd waves.
@@ -572,7 +635,10 @@ func _tick_racing(dt: float) -> void:
 		if shoot and rc.brain.command.get("fire", false) and _jeer_left <= 0.0:
 			_jeer_left = 6.0
 			_say(rc.body, line("jeers"))
-		var avoid: Array = []
+		var avoid: Array = _beast_avoid(at)
+		if track_beast != null and is_instance_valid(track_beast) and track_beast.touches_speeder(at):
+			_eaten(rc)
+			continue
 		for other in racers:
 			if other != rc and not bool(other.out) and other.speeder != null and is_instance_valid(other.speeder):
 				if other.speeder.model.position.distance_to(at) < 40.0:
@@ -644,6 +710,10 @@ func _end_race() -> void:
 			rc.brain.park(park, rc.speeder.model.yaw)
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
+	if track_beast != null and is_instance_valid(track_beast) and not track_beast.dead:
+		# It crawls off, away from the course, and is gone once the racers are home.
+		var away := track_beast.global_position - course.center
+		track_beast.home = track_beast.global_position + (away.normalized() if away.length() > 1.0 else Vector3.RIGHT) * 1500.0
 
 
 func _name_of(key: String) -> String:
@@ -698,6 +768,7 @@ func _put_away() -> void:
 			b.velocity = Vector3.ZERO
 			b.set_physics_process(true)
 	_clear_crowd()
+	_remove_beast()
 	_player_speeder = null
 	phase = Phase.IDLE
 	if _hud_list != null:
