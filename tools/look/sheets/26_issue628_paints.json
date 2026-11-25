@@ -1,0 +1,15 @@
+{
+  "title": "Issue #628: the racer's and the cargo sled's paint jobs as the game builds them (SpeederNode): three each sold at the bench, and a Remnant one each kept for later",
+  "out": "res://docs/lookdev/vehicles/09_new_speeder_paints.png",
+  "views": ["front34", "side", "rear34"],
+  "cells": [
+    { "name": "racer_race", "label": "Racer, race white and red", "speeder": "racer", "paint": "race" },
+    { "name": "racer_gold", "label": "Racer, black and gold", "speeder": "racer", "paint": "gold" },
+    { "name": "racer_dune", "label": "Racer, desert orange", "speeder": "racer", "paint": "dune" },
+    { "name": "racer_remnant", "label": "Racer, Remnant black and red (not sold)", "speeder": "racer", "paint": "remnant" },
+    { "name": "hauler_work", "label": "Cargo sled, work yellow", "speeder": "hauler", "paint": "work" },
+    { "name": "hauler_rust", "label": "Cargo sled, rust red", "speeder": "hauler", "paint": "rust" },
+    { "name": "hauler_gunmetal", "label": "Cargo sled, gunmetal", "speeder": "hauler", "paint": "gunmetal" },
+    { "name": "hauler_remnant", "label": "Cargo sled, Remnant black and red (not sold)", "speeder": "hauler", "paint": "remnant" }
+  ]
+}

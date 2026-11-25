@@ -206,8 +206,8 @@ func test_the_bench_sells_every_model_the_shared_parts() -> void:
 		var fit := SpeederUpgrades.new_fit("", model)
 		for g in ["performance", "race", "lifter"]:
 			assert_eq(SpeederUpgrades.in_group_for(g, model).size(), SpeederUpgrades.in_group(g).size(), "%s: every %s part" % [model, g])
-		for g in ["paint", "looks"]:
-			assert_true(SpeederUpgrades.in_group_for(g, model).is_empty(), "%s: no %s parts (the Sand-boxer's)" % [model, g])
+		assert_true(SpeederUpgrades.in_group_for("looks", model).is_empty(), "%s: no looks parts (the Sand-boxer's)" % model)
+		assert_eq(SpeederUpgrades.in_group_for("paint", model).size(), 3, "%s: her own three paint jobs" % model)
 		assert_eq(SpeederUpgrades.why_not(fit, "engine_1"), "")
 		assert_eq(SpeederUpgrades.why_not(fit, "paint_tide"), "wrong_model", "the Sand-boxer's paints are not hers")
 		assert_true(SpeederUpgrades.fit_part(fit, "engine_1"))
@@ -218,6 +218,45 @@ func test_the_bench_sells_every_model_the_shared_parts() -> void:
 	var sb := SpeederUpgrades.new_fit("steel")
 	assert_eq(SpeederUpgrades.why_not(sb, "engine_1"), "", "the Sand-boxer is unchanged")
 	assert_eq(SpeederUpgrades.in_group_for("performance", "speeder").size(), SpeederUpgrades.in_group("performance").size())
+
+
+func test_each_has_three_paint_jobs_for_sale_and_a_remnant_one_kept() -> void:
+	for model in ["racer", "hauler"]:
+		var look: Dictionary = HoverModel.load_config(model).look
+		assert_eq((look.sold_paints as Array).size(), 3, "%s: three paints for sale" % model)
+		for id in look.paints:
+			assert_true(ResourceLoader.exists(str(look.paints[id])), "%s: the %s paint is prepped" % [model, id])
+		assert_true(look.paints.has("remnant"), "%s: a Remnant paint, ready" % model)
+		assert_false((look.sold_paints as Array).has("remnant"), "%s: but not sold" % model)
+		var sold := []
+		for p: Dictionary in SpeederUpgrades.in_group_for("paint", model):
+			assert_true(look.paints.has(str(p.paint)), "%s: %s paints a job that exists" % [model, p.id])
+			sold.append(str(p.paint))
+		sold.sort()
+		var want: Array = (look.sold_paints as Array).duplicate()
+		want.sort()
+		assert_eq(sold, want, "%s: the bench sells the paints Skrugs's stock comes in" % model)
+		var fit := SpeederUpgrades.new_fit(str(look.sold_paints[0]), model)
+		var other := "paint_%s_%s" % [model, look.sold_paints[1]]
+		assert_eq(SpeederUpgrades.why_not(fit, other), "", "%s: another paint can be bought" % model)
+		assert_true(SpeederUpgrades.fit_part(fit, other))
+		assert_eq(str(fit.paint), str(look.sold_paints[1]))
+		assert_eq(SpeederUpgrades.why_not(fit, other), "owned", "%s: not the paint she has on" % model)
+		assert_eq(SpeederUpgrades.why_not(SpeederUpgrades.new_fit("steel"), other), "wrong_model", "not on a Sand-boxer")
+
+
+func test_a_bought_paint_job_is_the_model_she_wears() -> void:
+	var t = _town()
+	for model in ["racer", "hauler"]:
+		var cfg := HoverModel.load_config(model)
+		var s := SpeederNode.new()
+		s.setup(t, t.speeder_post.ground, cfg, true, str(cfg.look.sold_paints[2]))
+		t.add_child(s)
+		s.place(Vector3(300, 0, 300), 0.0)
+		var m := s.visual.get_node_or_null("Model")
+		assert_not_null(m, "%s: a model" % model)
+		assert_eq(m.scene_file_path, str(cfg.look.paints[s.paint]), "%s: the %s paint" % [model, s.paint])
+		s.queue_free()
 
 
 # ---- their Hyper3D bodies (issue #628) and the stand-in fallback ----------------------

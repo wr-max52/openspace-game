@@ -60,6 +60,8 @@ func _prep(id: String, c: Dictionary) -> void:
 		box = _aabb(root)
 		turn.position.y -= box.get_center().y
 		box = _aabb(root)
+	if c.has("emission"):
+		_emit(root, str(c.emission), float(c.get("emission_energy", 2.0)))
 	if c.has("paint"):
 		_paint(root, c.paint)
 	if c.has("weather"):
@@ -108,12 +110,23 @@ static func _paint(root: Node, paint: Dictionary) -> void:
 				img.decompress()
 			img.convert(Image.FORMAT_RGBA8)
 			var em := Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_RGB8)
+			# Issue #628: a model with its own glow map (the newer Rodin ones) keeps
+			# its glow: those texels are the glow, however pale their albedo is.
+			var own: Image = null
+			if mat.emission_enabled and mat.emission_texture != null:
+				own = mat.emission_texture.get_image()
+				if own.is_compressed():
+					own.decompress()
+				own.convert(Image.FORMAT_RGBA8)
+				own.resize(img.get_width(), img.get_height(), Image.INTERPOLATE_BILINEAR)
 			for y in img.get_height():
 				for x in img.get_width():
 					var c := img.get_pixel(x, y)
-					if c.s > 0.35 and c.v > 0.3 and c.h > 0.5 and c.h < 0.72:
-						var g := Color.from_hsv(glow.h, glow.s, c.v) if glow.a > 0.0 else c
-						img.set_pixel(x, y, g)
+					var lit := own != null and own.get_pixel(x, y).get_luminance() > 0.12
+					if lit or (c.s > 0.35 and c.v > 0.3 and c.h > 0.5 and c.h < 0.72):
+						var src := own.get_pixel(x, y) if lit else c
+						var g := Color.from_hsv(glow.h, glow.s, maxf(c.v, src.v)) if glow.a > 0.0 else src
+						img.set_pixel(x, y, g if glow.a > 0.0 or not lit else c)
 						em.set_pixel(x, y, g)
 						continue
 					var l := c.get_luminance()
@@ -139,6 +152,28 @@ static func _paint(root: Node, paint: Dictionary) -> void:
 			if paint.has("roughness"):
 				mat.roughness_texture = null
 				mat.roughness = float(paint.roughness)
+			mi.mesh.surface_set_material(s, mat)
+
+
+## Issue #628: Rodin hands the glow map over as its own file (texture_emissive.png
+## beside the .glb), not inside it. `emission` is that file in source/; it lights
+## the model's glow, and _paint leaves those texels alone when it recolours.
+static func _emit(root: Node3D, path: String, energy: float) -> void:
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if img == null or img.is_empty():
+		push_error("prep_vehicle: cannot read " + path)
+		return
+	var tex := ImageTexture.create_from_image(img)
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var mat := mi.mesh.surface_get_material(s) as BaseMaterial3D
+			if mat == null:
+				continue
+			mat = mat.duplicate() as BaseMaterial3D
+			mat.emission_enabled = true
+			mat.emission = Color.WHITE
+			mat.emission_texture = tex
+			mat.emission_energy_multiplier = energy
 			mi.mesh.surface_set_material(s, mat)
 
 
