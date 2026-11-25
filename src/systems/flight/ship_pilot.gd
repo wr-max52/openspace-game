@@ -2602,7 +2602,16 @@ func _foot_toast(text: String) -> void:
 ## the Remnant in free play borrows it instead: no alarm, no chase, a little
 ## standing, and (not stolen) nothing for Skrugs to buy.
 func _steal(i: int) -> void:
-	if DarkPact.borrow_ok():
+	# Issue #497: the cruiser's bay, once someone else holds it: its holders lend a
+	# friend (the locals) or you on the oath (its Remnant) a ship; anyone else steals.
+	var c = demo.get("cruiser") if demo != null else null
+	if c != null and is_instance_valid(c) and str(berths[i].get("outpost", "")) == str(c.id) and c.holder() in ["locals", "oath"]:
+		var lender: String = c.lender()
+		if lender != "":
+			berths[i]["borrowed"] = true
+			WorldState.change_standing(lender, c.borrow_cost(), "Someone borrowed a ship from the cruiser's bay.")
+			return
+	elif DarkPact.borrow_ok():
 		berths[i]["borrowed"] = true
 		WorldState.change_standing("imperial_remnant", DarkPact.borrow_cost(),
 			"Someone borrowed a Remnant ship from %s." % str(berths[i].get("where", Story.outpost_label(str(berths[i].outpost)))))
