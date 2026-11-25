@@ -271,14 +271,20 @@ func _park_yaw(rc: Dictionary) -> float:
 	return RaceCourse.yaw_of(to.normalized(), up) if to.length() > 0.5 else 0.0
 
 
-## What a racer's speeder is built with: its paint and parts and the crew's race
-## gear; the leader's is whatever they ride now (issue #617: maybe your old one).
+## A racer's own ride from its crew file: model (speeder classes: speeder,
+## racer or hauler; none = the Sand-boxer), paint and parts.
+static func _own_fit(cfg: Dictionary) -> Dictionary:
+	return { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array).duplicate(),
+		"model": SpeederUpgrades.model_of(cfg) }
+
+
+## What a racer's speeder is built with: its model, paint and parts and the
+## crew's race gear; the leader's is whatever they ride now (issue #617: maybe
+## your old one).
 func _fit_of(rc: Dictionary) -> Dictionary:
-	var cfg: Dictionary = rc.cfg
-	var fit := { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array).duplicate() }
-	if bool(cfg.get("leader", false)):
-		var ride := leader_ride()
-		fit = { "paint": str(ride.get("paint", "")), "parts": (ride.get("parts", []) as Array).duplicate() }
+	var fit := _own_fit(rc.cfg)
+	if bool(rc.cfg.get("leader", false)):
+		fit = _own_fit(leader_ride())
 	fit.parts = (fit.parts as Array) + gear_parts()
 	return fit
 
@@ -287,7 +293,7 @@ func _fit_of(rc: Dictionary) -> Dictionary:
 func _build_speeder(rc: Dictionary) -> void:
 	var fit := _fit_of(rc)
 	var sp := SpeederNode.new()
-	sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(fit.get("paint", "")))
+	sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config(SpeederUpgrades.model_of(fit)), fit), true, str(fit.get("paint", "")))
 	sp.locked = true
 	add_child(sp)
 	sp.place(_park_pos(rc), _park_yaw(rc))
@@ -443,18 +449,21 @@ func leader_ride() -> Dictionary:
 		return won
 	for rc in racers:
 		if bool(rc.cfg.get("leader", false)):
-			return { "paint": str(rc.cfg.get("paint", "")), "parts": (rc.cfg.get("parts", []) as Array).duplicate() }
+			return _own_fit(rc.cfg)
 	return SpeederUpgrades.new_fit()
 
 
-## "the remnant Sand-boxer (engine II, thrusters II)".
+## "the remnant Sand-boxer (engine II, thrusters II)"; the racer and the box
+## truck by the model half of their label ("the Boxcar (racing engine)").
 static func ride_label(fit: Dictionary) -> String:
 	var parts: Array = []
 	for p in fit.get("parts", []):
 		var nm := str(SpeederUpgrades.part(str(p)).get("label", p))
 		parts.append(nm.get_slice(" (", 0).to_lower())
 	var paint := str(fit.get("paint", ""))
-	return "the %sSand-boxer%s" % [(paint + " ") if paint != "" else "", (" (" + ", ".join(PackedStringArray(parts)) + ")") if not parts.is_empty() else ""]
+	var label := str(HoverModel.load_config(SpeederUpgrades.model_of(fit)).get("label", "Sand-boxer"))
+	var kind := label.get_slice(" ", label.get_slice_count(" ") - 1)
+	return "the %s%s%s" % [(paint + " ") if paint != "" else "", kind, (" (" + ", ".join(PackedStringArray(parts)) + ")") if not parts.is_empty() else ""]
 
 
 ## Race the leader for pink slips: "" if it is on; else why not ("ladder",
