@@ -257,10 +257,33 @@ func _toast(text: String, secs: float = 3.5) -> void:
 
 # ------------------------------------------------------------------ the race menu
 
-## [E] on the leader: a challenge, then the menu.
+## Issue #615: the ladder. This crew races you once you have beaten the crew
+## before them (`after`; "" = the first rung).
+func ladder_open() -> bool:
+	var after := str(crew.get("after", ""))
+	return after == "" or WorldState.has_flag("crew_beaten_" + after)
+
+
+## Issue #615: you have heard of `c` (a crew's data): the first rung once you own a
+## speeder (Skrugs tells you), the rest once the crew below has told you of them.
+static func heard_of(c: Dictionary) -> bool:
+	var cid := str(c.get("id", ""))
+	if WorldState.has_flag("heard_crew_" + cid) or WorldState.has_flag("crew_beaten_" + cid):
+		return true
+	var after := str(c.get("after", ""))
+	if after == "":
+		return WorldState.count("speeders_owned") > 0
+	return WorldState.has_flag("crew_beaten_" + after)
+
+
+## [E] on the leader: a challenge, then the menu (or, up the ladder too soon, a
+## line telling you who to beat first).
 func talk() -> void:
 	var l := leader()
 	if l == null or phase != Phase.IDLE:
+		return
+	if not ladder_open():
+		_say(l, line("not_yet"))
 		return
 	_say(l, line("challenge"))
 	menu.open(line("menu_title"), menu_options(), _on_pick, menu_body())
@@ -302,6 +325,9 @@ func _on_pick(choice: String) -> void:
 func accept(amount: int) -> String:
 	if phase != Phase.IDLE or leader() == null:
 		return "busy"
+	if not ladder_open():
+		_say(leader(), line("not_yet"))
+		return "ladder"
 	stake = amount
 	if amount < int(r("min_buy_in", 100)) or WorldState.credits < amount:
 		stake = int(r("min_buy_in", 100))
@@ -460,6 +486,20 @@ func _eaten(rc: Dictionary) -> void:
 		sp.apply_damage(1.0e6)
 	if b != null and is_instance_valid(b) and not b.dead:
 		b.apply_damage(float(b.health.hp) + 9999.0)
+
+
+## Issue #615: beaten for the first time: the next crew up is heard of, and in
+## story mode the parts this crew held back are on sale at Dorrin's.
+func _on_first_beat() -> void:
+	for cid in ids():
+		if str(load_crew(cid).get("after", "")) == id:
+			WorldState.set_flag("heard_crew_" + cid)
+	if not WorldState.story_mode():
+		return
+	var g = _gear()
+	for p in SpeederUpgrades.unlocked_by_crew(id):
+		if g != null and g.hud != null:
+			g.hud.toast_after(SpeederUpgrades.data().get("mechanic", {}).get("labels", {}).get("unlocked_toast", "%s now at Dorrin's.") % str(p.get("label", p.get("id", ""))), 4.0)
 
 
 ## Someone crossed the line: the crowd waves.
@@ -694,10 +734,13 @@ func _end_race() -> void:
 	winner = str(order[0]) if not order.is_empty() else ""
 	var pot := stake * int(r("multiple", 10))
 	if winner == YOU:
+		var first := not WorldState.has_flag("crew_beaten_" + id)
 		WorldState.on_race_won(id, pot)
 		Sound.play("quest_success")
 		_toast(line("won", { "pot": pot }), 5.0)
-		_say(leader(), line("leader_lost"))
+		_say(leader(), line("leader_lost") + " " + line("next_crew"))
+		if first:
+			_on_first_beat()
 	else:
 		_toast(line("lost", { "winner": _name_of(winner) }), 5.0)
 		_say(leader(), line("leader_won"))
