@@ -6,13 +6,17 @@ extends Control
 ## size against the distances, with a faint orbit round the planet it is near.
 ## Issue #576: centred on the sun (a drawn disc, "sun" in the look's "system"),
 ## the planets' orbits round it and each moon's round its planet.
-## The Remnant cruiser too, over its planet. You show as on the globe (a green
+## Every Remnant cruiser too, over its planet: a small badge (the ship side on,
+## GlobeView.draw_cruiser_badge) coloured by who holds it, set just clear of its
+## planet's disc with a fine line to where it really is when the chart is too
+## small to part them. You show as on the globe (a green
 ## triangle pointing the way you look), wherever you are: on a planet, in its
 ## sky or out between them; the other LAN players as blue dots.
 ##
 ## Hover names a planet (its kind, and how far it is from you); a click opens its
-## own map (`body_clicked`, "cruiser" for the cruiser). The planet the waypoint
-## leads to has the waypoint's ring. Drag moves the chart, the wheel or the + / -
+## own map (`body_clicked`); a cruiser's hover names the ship, the planet it is
+## over and who holds it, and a click opens its side view ("cruiser:<planet>").
+## The planet or cruiser the waypoint leads to has the waypoint's ring. Drag moves the chart, the wheel or the + / -
 ## buttons zoom. Colours: content/look/map.json "system".
 
 signal body_clicked(id: String)
@@ -24,19 +28,20 @@ const BUTTON_STEP := 2.0
 const HIT := 8.0                         ## px past a planet's disc a click still counts
 const DRAG := 4.0
 const MARGIN := 34.0                     ## px kept clear round the fitted chart (the names under the edge planets)
+const CRUISER_R := 9.0                   ## a cruiser badge's size (GlobeView.draw_cruiser_badge)
+const CRUISER_GAP := 6.0                 ## px between a planet's disc (and ring) and its cruiser's badge
 
 var bodies: Array = []                  ## GlobeMap.system
-var cruiser := Vector3.INF              ## the Remnant cruiser (system frame), INF = none
+var cruisers: Array = []                ## [{ id: "cruiser:<planet>", planet, pos (system frame), label, status, color }]
 var sun := Vector3.INF                  ## issue #576: the sun (system frame), INF = none
-var cruiser_label := ""
 var player := Vector3.INF               ## you (system frame), INF = not known
 var heading := Vector2.ZERO             ## the way you look, (x, z) in the system frame (ZERO = none)
 var others: Array = []                  ## LAN: the other players, [{ id, pos (system frame), name }]
-var goal := ""                          ## the planet id the waypoint leads to, "cruiser", or ""
+var goal := ""                          ## the planet id the waypoint leads to, "cruiser:<planet>", or ""
 var here := ""                          ## the planet whose scene you are in
 var pan := Vector2.ZERO                 ## the chart's (x, z) at the view's centre, metres
 var zoom := 1.0
-var hover := ""                         ## the body under the mouse ("cruiser" too), "" = none
+var hover := ""                         ## the body under the mouse ("cruiser:<planet>" too), "" = none
 
 var _press := Vector2.INF
 var _dragged := false
@@ -77,7 +82,7 @@ static func look() -> Dictionary:
 
 # ------------------------------------------------------------------ the frame
 
-## The box (x, z) every planet (with its ring) and the cruiser fit in.
+## The box (x, z) every planet (with its ring) and the cruisers fit in.
 func extents() -> Rect2:
 	var box := Rect2()
 	var first := true
@@ -87,8 +92,8 @@ func extents() -> Rect2:
 		var bb := Rect2(c - Vector2.ONE * r, Vector2.ONE * r * 2.0)
 		box = bb if first else box.merge(bb)
 		first = false
-	if cruiser != Vector3.INF:
-		box = box.expand(Vector2(cruiser.x, cruiser.z))
+	for c in cruisers:
+		box = box.expand(Vector2((c.pos as Vector3).x, (c.pos as Vector3).z))
 	if sun.is_finite():
 		# Issue #576: the same either side of the sun, so the sun is the chart's centre.
 		var c := Vector2(sun.x, sun.z)
@@ -145,8 +150,14 @@ func set_zoom(z: float, about := Vector2.INF) -> void:
 	queue_redraw()
 
 
-## The body under screen point `s` (a planet's id, or "cruiser"), or "".
+## The body under screen point `s` (a planet's id, or a cruiser's
+## "cruiser:<planet>"), or "". A cruiser's badge is drawn over the planets, so
+## it wins where they overlap.
 func body_at(s: Vector2) -> String:
+	var half := GlobeView.cruiser_badge_half(CRUISER_R) + Vector2.ONE * 3.0
+	for c in cruisers:
+		if Rect2(cruiser_at(c) - half, half * 2.0).has_point(s):
+			return str(c.id)
 	var best := ""
 	var best_d := INF
 	for b in bodies:
@@ -154,9 +165,26 @@ func body_at(s: Vector2) -> String:
 		if d < HIT and d < best_d:
 			best_d = d
 			best = str(b.id)
-	if cruiser != Vector3.INF and s.distance_to(project(cruiser)) < HIT + 6.0 and best_d > 0.0:
-		best = "cruiser"
 	return best
+
+
+## Where a cruiser's badge is drawn: where it really is, or pushed straight out
+## from its planet's centre till it clears the disc (and ring) when the chart is
+## too small to part them.
+func cruiser_at(c: Dictionary) -> Vector2:
+	var real := project(c.pos)
+	for b in bodies:
+		if str(b.id) != str(c.planet):
+			continue
+		var centre := project(b.centre)
+		var clear := disc_px(b) * maxf(1.0, float((b.ring as Dictionary).get("outer", 1.0))) \
+			+ GlobeView.cruiser_badge_half(CRUISER_R).x + CRUISER_GAP
+		var off := real - centre
+		if off.length() >= clear:
+			return real
+		var d := off.normalized() if off.length() > 0.5 else Vector2.RIGHT
+		return centre + d * clear
+	return real
 
 
 # ------------------------------------------------------------------ input
@@ -231,14 +259,8 @@ func _draw() -> void:
 		if str(b.id) == hover:
 			draw_arc(at, r + 4.0, 0.0, TAU, 48, Color(ink, 0.9), 1.5, true)
 		_draw_name(at + Vector2(0, r + 15.0), b, font, str(b.id) == hover)
-	if cruiser != Vector3.INF:
-		var at := project(cruiser)
-		var col := Color(str(GlobeMap.look().get("pins", {}).get("cruiser", {}).get("color", "#e0573a")))
-		if goal == "cruiser":
-			draw_arc(at, 12.0 + 8.0 * (1.0 - t), 0.0, TAU, 32, Color(goal_col, 0.3 + 0.6 * t), 2.0, true)
-		GlobeView.draw_shape(self, at, "cruiser", col.lightened(0.3) if hover == "cruiser" else col, 7.0)
-		if hover == "cruiser" and font != null:
-			_tag(at + Vector2(0, -14), cruiser_label, font, 13, Color(0.96, 0.92, 0.84))
+	for c in cruisers:
+		_draw_cruiser(c, t, goal_col, ink, font)
 	for o in others:
 		var at := project(o.pos)
 		var col := NetSession.mark_color()
@@ -249,6 +271,30 @@ func _draw() -> void:
 			draw_string(font, at + Vector2(10, 5), str(o.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, col)
 	if player != Vector3.INF:
 		_draw_player(project(player), t)
+
+
+## A cruiser's badge (lit while hovered), the waypoint's ring when it leads
+## there, a fine line to where it really is when pushed clear of its planet, and,
+## hovered, its name and a line saying where it is and who holds it.
+func _draw_cruiser(c: Dictionary, t: float, goal_col: Color, ink: Color, font: Font) -> void:
+	var at := cruiser_at(c)
+	var real := project(c.pos)
+	if not Rect2(Vector2.ZERO, size).grow(40.0).has_point(at):
+		return
+	var col: Color = c.get("color", Color("#e0573a"))
+	var hot := str(c.id) == hover
+	var half := GlobeView.cruiser_badge_half(CRUISER_R)
+	if at.distance_to(real) > 1.0:
+		draw_line(real, at - (at - real).normalized() * half.x, Color(col, 0.55), 1.0, true)
+		draw_circle(real, 1.5, Color(col, 0.8))
+	if str(c.id) == goal:
+		draw_arc(at, half.x + 5.0 + 8.0 * (1.0 - t), 0.0, TAU, 40, Color(goal_col, 0.3 + 0.6 * t), 2.0, true)
+	GlobeView.draw_cruiser_badge(self, at, col.lightened(0.3) if hot else col, CRUISER_R)
+	if hot:
+		draw_rect(Rect2(at - half, half * 2.0).grow(3.0), Color(ink, 0.9), false, 1.0)
+		if font != null:
+			_tag(at + Vector2(0, -half.y - 25.0), str(c.get("label", "")), font, 13, Color(0.96, 0.92, 0.84))
+			_tag(at + Vector2(0, -half.y - 6.0), str(c.get("status", "")), font, 11, Color(col.lightened(0.25), 0.95))
 
 
 ## A faint circle round the planet each one is near, through it (seen from above).

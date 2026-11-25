@@ -52,7 +52,7 @@ var _anchors: Dictionary = {}          ## a name open_tab knows -> the section l
 var globe: GlobeView                   ## the Map page's globe
 var cruiser_view: CruiserMapView       ## the Map page's side view of the cruiser
 var system_view: SystemView            ## the Map page's chart of the star system
-var _map_view := ""                    ## what the Map page shows: "" here, a planet id, "cruiser" or "system"
+var _map_view := ""                    ## what the Map page shows: "" here, a planet id, "cruiser:<planet>" or "system"
 var _map_title: Label
 var _map_back: Button
 var _map_you: Button
@@ -506,9 +506,12 @@ func _pin_icon(look: Dictionary, r := 5.0, glow := Callable()) -> Control:
 	return icon
 
 
-## Show `view` on the Map page: "" where you are, a planet's id, "cruiser", or
-## "system" (the star system's chart, as a whole).
+## Show `view` on the Map page: "" where you are, a planet's id, a cruiser's side
+## view ("cruiser:<planet>": the one over that planet; "cruiser" alone: this
+## planet's), or "system" (the star system's chart, as a whole).
 func open_map(view: String) -> void:
+	if view == "cruiser":
+		view = "cruiser:" + GameFlow.current_planet_id()
 	_map_view = view
 	globe.zoom = 1.0
 	_refresh_map()
@@ -528,9 +531,12 @@ func _map_home_view() -> String:
 	return ""
 
 
-## The planet a waypoint picked on the Map page now goes on: the one shown (the
-## cruiser hangs over this one).
+## The planet a waypoint picked on the Map page now goes on: the one shown, or the
+## one the cruiser shown hangs over (so a room on a cruiser elsewhere leads to
+## its planet first).
 func _map_planet() -> String:
+	if _map_view.begins_with("cruiser:"):
+		return _map_view.get_slice(":", 1)
 	return _map_view if not _map_view in ["", "cruiser", "system"] else GameFlow.current_planet_id()
 
 
@@ -544,7 +550,7 @@ func _refresh_map(centre := false) -> void:
 		_map_view = _map_home_view()
 	var here := GameFlow.current_planet_id()
 	var live := _map_view == ""
-	var on_cruiser := _map_view == "cruiser"
+	var on_cruiser := _map_view.begins_with("cruiser")
 	var on_system := _map_view == "system"
 	var other: Dictionary = {} if live or on_cruiser or on_system else GlobeMap.other_planet(_map_view)
 	var sphere: PlanetSphere = PlanetSphere.current if live else other.get("sphere", null)
@@ -588,12 +594,12 @@ func _refresh_map(centre := false) -> void:
 		globe.focus(globe.player)
 	globe.queue_redraw()
 	# The star system's chart, then every planet in it (this one too: its own
-	# map, where you are), then the cruiser when this world has one.
+	# map, where you are), then every cruiser in the system.
 	var bodies: Array = []
 	for b in GlobeMap.system():
 		bodies.append({ "id": b.id, "name": GlobeMap.line("system_here") % b.label if str(b.id) == here else b.label })
 	_off_planet = [{ "id": "system", "kind": "system", "label": GlobeMap.line("system"), "target": "system:" }] \
-		+ GlobeMap.off_planet(bodies, demo.world if demo != null else {})
+		+ GlobeMap.off_planet(bodies)
 	for c in _off_box.get_children():
 		c.queue_free()
 	_cruiser_icon = null
@@ -603,16 +609,21 @@ func _refresh_map(centre := false) -> void:
 	for o in _off_planet:
 		var row := HBoxContainer.new()
 		var is_cruiser := str(o.kind) == "cruiser"
-		var icon := _pin_icon(GlobeView.pin_look(o), 7.0, cruiser_flash if is_cruiser else Callable())   # issue #497: the cruiser by who holds it
-		if is_cruiser:
-			_cruiser_icon = icon       # it flashes when the cruiser changes hands
+		var home_cruiser := is_cruiser and str(o.get("cfg", "")) == CruiserHull.HOME_ID
+		var look := GlobeView.pin_look(o)
+		if is_cruiser:                 # issue #497: by who holds it (nobody: the empty grey)
+			look = look.duplicate()
+			look["color"] = GlobeMap.cruiser_color(GlobeMap.cruiser_on(str(o.planet))).to_html()
+		var icon := _pin_icon(look, 7.0, cruiser_flash if home_cruiser else Callable())
+		if home_cruiser:
+			_cruiser_icon = icon       # it flashes when the home cruiser changes hands
 		row.add_child(icon)
 		var b := Button.new()
 		b.text = str(o.label)
 		b.toggle_mode = true
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var view := "cruiser" if str(o.kind) == "cruiser" else ("system" if str(o.kind) == "system" else str(o.target).get_slice(":", 1))
+		var view := "cruiser:" + str(o.planet) if is_cruiser else ("system" if str(o.kind) == "system" else str(o.target).get_slice(":", 1))
 		if view == here:
 			view = ""
 		b.set_pressed_no_signal(view == _map_view)
@@ -628,16 +639,19 @@ func _refresh_map(centre := false) -> void:
 		if not now.is_empty() else GlobeMap.line("system_hint" if on_system else "none")
 
 
-## The star system's chart: its planets, the cruiser, you and the other LAN
+## The star system's chart: its planets, every cruiser, you and the other LAN
 ## players wherever you are (this scene's points carried into the system's frame),
 ## and the planet the pointer leads to. `centre`: the whole system, nothing moved.
 func _refresh_system(centre: bool) -> void:
 	var here := GameFlow.current_planet_id()
 	system_view.bodies = GlobeMap.system()
 	system_view.here = here
-	system_view.cruiser = GlobeMap.system_cruiser()
+	system_view.cruisers = []
+	for c in GlobeMap.system_cruisers():
+		system_view.cruisers.append({ "id": "cruiser:" + str(c.planet), "planet": str(c.planet), "pos": c.pos,
+			"label": GlobeMap.cruiser_label(c), "color": GlobeMap.cruiser_color(c),
+			"status": GlobeMap.line("cruiser_at") % [GlobeMap.planet_name(str(c.planet)), GlobeMap.cruiser_status(c)] })
 	system_view.sun = PlanetGen.system_sun()
-	system_view.cruiser_label = str(GlobeMap.kind_cfg("cruiser").get("label", ""))
 	system_view.player = Vector3.INF
 	system_view.heading = Vector2.ZERO
 	system_view.others = []
@@ -656,9 +670,11 @@ func _refresh_system(centre: bool) -> void:
 	if t.begins_with("planet:"):
 		goal = t.get_slice(":", 1)
 	elif t.begins_with("cruiser"):
-		goal = "cruiser"
+		goal = "cruiser:" + here            # an objective's cruiser is always this scene's
 	elif now.get("key", "") == "map":
 		goal = str(WorldState.map_waypoint.get("planet", ""))
+		if str(WorldState.map_waypoint.get("target", "")).begins_with("cruiser"):
+			goal = "cruiser:" + goal
 	elif not now.is_empty():
 		goal = here
 	system_view.goal = goal
@@ -706,8 +722,11 @@ func _map_marks(sphere: PlanetSphere) -> void:
 
 ## The cruiser's side view: its places, the waypoint's, and you when aboard.
 func _refresh_cruiser(w_here: bool) -> void:
-	var c = demo.get("cruiser") if demo != null else null
-	_map_title.text = GlobeMap.line("cruiser_title") % (c.label() if c != null else str(GlobeMap.kind_cfg("cruiser").get("label", "")))
+	var on := _map_planet()
+	var c = demo.get("cruiser") if demo != null and on == GameFlow.current_planet_id() else null
+	var data := GlobeMap.cruiser_on(on)
+	var label: String = c.label() if c != null else (GlobeMap.cruiser_label(data) if not data.is_empty() else str(GlobeMap.kind_cfg("cruiser").get("label", "")))
+	_map_title.text = GlobeMap.line("cruiser_title") % label
 	cruiser_view.pins = GlobeMap.cruiser_pins()
 	cruiser_view.selected = GlobeMap.waypoint_id() if w_here else ""
 	cruiser_view.player = Vector3.INF
