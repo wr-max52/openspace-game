@@ -623,7 +623,8 @@ func _shoot(id: String) -> void:
 	b.stylize = true
 	b.sweep = true
 	b.color = Color.html(str(c.get("bolt_color", "#ff6a2a")))
-	b.streak_length = float(look.get("bolt", {}).get("length", 0.9))
+	b.streak_length = float(look.get("bolt", {}).get("length", 0.7))
+	b.streak_radius = float(look.get("bolt", {}).get("radius", 0.018))
 	b.on_hit.connect(func(t): hit_something.emit(t, b.damage))
 	if bolt_parent != null:
 		bolt_parent.add_child(b)

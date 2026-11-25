@@ -16,8 +16,8 @@
     "aim_error_deg": 2.6,
     "burst_min": 2,
     "burst_max": 4,
-    "hide_min_s": 1.6,
-    "hide_max_s": 3.0,
+    "hide_min_s": 2.4,
+    "hide_max_s": 4.5,
     "cover_search_radius": 0.0,
     "hold_radius": 2.5
   },

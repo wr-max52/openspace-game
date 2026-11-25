@@ -15,8 +15,8 @@
   "weapon": {
     "base": "pistol_blaster",
     "damage": 16,
-    "bolt_speed": 44.0,
-    "rate": 0.24,
+    "bolt_speed": 66.0,
+    "rate": 0.36,
     "range": 70.0,
     "mag": 18,
     "reload_time": 1.2,

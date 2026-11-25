@@ -84,9 +84,9 @@
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[30, -14, -140], [30, -14, -100], [0, -14, -100], [0, -14, -140]] },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[-20, -14, -80], [-14, -14, -80], [-14, -14, 4], [-20, -14, 4]] },
     { "kind": "floating", "variant": "remnant", "hp": 30, "route": [[0, -14, 40], [0, -14, 230]],
-      "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+      "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
     { "kind": "floating", "variant": "remnant", "hp": 30, "route": [[-20, -14, 280], [20, -14, 280], [20, -14, 316], [-20, -14, 316]],
-      "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+      "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[-20, 58, 274], [20, 58, 274]] },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[-2, -14, 40], [-2, -14, 262]] },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[2, -14, 250], [2, -14, 60]] },
@@ -100,7 +100,7 @@
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[-8, 34, 274], [8, 46, 322]] },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[8, 46, 322], [-8, 58, 272]] },
     { "kind": "floating", "variant": "remnant", "hp": 30, "route": [[-12, 22, 322], [12, 22, 322]],
-      "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } }
+      "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } }
   ],
   "holo": {
     "note": "The bridge's holo table: the home planet as the cruiser sees it. The ball, the port, every crash site (the world's wreck landmarks) and this cruiser where they really are on it, and the moon in its real direction. Turned to the world (north and east as on the ground), spinning slowly about the planet's up. Issue #325: the port (by who holds the barracks) and the seven Remnant outposts (unnamed pins outpost_stalk tall) are coloured by owner_colors (remnant, locals, short = the locals running low, remnant_short = the Remnant running low once the cruiser has fallen (issue #425), as on the F11 map), checked every refresh_s; a place that changes hands flashes for flash_s. town_color is only the fallback. radius is the ball's size in metres, lift how high its centre floats over the table top; heights over the ball are squeezed by squeeze (0: on the surface, 1: true to scale) so the cruiser's orbit fits over the table; the moon sits at moon_at times the ball's radius, in its true direction.",

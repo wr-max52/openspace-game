@@ -29,9 +29,9 @@
       },
       "gun": {
         "range": 24.0,
-        "interval": 1.4,
+        "interval": 2.1,
         "damage": 7.0,
-        "bolt_speed": 30.0,
+        "bolt_speed": 45.0,
         "spread_deg": 1.5,
         "color": "#ff7a3a"
       },
@@ -170,9 +170,9 @@
       },
       "gun": {
         "range": 34.0,
-        "interval": 0.9,
+        "interval": 1.35,
         "damage": 22.0,
-        "bolt_speed": 46.0,
+        "bolt_speed": 69.0,
         "spread_deg": 0.4,
         "color": "#ff5a3a"
       },
@@ -376,7 +376,7 @@
     "outpost_units": [
       { "kind": "assassin", "variant": "white", "hp": 140, "route": "patrol" }
     ],
-    "gun": { "range": 34.0, "interval": 0.9, "damage": 20.0, "bolt_speed": 46.0, "spread_deg": 0.5, "color": "#ffb02a" }
+    "gun": { "range": 34.0, "interval": 1.35, "damage": 20.0, "bolt_speed": 69.0, "spread_deg": 0.5, "color": "#ffb02a" }
   },
   "remnant": {
     "faction": "imperial_remnant",
@@ -398,9 +398,9 @@
         "start": 3,
         "gun": {
           "range": 18.0,
-          "interval": 1.6,
+          "interval": 2.4,
           "damage": 6.0,
-          "bolt_speed": 18.0,
+          "bolt_speed": 27.0,
           "spread_deg": 3.0,
           "color": "#ff3030"
         }
@@ -408,7 +408,7 @@
     ],
     "outpost_units": [
       { "kind": "assassin", "variant": "remnant", "hp": 120, "route": "patrol" },
-      { "kind": "floating", "variant": "remnant", "hp": 30, "route": "floater", "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+      { "kind": "floating", "variant": "remnant", "hp": 30, "route": "floater", "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "cargo", "variant": "remnant", "hp": 40, "route": "cargo", "walk_speed": 0.8,
         "flee": { "speed": 5.5, "distance": 150.0, "max_s": 45.0 } }
     ],
@@ -448,31 +448,31 @@
       { "kind": "assassin", "variant": "remnant", "hp": 120, "route": "pad", "start": 2 },
       { "kind": "assassin", "variant": "remnant", "hp": 120, "route": "interior", "start": 0 },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "interior", "start": 1,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "starboard", "start": 2,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "port", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "mid", "start": 1,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "starboard_ledge", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "port_ledge", "start": 1,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "starboard_balcony", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "port_balcony", "start": 1,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "gallery", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "hold", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "hold", "start": 2,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "hold_stern", "start": 0,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
       { "kind": "floating", "variant": "remnant", "hp": 30, "route": "hold_stern", "start": 2,
-        "gun": { "range": 18.0, "interval": 1.6, "damage": 6.0, "bolt_speed": 18.0, "spread_deg": 3.0, "color": "#ff3030" } }
+        "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } }
     ],
     "respawn_s": 180.0,
     "hauler": { "variant": "olive", "carries": "wreck_red_saber", "route": "deep_hold", "walk_speed": 1.1, "pause_s": 5.0, "load_lift": 1.05 },

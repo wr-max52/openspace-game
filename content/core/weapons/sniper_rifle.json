@@ -3,7 +3,7 @@
   "class": "rifle",
   "label": "Sniper Rifle",
   "damage": 150,
-  "bolt_speed": 160.0,
+  "bolt_speed": 240.0,
   "rate": 0.24,
   "recoil": 3.5,
   "range": 300.0,
