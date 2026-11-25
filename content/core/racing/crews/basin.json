@@ -76,6 +76,7 @@
     "pink_slips": "Pink slips: my {ride} against yours",
     "slips_accept": "Pink slips? Ha. Winner drives home in both.",
     "no_room": "Where would you even park it? Your row's full.",
+    "slips_not_yours": "Bet a ride that isn't yours yet? Shake whoever owns it first, then we talk slips.",
     "slips_won": "{ride} is yours. It's waiting outside the back gate.",
     "slips_lost": "They drive off in your speeder. Win it back: race them for pink slips again.",
     "talk": "[E] Talk to {name}",

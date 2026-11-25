@@ -99,6 +99,30 @@ func test_the_crew_hang_out_on_foot_and_the_buy_in_has_a_floor() -> void:
 	assert_true(crew.menu_body().contains("10 times"), "the menu says what the winner takes")
 
 
+## Bug: a stolen gate speeder you rode over on got "Race us on what, your feet?"
+## (GateChase only makes it yours once the chase is over). The one you got off
+## counts for a buy-in race; only one you own can go up for pink slips.
+func test_a_stolen_speeder_you_rode_over_on_counts() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	WorldState.credits = 500
+	var here: Vector3 = crew.leader().global_position + Vector3(6, 0, 6)
+	t.speeder_post.speeders[0].place(here + Vector3(600, 0, 0), 0.0)   # your own is far off
+	assert_false(t.gate_speeders.is_empty(), "a gate speeder to steal")
+	var stolen: SpeederNode = t.gate_speeders[0]
+	stolen.place(here, 0.0)
+	t._player.global_position = here + Vector3(1.5, 0.5, 0)
+	assert_true(stolen.mount(), "on the gate speeder")
+	assert_true(stolen.dismount(), "off it, by the crew")
+	assert_false(t.speeder_post.speeders.has(stolen), "not yours yet")
+	assert_eq(crew.your_speeder(), stolen, "the crew count the speeder you rode over on")
+	WorldState.set_flag("crew_beaten_yard")
+	assert_eq(crew.accept_slips(), "not_yours", "no pink slips on a speeder that is not yours")
+	assert_ne(crew.said, crew.line("no_speeder"), "and not the no-speeder line")
+	assert_eq(crew.accept(100), "", "a buy-in race on it is on")
+	assert_eq(WorldState.credits, 400, "100 cr paid")
+
+
 func test_accepting_builds_their_speeders_and_a_crowd_and_z_lines_you_up() -> void:
 	var t = await _town()
 	var crew := _crew(t)
