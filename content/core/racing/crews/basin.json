@@ -14,7 +14,7 @@
     {
       "leader": true,
       "stand": [-20.7, -7.4],
-      "park": [-28.2, -10.2],
+      "park": [-31.1, -11.2],
       "look": {
         "head": "guard:gunmetal",
         "torso": "local:darker",
@@ -30,7 +30,7 @@
     },
     {
       "stand": [-19.9, -9.8],
-      "park": [-26.2, -15.8],
+      "park": [-35.9, -14.7],
       "look": {
         "head": "guard:desert",
         "torso": "local:lighter",
@@ -46,7 +46,7 @@
     },
     {
       "stand": [-21.5, -5.1],
-      "park": [-30.3, -4.5],
+      "park": [-26.2, -7.7],
       "look": {
         "head": "guard:gunmetal",
         "torso": "local:blue",
