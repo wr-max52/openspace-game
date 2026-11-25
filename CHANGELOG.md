@@ -10,6 +10,9 @@ Plain English, newest on top. One entry per milestone.
   holds about three seconds and fades.
 - **Several at once stack as a list**, newest on top, each fading on its own.
 - Loading a save and the F11 credits cheat do not show a line.
+- **Clear of the space fight's read-out.** During a dogfight the credits
+  lines move down under the shield, hull and target read-out instead of
+  drawing over it.
 
 ## Race gates on flat ground (2026-11-25)
 

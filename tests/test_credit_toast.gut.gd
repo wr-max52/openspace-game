@@ -111,3 +111,22 @@ func test_look_numbers_come_from_ui_json() -> void:
 	var t := _toast()
 	assert_eq(t._hold, float(cfg.hold))
 	assert_eq(t._max, int(cfg.max_rows))
+
+
+func test_lines_move_under_a_space_fights_readout() -> void:
+	var t := _toast()
+	assert_eq(t.top(), CreditToast.TOP, "no fight: just under the banner")
+	var layer := CanvasLayer.new()             # as SpaceFight._build_hud puts it
+	add_child_autofree(layer)
+	var r := Label.new()
+	r.position = Vector2(100, 54)
+	r.size = Vector2(400, 170)
+	layer.add_child(r)
+	SpaceFight.readout = r
+	assert_eq(t.top(), 54.0 + 170.0 + t._fight_gap, "under the read-out, with the gap")
+	r.visible = false
+	assert_eq(t.top(), CreditToast.TOP, "a hidden read-out does not push it down")
+	r.visible = true
+	r.free()                                   # the fight is over
+	assert_eq(t.top(), CreditToast.TOP, "back under the banner")
+	SpaceFight.readout = null
