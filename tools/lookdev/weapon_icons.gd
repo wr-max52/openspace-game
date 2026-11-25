@@ -7,6 +7,8 @@ extends SceneTree
 ## Needs a real renderer:
 ##   godot --path . --resolution 640x320 -s res://tools/lookdev/weapon_icons.gd
 ## Writes res://assets/ui/weapon_icons/<weapon id>.png. Run again if a model changes.
+## Also droid_safety.png, the wheel's slot 9 (your droids' safety): the assassin
+## droid's own model, standing, from the side.
 
 const OUT := "res://assets/ui/weapon_icons/"
 const IDS := ["pistol_blaster", "rifle_blaster", "energy_blade", "sniper_rifle"]
@@ -70,7 +72,36 @@ func _run() -> void:
 		print("ICON ", id, " ", img.get_size(), " span ", span)
 		stage.remove_child(w)
 		w.queue_free()
+	await _droid_icon()
 	quit()
+
+
+## The wheel's droid slot: the assassin droid, standing, seen from its side.
+func _droid_icon() -> void:
+	var kit = load("res://src/systems/droids/droid_kit.gd")
+	var roster = load("res://src/systems/droids/droid_roster.gd")
+	var mats = load("res://src/systems/look/look_materials.gd").new()
+	var cfg: Dictionary = roster.config()
+	var d: Node3D = kit.build("assassin", roster.variant_cfg("assassin", "gunmetal"), mats,
+		cfg.get("kinds", {}).get("assassin", {}).get("look", {}))
+	stage.add_child(d)
+	_flatten(d)
+	await process_frame
+	var box := _bounds(d)
+	var centre := box.get_center()
+	cam.global_position = centre + Vector3(-5, 0, 0)
+	cam.look_at(centre, Vector3.UP)
+	var aspect := float(W) / H
+	cam.size = maxf(box.size.y, box.size.z / aspect) * MARGIN
+	await process_frame
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var img := vp.get_texture().get_image()
+	img = img.get_region(img.get_used_rect().grow(4).intersection(Rect2i(0, 0, W, H)))
+	img.save_png(OUT + "droid_safety.png")
+	print("ICON droid_safety ", img.get_size())
+	stage.remove_child(d)
+	d.queue_free()
 
 
 ## Everything white and unlit, so only the outline reads. The sword's blade and

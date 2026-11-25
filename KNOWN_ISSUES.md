@@ -8,6 +8,27 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After the droid safety (2026-11-25)
+
+**Checked:** `tests/test_droid_safety.gut.gd` (3: E beside an assassin toggles its
+safety, its eyes go blue/red, a safe droid drops its target, on and off survive
+a save; toggle all turns every armed droid on when any is off, then all off, and
+skips cargo droids; wheel slot 9 and key 9 run the toggle and draw nothing, dim
+with nothing to toggle). `test_weapon_wheel` (moved to nine slots),
+`test_laser_droid`, `test_droids`, `test_droid_menu_keys`, `test_rave_droid`,
+`test_droid_upgrades_backpack`, `test_smoke`, `test_ip_neutral`, a headless town
+boot, and a rendered probe in the port (stills in `docs/lookdev/droid_safety/`).
+
+- **The wheel has nine slots now.** Slot 9 sits where up-left used to be, so a
+  flick straight up-left picks the droids' safety, not the sword (the sword is
+  still key 8, a little further left on the wheel).
+- **A droid with the laser rig:** E beside it still toggles its lasers; its
+  safety goes with slot 9 / key 9.
+- **Safe means passive:** a safe droid does not fire back when shot either.
+- **The slot 9 icon** is the assassin droid standing (rendered by
+  `tools/lookdev/weapon_icons.gd`); it is tall and thin, so it is small in a slot.
+- **LAN:** a guest's droids' safety is their own; nothing is sent to the others.
+
 ## After crash animations (issue #404, 2026-11-24)
 
 **Checked:** `tests/test_crash.gut.gd` (4: the same start gives the same path; on
