@@ -2,6 +2,28 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-24 — More speeder models: one of each, and parked speeders sleep (issue #627)
+
+- **A speeder model is a vehicle file.** The racer and the box truck are
+  `racer.json` and `hauler.json` beside `speeder.json`, run by the one
+  `HoverModel`. A fit in `WorldState.speeder_fits` names its `model` (none = the
+  Sand-boxer, so old saves load unchanged). Alternative: variants inside
+  `speeder.json`. Rejected: every reader already takes a config, so a file each
+  needed no new lookup.
+- **The truck's drift is the freighter's shape.** `ability.kind` "drift" in the
+  vehicle file, read by `HoverModel`: the slide keeps the speed it had and the
+  direction it was going (`travel_dir`) while the nose turns faster. No ability
+  is boost, so nothing else changed.
+- **One of each, not one in all.** `max_owned` is per model. The one-speeder
+  rule was there because every parked speeder stepped its hover each physics
+  tick, so a parked speeder now sleeps while the player is beyond its
+  `sleep_distance` (60 m): three cost what one did. #617 (pink slips) reuses it.
+- **Stand-ins are data and one mesh per colour.** `look.stand_in` lists boxes
+  and cylinders (the Sand-boxer's old sled moved there too); `SpeederNode`
+  builds them from its own numbers into one mesh per colour, shared by every
+  speeder of that look, and the hull is their bounds until a model replaces
+  them (#628).
+
 ## 2026-11-14 — Open-space cruise and a sun-centred system (issues #575, #576)
 
 - **Cruise is one multiplier in the one flight model.** `AtmoFlight.cruise`

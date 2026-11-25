@@ -59,11 +59,59 @@ func test_aim_follows_pitch_and_holds_the_torso() -> void:
 
 
 func test_backwards_walk_reverses_the_stride() -> void:
-	var a := BodyAnimator.new()
-	var f := _step(a, 20, { "speed": 3.0, "move_local": Vector2(0, 1) })
-	var b := BodyAnimator.new()
-	var back := _step(b, 20, { "speed": 3.0, "move_local": Vector2(0, -1) })
-	assert_almost_eq(f.joints.l_hip.x, -back.joints.l_hip.x, 0.5)
+	# Issue #632: the feet trace the same path, mirrored (the knee still bends forward).
+	for ph in [0.3, 1.4, 2.9, 4.4]:
+		var f := BodyAnimator.gait_legs(ph, 3.0, 1.0, 0.0, BodyAnimator.PELVIS_Y, 1.0)
+		var back := BodyAnimator.gait_legs(ph, 3.0, -1.0, 0.0, BodyAnimator.PELVIS_Y, 1.0)
+		# Within the heel roll and the small lead, which only walking forwards has.
+		assert_almost_eq(float(f.feet.l.z), -float(back.feet.l.z), 0.04)
+		assert_eq(f.feet.l.planted, back.feet.l.planted)
+
+
+# ---- issue #632: planted feet
+
+## Each boot's heel and ball from the joints alone: { "lh": Vector2(z, y), ... }.
+func _soles(o: Dictionary) -> Dictionary:
+	var out := {}
+	for sd in ["l", "r"]:
+		var h := deg_to_rad(-(o.joints[sd + "_hip"] as Vector3).x)
+		var k := deg_to_rad(-(o.joints[sd + "_knee"] as Vector3).x)
+		var fp := h + k + deg_to_rad(-(o.joints[sd + "_ankle"] as Vector3).x)
+		var ank := Vector2(0.0, float(o.pelvis_y) + BodyAnimator.HIP_Y) \
+			+ Vector2(sin(h), -cos(h)) * BodyAnimator.THIGH + Vector2(sin(h + k), -cos(h + k)) * BodyAnimator.SHIN
+		var pts := { "h": Vector2(-BodyAnimator.HEEL_BACK, -BodyAnimator.ANKLE_ABOVE_SOLE),
+			"b": Vector2(BodyAnimator.BALL_AHEAD, -BodyAnimator.ANKLE_ABOVE_SOLE) }
+		for key in pts:
+			var pt: Vector2 = pts[key]
+			out[sd + key] = ank + Vector2(pt.x * cos(fp) - pt.y * sin(fp), pt.x * sin(fp) + pt.y * cos(fp))
+	return out
+
+
+func test_the_foot_on_the_ground_stays_put() -> void:
+	var ground := BodyAnimator.ANKLE_REST_Y - BodyAnimator.ANKLE_ABOVE_SOLE
+	for v in [1.3, 1.8, 3.2, 4.0, 7.0, 10.0]:
+		var a := BodyAnimator.new()
+		var dt := 1.0 / 60.0
+		var slip := 0.0
+		var n := 0
+		var prev := {}
+		for i in 600:
+			var o := a.step(dt, { "speed": v, "move_local": Vector2(0, 1) })
+			if i < 240:
+				continue
+			var soles := _soles(o)
+			var low := ""
+			for key in soles:
+				if low == "" or (soles[key] as Vector2).y < (soles[low] as Vector2).y:
+					low = key
+			var sole: Vector2 = soles[low]
+			assert_gt(sole.y, ground - 0.006, "never through the ground at %.1f m/s" % v)
+			if prev.has(low) and sole.y < ground + 0.01:
+				slip += absf(v + (sole.x - (prev[low] as Vector2).x) / dt) / v
+				n += 1
+			prev = soles
+		assert_gt(n, 100)
+		assert_lt(slip / n, 0.1, "planted foot slips under 10%% at %.1f m/s" % v)
 
 
 # ---- issue #87

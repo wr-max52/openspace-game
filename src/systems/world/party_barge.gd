@@ -94,6 +94,8 @@ var _lift_to := 0.0
 var _rng := RandomNumberGenerator.new()
 var _t := 0.0
 var _tick := 0
+var cower_left := 0.0                  ## issue #605: seconds the dancers and band stay down (shooting near the barge)
+var _noise_id := -1
 var _L := 40.0
 var _W := 12.0
 var _y := [1.8, 5.2, 8.6]             ## floor tops: steerage, lower, top
@@ -815,7 +817,15 @@ func _animate(dt: float) -> void:
 			body.rotation.y = 0.3 * sin(t * 1.3)
 			continue
 		var joints: Dictionary = body.get_meta("joints")
-		if p.kind == "dancer":
+		if cower_left > 0.0 and p.kind in ["dancer", "band"]:
+			var cp: Dictionary = BodyAnimatorT.cower_pose()
+			for jn in cp.joints:
+				if joints.has(jn):
+					(joints[jn] as Node3D).rotation_degrees = cp.joints[jn]
+			if joints.has("pelvis"):
+				(joints.pelvis as Node3D).position = Vector3(0.0, float(cp.pelvis_y), 0.0)
+			body.rotation.y = 0.0
+		elif p.kind == "dancer":
 			var pose: Dictionary = BodyAnimatorT.dance_pose(t)
 			for jn in pose.joints:
 				if joints.has(jn):
@@ -1254,11 +1264,25 @@ func _physics_process(dt: float) -> void:
 	var was := global_transform
 	_move(dt)
 	_carry = global_transform * was.affine_inverse()
+	_hear(dt)
 	_animate(dt)
 	_tick_fight(dt)
 	if _tick % 30 == 0:
 		_tick_respawns()
 	_record_xf()
+
+
+## Issue #605: shooting near the barge (any noise Scatter counts): the dancers and
+## the band get down on the deck until it has been quiet for quiet_s. The music
+## plays on.
+func _hear(dt: float) -> void:
+	if _noise_id < 0:
+		_noise_id = NoiseEvents.last_id()
+	cower_left = maxf(0.0, cower_left - dt)
+	var got: Array = Scatter.newest(_noise_id, global_position)
+	_noise_id = int(got[0])
+	if not (got[1] as Dictionary).is_empty():
+		cower_left = Scatter.quiet_s()
 
 
 ## Note this tick's resting transform for render smoothing (BargeLook draws
@@ -1459,6 +1483,27 @@ func _gangplank(down: bool) -> void:
 ## Up it goes: fire along the hull, everyone on board gone with it, anyone standing
 ## on it hurt and thrown clear. It is built again at its home after rebuild_s
 ## seconds of play (still yours, if it was).
+## Issue #404: a copy of the hull (the merged deck meshes, not the people or the
+## club) splits, sinks and burns where it blew up; the barge itself is rebuilt later.
+func _crash_wreck() -> void:
+	if look == null or ground == null or demo == null or not bool(demo.get("use_look")):
+		return
+	var hull_copy := Node3D.new()
+	for c in look.get_children():
+		if c is MeshInstance3D and str(c.name).begins_with("Barge_"):
+			var m := (c as MeshInstance3D).duplicate(0) as MeshInstance3D
+			m.transform = (c as MeshInstance3D).transform
+			hull_copy.add_child(m)
+	if hull_copy.get_child_count() == 0:
+		hull_copy.free()
+		return
+	var g := ground
+	var start := { "pos": look.global_position, "basis": look.global_transform.basis, "up": _up(global_position), "vel": Vector3.ZERO }
+	if CrashWreck.spawn(get_parent(), "barge", hull_copy, start, func(p: Vector3) -> Vector3: return g.surface_below(p),
+			{ "parked": true, "boom": false }) == null:
+		hull_copy.free()
+
+
 func explode() -> void:
 	if wrecked:
 		return
@@ -1479,6 +1524,7 @@ func explode() -> void:
 		var at := to_global(Vector3(_rng.randf_range(-2.0, 2.0), _y[1], lerpf(-_L * 0.35, _L * 0.35, k / 2.0)))
 		ExplosionFx.big(get_parent(), at, 2.4)
 		Sound.play("vehicle_boom", at)
+	_crash_wreck()
 	look.visible = false
 	for cs in _shapes:
 		(cs as CollisionShape3D).set_deferred("disabled", true)

@@ -121,13 +121,14 @@ func top_options() -> Array:
 	if s == null:
 		return []
 	var fit := _fit(s)
-	var opts := [
-		{ "id": "group:paint", "text": label("menu_paint") },
-		{ "id": "group:looks", "text": label("menu_looks") },
-		{ "id": "group:performance", "text": label("menu_performance") },
-		{ "id": "group:race", "text": label("menu_race") },       # issue #616
-	]
-	for p in SpeederUpgrades.in_group("lifter"):
+	# Issue #627: only the groups this model takes (the racer and the box truck: paint).
+	var model := SpeederUpgrades.model_of(fit)
+	var groups := SpeederUpgrades.groups_for(model)
+	var opts := []
+	for g in ["paint", "looks", "performance", "race"]:   # issue #616: race gear
+		if groups.has(g):
+			opts.append({ "id": "group:" + g, "text": label("menu_" + g) })
+	for p in SpeederUpgrades.in_group_for("lifter", model):
 		opts.append(_row(fit, p))
 	opts.append({ "id": "scrap", "text": label("menu_scrap") % SpeederUpgrades.scrap_value(fit) })
 	return opts
@@ -139,8 +140,10 @@ func group_options(group: String) -> Array:
 		return []
 	var fit := _fit(s)
 	var out: Array = []
-	for p in SpeederUpgrades.in_group(group):
+	for p in SpeederUpgrades.in_group_for(group, SpeederUpgrades.model_of(fit)):
 		out.append(_row(fit, p))
+	if out.is_empty():
+		out.append({ "id": "back", "text": label("menu_nothing") })    # issue #627: none made for her yet
 	out.append({ "id": "back", "text": label("back") })
 	return out
 
