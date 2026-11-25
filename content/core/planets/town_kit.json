@@ -323,55 +323,85 @@
       }
     ],
     "market": {
-      "note": "Issue #237 part 3: the market, three times today's. Curved aisles round the pit (r: the aisle's middle, width between the counters) with a row of stalls each side, two cross aisles cutting through them (deg: the line they run along, r: from and to), 'stalls' spread evenly over every row; the outer aisle has shops on its far side instead of stalls. A stall is today's (counter, vendor's space, back panel) but taller: the back panel and the canopy ('canopy_lift', read by town_market.gd). 'merchants' stand behind stalls (the first four are vendor_1 to vendor_4, whose trade is in content/core/vendors and content/core/droids): the first 'sellers' take the stalls closest to the bay (the inner row, nearest the top of a ramp out of the pit), the rest spread evenly over the other stalls; 'shoppers' each walk a stretch of an aisle. keep_out: [x0, z0, x1, z1] boxes nothing is built in (the front gate and its south tower).",
+      "note": "The round port's market. The sellers' yard: the stalls that trade (vendor_1 to vendor_4, whose trade is in content/core/vendors and droids.json) in a loose horseshoe just past the ring road, open to the pit (yard: r, deg its middle; each seller's bearing from the pit-ward side and dist from the middle). Out of its back the lamp street: a narrow street (width) that wiggles out (leg1), then turns left toward the huts (leg2), both sides tiny huts with one or two stalls between each (one_stall: the chance of one), a lamp every lamp_every metres on alternate sides. Then the bazaar: the other stalls along wandering lanes ((r, deg) points) in broken runs (burst: the chance of a long gap), a few huts among them; the stalls the street took come off the bazaar's far ends. Every stall and hut is turned up to turn_max degrees off square (its box is the square box round it; turn_deg and fit say the turned box inside). 'stalls' counts all of them; 'merchants' stand behind stalls (the first four the traders); 'shoppers' walk the street and the lanes. keep_out: [x0, z0, x1, z1] boxes nothing is built in (the front gate and its south tower). r: nearest and farthest from the pit's middle.",
+      "seed": 237,
       "sector": [-94.0, -14.0],
-      "aisles": [
-        {
-          "r": 86.0,
-          "width": 7.0
-        },
-        {
-          "r": 104.0,
-          "width": 7.0
-        },
-        {
-          "r": 122.0,
-          "width": 7.0,
-          "outer": "shops"
-        }
-      ],
-      "cross": [
-        {
-          "deg": -58.0,
-          "r": [78.0, 134.0],
-          "width": 5.0
-        },
-        {
-          "deg": -36.0,
-          "r": [78.0, 134.0],
-          "width": 5.0
-        }
-      ],
-      "stall": {
-        "length": 4.0,
-        "counter": [1.0, 1.1],
-        "vendor": 1.3,
-        "back": [2.6, 0.4, 3.4],
-        "canopy_lift": 0.9
-      },
+      "r": [74.0, 136.5],
+      "turn_max": 15.0,
+      "stall": {"length": 4.0, "counter": [1.0, 1.1], "vendor": 1.3, "back": [2.6, 0.4, 3.4], "canopy_lift": 0.9},
       "stalls": 48,
-      "shops": {
-        "count": 6,
-        "size": 7.0,
-        "height": 4.5
+      "yard": {
+        "r": 82.0,
+        "deg": -47.0,
+        "jitter_deg": 9.0,
+        "sellers": [
+          {"vendor": "vendor_1", "bearing": 72, "dist": 7.6},
+          {"vendor": "vendor_4", "bearing": 128, "dist": 8.2},
+          {"vendor": "vendor_3", "bearing": 228, "dist": 8.0},
+          {"vendor": "vendor_2", "bearing": 290, "dist": 7.4}
+        ]
       },
+      "street": {
+        "width": 4.2,
+        "from_yard": 7.5,
+        "leg1": {"turn": -10.0, "length": 34.0, "amp": 2.3, "wave": 21.0, "bend": -22.0},
+        "leg2": {"deg": 180.0, "length": 62.0, "amp": 2.0, "wave": 22.0, "bend": 12.0},
+        "gap": [0.5, 1.3],
+        "one_stall": 0.4,
+        "lamp_every": 7.0
+      },
+      "hut": {"sizes": [3.0, 3.2, 3.5, 3.8], "height": [3.0, 3.4, 3.2, 3.6]},
+      "lamp": {"size": 0.3, "height": 3.4},
+      "bazaar": {
+        "half_width": 2.3,
+        "gap": [0.5, 1.6],
+        "burst": 0.18,
+        "hut_share": 0.1,
+        "lanes": [
+          {
+            "points": [[127, -61], [122, -68], [117, -76], [114, -84], [115, -91]],
+            "wob": 2.0,
+            "wave": 23,
+            "phase": 0.3
+          },
+          {
+            "points": [[122.5, -50], [122, -46], [118, -35], [120, -27], [110, -23]],
+            "wob": 2.2,
+            "wave": 21,
+            "phase": 1.1
+          },
+          {
+            "points": [[104, -39], [100, -31], [103, -25]],
+            "wob": 2.0,
+            "wave": 17,
+            "phase": 0.6
+          },
+          {
+            "points": [[84, -57], [86, -68], [83, -80], [87, -91]],
+            "wob": 2.2,
+            "wave": 18,
+            "phase": 1.7
+          },
+          {
+            "points": [[86, -37], [87, -27]],
+            "wob": 1.8,
+            "wave": 15,
+            "phase": 0.2
+          },
+          {
+            "points": [[87, -73], [92, -75], [97, -73]],
+            "wob": 1.0,
+            "wave": 8,
+            "phase": 0.0
+          }
+        ]
+      },
+      "shops": {"count": 6, "size": 7.0, "height": 4.5, "min_r": 126.5},
       "merchants": 12,
-      "sellers": 4,
       "shoppers": 6,
-      "stroll_deg": 14.0,
-      "keep_out": [
-        [112.0, -28.0, 142.0, 0.0]
-      ]
+      "stroll_m": 21.0,
+      "stop_m": 7.0,
+      "keep_out": [[112.0, -28.0, 142.0, 0.0]]
     },
     "barracks": {
       "note": "Issue #237 part 3: the barracks, about twice today's. Laid out by hand (metres, town frame, ids as the square port's where they are the same thing): a yard behind a low wall on the main street with the Remnant's pad and a drill ground, the hall (rifle roof posts on top, the upper block and the bridge to the bunk tower as before), a second block and an armoury behind, and where a killed trooper comes back. Boxes: [id, kind, [x0, y0, z0], [x1, y1, z1], look]; looks and styles not given are the square port's for that id.",
