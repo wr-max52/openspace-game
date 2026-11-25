@@ -310,6 +310,7 @@ func _dress(outfit: String, pc: Dictionary, bases: Array, refs: Dictionary) -> v
 	var own_b = arr[Mesh.ARRAY_BONES]
 	var own_w = arr[Mesh.ARRAY_WEIGHTS]
 	var near := _skin_from(arr, whole, per)
+	var copied := [arr[Mesh.ARRAY_BONES], arr[Mesh.ARRAY_WEIGHTS]]   ## the base body's, kept for the legs
 	if pc.get("own_weights", false) and own_b != null:
 		_own_weights(arr, own_b, own_w, src[2], (bases[0] as MeshInstance3D).skin, base_skel, per)
 	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
@@ -356,8 +357,72 @@ func _dress(outfit: String, pc: Dictionary, bases: Array, refs: Dictionary) -> v
 		ref.get_parent().add_child(mi)
 		mi.owner = ref.owner
 		mi.skeleton = mi.get_path_to(ref.get_node(ref.skeleton))
-		mi.mesh = _mesh(_subset(arr, tris[i]), src[1], per)
+		var part_arr := arr
+		if String(ref.name) == "legs":
+			part_arr = _off_the_arms(arr, copied, tris[i], ref.skin, base_skel, per, outfit)
+		mi.mesh = _mesh(_subset(part_arr, tris[i]), src[1], per)
 		print("fit: %s  %d triangles, scale %s" % [mi.name, tris[i].size() / 3, k])
+
+
+## The legs piece never follows the arms. A rigged source's own weights tie loose
+## trouser cloth beside the hanging hands (the A-pose) to the hand and forearm, so
+## the thigh grew a fin of cloth that swung with the arm. Each legs vertex drops its
+## arm-chain weight and makes it up from the base body's copied weights (the nearest
+## base leg vertex), as much as it lost, so the cloth eases from one to the other.
+## Returns a copy of `arr` with new bones and weights; the other pieces keep theirs.
+static func _off_the_arms(arr: Array, copied: Array, tris: PackedInt32Array, skin: Skin, skel: Skeleton3D, per: int, outfit: String) -> Array:
+	var names := _bind_names(skin, skel)
+	var arm := {}
+	for b in names.size():
+		var nm := names[b]
+		for side in ["Left", "Right"]:
+			if nm.begins_with(side + "Shoulder") or nm.begins_with(side + "Arm") \
+					or nm.begins_with(side + "ForeArm") or nm.begins_with(side + "Hand"):
+				arm[b] = true
+	var bones: PackedInt32Array = (arr[Mesh.ARRAY_BONES] as PackedInt32Array).duplicate()
+	var weights: PackedFloat32Array = (arr[Mesh.ARRAY_WEIGHTS] as PackedFloat32Array).duplicate()
+	var cb: PackedInt32Array = copied[0]
+	var cw: PackedFloat32Array = copied[1]
+	var seen := {}
+	var moved := 0
+	for t in tris:
+		if seen.has(t):
+			continue
+		seen[t] = true
+		var lost := 0.0
+		for k in per:
+			if weights[t * per + k] > 0.0 and arm.has(bones[t * per + k]):
+				lost += weights[t * per + k]
+		if lost <= 0.0:
+			continue
+		moved += 1
+		var mix := {}
+		for k in per:
+			var b := bones[t * per + k]
+			if weights[t * per + k] > 0.0 and not arm.has(b):
+				mix[b] = float(mix.get(b, 0.0)) + weights[t * per + k]
+		for k in per:
+			var b := cb[t * per + k]
+			if cw[t * per + k] > 0.0 and not arm.has(b):
+				mix[b] = float(mix.get(b, 0.0)) + cw[t * per + k] * lost
+		var pairs: Array = []
+		for b in mix:
+			pairs.append([b, mix[b]])
+		if pairs.is_empty():
+			pairs.append([names.find("Hips"), 1.0])
+		pairs.sort_custom(func(a, c): return a[1] > c[1])
+		pairs = pairs.slice(0, per)
+		var sum := 0.0
+		for p in pairs:
+			sum += p[1]
+		for k in per:
+			bones[t * per + k] = pairs[k][0] if k < pairs.size() else 0
+			weights[t * per + k] = pairs[k][1] / sum if k < pairs.size() else 0.0
+	var out := arr.duplicate()
+	out[Mesh.ARRAY_BONES] = bones
+	out[Mesh.ARRAY_WEIGHTS] = weights
+	print("fit: %s_legs  %d vertices taken off the arms" % [outfit, moved])
+	return out
 
 
 ## A copy of the material with its albedo recoloured (recolor_fitted.gd's swap):
