@@ -23,8 +23,8 @@
   "weapon": {
     "base": "rifle_blaster",
     "damage": 11,
-    "bolt_speed": 44.0,
-    "rate": 0.16,
+    "bolt_speed": 66.0,
+    "rate": 0.24,
     "range": 90.0,
     "mag": 24,
     "reload_time": 2.0,
