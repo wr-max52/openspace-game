@@ -48,6 +48,10 @@ var park_yaw := 0.0
 ## [{ "pos": Vector3, "radius": float }]: things to steer round this frame.
 var avoid: Array = []
 var weapon_range := 140.0
+## Issue #611: any mode may also shoot at this (a racer on lap 2 shooting the
+## leader while it drives the line): fires when it is in the nose cone and in
+## range. INF = nobody.
+var shoot_at := Vector3.INF
 
 ## What the speeder does this frame.
 var command := { "throttle": 0.0, "steer": 0.0, "boost": false, "fire": false }
@@ -152,6 +156,11 @@ func update(dt: float) -> Dictionary:
 		_avoid()
 		_unstick(dt)
 	_tick_boost(dt)
+	if shoot_at != Vector3.INF and _backoff_t <= 0.0:
+		var to := _flat(shoot_at - model.position)
+		if to.length() <= weapon_range and to.length() > 0.01 \
+				and rad_to_deg(model.forward().angle_to(to)) <= s("fire_cone_deg", 7.0):
+			command.fire = true
 	if bool(command.fire):
 		shots_wanted += 1
 	return command

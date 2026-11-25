@@ -104,6 +104,7 @@ var draw_distance: DrawDistance       ## and the further off it is (null in the 
 var speeder_post: SpeederPost         ## issue #42: Skrugs's stall outside the back gate, and the speeders
 var mechanic: MechanicYard            ## issue #95: Dorrin's speeder yard out in the desert
 var race_courses: Array = []          ## issue #610: this world's race courses (RaceCourse), by Dorrin's and beyond
+var race_crews: Array = []            ## issue #611: the crews who race them (RaceCrew), hanging out on foot
 var harmful_surface: HarmfulSurface    ## issue #298: no air outside without armour (the asteroid)
 var barge: PartyBarge                 ## issue #269: the planet's party barge, if it has one
 var beast: PlanetBeast                ## issue #220: the planet's beast (a deadly purple blob), if it has one
@@ -1423,6 +1424,16 @@ func _build_race_courses() -> void:
 		rc.setup(self, pilot.ground, c)
 		add_child(rc)
 		race_courses.append(rc)
+	# Issue #611: the crews who race them, by their hangouts (people, so after the
+	# gear and the nav: the "race_courses" step comes late).
+	for c in RaceCrew.crews_for(str(world.get("id", ""))):
+		var course := race_course(str(c.get("course", "")))
+		if course == null:
+			continue
+		var rcw := RaceCrew.new()
+		rcw.setup(self, pilot.ground, c, course)
+		add_child(rcw)
+		race_crews.append(rcw)
 
 
 ## The race course with this id, or null.
