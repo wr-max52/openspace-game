@@ -8,6 +8,73 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After the droid safety (2026-11-25)
+
+**Checked:** `tests/test_droid_safety.gut.gd` (3: E beside an assassin toggles its
+safety, its eyes go blue/red, a safe droid drops its target, on and off survive
+a save; toggle all turns every armed droid on when any is off, then all off, and
+skips cargo droids; wheel slot 9 and key 9 run the toggle and draw nothing, dim
+with nothing to toggle). `test_weapon_wheel` (moved to nine slots),
+`test_laser_droid`, `test_droids`, `test_droid_menu_keys`, `test_rave_droid`,
+`test_droid_upgrades_backpack`, `test_smoke`, `test_ip_neutral`, a headless town
+boot, and a rendered probe in the port (stills in `docs/lookdev/droid_safety/`).
+
+- **The wheel has nine slots now.** Slot 9 sits where up-left used to be, so a
+  flick straight up-left picks the droids' safety, not the sword (the sword is
+  still key 8, a little further left on the wheel).
+- **A droid with the laser rig:** E beside it still toggles its lasers; its
+  safety goes with slot 9 / key 9.
+- **Safe means passive:** a safe droid does not fire back when shot either.
+- **The slot 9 icon** is the assassin droid standing (rendered by
+  `tools/lookdev/weapon_icons.gd`); it is tall and thin, so it is small in a slot.
+- **LAN:** a guest's droids' safety is their own; nothing is sent to the others.
+
+## After crash animations (issue #404, 2026-11-24)
+
+**Checked:** `tests/test_crash.gut.gd` (4: the same start gives the same path; on
+flat sand and on dunes, for every kind, it never goes under the sand and ends
+exactly on it; it keeps going and rolls; the wreck goes spiral, sink, burn,
+cold in order, splits in two and frees itself once out of sight and far away).
+`test_smoke`, `test_ip_neutral`, a headless town boot, and rendered probes in
+the port: a gate speeder knocked out at 22 m/s and 7 m up, a parked ship shot to
+pieces, the party barge blown up (stills in `docs/lookdev/crash/`).
+
+- **Not seen on screen:** a Remnant interceptor shot down in flight, and your
+  own ship shot down or flown into the ground. They go through the same call
+  (`ShipPilot.crash_wreck`) as the parked ship, with the speed they had.
+- **The cut is rough:** triangles are kept whole on whichever side their middle
+  is, so the break is jagged and open (no cap). It reads as torn metal under the
+  smoke; there is no inside.
+- **Burnt** is a dark copy of each BaseMaterial3D (shared, made once a
+  material); a ShaderMaterial gets a dark overlay instead, which darkens less.
+- **The barge's wreck is its decks only** (the merged hull, no club, no people),
+  and it can lie where the rebuilt barge later comes back.
+- **The fire's light** is one shadowless OmniLight3D a wreck while the flames
+  last (25 s); several crashes at once add one each.
+- **No hook test** (a real vehicle destroyed in a scene starts one crash): the
+  probes did it on screen; GUT does not build vehicles with the look on.
+
+## After the cruiser crew (issue #497, 2026-11-25)
+
+**Checked:** `tests/test_cruiser_crew.gut.gd` (6: the crew is unchanged before it
+falls; once taken and the dark master is gone, 8 locals on bay and bridge posts,
+not shoot-on-sight, lending to a friend only; nobody while he is aboard; on the
+oath his Remnant on the same posts, on your side, the town still the locals';
+breaking the oath empties it until he dies there; the holo and the Map page's
+cruiser row show the locals' colour). `test_remnant_cruiser`, `test_cruiser_holo`
+(its place count now includes the cruiser), `test_dark_master`,
+`test_belt_cruiser`, `test_smoke`, `test_ip_neutral`, a headless town boot, and
+probes in the town: with the locals and on the oath, 8 bodies of the right
+faction wake in the bay, leave when you fly off and are back on the next visit;
+rendered stills in `docs/lookdev/cruiser_crew/`.
+
+- **No flash on the Map page.** The holo's cruiser wedge flashes when it
+  changes hands like an outpost; the Map page's cruiser row only changes colour.
+- **Not played:** borrowing a bay ship (the berth is marked borrowed and the
+  standing moves, by code), and a fight with the locals aboard.
+- **The belt cruiser** has no holders block, so it stays empty once taken, as
+  before.
+
 ## After the descent fixes, part 3: big builds in pieces (issue #574, 2026-11-24)
 
 **Checked:** `test_smoke`, a headless town boot, and the rendered

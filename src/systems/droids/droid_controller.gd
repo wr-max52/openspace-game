@@ -151,6 +151,7 @@ func _ready() -> void:
 	net_copy = demo != null and "lan_shared" in demo and bool(demo.lan_shared)
 	if demo != null and "training_range" in demo and demo.training_range != null:
 		demo.training_range.remote_tamed.connect(_on_remote_tamed)
+	_hook_wheel()
 	if not build_later:
 		build_units(null)
 
@@ -289,6 +290,11 @@ func _find_focus() -> Dictionary:
 		if DroidRoster.has_lasers(d) and not companions[uid].dead \
 				and _flat_dist(p, companions[uid].global_position) <= 2.4:
 			return { "kind": "lasers", "uid": uid }
+	for uid in companions:              # a droid of yours with a gun: its safety
+		var d := roster().find(uid)
+		if DroidRoster.armed_kind(str(d.get("kind", ""))) and not companions[uid].dead \
+				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+			return { "kind": "safety", "uid": uid }
 	return {}
 
 
@@ -324,6 +330,9 @@ func prompt_text() -> String:
 		"lasers":
 			var d := roster().find(int(focus.uid))
 			return _l("lasers_off" if DroidRoster.lasers_on(d) else "lasers_on") % droid_name(d).to_lower()
+		"safety":
+			var d := roster().find(int(focus.uid))
+			return _l("safety_to_off" if DroidRoster.safety_on(d) else "safety_to_on") % droid_name(d).to_lower()
 	return ""
 
 
@@ -353,6 +362,8 @@ func interact() -> String:
 			return "menu"
 		"lasers":
 			return "lasers_on" if toggle_lasers(int(focus.uid)) else "lasers_off"
+		"safety":
+			return "safety_on" if toggle_safety(int(focus.uid)) else "safety_off"
 	return ""
 
 
@@ -928,6 +939,7 @@ func _spawn_companion(d: Dictionary, at: Vector3, from_y := INF) -> DroidUnit:
 		u.look.position.y = u.lift_now
 		u.shape.position.y = u.lift_now
 	DroidKit.set_awake(u.look, true)
+	_paint_safety(u, d)
 	if DroidRoster.has_lasers(d):
 		_fit_rig(u, DroidRoster.lasers_on(d))
 	u.max_hp = DroidRoster.health(d)
@@ -1168,6 +1180,75 @@ func _fit_rig(u: DroidUnit, on: bool) -> void:
 
 
 ## Turn droid `uid`'s lasers on or off (E beside it). Returns the new state.
+## The weapon wheel's slot 9 (and key 9): every droid's safety at once.
+func _hook_wheel() -> void:
+	var kit = demo.get("player_kit") if demo != null else null
+	if kit == null or not ("weapons" in kit) or kit.weapons == null:
+		return
+	kit.weapons.add_action("droid_safety", toggle_all_safety,
+		func() -> bool: return not roster().armed_owned().is_empty(),
+		func() -> Dictionary: return { "name": _l("wheel_name"), "verb": _l("wheel_verb"),
+			"detail": _l("wheel_safe") if all_safe() else _l("wheel_armed") })
+
+
+## E beside an armed droid of yours: its safety on or off. Returns the new state.
+func toggle_safety(uid: int) -> bool:
+	var d := roster().find(uid)
+	var on := roster().set_safety(uid, not DroidRoster.safety_on(d))
+	var u: DroidUnit = companions.get(uid)
+	if u != null:
+		_paint_safety(u, d)
+		if on:
+			u.target = null
+			_disengage(u)
+	_toast(_l("safety_now_on" if on else "safety_now_off") % droid_name(d).to_lower())
+	_beep(u)
+	return on
+
+
+## The weapon wheel's droid slot (and key 9): every armed droid's safety at once,
+## on if any is off, else all off. Returns the new state.
+func toggle_all_safety() -> bool:
+	if roster().armed_owned().is_empty():
+		_toast(_l("safety_none"))
+		return false
+	var on := roster().toggle_all_safety()
+	for uid in companions:
+		var u: DroidUnit = companions[uid]
+		_paint_safety(u, roster().find(uid))
+		if on:
+			u.target = null
+			_disengage(u)
+	_toast(_l("safety_all_on" if on else "safety_all_off"))
+	return on
+
+
+## Whether every armed droid you own has its safety on (false with none).
+func all_safe() -> bool:
+	var armed := roster().armed_owned()
+	return not armed.is_empty() and armed.all(func(d): return bool(d.get("safety", false)))
+
+
+## An armed droid's eyes: blue with its safety on, red with it off. Its own
+## materials (the kit's glow is shared by every droid of that colour).
+func _paint_safety(u: DroidUnit, d: Dictionary) -> void:
+	if u == null or u.look == null or not DroidRoster.armed_kind(str(d.get("kind", ""))):
+		return
+	var sc: Dictionary = cfg.get("safety", {})
+	var col := Color(str(sc.get("eye_safe" if DroidRoster.safety_on(d) else "eye_armed", "#4ad0ff")))
+	for e in DroidKit.eyes(u.look):
+		var mi := e as MeshInstance3D
+		var m := mi.material_override as StandardMaterial3D
+		if m == null:
+			continue
+		if not mi.has_meta("own_eye"):
+			m = m.duplicate() as StandardMaterial3D
+			mi.material_override = m
+			mi.set_meta("own_eye", true)
+		m.albedo_color = col
+		m.emission = col
+
+
 func toggle_lasers(uid: int) -> bool:
 	var d := roster().find(uid)
 	var on := roster().set_lasers(uid, not DroidRoster.lasers_on(d))
@@ -1219,6 +1300,10 @@ func _companion_guns(dt: float) -> void:
 		var u: DroidUnit = companions[uid]
 		var gun: Dictionary = DroidRoster.kind_cfg(u.kind).get("gun", {})
 		if gun.is_empty() or u.dead:
+			continue
+		if DroidRoster.safety_on(roster().find(uid)):
+			u.target = null                   # safety on: it shoots nobody, and walks back to you
+			_disengage(u)
 			continue
 		u.gun_cd -= dt
 		var reach := float(gun.get("range", 30.0))
@@ -2018,6 +2103,7 @@ func fire(u: DroidUnit, aim: Vector3, gun: Dictionary) -> Node:
 		dir = dir.rotated(axis.normalized(), rng.randf_range(-spread, spread))
 	u.shots += 1
 	u.last_aim = aim
+	NoiseEvents.emit(origin, float(gun.get("noise_radius", 40.0)), "shot_droid")   # issue #605: bystanders hear it
 	var b = BoltScene.instantiate()
 	b.direction = dir
 	b.speed = float(gun.get("bolt_speed", 30.0))

@@ -29,6 +29,13 @@ extends RefCounted
 ## a direction slid along the ground as it drives (so straight stays straight round
 ## the curve), and heights are measured along up (`_level`: the distance from the
 ## planet's centre). On a flat world both are exactly the old yaw and y.
+##
+## Issue #627: Shift is the speeder's ability (`ability.kind`, the freighter's
+## shape in flight_model.gd): "boost" (the default: the Sand-boxer, the racer) or
+## "drift" (the box truck). A drift keeps it sliding the way it was going
+## (`travel_dir`) at the speed it had while the nose turns `turn_scale` times as
+## fast, the slide giving way to the nose at `settle` per second. Both run on the
+## one meter (boost_time, boost_recharge).
 
 var cfg: Dictionary = {}
 var ground: WorldGround
@@ -52,6 +59,7 @@ var air_time := 0.0                  ## of the current (or last) jump
 var top_height := 0.0                ## highest clearance over the ground on the last jump
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
+var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 
 var _pending: Array = []             ## events from between steps (lift), for the next step()
@@ -126,10 +134,39 @@ func alive() -> bool:
 	return hp > 0
 
 
+## Issue #627: what Shift does: "boost" or "drift" (the config's ability.kind).
+func ability() -> String:
+	return str(cfg.ability.get("kind", "boost")) if cfg.get("ability") is Dictionary else "boost"
+
+
+## The ability is lit this step: the key held, meter left, not run dry since the
+## key went down, and (boost) the throttle open or (drift) moving.
+func ability_lit() -> bool:
+	if not bool(_cmd.boost) or boost_left <= 0.0 or spent:
+		return false
+	if ability() == "drift":
+		return absf(speed) > 2.0
+	return float(_cmd.throttle) > 0.1
+
+
 ## Boost is lit this step (the throttle open, the key held, boost left, and not
-## run dry since the key went down).
+## run dry since the key went down). Never for a drifter.
 func boosting() -> bool:
-	return bool(_cmd.boost) and float(_cmd.throttle) > 0.1 and boost_left > 0.0 and not spent
+	return ability() == "boost" and ability_lit()
+
+
+## Issue #627: drifting this step (the box truck's Shift).
+func drifting() -> bool:
+	return ability() == "drift" and ability_lit()
+
+
+## Which way it is moving: the nose, or the slide while drifting.
+func travel_dir() -> Vector3:
+	return drift_dir if drift_dir != Vector3.ZERO else _fwd
+
+
+func velocity() -> Vector3:
+	return travel_dir() * speed + up() * vy
 
 
 ## Issue #95: a Grav Lifter is fitted.
@@ -154,6 +191,7 @@ func place(at: Vector3, yaw_rad: float) -> void:
 	speed = 0.0
 	vy = 0.0
 	airborne = false
+	drift_dir = Vector3.ZERO
 	_lift(ground_height() + p("hover_height", 1.05) - _level(position))
 	_last_ride = NAN
 	_ground_rate = 0.0
@@ -217,15 +255,17 @@ func _drive(dt: float) -> void:
 	# recharge would light it again the next, flickering at boost speed for ever.
 	if not bool(_cmd.boost):
 		spent = false
-	var lit := boosting()
+	var lit := ability_lit()
 	if lit:
 		boost_left = maxf(0.0, boost_left - dt)
 		spent = boost_left <= 0.0
 	else:
 		boost_left = minf(p("boost_time", 3.5), boost_left + dt * p("boost_recharge", 0.45))
+	var drift := lit and ability() == "drift"
+	var boost := lit and ability() == "boost"
 	var target := 0.0
 	if throttle > 0.0:
-		target = throttle * (p("boost_speed", 52.0) if lit else p("max_speed", 36.0)) * (1.0 + tow * p("tow_speed", 0.0))
+		target = throttle * (p("boost_speed", 52.0) if boost else p("max_speed", 36.0)) * (1.0 + tow * p("tow_speed", 0.0))
 	elif throttle < 0.0:
 		target = throttle * p("reverse_speed", 9.0)
 	var rate := p("accel", 16.0) * (1.0 + tow * p("tow_accel", 0.0))
@@ -233,18 +273,28 @@ func _drive(dt: float) -> void:
 		rate = p("coast_drag", 6.0)
 	elif signf(target) != signf(speed) and absf(speed) > 0.5:
 		rate = p("brake", 34.0)
-	if not airborne:
-		speed = move_toward(speed, target, rate * dt)
-	# Turning: quicker when slow, a little in the air.
+	if not airborne and not drift:
+		speed = move_toward(speed, target, rate * dt)    # issue #627: a drift holds the speed it had
+	# Turning: quicker when slow, a little in the air, faster in a drift.
 	var k := clampf(absf(speed) / maxf(p("max_speed", 36.0), 1.0), 0.0, 1.0)
 	var turn := deg_to_rad(lerpf(p("turn_rate_deg", 110.0), p("turn_rate_fast_deg", 62.0), k))
 	if airborne:
 		turn *= p("air_turn_scale", 0.35)
+	if drift:
+		turn *= float(cfg.ability.get("turn_scale", 2.0))
+		if drift_dir == Vector3.ZERO:
+			drift_dir = _fwd           # the line it was on when the drift began
 	_fwd = _fwd.rotated(up(), -float(_cmd.steer) * turn * dt)
+	if drift:
+		# Keep sliding the way it was going; the slide slowly gives way to the nose,
+		# so a long drift still comes round.
+		drift_dir = drift_dir.slerp(_fwd, minf(1.0, dt * float(cfg.ability.get("settle", 0.8)))).normalized()
+	else:
+		drift_dir = Vector3.ZERO
 
 
 func _move(dt: float) -> void:
-	var to: Vector3 = position + forward() * speed * dt
+	var to: Vector3 = position + travel_dir() * speed * dt
 	if ground != null:
 		var hit_id := ground.hit(to, p("body_radius", 1.3))
 		if hit_id != "":
@@ -257,6 +307,8 @@ func _move(dt: float) -> void:
 	# Slide the heading along with it, so it stays flat to the ground here.
 	var u := up()
 	_fwd = (_fwd - u * _fwd.dot(u)).normalized()
+	if drift_dir != Vector3.ZERO:
+		drift_dir = (drift_dir - u * drift_dir.dot(u)).normalized()
 
 
 func _hover(dt: float) -> void:

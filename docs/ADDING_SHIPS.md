@@ -110,6 +110,15 @@ look's `scene` at `out`. Review it with
 The speeder takes the same kind of model through its look's `scene` in
 `content/core/vehicles/speeder.json`.
 
+**A new speeder model (issue #627):** one file in `content/core/vehicles/`
+(copy `racer.json` or `hauler.json`): its numbers for `HoverModel`, an
+`ability` (none = boost; `{ "kind": "drift", "turn_scale", "settle" }` = the
+freighter's drift), `shop_groups` (which bench menus it takes; none = all),
+`scrap_base`, and a `look` with a `stand_in` list of boxes and cylinders until it
+has a `scene`. Skrugs sells it once it is in his card's `sale.models`
+(`content/core/npcs/skrugs_card.json`), one of each to a customer; its paint jobs
+are parts in `speeder_upgrades.json` with `"model": "<id>"`.
+
 Check the look with `./tools/lookdev/shoot_dogfight.sh`: `lineup.png` shows every
 look side by side.
 

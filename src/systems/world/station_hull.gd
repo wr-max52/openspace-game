@@ -247,6 +247,14 @@ static func town_for(town_id: String, lm: Dictionary, sp: PlanetSphere, world: D
 			"min": [at.x - 1.0, deck_y, at.z - 1.0], "max": [at.x + 1.0, top, at.z + 1.0] })
 		markers.append({ "id": str(sale.get("npc", "t99")), "pos": [at.x, top, at.z], "role": "interact",
 			"face": [face.x, top, face.z] })
+	# Issue #643: the vendors' markers at their booths in the favela, each on a
+	# hidden plate (the validator's V7), as the salesman's.
+	for v in h.favela_vendors():
+		var va: Vector3 = xf * (v.at as Vector3)
+		var vtop := va.y + 0.02
+		boxes.append({ "id": "plate_" + str(v.marker), "zone": "landing_bay", "kind": "pad", "standable": true, "hidden": true,
+			"min": [va.x - 0.5, va.y, va.z - 0.5], "max": [va.x + 0.5, vtop, va.z + 0.5] })
+		markers.append({ "id": str(v.marker), "pos": [va.x, vtop, va.z], "role": "interact" })
 	var x0 := minf(c.x - hx, sp_at.x - 1.0) - 2.0
 	var x1 := maxf(c.x + hx, sp_at.x + 1.0) + 2.0
 	var z0 := minf(c.z - hz, sp_at.z - 1.0) - 2.0
@@ -387,6 +395,41 @@ func elevators() -> Array:
 ## alternating floor by floor from the bottom.
 static func bridge_angles(floor_index: int) -> Array:
 	return [PI * 0.5, PI * 1.5] if floor_index % 2 == 0 else [0.0, PI]
+
+
+## Issue #643: the three vendors' booths in the favela (its fill block's
+## "vendors": [{ marker, kind, a_deg, ring }]): [{ marker, kind, a, r, ring, face,
+## d, w, at }], `at` where the keeper stands behind the counter (the station's
+## frame). StationFill builds the booths there and town_for puts the vendors'
+## markers on the same spots, so the gear trader, the fence and the droid
+## merchant trade there as in town.
+func favela_vendors() -> Array:
+	var out: Array = []
+	var floors: Dictionary = cfg.get("fill", {}).get("floors", {})
+	for fid in floors:
+		var fc: Dictionary = floors[fid]
+		var list: Array = fc.get("vendors", [])
+		if list.is_empty():
+			continue
+		for t in towers:
+			for f in t.floors:
+				if str(f.id) != str(fid):
+					continue
+				var rings: Array = fc.get("rings", [])
+				var c: Vector2 = t.c
+				for v in list:
+					var ri := int(v.get("ring", 0))
+					if ri < 0 or ri >= rings.size():
+						continue
+					var r := float(rings[ri].get("r", 30.0))
+					var face := str(rings[ri].get("face", "in"))
+					var d := float(v.get("depth", 3.2))
+					var a := deg_to_rad(float(v.get("a_deg", 0.0)))
+					var kr := r + (d * 0.5 - 1.2) * (1.0 if face == "out" else -1.0)
+					out.append({ "marker": str(v.get("marker", "")), "kind": str(v.get("kind", "")), "a": a, "r": r, "ring": ri,
+						"face": face, "d": d, "w": float(v.get("width", 4.0)),
+						"at": Vector3(c.x + cos(a) * kr, float(f.y), c.y + sin(a) * kr) })
+	return out
 
 
 ## Inside the walkable interior (a floor, the shaft and the gap's tube, a tunnel, the bay), in
