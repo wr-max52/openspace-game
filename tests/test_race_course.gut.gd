@@ -248,8 +248,12 @@ func _relief(sp: PlanetSphere, c: Dictionary, gi: int, back: float) -> float:
 ## Gates (and the start's grid) sit where the dunes are nearly level already, so the
 ## pad under them never cuts a notch through a crest.
 func test_every_gate_is_on_nearly_flat_sand() -> void:
-	var sp := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
-	sp.flat_sites = []                     # the sand as the dunes make it
+	var planet := PlanetGen.build(PlanetGen.home_id())
+	var sp := PlanetTerrain.for_planet(planet).sphere
+	sp.flat_sites = []
+	# The sand as the dunes make it, but for the level sand round a mountain a
+	# course runs through (the gates at a tunnel's mouths stand on it).
+	sp.flat_sites = DesertLandforms.mountain_flat_sites(planet, sp)
 	for c in RaceCourse.courses_for("port_desert"):
 		assert_lt(_relief(sp, c, 0, 40.0), 2.5, "%s: the start line and its grid are on flat sand" % c.id)
 		for gi in range(1, c.gates.size()):

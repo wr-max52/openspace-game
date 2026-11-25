@@ -290,10 +290,11 @@ func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear:
 		var map: Vector2 = m.map
 		var p: Dictionary = m.plan
 		var radius := float(p.radius)
-		if _hits(clear, map.x, map.y, radius) or _in_circles(map.x, map.y, radius):
+		# A mountain on a race course stands over its line on purpose (its tunnel).
+		if _hits(clear, map.x, map.y, radius) or (m.toward == null and _in_circles(map.x, map.y, radius)):
 			continue
 		var made := _mountain(p, int(m.variant))
-		var pl := RockMountain.placement(sp, map, p)
+		var pl := RockMountain.placement(sp, map, p, 14.0, m.toward)
 		var g: Transform3D = pl.frame
 		var gy := snappedf(sp.altitude(g.origin) - float(pl.sink), 1.0)
 		var mi := MeshInstance3D.new()
@@ -306,8 +307,11 @@ func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear:
 		mesa_spots.append({ "map": map, "radius": radius, "height": float(p.height) })
 
 
-## Every mountain on a ball: { id, map, variant, plan } from `planet_mountains`
-## [latitude, longitude, version]. WorldGround reads the same list.
+## Every mountain on a ball: { id, map, variant, plan, toward } from
+## `planet_mountains` [latitude, longitude, version] and `course_mountains`
+## { course, at: map [x, z], toward: map [x, z], variant } (a tunnel version over a
+## race course's line, its cliff portal turned to face `toward`; null for the
+## rest). WorldGround reads the same list.
 static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 	var variants: Array = data.get("mountain_variants", [])
 	var out: Array = []
@@ -317,7 +321,12 @@ static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 	for e in data.get("planet_mountains", []):
 		var k := int(e[2]) % variants.size()
 		out.append({ "id": "mesa_%d_%d" % [int(e[0]), int(e[1])], "map": sp.map_from_lat_lon(float(e[0]), float(e[1])),
-			"variant": k, "plan": RockMountain.plan(variants[k], cfg) })
+			"variant": k, "plan": RockMountain.plan(variants[k], cfg), "toward": null })
+	for e in data.get("course_mountains", []):
+		var k := int(e.get("variant", 0)) % variants.size()
+		out.append({ "id": "mesa_%s" % str(e.get("course", "course")), "map": Vector2(float(e.at[0]), float(e.at[1])),
+			"variant": k, "plan": RockMountain.plan(variants[k], cfg),
+			"toward": Vector2(float(e.toward[0]), float(e.toward[1])) })
 	return out
 
 

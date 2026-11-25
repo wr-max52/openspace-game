@@ -239,7 +239,7 @@ static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
 	var up: Vector3 = c.get("up", Vector3.UP)
 	var rel: Vector3 = p - (c.center as Vector3)
 	var along := rel.dot(up)
-	if (rel - up * along).length() > float(c.radius):
+	if (rel - up * along).length() > float(c.radius) or in_tunnel(c, rel, along, 0.0):
 		return h
 	var top: float = c.get("h", float(c.top) - (c.center as Vector3).y)
 	if top <= along + 0.5:
@@ -284,7 +284,7 @@ func _height_above_linear(p: Vector3, h_start: float) -> float:
 		var up: Vector3 = c.get("up", Vector3.UP)
 		var rel: Vector3 = p - (c.center as Vector3)
 		var along := rel.dot(up)
-		if (rel - up * along).length() > float(c.radius):
+		if (rel - up * along).length() > float(c.radius) or in_tunnel(c, rel, along, 0.0):
 			continue
 		var top: float = c.get("h", float(c.top) - (c.center as Vector3).y)
 		if top <= along + 0.5:
@@ -613,7 +613,7 @@ func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 	for m in mountains:
 		var map: Vector2 = m.map
 		if not clear.grow(float(m.plan.radius)).has_point(map):
-			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id)))
+			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id), m.toward))
 	if mountains.is_empty():
 		for m in data.get("mesas", []):
 			var map := Vector2(float(m[0]), float(m[1]))
@@ -894,12 +894,31 @@ static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
 		var up: Vector3 = c.up
 		var rel := p - cc
 		var along := rel.dot(up)
-		if along - r * 0.5 >= float(c.h) or along + r < 0.0:
+		if along - r * 0.5 >= float(c.h) or along + r < 0.0 or in_tunnel(c, rel, along, r):
 			return ""
 		return str(c.id) if (rel - up * along).length() <= float(c.radius) + r else ""
 	if p.y - r * 0.5 >= float(c.top) or p.y + r < cc.y:
 		return ""
 	return str(c.id) if Vector2(p.x - cc.x, p.z - cc.z).length() <= float(c.radius) + r else ""
+
+
+## True when a sphere of radius r at `rel` from a mountain's column (`along` its
+## up) is inside the mountain's tunnel (RockMountain.columns): within its walls,
+## and under its arch where the column's shelf roofs it over (a lower shelf is cut
+## right through, open to the sky). Columns with no tunnel never are.
+static func in_tunnel(c: Dictionary, rel: Vector3, along: float, r: float) -> bool:
+	var tn = c.get("tunnel")
+	if tn == null:
+		return false
+	var half := float(tn.half)
+	var l := absf(rel.dot(tn.side as Vector3))
+	if l > half - r:
+		return false
+	if not bool(tn.roofed):
+		return true
+	var lr := minf(1.0, (l + r) / (half + 1.0))
+	var spring := float(tn.spring)
+	return along + r < spring + (float(tn.crown) - spring) * sqrt(1.0 - lr * lr)
 
 
 ## The plain scan of every box, boulder and column (hit() with too few items for
@@ -945,7 +964,7 @@ func _hit_linear(p: Vector3, r: float) -> String:
 			var up: Vector3 = c.up
 			var rel := p - cc
 			var along := rel.dot(up)
-			if along - r * 0.5 >= float(c.h) or along + r < 0.0:
+			if along - r * 0.5 >= float(c.h) or along + r < 0.0 or in_tunnel(c, rel, along, r):
 				continue
 			if (rel - up * along).length() <= float(c.radius) + r:
 				return str(c.id)

@@ -1,5 +1,5 @@
 {
-  "note": "Landforms around the playable town, from the beauty corner's horizon (scenes/lookdev/beauty_corner.gd). Metres, town coordinates (origin = town centre, floor y = 0). Each sits on the terrain at its x, z. keep_out_margin = no boulders this close to the town's floor area. Mountains (the big rocks on the 5 km-radius home world, src/systems/look/rock_mountain.gd): climbable piles of rock shelves, three versions reused. planet_mountains are [latitude degrees, longitude degrees, version]; each is turned so its first cave faces downhill and sunk to the lowest sand round its foot. They replace the local mesa list on a spherical planet. mountain_variants: seed, radius (the foot's, m), tiers (shelves, fewer if they get smaller than top_radius), first_rise (the lowest shelf's height), rise [min, max] m between shelves, shelf [min, max] m each tier is narrower than the one below, asym (how lopsided the shelves are: 0 even all round, 1 a sheer cliff on one side and double-width terraces on the other), jag (m the outline is broken by), points (corners per tier), lobes (how far the outline bulges 1, 2 and 3 times a turn, a fraction of the radius), lean [min, max] (how far a tier's top is set in from its foot), columns (rock columns against each wall), blocks (loose columns per shelf), crags (pinnacles on top), caves. mountain: ramp (width, slope_deg no steeper than the player's 45 degree floor limit, landing m flat-ish at the top), step (the jump stairs: rise per column, under the 0.6 m jump, and size), cave (height of its ceiling, mouth width, depth into the foot, room radius), bury (m every block starts under the sand), strata (the rock shader's), pad (the sand is levelled under each mountain out to its reach plus margin_m, easing into the dunes over blend_m). Spires (the tall skinny rocks, called hoodoos in the code): three variations of one wind-cut sandstone spire, reused everywhere, each a broad flared skirt, a lumpy lower body of stacked bulges, a long tapering finger split by vertical cracks and a rounded top. spire_variants: height and radius (the skirt's, at the foot) in metres, lean = [x, z] metres the top sits off the foot, seed for its noise, bands = bulges up the body, bulge = how far they stand out (fraction of the radius), cracks = vertical cracks and crack_depth, twist = radians the lobes turn from foot to top. spire_profile = [height fraction, radius fraction] shared by all three. spire_column = a ship's column radius as a fraction of the skirt's. spire_strata = the rock shader's strata scale. hoodoos are [x, z, variant, yaw degrees]: the five rock towers the Hoodoo Run race course weaves round (issue #610, content/core/racing/courses/hoodoo_run.json), placed by hand beside its racing line. planet_hoodoos are [latitude, longitude, variant, yaw] all round the ball, clear of the town, outposts, wrecks, camps, courses and mesas (flat worlds have only the race towers). short_hoodoos are the original hoodoos (a fluted column under a cap stone), cut to half their old height for a mix of short old rocks and tall new spires: [latitude, longitude, radius, height] all round the ball, clear of everything above. boulders: on the ball (planet_wide) the same count is spread round the whole planet, near_rocks of them in fields at the feet of the mesas and spires (out to near_reach of the rock's radius past its foot) and the rest anywhere; a flat world keeps the ring min_dist..min_dist + spread round the town.",
+  "note": "Landforms around the playable town, from the beauty corner's horizon (scenes/lookdev/beauty_corner.gd). Metres, town coordinates (origin = town centre, floor y = 0). Each sits on the terrain at its x, z. keep_out_margin = no boulders this close to the town's floor area. Mountains (the big rocks on the 5 km-radius home world, src/systems/look/rock_mountain.gd): climbable piles of rock shelves, four versions reused (the fourth has a tunnel). planet_mountains are [latitude degrees, longitude degrees, version]; each is turned so its first cave faces downhill and sunk to the lowest sand round its foot. course_mountains are tunnel mountains standing over a race course's racing line on purpose: { course, at: map [x, z] (its centre, on the line), toward: map [x, z] (a point on the line its cliff portal faces), variant }; the course file puts a checkpoint gate at each end of the tunnel and runs its line straight through. They replace the local mesa list on a spherical planet. mountain_variants: seed, radius (the foot's, m), tiers (shelves, fewer if they get smaller than top_radius), first_rise (the lowest shelf's height), rise [min, max] m between shelves, shelf [min, max] m each tier is narrower than the one below, asym (how lopsided the shelves are: 0 even all round, 1 a sheer cliff on one side and double-width terraces on the other), jag (m the outline is broken by), points (corners per tier), lobes (how far the outline bulges 1, 2 and 3 times a turn, a fraction of the radius), lean [min, max] (how far a tier's top is set in from its foot), columns (rock columns against each wall), blocks (loose columns per shelf), crags (pinnacles on top), caves, tunnel (optional: a straight arched way right through the foot, width m between its walls, spring m where the arch starts, crown m at its top; its portal is in the sheer side, the far end cuts through the terraces, and the ways up, caves and loose rock keep out of it). mountain: ramp (width, slope_deg no steeper than the player's 45 degree floor limit, landing m flat-ish at the top), step (the jump stairs: rise per column, under the 0.6 m jump, and size), cave (height of its ceiling, mouth width, depth into the foot, room radius), bury (m every block starts under the sand), strata (the rock shader's), pad (the sand is levelled under each mountain out to its reach plus margin_m, easing into the dunes over blend_m). Spires (the tall skinny rocks, called hoodoos in the code): three variations of one wind-cut sandstone spire, reused everywhere, each a broad flared skirt, a lumpy lower body of stacked bulges, a long tapering finger split by vertical cracks and a rounded top. spire_variants: height and radius (the skirt's, at the foot) in metres, lean = [x, z] metres the top sits off the foot, seed for its noise, bands = bulges up the body, bulge = how far they stand out (fraction of the radius), cracks = vertical cracks and crack_depth, twist = radians the lobes turn from foot to top. spire_profile = [height fraction, radius fraction] shared by all three. spire_column = a ship's column radius as a fraction of the skirt's. spire_strata = the rock shader's strata scale. hoodoos are [x, z, variant, yaw degrees]: the five rock towers the Hoodoo Run race course weaves round (issue #610, content/core/racing/courses/hoodoo_run.json), placed by hand beside its racing line. planet_hoodoos are [latitude, longitude, variant, yaw] all round the ball, clear of the town, outposts, wrecks, camps, courses and mesas (flat worlds have only the race towers). short_hoodoos are the original hoodoos (a fluted column under a cap stone), cut to half their old height for a mix of short old rocks and tall new spires: [latitude, longitude, radius, height] all round the ball, clear of everything above. boulders: on the ball (planet_wide) the same count is spread round the whole planet, near_rocks of them in fields at the feet of the mesas and spires (out to near_reach of the rock's radius past its foot) and the rest anywhere; a flat world keeps the ring min_dist..min_dist + spread round the town.",
   "seed": 4242,
   "mesas": [
     [-1500, -3100, 300, 230],
@@ -13,21 +13,23 @@
   ],
   "planet_mountains": [
     [69.64, 90.0, 0],
-    [54.34, -132.49, 1],
     [43.43, 5.02, 2],
     [34.23, 142.52, 0],
-    [25.94, -79.97, 1],
+    [25.94, -79.97, 3],
     [18.21, 57.54, 2],
     [10.81, -164.95, 0],
     [3.58, -27.45, 1],
     [-3.58, 110.06, 2],
-    [-10.81, -112.43, 0],
+    [-10.81, -112.43, 3],
     [-18.21, 25.08, 1],
     [-25.94, 162.59, 2],
     [-34.23, -59.91, 0],
     [-43.43, 77.6, 1],
     [-54.34, -144.89, 2],
     [-69.64, -7.38, 0]
+  ],
+  "course_mountains": [
+    { "course": "salt_flats", "at": [-2956.0, 1844.3], "toward": [-2778.2, 1845.4], "variant": 3 }
   ],
   "mountain_variants": [
     {
@@ -83,6 +85,25 @@
       "caves": 2,
       "asym": 0.75,
       "top_radius": 12
+    },
+    {
+      "seed": 41,
+      "radius": 120,
+      "tiers": 10,
+      "first_rise": 4.0,
+      "rise": [4.5, 9.0],
+      "shelf": [2.5, 4.0],
+      "jag": 2.0,
+      "points": 36,
+      "lobes": [0.12, 0.12, 0.06],
+      "lean": [0.015, 0.03],
+      "columns": 8,
+      "blocks": 5,
+      "crags": 3,
+      "caves": 1,
+      "asym": 0.85,
+      "top_radius": 12,
+      "tunnel": { "width": 36.0, "spring": 11.0, "crown": 24.0 }
     }
   ],
   "mountain": {

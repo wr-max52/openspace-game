@@ -99,7 +99,7 @@ func test_remote_pads_are_flat_on_the_curved_home_world() -> void:
 func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void:
 	var data := Landforms.load_data()
 	var spots: Array = data.get("planet_mountains", [])
-	assert_eq(spots.size(), 16)
+	assert_eq(spots.size() + (data.get("course_mountains", []) as Array).size(), 16, "as many mountains as there were mesas")
 	var min_lat := 90.0
 	var max_lat := -90.0
 	var longitudes := {}
@@ -119,6 +119,19 @@ func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void
 		assert_lte(float(p.height), 90.0, "no more than 90 m to the top shelf")
 		assert_gt((p.tiers as Array).size(), 4, "shelves to climb")
 		assert_gt((p.caves as Array).size(), 0, "a cave in every version")
+	# The tunnel version: a way through wide and high enough to race a speeder through,
+	# on at least two mountains, one of them over the last race's line.
+	var tunnels := 0
+	for m in spots:
+		var v: Dictionary = data.mountain_variants[int(m[2]) % data.mountain_variants.size()]
+		if v.has("tunnel"):
+			tunnels += 1
+	for m in data.get("course_mountains", []):
+		var p := RockMountain.plan(data.mountain_variants[int(m.variant)], cfg)
+		assert_true(p.has("tunnel"), "a course mountain has a tunnel")
+		assert_gt(float(p.tunnel.half) * 2.0, 30.0, "wider than a race gate")
+		tunnels += 1
+	assert_gte(tunnels, 2, "at least two tunnel mountains")
 
 
 func test_up_turns_with_the_ball() -> void:
