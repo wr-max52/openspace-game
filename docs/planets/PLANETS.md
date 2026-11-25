@@ -318,6 +318,17 @@ below).
   instead of a lumpy faceted rock. `relief_tilt` steepens the slopes so they
   read from kilometres off; `relief_crest` lightens crests. Re-bake when the
   dunes change.
+- **`body.paint`** (the moons'): the whole moon baked as paint on a smooth
+  ball, for anywhere past `space.real_ball_within` (6 km). Two cubemaps:
+  `<id>_paint.png` (colour, and in alpha how much glows: lava, the station's
+  lamps) and `<id>_relief.png` (the ground's normals, so craters catch the sun),
+  both written by `tools/planets/bake_moon_paint.gd` from the moon's own
+  `AsteroidSphere`, its rock colours and lava, with the station's domes, tunnels
+  and landing pit and the outposts (`landmarks`) painted flat on top. Drawn by
+  `painted_ball.gdshader`. Fly within 6 km and it swaps for the real coarse ball
+  and station; fly 1.5 km past that again and it swaps back. Re-bake when a
+  moon's rock, station or outposts change:
+  `godot --headless --path . -s res://tools/planets/bake_moon_paint.gd -- ids=grit_station,cinder_station`.
 - **`replaces_sky_painting: true`** turns the painted giant off on the planet
   itself and on any planet whose sky it hangs in (`PlanetGen.sky_painting`).
   Grit Station keeps its painting.

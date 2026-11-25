@@ -31,6 +31,9 @@ const HYSTERESIS := 300.0            ## issue #99: leaving needs this much more 
 const GAS_SHADER := preload("res://src/systems/look/shaders/gas_giant.gdshader")
 const RING_SHADER := preload("res://src/systems/look/shaders/gas_ring.gdshader")
 const HAZE_SHADER := preload("res://src/systems/look/shaders/gas_haze.gdshader")
+const PAINT_SHADER := preload("res://src/systems/look/shaders/painted_ball.gdshader")
+const PAINT_LAMP := Color("#f0c77c")   ## a painted moon's lamps (the station's status light)
+const BACK_TO_PAINT := 1500.0        ## metres past real_ball_within before a real ball turns back to paint
 const PREWARM := 1500.0              ## this far before a handoff, its scene's far mesh starts on worker threads
 
 var pilot                            ## ShipPilot
@@ -319,7 +322,10 @@ func _upgrade_near(pos: Vector3) -> void:
 		return
 	var near_ok := float(PlanetGen.space_cfg().get("real_ball_within", 6000.0))
 	for b in bodies:
-		if bool(b.real) or pos.distance_to(b.at) - float(b.radius) > near_ok:
+		var gap: float = pos.distance_to(b.at) - float(b.radius)
+		if bool(b.real) and gap > near_ok + BACK_TO_PAINT and _back_to_paint(b):
+			return
+		if bool(b.real) or gap > near_ok:
 			continue
 		b.real = true
 		var pooled := _take_pooled(b.n)
@@ -331,6 +337,22 @@ func _upgrade_near(pos: Vector3) -> void:
 		else:
 			_start_build(b.n, false)
 		return
+
+
+## Flown far off a real ball again: its painted ball takes its place, and the real
+## one waits in the pool (out of the tree) for the way back in.
+func _back_to_paint(b: Dictionary) -> bool:
+	if not _wants_real(b.n) or str(b.n.get("paint", "")) == "" or b.node == null:
+		return false
+	for x in _builds:
+		if str(x.id) == str(b.id):
+			return false
+	var cheap := _body(b.n, false)
+	add_child(cheap)
+	_pool_put(str(b.id), b.node)
+	b.node = cheap
+	b.real = false
+	return true
 
 
 ## A neighbour as seen from here: a rock for a small body, a planet for a big one.
@@ -366,6 +388,8 @@ func _body(n: Dictionary, real_ok := true) -> Node3D:
 			sand.set_shader_parameter("relief_crest", float(n.get("relief_crest", 0.12)))
 		mi.material_override = sand
 		_sand_bodies.append(sand)
+	elif str(n.get("paint", "")) != "":
+		mi.material_override = _paint_mat(n)
 	else:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = n.color
@@ -379,6 +403,28 @@ func _body(n: Dictionary, real_ok := true) -> Node3D:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.extra_cull_margin = r
 	return mi
+
+
+## A moon from far off: its bake (tools/planets/bake_moon_paint.gd) on a smooth
+## ball, lit by the one sun, its lava and lamps glowing (painted_ball.gdshader).
+func _paint_mat(n: Dictionary) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = PAINT_SHADER
+	m.set_shader_parameter("paint_tex", relief_tex(str(n.paint)))
+	m.set_shader_parameter("relief_tex", relief_tex(str(n.relief)))
+	m.set_shader_parameter("relief_tilt", float(n.get("relief_tilt", 1.0)))
+	m.set_shader_parameter("planet_center", n.at)
+	var lava: Dictionary = PlanetGen.types().get("types", {}).get(str(n.type), {}).get("surface", {}).get("lava", {})
+	if not lava.is_empty():
+		m.set_shader_parameter("glow", Color(str(lava.get("glow", "#ff5a14"))))
+		m.set_shader_parameter("hot", Color(str(lava.get("hot", "#ffcc66"))))
+		m.set_shader_parameter("glow_energy", float(lava.get("glow_energy", 2.5)))
+		m.set_shader_parameter("dusk_color", Color(0.22, 0.12, 0.1))       # lava_rock.gdshader's
+	else:
+		m.set_shader_parameter("glow", PAINT_LAMP)          # no lava: only the station's lamps
+		m.set_shader_parameter("hot", PAINT_LAMP)
+	_track(m)                    # the sun (now, or once this travel is ready)
+	return m
 
 
 ## A banded gas ball with its ring (the ringed giant): the sky painting's look,
@@ -545,8 +591,8 @@ static func _make_body_mesh(n: Dictionary) -> Mesh:
 	var rocky := _rocky(n)
 	if float(n.get("bands", 0.0)) > 0.0:
 		return sphere           # a gas ball is smooth
-	if str(n.get("relief", "")) != "":
-		sphere.radial_segments = 192    # smooth: the dunes are in the print (sand.gdshader relief_tex)
+	if str(n.get("relief", "")) != "" or str(n.get("paint", "")) != "":
+		sphere.radial_segments = 192    # smooth: the dunes (or a moon's paint) are in the print
 		sphere.rings = 96
 		return sphere
 	return LookMeshKit.rock(sphere, noise, 0.3 if rocky else 0.012, 0.0, 3.0, 0.85 if rocky else 1.0) if rocky or r < 20000.0 else sphere
@@ -555,9 +601,9 @@ static func _make_body_mesh(n: Dictionary) -> Mesh:
 ## The ball meshes planet `id`'s scene will draw in its sky, made on worker threads.
 static func prewarm_bodies(id: String) -> void:
 	for n in PlanetGen.build(id).get("neighbours", []):
-		var rp := str(n.get("relief", ""))
-		if rp != "" and not _reliefs.has(rp):
-			ResourceLoader.load_threaded_request(rp)
+		for rp in [str(n.get("relief", "")), str(n.get("paint", ""))]:
+			if rp != "" and not _reliefs.has(rp):
+				ResourceLoader.load_threaded_request(rp)
 		var key := "%s/%d" % [str(n.id), int(n.radius)]
 		if _body_meshes.has(key):
 			continue

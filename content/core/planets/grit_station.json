@@ -20,6 +20,11 @@
     { "id": "remnant_outpost_moon_rim", "kind": "location", "location": "remnant_outpost_moon_rim", "at": [180, 0, -480], "yaw_deg": 249, "clear": 45 },
     { "id": "remnant_outpost_moon_plain", "kind": "location", "location": "remnant_outpost_moon_plain", "at": [600, 0, -120], "yaw_deg": 191, "clear": 45 }
   ],
+  "body": {
+    "note": "How this moon looks from far off (a neighbour's sky, past types.json space.real_ball_within): a smooth ball with the moon baked onto it as paint, its rock, craters and the station's domes, tunnels, landing pit and outposts, instead of a lumpy low-poly rock. paint: its colours and glow, relief: its ground's normals (tools/planets/bake_moon_paint.gd writes both; re-run when its rock, station or outposts change). Up close it is still its real coarse ball.",
+    "paint": "res://assets/planets/grit_station_paint.png",
+    "relief": "res://assets/planets/grit_station_relief.png"
+  },
   "near": "port_desert",
   "at": [26216, 17160, -18928],
   "cantina_owner": { "look": "cantina_owner_station" },
