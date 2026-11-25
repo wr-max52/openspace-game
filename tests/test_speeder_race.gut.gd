@@ -256,6 +256,72 @@ func test_from_the_shooting_lap_a_racer_with_you_in_its_nose_fires() -> void:
 	assert_true(fired, "and it fires")
 
 
+# ---- the rematch -------------------------------------------------------------------
+
+func test_rematch_at_once_for_the_same_stake_paid_from_dorrins_hold_too() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	await _race_to_go(t, crew)
+	assert_eq(WorldState.credits, 400, "100 cr paid")
+	WorldState.credits = 50                     # short in hand, but Dorrin holds 1000 for you
+	WorldState.counters["race_winnings"] = 1000
+	crew._end_race()
+	assert_eq(crew.phase, RaceCrew.Phase.RETURN, "they head home")
+	assert_true(crew.rematch_on, "the rematch is open")
+	assert_eq(crew.last_stake, 100, "for the same stake")
+	await wait_physics_frames(20)
+	assert_eq(crew.rematch(), "", "[Z]: on again")
+	assert_eq(WorldState.credits, 0, "your 50 cr first")
+	assert_eq(WorldState.count("race_winnings"), 950, "the other 50 out of what Dorrin holds")
+	assert_eq(crew.stake, 100)
+	assert_eq(crew.phase, RaceCrew.Phase.GRID, "back to the grid")
+	assert_true(crew.lined_up, "already by the line: straight onto your slot")
+	assert_false(crew.rematch_on, "once")
+	assert_eq(crew.rematch(), "busy", "not twice")
+	for i in 5000:
+		if crew.phase == RaceCrew.Phase.COUNTDOWN:
+			break
+		await wait_physics_frames(1)
+	assert_eq(crew.phase, RaceCrew.Phase.COUNTDOWN, "everyone back on the grid: the countdown")
+	assert_between(crew.crowd.size(), 5, 10, "one crowd, not two")
+
+
+func test_short_for_a_rematch_they_go_home_and_the_menu_offers_it_later() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	await _race_to_go(t, crew)
+	WorldState.credits = 60
+	crew._end_race()
+	assert_false(crew.rematch_on, "60 cr: no rematch at 100")
+	assert_eq(crew.last_stake, 100)
+	assert_eq(crew.rematch(), "busy", "[Z] does nothing")
+	assert_eq(WorldState.credits, 60, "nothing taken")
+	Engine.time_scale = 4.0
+	for i in 3000:
+		if crew.phase == RaceCrew.Phase.IDLE:
+			break
+		await wait_physics_frames(1)
+	Engine.time_scale = 1.0
+	assert_eq(crew.phase, RaceCrew.Phase.IDLE, "they went home")
+	assert_false(crew.menu_options().any(func(o): return str(o.id) == "rematch"), "still short: no rematch row")
+	WorldState.credits = 100
+	var opts := crew.menu_options()
+	assert_eq(str(opts[0].id), "rematch", "the same stake, first in the leader's menu")
+	assert_true(str(opts[0].text).contains("100"), "at 100 cr")
+	crew._on_pick("rematch")
+	assert_eq(crew.phase, RaceCrew.Phase.GRID, "on again")
+	assert_eq(WorldState.credits, 0, "100 cr paid")
+
+
+func test_no_rematch_after_pink_slips() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	await _race_to_go(t, crew)
+	crew.pink = true
+	crew._end_race()
+	assert_false(crew.rematch_on, "pink slips: no rematch")
+
+
 # ---- hard to win -------------------------------------------------------------------
 
 func test_the_tuned_racers_out_drive_a_stock_speeder() -> void:
