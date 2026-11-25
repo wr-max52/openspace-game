@@ -226,6 +226,12 @@ func _frame_work(dt: float) -> void:
 func _place(p: Dictionary) -> void:
 	var n := p.node as Node3D
 	n.position = p.pos
+	# Issue #604: on a moving car, drawn at the car's drawn height, not its tick's
+	# (the hit capsule stays where the tick put it).
+	var legs: Array = p.legs
+	if not legs.is_empty() and str(legs[0].kind) == "ride":
+		var car: Dictionary = station.cars[int(legs[0].car)]
+		n.position.y = station.draw_y(car)
 	n.rotation = Vector3(0, float(p.yaw), 0)
 	(p.hit as Node3D).position = p.pos
 
@@ -324,6 +330,8 @@ func _board(p: Dictionary, act: Dictionary, dt: float) -> void:
 		if not here and not inside:
 			act.going = false                  # it left without them: back to the door
 			act.go = { "kind": "go", "pts": [act.wait_at] }
+		elif not here:
+			p.legs.pop_front()                 # issue #604: it left with them on it: ride it, not stand at the floor's height
 		elif _go(p, act.go, dt):
 			p.legs.pop_front()                 # aboard: the ride is next
 		return
@@ -723,15 +731,27 @@ class CrowdHit:
 	var crowd
 	var who: Dictionary
 	var damage_usec := 0
+	## Issue #606: HitFeedback reads it for the kill marker (true once the hit killed).
+	var dead: bool:
+		get:
+			return bool(who.get("dead", false))
 
+	# The stamp goes on after the hurt (a first hit rouses the fighters), so the
+	# marker reads it fresh.
 	func apply_damage(amount: float) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount)
+		damage_usec = Time.get_ticks_usec()
 
 	func apply_damage_from(amount: float, shooter: Node) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount, shooter)
+		damage_usec = Time.get_ticks_usec()
 
 	func apply_blade_hit(amount: float, sweep: Vector3) -> void:
-		damage_usec = Time.get_ticks_usec()
+		if who.dead:
+			return
 		crowd.hurt(who, amount, null, sweep)
+		damage_usec = Time.get_ticks_usec()

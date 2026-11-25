@@ -228,8 +228,7 @@ func _make_pack(p: Dictionary, index: int) -> Dictionary:
 	root.name = "Pack_" + id
 	add_child(root)
 	pack["root"] = root
-	_make_camp(pack, p, style)
-	var jobs: Array = []
+	var jobs: Array = _make_camp(pack, p, style)     # issue #574: the camp's pieces first
 	for i in size:
 		var slot := i
 		jobs.append(func(): _add_member(pack, slot, size, kids, style); return true)
@@ -241,10 +240,12 @@ func _make_pack(p: Dictionary, index: int) -> Dictionary:
 
 ## The pack's camp, when it has one and its people make camps: a stop on the route
 ## (after route point "stop_after", the last by default), where the pack starts.
-func _make_camp(pack: Dictionary, p: Dictionary, style: Dictionary) -> void:
+## Issue #574: returns its build as queue jobs (a tent a job), which run before the
+## pack's members; the last one hooks the camp up.
+func _make_camp(pack: Dictionary, p: Dictionary, style: Dictionary) -> Array:
 	var pc = p.get("camp", null)
 	if not (pc is Dictionary) or _camp_cfg().is_empty():
-		return
+		return []
 	var cfg: Dictionary = _camp_cfg().duplicate(true)
 	for k in pc:
 		cfg[k] = pc[k]
@@ -259,7 +260,13 @@ func _make_camp(pack: Dictionary, p: Dictionary, style: Dictionary) -> void:
 	var camp := NativeCamp.new()
 	camp.setup(str(pack.id), cfg, self, at)
 	(pack.root as Node3D).add_child(camp)
-	camp.build()
+	var jobs: Array = camp.build_jobs()
+	jobs.append(func() -> bool: _hook_camp(camp, pack, p, pc, cfg); return false)
+	return jobs
+
+
+func _hook_camp(camp: NativeCamp, pack: Dictionary, p: Dictionary, pc: Dictionary, cfg: Dictionary) -> void:
+	var route: Array = pack.route
 	camp.tent_hit.connect(_on_tent_hit.bind(pack))
 	camp.wrecked.connect(_on_camp_wrecked.bind(pack))
 	var st := WorldState.native_camp(str(pack.id))
