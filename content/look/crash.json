@@ -14,12 +14,16 @@
     "split_gap_m": 0.5,
     "flame_s": 25.0,
     "smoke_s": 60.0,
-    "flame_radius": 0.35,
-    "flame_length": 1.8,
-    "smoke_size": 0.6,
-    "burnt_alpha": 0.62,
+    "flame_radius": 0.18,
+    "flame_length": 0.7,
+    "smoke_size": 0.9,
+    "burnt_alpha": 0.72,
     "despawn_m": 160.0,
-    "despawn_check_s": 1.0
+    "despawn_check_s": 1.0,
+    "parked_sink": 0.3,
+    "flame_y": 1.0,
+    "smoke_amount": 30,
+    "smoke_life_s": 6.0
   },
   "speeder": {
     "spin_deg_s": 320.0,
@@ -27,9 +31,9 @@
     "impact_size": 0.6,
     "sink_m": 0.3,
     "split_gap_m": 0.9,
-    "flame_radius": 0.32,
-    "flame_length": 1.9,
-    "smoke_size": 0.5
+    "flame_radius": 0.14,
+    "flame_length": 0.55,
+    "smoke_size": 0.8
   },
   "ship": {
     "spin_deg_s": 150.0,
@@ -40,9 +44,9 @@
     "sink_s": 4.0,
     "split_deg": 12.0,
     "split_gap_m": 2.6,
-    "flame_radius": 0.6,
-    "flame_length": 3.2,
-    "smoke_size": 1.0,
+    "flame_radius": 0.25,
+    "flame_length": 1.0,
+    "smoke_size": 1.4,
     "despawn_m": 400.0
   },
   "barge": {
@@ -54,9 +58,11 @@
     "sink_s": 6.0,
     "split_deg": 9.0,
     "split_gap_m": 3.0,
-    "flame_radius": 0.9,
-    "flame_length": 4.0,
-    "smoke_size": 1.6,
-    "despawn_m": 500.0
+    "flame_radius": 0.35,
+    "flame_length": 1.4,
+    "smoke_size": 2.2,
+    "despawn_m": 500.0,
+    "flame_y": 0.25,
+    "smoke_amount": 40
   }
 }

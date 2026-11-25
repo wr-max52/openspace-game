@@ -8,28 +8,30 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
-## After crash animations, part 1: speeders (issue #404, 2026-11-24)
+## After crash animations (issue #404, 2026-11-24)
 
 **Checked:** `tests/test_crash.gut.gd` (4: the same start gives the same path; on
 flat sand and on dunes, for every kind, it never goes under the sand and ends
 exactly on it; it keeps going and rolls; the wreck goes spiral, sink, burn,
 cold in order, splits in two and frees itself once out of sight and far away).
-`test_smoke`, `test_ip_neutral`, a headless town boot, and a rendered probe in
-the port (a gate speeder knocked out at 22 m/s, 7 m up: stills in
-`docs/lookdev/crash/`).
+`test_smoke`, `test_ip_neutral`, a headless town boot, and rendered probes in
+the port: a gate speeder knocked out at 22 m/s and 7 m up, a parked ship shot to
+pieces, the party barge blown up (stills in `docs/lookdev/crash/`).
 
-- **Speeders only.** Flying ships shot down, parked ships and the party barge
-  still blow up as before; they are the next PR (the path, the numbers and the
-  wreck already take "ship" and "barge").
+- **Not seen on screen:** a Remnant interceptor shot down in flight, and your
+  own ship shot down or flown into the ground. They go through the same call
+  (`ShipPilot.crash_wreck`) as the parked ship, with the speed they had.
 - **The cut is rough:** triangles are kept whole on whichever side their middle
   is, so the break is jagged and open (no cap). It reads as torn metal under the
   smoke; there is no inside.
-- **Lit parts stay lit:** the burnt tint is a dark overlay, so emissive trim
-  (the speeder's teal skids, a bright tank) still glows a little.
+- **Burnt** is a dark copy of each BaseMaterial3D (shared, made once a
+  material); a ShaderMaterial gets a dark overlay instead, which darkens less.
+- **The barge's wreck is its decks only** (the merged hull, no club, no people),
+  and it can lie where the rebuilt barge later comes back.
 - **The fire's light** is one shadowless OmniLight3D a wreck while the flames
   last (25 s); several crashes at once add one each.
-- **No hook test** (a real speeder destroyed in a scene starts one crash): the
-  probe did it on screen; GUT does not build a speeder with the look on.
+- **No hook test** (a real vehicle destroyed in a scene starts one crash): the
+  probes did it on screen; GUT does not build vehicles with the look on.
 
 ## After the cruise and the star system (issues #575, #576, 2026-11-14)
 

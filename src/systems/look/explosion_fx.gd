@@ -130,11 +130,11 @@ static func big(parent: Node, at: Vector3, size := 1.0, space := false) -> Node3
 ## Issue #404: a wreck's light smoke, curling up from `parent` (local `at`) for as
 ## long as it emits. Not one-shot: the caller thins it (`amount_ratio`) and stops it.
 ## `size` 1 is a ship's.
-static func smoke_trail(parent: Node3D, at: Vector3, size := 1.0) -> CPUParticles3D:
+static func smoke_trail(parent: Node3D, at: Vector3, size := 1.0, amount := 14, life := 4.5) -> CPUParticles3D:
 	if parent == null or not is_instance_valid(parent):
 		return null
 	var s := maxf(0.1, size)
-	var p := _emit(parent, _quad(), _mat("smoke"), 14, 4.5, { "radius": 0.6 * s, "speed": Vector2(0.8, 2.0) * s, "dir": Vector3.UP,
+	var p := _emit(parent, _quad(), _mat("smoke"), amount, life, { "radius": 0.6 * s, "speed": Vector2(0.8, 2.0) * s, "dir": Vector3.UP,
 		"spread": 18.0, "gravity": Vector3(0.4, 1.1, 0.2) * s, "damping": Vector2(0.2, 0.5), "scale": Vector2(1.6, 3.2) * s,
 		"grow": _curve("rise"), "ramp": _ramp("smoke_light"), "spin": 40.0, "burst": 0.0, "life_rand": 0.4 })
 	p.one_shot = false

@@ -36,6 +36,8 @@ var _trail: CPUParticles3D
 var _burnt: StandardMaterial3D
 var _check := 0.0
 var _boom_size := 1.0
+var _boom := true                     ## the impact's own blast (off: the caller has its own)
+var _parked := false                  ## blown up where it stands: no fall
 var _box := AABB()                    ## the model's bounds in the wreck's frame
 var _cut := 0.0                       ## where it breaks (z in the wreck's frame)
 var _glow: OmniLight3D                ## the fire's light while the flames last
@@ -46,24 +48,45 @@ static var _halves_cache: Dictionary = {}   ## "mesh id|xf|side" -> ArrayMesh
 ## A crash for `look` (the vehicle's model, any node: it is taken over and moved
 ## here) starting from `start` (CrashPath's). `ground` gives the sand point under a
 ## point. Added to `parent`. Returns null (and leaves `look` alone) when it can not.
-static func spawn(parent: Node, crash_kind: String, look: Node3D, start: Dictionary, ground: Callable) -> CrashWreck:
+## opts: parked (true: no fall, straight to the blast and the split, as a ship shot
+## to pieces on the ground), boom (false: the caller has its own blasts).
+static func spawn(parent: Node, crash_kind: String, look: Node3D, start: Dictionary, ground: Callable, opts: Dictionary = {}) -> CrashWreck:
 	if parent == null or not is_instance_valid(parent) or not parent.is_inside_tree() or look == null or not ground.is_valid():
 		return null
 	var w := CrashWreck.new()
-	w.setup(crash_kind, look, start, ground)
+	w.setup(crash_kind, look, start, ground, opts)
 	parent.add_child(w)
 	w._take(look)
 	return w
 
 
-func setup(crash_kind: String, look: Node3D, start: Dictionary, ground: Callable) -> void:
+## A copy of a model for a wreck, without its scripts, signals or groups: for a
+## vehicle that keeps its own model (a parked ship's berth, a fighter that comes
+## back, the barge that is rebuilt). Placed where the model is.
+static func model_copy(model: Node3D) -> Node3D:
+	var c := model.duplicate(0) as Node3D
+	c.visible = true
+	return c
+
+
+func setup(crash_kind: String, look: Node3D, start: Dictionary, ground: Callable, opts: Dictionary = {}) -> void:
 	kind = crash_kind
 	cfg = CrashPath.for_kind(kind)
+	_parked = bool(opts.get("parked", false))
+	if _parked:
+		# Where it stands (often a pad, not sand): no fall, and it settles only a little.
+		cfg = cfg.duplicate()
+		for k in ["hop_m_s", "spin_deg_s", "pitch_deg_s"]:
+			cfg[k] = 0.0
+		cfg["sink_m"] = float(cfg.get("sink_m", 0.5)) * float(cfg.get("parked_sink", 0.3))
+		start = start.duplicate()
+		start["vel"] = Vector3.ZERO
+	_boom = bool(opts.get("boom", true))
 	_start = start
 	_ground = ground
 	_look = look
 	_up = (start.get("up", Vector3.UP) as Vector3).normalized()
-	t_impact = CrashPath.impact_time(start, cfg, ground)
+	t_impact = 0.0 if _parked else CrashPath.impact_time(start, cfg, ground)
 	_boom_size = float(cfg.get("impact_size", 1.0))
 	name = "Crash_" + kind
 
@@ -85,6 +108,9 @@ func _process(dt: float) -> void:
 	t += dt
 	match phase:
 		SPIRAL:
+			if _parked:
+				_impact(Transform3D((_start.get("basis", Basis.IDENTITY) as Basis).orthonormalized(), _start.get("pos", Vector3.ZERO)))
+				return
 			var p := CrashPath.pose(_start, t, cfg, _ground, t_impact)
 			global_transform = p.xf
 			if p.landed:
@@ -125,8 +151,9 @@ func _set_phase(p: String) -> void:
 
 func _impact(xf: Transform3D) -> void:
 	_rest = xf
-	ExplosionFx.big(get_parent(), xf.origin + _up * 0.5, _boom_size)
-	Sound.play("vehicle_boom", xf.origin)
+	if _boom:
+		ExplosionFx.big(get_parent(), xf.origin + _up * 0.5, _boom_size)
+		Sound.play("vehicle_boom", xf.origin)
 	if _trail != null:
 		_trail.emitting = false
 		_trail.queue_free()
@@ -175,7 +202,7 @@ func _split() -> void:
 			mi.mesh = mesh
 			mi.transform = pr.xf
 			mi.material_override = (pr.mi as MeshInstance3D).material_override
-			mi.material_overlay = _burnt
+			_char(mi)
 			h.add_child(mi)
 		_add_collider(h, box, centre.z, side == 0)
 		halves.append(h)
@@ -187,19 +214,57 @@ func _split() -> void:
 	for i in halves.size():
 		var h: Node3D = halves[i]
 		# Out of the top of the broken end, pointing up (a flame's -y is its exhaust).
-		var at := Vector3(centre.x, box.end.y if not first else 0.3, centre.z + (-0.15 if i == 0 else 0.15) * box.size.z * 0.5)
+		# flame_y: how far up the model the break burns (the barge's masts are not its deck).
+		var top := box.position.y + box.size.y * clampf(float(cfg.get("flame_y", 1.0)), 0.0, 1.0)
+		var at := Vector3(centre.x, top if not first else 0.3, centre.z + (-0.15 if i == 0 else 0.15) * box.size.z * 0.5)
 		var flame := EngineFlame.build(h, Transform3D(Basis(Vector3.RIGHT, PI), at), r, fl, EngineFlame.JET, 12)
 		_flames.append(flame)
-		var sm := ExplosionFx.smoke_trail(h, at, float(cfg.get("smoke_size", 1.0)))
+		var sm := ExplosionFx.smoke_trail(h, at, float(cfg.get("smoke_size", 1.0)), int(cfg.get("smoke_amount", 14)),
+			float(cfg.get("smoke_life_s", 4.5)))
 		if sm != null:
 			_smokes.append(sm)
 	_glow = OmniLight3D.new()
 	_glow.light_color = Color("#ff9a4a")
 	_glow.omni_range = maxf(4.0, box.size.length() * 1.5)
 	_glow.shadow_enabled = false
-	_glow.position = Vector3(centre.x, box.end.y + 0.5, centre.z)
+	_glow.position = Vector3(centre.x, box.position.y + box.size.y * clampf(float(cfg.get("flame_y", 1.0)), 0.0, 1.0) + 0.5, centre.z)
 	add_child(_glow)
 	_settle()
+
+
+## Burnt: every material a dark copy (shared, made once per material; the glow
+## goes out). A material that is not a BaseMaterial3D gets the dark overlay instead.
+func _char(mi: MeshInstance3D) -> void:
+	var k := float(cfg.get("burnt_alpha", 0.7))
+	var all_base := true
+	if mi.material_override != null:
+		if mi.material_override is BaseMaterial3D:
+			mi.material_override = _dark(mi.material_override, k)
+		else:
+			all_base = false
+	else:
+		for si in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(si)
+			if m is BaseMaterial3D:
+				mi.set_surface_override_material(si, _dark(m, k))
+			elif m != null:
+				all_base = false
+	if not all_base:
+		mi.material_overlay = _burnt
+
+
+static var _dark_cache: Dictionary = {}
+
+static func _dark(m: BaseMaterial3D, k: float) -> BaseMaterial3D:
+	var key := "%d|%.2f" % [m.get_instance_id(), k]
+	if not _dark_cache.has(key):
+		var d := m.duplicate() as BaseMaterial3D
+		d.albedo_color = Color(m.albedo_color.r * (1.0 - k), m.albedo_color.g * (1.0 - k) * 0.95, m.albedo_color.b * (1.0 - k) * 0.9, m.albedo_color.a)
+		d.emission_enabled = false
+		d.metallic = minf(d.metallic, 0.2)
+		d.roughness = 1.0
+		_dark_cache[key] = d
+	return _dark_cache[key]
 
 
 ## Every MeshInstance3D under `n` with its transform in the wreck's frame (`xf` is n's).
@@ -302,7 +367,7 @@ func _settle() -> void:
 		var rot := Basis(Vector3.RIGHT, -s * tilt)
 		h.transform = Transform3D(rot, mid - rot * mid + Vector3(0, -depth, s * gap))
 	if _glow != null:
-		_glow.light_energy = 2.2 * clampf(1.0 - t_landed / maxf(0.01, float(cfg.get("flame_s", 25.0))), 0.0, 1.0) \
+		_glow.light_energy = 1.4 * clampf(1.0 - t_landed / maxf(0.01, float(cfg.get("flame_s", 25.0))), 0.0, 1.0) \
 			* (0.8 + 0.3 * sin(t * 17.0))
 
 

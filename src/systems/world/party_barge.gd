@@ -1425,6 +1425,27 @@ func _gangplank(down: bool) -> void:
 ## Up it goes: fire along the hull, everyone on board gone with it, anyone standing
 ## on it hurt and thrown clear. It is built again at its home after rebuild_s
 ## seconds of play (still yours, if it was).
+## Issue #404: a copy of the hull (the merged deck meshes, not the people or the
+## club) splits, sinks and burns where it blew up; the barge itself is rebuilt later.
+func _crash_wreck() -> void:
+	if look == null or ground == null or demo == null or not bool(demo.get("use_look")):
+		return
+	var hull_copy := Node3D.new()
+	for c in look.get_children():
+		if c is MeshInstance3D and str(c.name).begins_with("Barge_"):
+			var m := (c as MeshInstance3D).duplicate(0) as MeshInstance3D
+			m.transform = (c as MeshInstance3D).transform
+			hull_copy.add_child(m)
+	if hull_copy.get_child_count() == 0:
+		hull_copy.free()
+		return
+	var g := ground
+	var start := { "pos": look.global_position, "basis": look.global_transform.basis, "up": _up(global_position), "vel": Vector3.ZERO }
+	if CrashWreck.spawn(get_parent(), "barge", hull_copy, start, func(p: Vector3) -> Vector3: return g.surface_below(p),
+			{ "parked": true, "boom": false }) == null:
+		hull_copy.free()
+
+
 func explode() -> void:
 	if wrecked:
 		return
@@ -1445,6 +1466,7 @@ func explode() -> void:
 		var at := to_global(Vector3(_rng.randf_range(-2.0, 2.0), _y[1], lerpf(-_L * 0.35, _L * 0.35, k / 2.0)))
 		ExplosionFx.big(get_parent(), at, 2.4)
 		Sound.play("vehicle_boom", at)
+	_crash_wreck()
 	look.visible = false
 	for cs in _shapes:
 		(cs as CollisionShape3D).set_deferred("disabled", true)
