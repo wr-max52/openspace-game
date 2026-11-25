@@ -86,6 +86,18 @@ static func make_trimesh(id: String, mesh: ArrayMesh, color: Color) -> StaticBod
 	return body
 
 
+## A box with `turn_deg` and `fit` (the market's crooked stalls and huts): the real
+## box is `fit` ([x, z] metres, square to the world) turned `turn_deg` about its
+## middle, inside min/max, which stays the square box round it (what nav and the
+## validator read). Returns { size, basis }, or {} for a plain box.
+static func turned(box: Dictionary) -> Dictionary:
+	if not box.has("turn_deg") or not box.has("fit"):
+		return {}
+	var h := float(box.max[1]) - float(box.min[1])
+	return { "size": Vector3(float(box.fit[0]), h, float(box.fit[1])),
+		"basis": Basis(Vector3.UP, deg_to_rad(float(box.turn_deg))) }
+
+
 ## Convert a JSON box (min/max arrays) into center + size.
 static func center_size(box: Dictionary) -> Array:
 	var mn := Vector3(float(box.min[0]), float(box.min[1]), float(box.min[2]))

@@ -653,7 +653,8 @@ func _build_boxes() -> void:
 			node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.lookout_parts(b, tower)), color)
 		else:
 			var cs := Greybox.center_size(b)
-			node = Greybox.make_box(b.id, cs[0], cs[1], color, Basis.IDENTITY, str(b.get("shape", "")) == "round")
+			var tb := Greybox.turned(b)        # a crooked market stall or hut: its turned box inside
+			node = Greybox.make_box(b.id, cs[0], tb.get("size", cs[1]), color, tb.get("basis", Basis.IDENTITY), str(b.get("shape", "")) == "round")
 		if bool(b.get("hidden", false)):
 			node.visible = false                 # data only (a station town's spawn plate: the station's deck shows)
 		if b.kind == "pad":

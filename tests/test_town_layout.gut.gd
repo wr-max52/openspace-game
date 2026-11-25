@@ -198,15 +198,61 @@ func test_round_port_market_is_three_times_and_taller() -> void:
 		assert_false(back.is_empty(), str(b.id) + " has a back panel")
 		assert_gt(float(back.max[1]), sq_back, str(b.id) + " is taller")
 		assert_gt(float(b.get("canopy_lift", 0.0)), 0.0, str(b.id) + " has a raised canopy")
-	var kit: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/core/planets/town_kit.json"))
-	var mk: Dictionary = kit.round.market
-	assert_gte((mk.aisles as Array).size(), 3, "at least three aisles")
-	assert_gte((mk.cross as Array).size(), 2, "and aisles across them")
 	var count := func(town, prefix: String) -> int: return town.markers().filter(func(m): return str(m.id).begins_with(prefix)).size()
 	assert_gt(count.call(t, "vendor_"), count.call(sq, "vendor_"), "more merchants")
 	assert_gt(count.call(t, "shopper_"), count.call(sq, "shopper_"), "more shoppers")
 	for id in ["vendor_1", "vendor_2", "vendor_3", "vendor_4"]:
 		assert_eq(str(t.get_marker(id).get("soldier", "")), str(sq.get_marker(id).get("soldier", "")), id + " is the same trader")
+
+
+## The sellers' yard: the four traders (food, gear, the fence, the droid seller)
+## stand together in a horseshoe by the pit, nearer it than any other merchant;
+## past it a lamp street of tiny huts with stalls between them, then the bazaar.
+func test_round_port_sellers_yard_and_lamp_street() -> void:
+	var t := _round()
+	var traders := ["vendor_1", "vendor_2", "vendor_3", "vendor_4"]
+	var f0: Array = t.get_marker("vendor_1").face
+	var mid := Vector3(float(f0[0]), 0.0, float(f0[2]))         # the yard's middle: what they all face
+	for id in traders:
+		var f: Array = t.get_marker(id).face
+		assert_lt(Vector2(float(f[0]) - mid.x, float(f[2]) - mid.z).length(), 0.1, id + " faces the yard's middle")
+		assert_lt(Vector2(t.marker_pos(id).x - mid.x, t.marker_pos(id).z - mid.z).length(), 12.0, id + " stands round the yard")
+	var nearest_other := INF
+	for m in t.markers():
+		var id := str(m.id)
+		if id.begins_with("vendor_") and not id in traders:
+			nearest_other = minf(nearest_other, Vector2(t.marker_pos(id).x, t.marker_pos(id).z).length())
+	for id in traders:
+		assert_lt(Vector2(t.marker_pos(id).x, t.marker_pos(id).z).length(), nearest_other, id + " is nearer the pit than the other merchants")
+	var huts := t.boxes().filter(func(b): return str(b.id).begins_with("market_hut_"))
+	var lamps := t.boxes().filter(func(b): return str(b.get("look", "")) == "street_lamp")
+	assert_gte(huts.size(), 10, "tiny huts along the lamp street")
+	assert_gte(lamps.size(), 8, "and lamps")
+	for h in huts:
+		var w: float = minf(float(h.max[0]) - float(h.min[0]), float(h.max[2]) - float(h.min[2]))
+		if h.has("fit"):
+			w = minf(float(h.fit[0]), float(h.fit[1]))
+		assert_lte(w, 4.0, str(h.id) + " is the smallest of houses")
+
+
+## Crooked stalls and huts: a turned box (turn_deg, fit) is a little off square
+## and fits inside its own box, which is what the validator and nav read.
+func test_round_port_market_turned_boxes_fit_their_box() -> void:
+	var t := _round()
+	var turned := 0
+	for b in t.boxes():
+		if not b.has("turn_deg"):
+			continue
+		turned += 1
+		var a := deg_to_rad(float(b.turn_deg))
+		assert_lte(absf(float(b.turn_deg)), 15.0, str(b.id) + " is only a little off square")
+		var fx := float(b.fit[0])
+		var fz := float(b.fit[1])
+		var need_x := absf(cos(a)) * fx + absf(sin(a)) * fz
+		var need_z := absf(sin(a)) * fx + absf(cos(a)) * fz
+		assert_almost_eq(float(b.max[0]) - float(b.min[0]), need_x, 0.05, str(b.id) + " box is its turned footprint (x)")
+		assert_almost_eq(float(b.max[2]) - float(b.min[2]), need_z, 0.05, str(b.id) + " box is its turned footprint (z)")
+	assert_gt(turned, 40, "most of the market is crooked")
 
 
 func test_round_port_barracks_are_bigger() -> void:

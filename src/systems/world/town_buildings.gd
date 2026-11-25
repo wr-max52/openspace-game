@@ -378,6 +378,10 @@ func build(b: Dictionary) -> bool:
 	var face := str(b.get("face", "+x"))
 	var along_x := face.ends_with("x")
 	var yaw: float = { "+x": 0.0, "-x": PI, "+z": -PI * 0.5, "-z": PI * 0.5 }.get(face, 0.0)
+	if b.has("turn_deg") and b.has("fit"):
+		# A crooked market hut: turned off square, its real size in `fit`.
+		yaw += deg_to_rad(float(b.turn_deg))
+		size = Vector3(float(b.fit[0]), size.y, float(b.fit[1]))
 	_xf = Transform3D(Basis(Vector3.UP, yaw), Vector3((mn.x + mx.x) * 0.5, mn.y, (mn.z + mx.z) * 0.5))
 	_rng.seed = hash(str(b.id))
 	var lx := size.x if along_x else size.z
@@ -825,6 +829,20 @@ func _look_stage(b: Dictionary, lx: float, _lz: float, h: float) -> void:
 		var p := Vector3(cos(a) * (r - 0.47), ry - 0.28, sin(a) * (r - 0.47))
 		part(cyl(0.11, 0.14, 0.3, 10), panel, p)
 		part(cyl(0.1, 0.1, 0.02, 10), window_glow, p + Vector3(0, -0.16, 0))
+
+
+## A street lamp on the market's lamp street: an iron post on a foot, an arm out
+## over the street (+X, its face) and a lantern hanging off it. The lantern is the
+## window glow, so it lights with the town's windows at dusk; no light of its own
+## (render rules: glow only). The arm and lantern are over head height.
+func _look_street_lamp(_b: Dictionary, _lx: float, _lz: float, h: float) -> void:
+	part(cyl(0.14, 0.17, 0.3, 8), metal, Vector3(0, 0.15, 0))
+	part(cyl(0.045, 0.06, h - 0.25, 8), metal, Vector3(0, 0.3 + (h - 0.55) * 0.5, 0))
+	part(box(0.8, 0.06, 0.06), metal, Vector3(0.36, h - 0.2, 0))
+	part(box(0.04, 0.22, 0.04), metal, Vector3(0.72, h - 0.34, 0))
+	part(box(0.32, 0.06, 0.32), metal, Vector3(0.72, h - 0.47, 0))
+	part(box(0.22, 0.32, 0.22), window_glow, Vector3(0.72, h - 0.66, 0))
+	part(box(0.26, 0.04, 0.26), metal, Vector3(0.72, h - 0.84, 0))
 
 
 ## A crate stack on a cover box's footprint: never squared up. Each crate is turned
