@@ -36,7 +36,8 @@ var round_c := Vector3.ZERO   ## issue #237: a round room (a "cantina_body" ring
 var round_r := 0.0            ## and inside radius; 0 for the square room
 
 
-func dress(town, scene: Node) -> void:
+## Issue #574: `sb` (a StagedBuild, may be null) spreads the room over frames.
+func dress(town, scene: Node, sb: StagedBuild = null) -> void:
 	name = "ClubDressing"
 	cfg = town.data.get("club", {})
 	if cfg.is_empty():
@@ -44,14 +45,16 @@ func dress(town, scene: Node) -> void:
 	props = ClubProps.new(str(cfg.get("style", "jazz")), float(cfg.get("bpm", 100.0)))
 	add_child(props)
 	_measure(town)
+	await StagedBuild.slice_of(sb)
 	for m in town.markers():
 		if m.has("prop"):
 			_instrument(town, m)
+			await StagedBuild.slice_of(sb)
 	match props.style:
 		"jazz":
-			_jazz(town, scene)
+			await _jazz(town, scene, sb)
 		"rave":
-			_rave(town, scene)
+			await _rave(town, scene, sb)
 
 
 ## The room's floor, ceiling and stage from the town's boxes.
@@ -109,7 +112,7 @@ func _slab(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 
 # ------------------------------------------------------------------ jazz
 
-func _jazz(town, scene: Node) -> void:
+func _jazz(town, scene: Node, sb: StagedBuild = null) -> void:
 	if inner.size == Vector2.ZERO:
 		return
 	var x0 := inner.position.x
@@ -132,14 +135,19 @@ func _jazz(town, scene: Node) -> void:
 		# The stage's own top in planks, a velvet skirt round its rim.
 		props._cyl(props, stage_r - 0.13, 0.012, stage_c + Vector3(0, 0.007, 0), ClubTextures.wood(Color("#6a4024"), 0.12, 0.4))
 	_walls(town)
-	_booths(town)
+	await StagedBuild.slice_of(sb)
+	await _booths(town, sb)
+	await StagedBuild.slice_of(sb)
 	_tables(town, scene)
+	await StagedBuild.slice_of(sb)
 	_stage_lights()
+	await StagedBuild.slice_of(sb)
 	for side in [-1.0, 1.0]:      # speaker stacks either side of the band, on the floor
 		var at := stage_c + Vector3(-stage_r - 0.9, -stage_c.y, side * (stage_r - 0.4))
 		props.speaker(Transform3D(Basis(Vector3.UP, PI * 0.5 - side * 0.5), at), Vector3(0.8, 1.5, 0.6))
 		props.speaker(Transform3D(Basis(Vector3.UP, PI * 0.5 - side * 0.5), at + Vector3(0, 1.5, 0)), Vector3(0.7, 0.7, 0.55))
 	_sign(town)
+	await StagedBuild.slice_of(sb)
 	_piano_and_sax(town)
 
 
@@ -264,7 +272,7 @@ func _slab_at(size: Vector3, at: Transform3D, y: float, mat: Material) -> void:
 
 
 ## Leather booths along the side walls, each with a candlelit table.
-func _booths(town) -> void:
+func _booths(town, sb: StagedBuild = null) -> void:
 	var x0 := inner.position.x
 	var x1 := inner.end.x
 	var z0 := inner.position.y
@@ -285,8 +293,10 @@ func _booths(town) -> void:
 			p = at.origin
 			yaw = at.basis.get_euler().y
 		props.booth(Transform3D(Basis(Vector3.UP, yaw), p), len, Color("#5a1e1a"))
+		await StagedBuild.slice_of(sb)
 		var fwd := Basis(Vector3.UP, yaw) * Vector3(0, 0, 1)
 		props.cocktail_table(p + fwd * 1.15, 0.38, 0.72)
+		await StagedBuild.slice_of(sb)
 
 
 ## A round table over each of the cantina's own (their greybox hidden; the box still
@@ -408,7 +418,7 @@ func _piano_and_sax(_town) -> void:
 
 # ------------------------------------------------------------------ rave
 
-func _rave(town, scene: Node) -> void:
+func _rave(town, scene: Node, sb: StagedBuild = null) -> void:
 	if stage_r <= 0.0:
 		return
 	_hide_box(scene, "cantina_stage")
@@ -431,11 +441,17 @@ func _rave(town, scene: Node) -> void:
 	var side := fwd.cross(Vector3.UP).normalized()
 	var face := Basis(Vector3.UP, atan2(fwd.x, fwd.z))
 	_rave_stage(fwd, side)
+	await StagedBuild.slice_of(sb)
 	_rave_rig(fwd, side, face, floor_mid)
+	await StagedBuild.slice_of(sb)
 	_rave_floor(fmin, fmax)
+	await StagedBuild.slice_of(sb)
 	_rave_speakers(fwd, side, face)
+	await StagedBuild.slice_of(sb)
 	_rave_walls(centre, radius, wall_h)
+	await StagedBuild.slice_of(sb)
 	_rave_bar(town)
+	await StagedBuild.slice_of(sb)
 	var ceil_at := func(p: Vector3) -> float:
 		var d := Vector2(p.x - centre.x, p.z - centre.z).length()
 		return wall_h + sqrt(maxf(0.0, 1.0 - pow(d / radius, 2.0))) * dome_h
