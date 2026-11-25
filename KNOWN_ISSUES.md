@@ -8,6 +8,25 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After the speeder race lag fix (2026-11-25)
+
+**Checked:** `test_smoke`, a headless town boot, and a rendered probe of the yard
+crew's race (Vulkan, this Mac, a scratch `HOME`): accept 160 ms then 180-220 ms
+frames, to 0.6 ms; driving to the grid p50 33 / p95 212 ms, to 11.5 / 13.8 ms;
+countdown 10.8 ms; racing p50 15.4 ms, p95 38 ms.
+
+**Not run:** the race suites (`test_speeder_race`, `test_race_beast`,
+`test_race_feel`, `test_pink_slips`, `test_race_crews`). Their expectations were
+updated for the parked speeders and the staggered set-off but not run.
+
+**Still there:**
+- Racing p95 is ~38 ms with or without the track beast, most likely the ground
+  streaming in at speed (driving fast anywhere does it); not measured apart.
+- The beast's look is ~145 mesh nodes (a node per sphere and limb, render rule
+  1); posing it less often helps the tick, not the draw calls.
+- Racers walk from their spot to their speeder on foot; with you far off (no
+  sand collider) they are sat on it after `board_grace_s` instead.
+
 ## After the droid safety (2026-11-25)
 
 **Checked:** `tests/test_droid_safety.gut.gd` (3: E beside an assassin toggles its

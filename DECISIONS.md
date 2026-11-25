@@ -2,6 +2,31 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-25 — Speeder race lag: an indexed hit test, parked rivals, rings for the crew
+
+- **`WorldGround.hit` uses the height index.** Every speeder (and ship) asks it a
+  few times a physics tick, and it scanned every box, boulder and column in the
+  world as dictionaries. Three racers pushed the tick past 16.6 ms and Godot ran
+  up to 8 ticks a frame (180-220 ms frames). It now tests only the items whose
+  bounding sphere is within reach, with the same per-item tests and the same
+  winner when several are hit. Alternative: fewer hit calls in the brain.
+  Rejected: the scan was the cost for every vehicle, not only racers.
+- **A crew's speeders are parked at their hangout, built once and kept.** Built
+  one a tick when you come within `build_near_m`, they sleep while you are far
+  (#627), so a waiting crew costs nothing a frame. On accept the racers walk to
+  them one after another (`leave_stagger_s`) and cruise to the grid at
+  `cruise_pace`; after the race they cruise back, park and walk to their spots.
+  A dead racer or a wrecked speeder stays gone until the world next loads.
+  Alternative (before): build speeders and crowd in the accept frame (160 ms)
+  and free them after.
+- **The crowd comes a body every few ticks, then the track beast.** Each body is
+  a full kit build.
+- **The crew and the crowd use the town's NpcRings.** NpcRings only walks the
+  garrison and the townsfolk, so the nine crew members and the crowd ran full
+  senses every tick wherever you were. RaceCrew puts them on the same rings.
+- **The beast poses its body by distance** (`pose_full_m`, `pose_half_m`):
+  every tick near you, every 2nd or 4th further out; the head every tick.
+
 ## 2026-11-24 — More speeder models: one of each, and parked speeders sleep (issue #627)
 
 - **A speeder model is a vehicle file.** The racer and the box truck are

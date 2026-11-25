@@ -104,7 +104,7 @@ func _racing(t) -> RaceCrew:
 	s.mount()
 	crew.accept(100)
 	crew.line_up()
-	for i in 1200:
+	for i in 5000:
 		if crew.phase == RaceCrew.Phase.RACING:
 			break
 		await wait_physics_frames(1)

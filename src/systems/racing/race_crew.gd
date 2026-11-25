@@ -4,16 +4,22 @@ extends Node3D
 ## race they run on their course (RaceCourse, #610). One node runs any crew;
 ## nothing about a crew is in code.
 ##
-## The crew hang out on foot by a desert place (their `hangout` landmark): no
-## speeders exist until you accept a race, so a crew waiting costs no hover ticks.
-## Their own Townsfolk runs them, so hurting one is hurting a local out here.
+## The crew hang out on foot by a desert place (their `hangout` landmark), their
+## speeders parked beside them (`park`). The speeders are built once you come
+## within build_near_m (rules.json), one a physics tick, and stay: parked and
+## settled they sleep (no hover step) while you are far off, so a crew waiting
+## costs nothing a frame. Their own Townsfolk runs them, so hurting one is
+## hurting a local out here. A racer killed or a speeder wrecked stays gone until
+## the world next loads, when the crew is built again whole.
 ##
 ##   [E] on the leader  -- a challenge, then the race menu: the course, its laps,
 ##                         the crew's rules, your best lap, and a buy-in from the
 ##                         crew's least up. The winner takes `multiple` times it.
-##   accept             -- the buy-in is paid; their speeders are built beside
-##                         them, they climb on (SpeederNode seats, #609) and drive
-##                         to the grid; a crowd of locals appears at the line.
+##   accept             -- the buy-in is paid; one after another (leave_stagger_s)
+##                         the racers walk to their parked speeders, climb on
+##                         (SpeederNode seats, #609) and cruise to the grid at
+##                         cruise_pace; a crowd of locals gathers at the line, one
+##                         body a tick.
 ##   [Z] near the grid  -- your speeder drives itself onto your slot and holds.
 ##   3, 2, 1, GO        -- held until GO.
 ##   the race           -- laps through the gates in order (RaceLaps); the HUD
@@ -22,8 +28,9 @@ extends Node3D
 ##                         nose fires its lasers. Shoot them any time.
 ##   out                -- your speeder bursts, you get off, or you leave the course.
 ##   the end            -- win and Dorrin holds the pot for you (WorldState
-##                         race_winnings; collect at his counter); the racers drive
-##                         back, park, climb off, and their speeders go.
+##                         race_winnings; collect at his counter); the racers cruise
+##                         back to their spots, park, climb off and walk back to
+##                         where they stand. Their speeders stay parked.
 ##
 ## The headless test drives accept(), line_up() and the frame directly.
 
@@ -32,6 +39,7 @@ enum Phase { IDLE, GRID, COUNTDOWN, RACING, RETURN }
 const DIR := "res://content/core/racing/crews/"
 const RULES_PATH := "res://content/core/racing/rules.json"
 const YOU := "you"
+const NpcRingsT := preload("res://src/systems/npc/npc_rings.gd")
 
 static var _rules: Dictionary = {}
 
@@ -42,7 +50,11 @@ var id := ""
 var course: RaceCourse
 var xf := Transform3D()               ## the hangout landmark's frame (x toward the town)
 var found := false
-## { key, cfg, body: NpcBody, speeder: SpeederNode, brain: SpeederBrain, finished, out }
+## { key, cfg, body: NpcBody, speeder: SpeederNode (parked at `park`), built (its
+## speeder has been built this load: a wrecked one is not built again), fit (what
+## it was built with), brain: SpeederBrain, slot, set_off (grid seconds when it
+## heads for its speeder), seated, left_t (grid seconds it drove off), home
+## (parked and off it), finished, out }
 var racers: Array = []
 var crowd: Array = []
 var folk                              ## the crew's own Townsfolk
@@ -82,6 +94,10 @@ var _player_speeder: SpeederNode
 var _lineup: SpeederBrain
 var _rng := RandomNumberGenerator.new()
 var _jeer_left := 0.0
+var _crowd_left := 0                  ## crowd bodies still to build at the line (one every crowd_every_ticks)
+var _spawn_wait := 0
+var _beast_due := false               ## the track beast comes once the crowd is up
+var _slips := ""                      ## issue #617: "won" / "lost" this race, settled once they are home
 
 
 # ------------------------------------------------------------------ data
@@ -165,7 +181,8 @@ func _ready() -> void:
 			continue
 		b.set_meta("race_crew", id)
 		_pad(at)
-		racers.append({ "key": key, "cfg": rc, "body": b, "speeder": null, "brain": null, "finished": false, "out": false })
+		racers.append({ "key": key, "cfg": rc, "body": b, "speeder": null, "built": false, "fit": {}, "brain": null,
+			"slot": 0, "set_off": 0.0, "seated": false, "left_t": 0.0, "home": true, "finished": false, "out": false })
 		bodies.append(b)
 		i += 1
 	if not bodies.is_empty() and demo.has_method("make_townsfolk"):
@@ -230,6 +247,72 @@ func _ground(local: Vector2) -> Vector3:
 
 static func _v2(a) -> Vector2:
 	return Vector2(float(a[0]), float(a[1])) if a is Array and (a as Array).size() >= 2 else Vector2.ZERO
+
+
+# ------------------------------------------------------------------ the parked speeders
+
+## Where a racer's speeder parks, and which way it faces there (toward the line).
+func _park_pos(rc: Dictionary) -> Vector3:
+	return _ground(_v2(rc.cfg.get("park", rc.cfg.get("stand", [0, 0]))))
+
+
+func _park_yaw(rc: Dictionary) -> float:
+	var at := _park_pos(rc)
+	var up := ground.up_at(at)
+	var to := _flat((course.gates[0].pos as Vector3) - at, up) if not course.gates.is_empty() else Vector3.ZERO
+	return RaceCourse.yaw_of(to.normalized(), up) if to.length() > 0.5 else 0.0
+
+
+## What a racer's speeder is built with: its paint and parts and the crew's race
+## gear; the leader's is whatever they ride now (issue #617: maybe your old one).
+func _fit_of(rc: Dictionary) -> Dictionary:
+	var cfg: Dictionary = rc.cfg
+	var fit := { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array).duplicate() }
+	if bool(cfg.get("leader", false)):
+		var ride := leader_ride()
+		fit = { "paint": str(ride.get("paint", "")), "parts": (ride.get("parts", []) as Array).duplicate() }
+	fit.parts = (fit.parts as Array) + gear_parts()
+	return fit
+
+
+## Build a racer's speeder, parked at its spot and locked to you.
+func _build_speeder(rc: Dictionary) -> void:
+	var fit := _fit_of(rc)
+	var sp := SpeederNode.new()
+	sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(fit.get("paint", "")))
+	sp.locked = true
+	add_child(sp)
+	sp.place(_park_pos(rc), _park_yaw(rc))
+	rc.speeder = sp
+	rc.fit = fit
+	rc.built = true
+
+
+## Near enough (build_near_m) and some still to build: one speeder this tick, so
+## coming up on the hangout never builds them all in one frame.
+func _tick_build() -> void:
+	var p := _player()
+	if p != null and p.global_position.distance_to(xf.origin) > rule("build_near_m", 500.0):
+		return
+	for rc in racers:
+		if not bool(rc.built):
+			_build_speeder(rc)
+			return
+
+
+## Every speeder not yet built, now (a race accepted before they were up).
+func _ensure_speeders() -> void:
+	for rc in racers:
+		if not bool(rc.built):
+			_build_speeder(rc)
+
+
+func _speeder_ok(rc: Dictionary) -> bool:
+	return rc.speeder != null and is_instance_valid(rc.speeder) and rc.speeder.model.alive()
+
+
+func _body_ok(rc: Dictionary) -> bool:
+	return rc.body != null and is_instance_valid(rc.body) and not rc.body.dead
 
 
 func leader() -> NpcBody:
@@ -389,6 +472,7 @@ func accept_slips() -> String:
 ## outside the back gate; lose and the speeder you raced is theirs.
 func _settle_slips(won: bool) -> void:
 	var post = demo.get("speeder_post")
+	_slips = "won" if won else "lost"
 	if won:
 		var fit := leader_ride()
 		WorldState.race_rides.erase(id)
@@ -404,6 +488,26 @@ func _settle_slips(won: bool) -> void:
 	post.remove(mine)
 	_player_speeder = null
 	_toast(line("slips_lost", { "ride": ride_label(WorldState.race_rides[id]) }), 6.0)
+
+
+## Back home after a pink-slip race: won, and the leader's speeder is yours (it
+## is gone from their spot until the world next loads); lost, and they park the
+## one they won off you in its place.
+func _settle_leader_ride() -> void:
+	var res := _slips
+	_slips = ""
+	if res == "":
+		return
+	for rc in racers:
+		if not bool(rc.cfg.get("leader", false)):
+			continue
+		if rc.speeder != null and is_instance_valid(rc.speeder):
+			rc.speeder.step_off()
+			rc.speeder.queue_free()
+			rc.speeder = null
+		if res == "lost" and _body_ok(rc):
+			_build_speeder(rc)
+		return
 
 
 ## Take the race at `amount`. "" if it is on; else why not ("poor", "speeder",
@@ -454,66 +558,103 @@ func _start_grid() -> void:
 	player_out = ""
 	lined_up = false
 	_grid_t = 0.0
+	_slips = ""
 	laps = course.new_laps()
 	laps.add_racer(YOU)
 	course.build_gates()
+	_ensure_speeders()
 	var slot := 1
+	var order := 0
 	for rc in racers:
 		rc.finished = false
 		rc.out = false
-		var b = rc.body
-		if b == null or not is_instance_valid(b) or b.dead:
-			rc.out = true
+		rc.seated = false
+		rc.home = true
+		if not _body_ok(rc) or not _speeder_ok(rc):
+			rc.out = true                        # dead, or their speeder wrecked: back next load
 			continue
-		var cfg: Dictionary = rc.cfg
-		var fit := { "paint": str(cfg.get("paint", "")), "parts": (cfg.get("parts", []) as Array) + gear_parts() }
-		if bool(cfg.get("leader", false)):
-			var ride := leader_ride()                # issue #617: maybe your old speeder
-			fit = { "paint": str(ride.get("paint", "")), "parts": (ride.get("parts", []) as Array) + gear_parts() }
-		var sp := SpeederNode.new()
-		sp.setup(demo, ground, SpeederUpgrades.apply(HoverModel.load_config("speeder"), fit), true, str(fit.get("paint", "")))
-		add_child(sp)
-		var park := _ground(_v2(cfg.get("park", cfg.get("stand", [0, 0]))))
+		var sp: SpeederNode = rc.speeder
 		var to_grid: Dictionary = course.grid_slot(slot)
-		sp.place(park, RaceCourse.yaw_of(_flat(to_grid.pos - park, ground.up_at(park)).normalized(), ground.up_at(park)))
-		sp.seat_npc(b, "driver")
-		var brain := SpeederBrain.new(sp.model, str(cfg.get("skill", "racer")), _rng.randi())
+		var brain := SpeederBrain.new(sp.model, str(rc.cfg.get("skill", "racer")), _rng.randi())
+		brain.pace = rule("cruise_pace", 0.4)    # no racing to the line
+		brain.may_boost = false
 		brain.park(to_grid.pos, float(to_grid.yaw))
 		sp.brain = brain
-		rc.speeder = sp
 		rc.brain = brain
 		rc.slot = slot
+		rc.set_off = order * rule("leave_stagger_s", 4.0)
+		rc.home = false
 		laps.add_racer(rc.key)
 		slot += 1
-	_spawn_crowd()
-	_spawn_beast()
+		order += 1
+	_start_crowd()
 	Objective.race = { "text": line("go_line"), "target": "race:%s:0" % course.id, "key": "race" }
+
+
+## The racers head off one after another: at its set_off a racer walks to its
+## speeder and climbs on (sat on it if still walking board_grace_s later), and
+## its brain cruises it to its grid slot.
+func _tick_set_off() -> void:
+	for rc in racers:
+		if bool(rc.out) or bool(rc.seated) or _grid_t < float(rc.set_off):
+			continue
+		var sp = rc.speeder
+		if not _speeder_ok(rc) or not _body_ok(rc):
+			rc.out = true
+			continue
+		if sp.npc_driven():
+			rc.seated = true
+			rc.left_t = _grid_t
+		elif _grid_t > float(rc.set_off) + rule("board_grace_s", 6.0):
+			sp.seat_npc(rc.body, "driver")
+		elif sp.seat_free("driver"):
+			sp.board(rc.body, "driver")
 
 
 func _flat(v: Vector3, up: Vector3) -> Vector3:
 	return v - up * v.dot(up)
 
 
-func _spawn_crowd() -> void:
+## The crowd and the track beast, spread over ticks (one every crowd_every_ticks):
+## each body is a full kit build, and ten of them in the accept frame was most of
+## its hitch.
+func _start_crowd() -> void:
 	var span: Array = crew.get("rules", {}).get("crowd", [5, 10])
-	var n := _rng.randi_range(int(span[0]), int(span[1]))
+	_crowd_left = _rng.randi_range(int(span[0]), int(span[1]))
+	_beast_due = true
+	_spawn_wait = 0
+
+
+func _tick_spawns() -> void:
+	_spawn_wait -= 1
+	if _spawn_wait > 0:
+		return
+	_spawn_wait = int(rule("crowd_every_ticks", 5.0))
+	if _crowd_left > 0:
+		_crowd_left -= 1
+		_spawn_crowd_one(crowd.size())
+	elif _beast_due:
+		_beast_due = false
+		_spawn_beast()
+
+
+func _spawn_crowd_one(i: int) -> void:
 	var pool: Array = rules().get("crowd_profiles", ["local_resident"])
 	var band: Dictionary = rules().get("crowd_band", {})
 	var out_r: Array = band.get("out", [4.0, 14.0])
 	var back_r: Array = band.get("back", [-6.0, 10.0])
 	var g: Dictionary = course.gates[0]
-	for i in n:
-		var side := -1.0 if i % 2 == 0 else 1.0
-		var at: Vector3 = (g.pos as Vector3) + (g.right as Vector3) * side * (float(g.half) + _rng.randf_range(float(out_r[0]), float(out_r[1]))) \
-			- (g.fwd as Vector3) * _rng.randf_range(float(back_r[0]), float(back_r[1]))
-		at = course.to_world_near(at)
-		var post := "race/%s/crowd_%d" % [id, i]
-		var b := _body(str(pool[_rng.randi() % pool.size()]), at,
-			atan2((g.pos as Vector3).x - at.x, (g.pos as Vector3).z - at.z), post)
-		if b != null:
-			b.face_point(g.pos)
-			b.set_meta("pad", _pad(at))
-			crowd.append(b)
+	var side := -1.0 if i % 2 == 0 else 1.0
+	var at: Vector3 = (g.pos as Vector3) + (g.right as Vector3) * side * (float(g.half) + _rng.randf_range(float(out_r[0]), float(out_r[1]))) \
+		- (g.fwd as Vector3) * _rng.randf_range(float(back_r[0]), float(back_r[1]))
+	at = course.to_world_near(at)
+	var post := "race/%s/crowd_%d" % [id, i]
+	var b := _body(str(pool[_rng.randi() % pool.size()]), at,
+		atan2((g.pos as Vector3).x - at.x, (g.pos as Vector3).z - at.z), post)
+	if b != null:
+		b.face_point(g.pos)
+		b.set_meta("pad", _pad(at))
+		crowd.append(b)
 
 
 # ------------------------------------------------------------------ the track beast (issue #612)
@@ -552,13 +693,29 @@ func _remove_beast() -> void:
 	track_beast = null
 
 
-## The beast's body near `at`, for a racer to steer round.
-func _beast_avoid(at: Vector3) -> Array:
-	var out: Array = []
+## The beast's body parts this tick ([[centre, radius]]; none if it is gone).
+func _beast_points() -> Array:
 	if track_beast == null or not is_instance_valid(track_beast) or track_beast.dead:
-		return out
-	var parts := track_beast.body_points()
-	for i in range(0, parts.size(), 2):
+		return []
+	return track_beast.body_points()
+
+
+## A racer at `at` touching it (the player's own rule, PlanetBeast.touches_speeder).
+func _beast_touches(at: Vector3, parts: Array) -> bool:
+	var margin := float(track_beast.cfg.get("speeder_margin", 1.4)) if not parts.is_empty() else 0.0
+	for p in parts:
+		if at.distance_to(p[0]) <= float(p[1]) + margin:
+			return true
+	return false
+
+
+## The beast's body near `at`, for a racer to steer round (`parts`: this tick's
+## _beast_points, or null to read them).
+func _beast_avoid(at: Vector3, parts = null) -> Array:
+	var out: Array = []
+	if parts == null:
+		parts = _beast_points()
+	for i in range(0, (parts as Array).size(), 2):
 		var p: Array = parts[i]
 		if (p[0] as Vector3).distance_to(at) < 80.0:
 			out.append({ "pos": p[0], "radius": float(p[1]) + 1.0 })
@@ -658,6 +815,8 @@ func line_up() -> bool:
 
 func _tick_grid(dt: float) -> void:
 	_grid_t += dt
+	_tick_set_off()
+	_tick_spawns()
 	var p := _player()
 	if not lined_up:
 		var near: bool = p != null and p.piloting and p.vehicle is SpeederNode \
@@ -677,14 +836,16 @@ func _tick_grid(dt: float) -> void:
 	for rc in racers:
 		if bool(rc.out) or rc.brain == null:
 			continue
-		if not rc.brain.done:
-			if _grid_t > rule("grid_timeout_s", 25.0):
+		if not bool(rc.seated):
+			ready = false
+		elif not rc.brain.done:
+			if _grid_t - float(rc.left_t) > rule("grid_timeout_s", 40.0):
 				var s: Dictionary = course.grid_slot(int(rc.slot))
 				rc.speeder.place(s.pos, float(s.yaw))
 				rc.brain.done = true
 			else:
 				ready = false
-	if ready:
+	if ready and _crowd_left <= 0:
 		_start_countdown()
 
 
@@ -702,6 +863,7 @@ func _start_countdown() -> void:
 
 
 func _tick_countdown(dt: float) -> void:
+	_tick_spawns()
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({ "throttle": 0.0 })
 	_count_left -= dt
@@ -736,6 +898,8 @@ func go() -> void:
 	for rc in racers:
 		if bool(rc.out) or rc.brain == null:
 			continue
+		rc.brain.pace = 1.0                       # race pace now
+		rc.brain.may_boost = true
 		rc.brain.follow(route, true)
 		_last[rc.key] = rc.speeder.model.position
 
@@ -758,6 +922,7 @@ func _line_start() -> int:
 # ------------------------------------------------------------------ racing
 
 func _tick_racing(dt: float) -> void:
+	_tick_spawns()
 	var you_pos := _you_pos()
 	if player_out == "":
 		var why := _why_out()
@@ -771,6 +936,7 @@ func _tick_racing(dt: float) -> void:
 	race_t += dt
 	var shoot_lap := int(r("shoot_from_lap", 2))
 	_jeer_left -= dt
+	var beast_pts := _beast_points()
 	for rc in racers:
 		if bool(rc.out):
 			continue
@@ -797,8 +963,8 @@ func _tick_racing(dt: float) -> void:
 		if shoot and rc.brain.command.get("fire", false) and _jeer_left <= 0.0:
 			_jeer_left = 6.0
 			_say(rc.body, line("jeers"))
-		var avoid: Array = _beast_avoid(at)
-		if track_beast != null and is_instance_valid(track_beast) and track_beast.touches_speeder(at):
+		var avoid: Array = _beast_avoid(at, beast_pts)
+		if _beast_touches(at, beast_pts):
 			_eaten(rc)
 			continue
 		for other in racers:
@@ -1037,11 +1203,11 @@ func _end_race() -> void:
 		_say(leader(), line("leader_won"))
 	_show_results(order)
 	for rc in racers:
-		if rc.brain != null and rc.speeder != null and is_instance_valid(rc.speeder):
-			var park := _ground(_v2(rc.cfg.get("park", rc.cfg.get("stand", [0, 0]))))
+		if rc.brain != null and _speeder_ok(rc) and rc.speeder.npc_driven():
 			rc.brain.shoot_at = Vector3.INF
-			rc.brain.pace = 1.0
-			rc.brain.park(park, rc.speeder.model.yaw)
+			rc.brain.pace = rule("cruise_pace", 0.4)   # a slow cruise home, no racing
+			rc.brain.may_boost = false
+			rc.brain.park(_park_pos(rc), _park_yaw(rc))
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
 	if track_beast != null and is_instance_valid(track_beast) and not track_beast.dead:
@@ -1065,10 +1231,41 @@ func _tick_return(dt: float) -> void:
 		_clear_crowd()
 	var all_home := true
 	for rc in racers:
-		if rc.speeder != null and is_instance_valid(rc.speeder) and rc.brain != null and not rc.brain.done:
+		if bool(rc.home):
+			continue
+		if rc.brain == null or not _speeder_ok(rc) or not rc.speeder.npc_driven():
+			continue                             # out of it: sorted out by _put_away
+		if rc.brain.done:
+			_park_home(rc)
+		else:
 			all_home = false
-	if all_home or _return_t > rule("return_s", 45.0):
+	if all_home or _return_t > rule("return_s", 90.0):
 		_put_away()
+
+
+## Parked on its spot: the racer climbs off and walks back to where they stand
+## (set down there if you are too far off for the sand to hold them).
+func _park_home(rc: Dictionary) -> void:
+	var sp: SpeederNode = rc.speeder
+	sp.step_off()
+	sp.brain = null
+	rc.brain = null
+	rc.home = true
+	if _body_ok(rc):
+		var at := _ground(_v2(rc.cfg.get("stand", [0, 0])))
+		var p := _player()
+		if p != null and p.global_position.distance_to(at) <= rule("walk_home_m", 80.0):
+			rc.body.go_to(at)
+		else:
+			_stand_at(rc.body, at)
+
+
+func _stand_at(b: NpcBody, at: Vector3) -> void:
+	b.stop()
+	b.global_position = at
+	b.controller.body_pos = at
+	b.velocity = Vector3.ZERO
+	b.set_physics_process(true)
 
 
 ## A racer thrown clear out on the course stands where they landed until the
@@ -1085,22 +1282,31 @@ func _hold(b: NpcBody) -> void:
 	b.set_physics_process(false)
 
 
-## The racers climb off and stand at their spots; their speeders go.
+## The race is over and everyone who can is home. Anyone still out (thrown
+## clear, or not back by return_s) is set down at their spot, their speeder parked
+## again if it lives; a speeder whose racer died is gone until the world next
+## loads. Issue #617: a pink-slip race changes what the leader parks.
 func _put_away() -> void:
 	for rc in racers:
 		var sp = rc.speeder
+		var alive := _body_ok(rc)
 		if sp != null and is_instance_valid(sp):
-			sp.step_off()
-			sp.queue_free()
-		rc.speeder = null
+			if sp.model.alive() and alive:
+				if not bool(rc.home):
+					sp.step_off()
+					sp.place(_park_pos(rc), _park_yaw(rc))
+				sp.brain = null
+			else:
+				sp.step_off()
+				sp.queue_free()
+				rc.speeder = null
 		rc.brain = null
-		var b = rc.body
-		if b != null and is_instance_valid(b) and not b.dead:
-			var at := _ground(_v2(rc.cfg.get("stand", [0, 0])))
-			b.global_position = at
-			b.controller.body_pos = at
-			b.velocity = Vector3.ZERO
-			b.set_physics_process(true)
+		if alive and not bool(rc.home):
+			_stand_at(rc.body, _ground(_v2(rc.cfg.get("stand", [0, 0]))))
+		rc.home = true
+	_settle_leader_ride()
+	_crowd_left = 0
+	_beast_due = false
 	_clear_crowd()
 	_remove_beast()
 	_player_speeder = null
@@ -1150,9 +1356,11 @@ func _gate_text() -> String:
 func _physics_process(dt: float) -> void:
 	if not found:
 		return
+	_tick_rings()
 	_tick_finish_cam()
 	match phase:
 		Phase.IDLE:
+			_tick_build()
 			_tick_focus()
 		Phase.GRID:
 			_tick_grid(dt)
@@ -1166,6 +1374,34 @@ func _physics_process(dt: float) -> void:
 		_big_left -= dt
 		if _big_left <= 0.0 and _hud_big != null:
 			_hud_big.visible = false
+
+
+## Speeder race lag: the crew and the crowd think by distance, on the town's own
+## rings (NpcRings, content/core/npcs/wake_rings.json): full near you, slower
+## further out, asleep past the draw distance. NpcRings itself only walks the
+## garrison and the townsfolk, so these ran every tick wherever you were. A body
+## walking to its speeder, hurt, or after you is kept awake.
+func _tick_rings() -> void:
+	var rings = demo.get("npc_rings") if demo != null else null
+	var p := _player()
+	if rings == null or not is_instance_valid(rings) or p == null:
+		return
+	var at := p.global_position
+	for rc in racers:
+		var b = rc.body
+		if b == null or not is_instance_valid(b):
+			continue
+		var awake: bool = b.dead or b.hostile or b.perception.noticed or b.health.hp < b.health.max_hp \
+			or (phase == Phase.GRID and not bool(rc.seated) and _grid_t >= float(rc.set_off))
+		_ring(rings, b, at, awake)
+	for b in crowd:
+		if is_instance_valid(b):
+			_ring(rings, b, at, b.dead or b.hostile or b.perception.noticed)
+
+
+func _ring(rings, b: NpcBody, at: Vector3, awake: bool) -> void:
+	var was := int(rings.ring_of.get(b, NpcRingsT.Ring.FULL))
+	rings._put(b, NpcRingsT.Ring.FULL if awake else rings.ring_for(b.global_position.distance_to(at), was))
 
 
 func _tick_focus() -> void:
