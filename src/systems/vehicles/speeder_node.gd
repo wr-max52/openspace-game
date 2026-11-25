@@ -22,11 +22,15 @@ extends Node3D
 ## drives it through the same HoverModel as the player. step_off() puts a body
 ## back on its feet beside it; at 0 hull every rider is thrown clear, hurt but
 ## alive. A speeder with NPCs aboard is not yours to climb on.
+##
+## Riding hides your body, except in a speeder whose config sets show_driver (the
+## racer's open cockpit): there you sit in the driver's seat, as an NPC does.
 
 const ChaseCamera := preload("res://src/systems/camera/chase_camera.gd")
 const GROUP := "speeders"             ## issue #616: every speeder in the world (seekers lock on, mines go off)
 const WeaponActor := preload("res://src/systems/combat/weapon_actor.gd")
 const Weapon := preload("res://src/systems/combat/weapon.gd")
+const BodyAnimator := preload("res://src/systems/anim/body_animator.gd")
 
 signal mounted
 signal dismounted
@@ -87,6 +91,7 @@ var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
 var _dust: CPUParticles3D            ## dust streaking past while you boost
+var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -162,8 +167,8 @@ func mount() -> bool:
 	p.vehicle = self
 	p.locked = true
 	p.velocity = Vector3.ZERO
-	p.visible = false
 	p.process_mode = Node.PROCESS_MODE_DISABLED
+	p.visible = _seat_player()
 	_player_collision(false)
 	if demo.terrain != null:
 		demo.terrain.follow(null)
@@ -203,6 +208,7 @@ func dismount() -> bool:
 		p.rotation.y = rig.rig.yaw
 		if "player_kit" in demo and demo.player_kit != null and demo.player_kit.avatar != null:
 			demo.player_kit.avatar.facing_yaw = rig.rig.yaw
+	_unseat_player()
 	if p.has_method("align_to_ground"):
 		p.call("align_to_ground", true)
 	else:
@@ -341,6 +347,7 @@ func _ride(dt: float) -> void:
 		log_events.append(e)
 	_fire(dt, fire)
 	_sync()
+	_place_seated()
 	if _engine != null:
 		if not _engine.playing:
 			_engine.play()
@@ -756,6 +763,68 @@ func _exit_spot() -> Vector3:
 		if g == null or g.hit(at + u, 0.6) == "":
 			return at
 	return model.position + u * 0.5
+
+
+# ------------------------------------------------------------------ your body in the seat
+
+## Your avatar (the M11 body, in whatever outfit), or null (the greybox has none).
+func _player_avatar() -> PlayerAvatar:
+	if demo == null or not ("player_kit" in demo) or demo.player_kit == null:
+		return null
+	var av = demo.player_kit.avatar
+	return av if av != null and is_instance_valid(av) else null
+
+
+## Climbing on a show_driver speeder: your body stays in view, standing at rest in
+## the driver's seat with the weapon in hand put out of sight, drawn from outside
+## (never first person) and carried by the speeder rather than the player node
+## (whose yaw the camera rig keeps turning). True if it is shown.
+func _seat_player() -> bool:
+	var av := _player_avatar()
+	if av == null or not bool(cfg.get("show_driver", false)):
+		return false
+	seated_avatar = av
+	av.set_first_person(false)
+	# Settle into the idle stance (it was mid-stride walking up).
+	for i in 30:
+		av.animate(1.0 / 30.0, { "velocity": Vector3.ZERO, "grounded": true,
+			"upper": BodyAnimator.UPPER_FREE, "cam_yaw": av.facing_yaw })
+	for w in av.weapons.values():
+		(w as Node3D).visible = false    # the next animate on foot shows the one in hand again
+	av.top_level = true
+	_place_seated()
+	return true
+
+
+## The seated body goes where the hull goes: the driver's seat, facing the nose,
+## leaning, bobbing and sinking with the look (as the NPC riders sit, plus the lean).
+func _place_seated() -> void:
+	if seated_avatar == null or not is_instance_valid(seated_avatar):
+		return
+	var frame := model.transform()
+	if visual != null:
+		frame = frame * visual.transform
+	seated_avatar.global_transform = Transform3D(frame.basis.orthonormalized() * Basis(Vector3.UP, PI),
+		frame * seat_offset("driver"))
+
+
+## Getting off: the body is the player node's again, as it was before climbing on.
+func _unseat_player() -> void:
+	var av = seated_avatar
+	seated_avatar = null
+	if av == null or not is_instance_valid(av):
+		return
+	av.top_level = false
+	var rig = demo.get("_rig") if demo != null else null
+	av.set_first_person(rig != null and rig.rig != null and rig.rig.is_first_person())
+	var p := player()
+	var tilt = p.get("tilt") if p != null else null
+	av.align_to_ground(tilt if tilt is Basis else Basis.IDENTITY)
+	av.reset_render_smoothing()
+
+
+func _exit_tree() -> void:
+	_unseat_player()           # gone with you aboard (a scene change): give the body back
 
 
 func _player_collision(on: bool) -> void:
