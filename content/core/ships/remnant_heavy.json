@@ -4,6 +4,7 @@
   "label": "Remnant Heavy Fighter",
   "faction": "imperial_remnant",
   "look": "remnant_heavy",
+  "icon": "res://assets/ui/vehicle_icons/remnant_heavy.png",
   "pilot": "veteran",
   "hull": 180,
   "shield": { "max": 60, "regen": 8.0, "delay": 3.0 },

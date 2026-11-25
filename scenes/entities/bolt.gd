@@ -36,8 +36,10 @@ var ground_up: Callable
 var stylize := false           ## a stretched glowing streak instead of the sphere
 var sweep := false             ## ray-test each step so fast bolts cannot tunnel
 var color := Color(1.0, 0.45, 0.2)
-var streak_length := 0.9
-var streak_radius := 0.035
+## A hand gun's bolt (pistol, rifle, an NPC's or droid's gun): thin and short. Ships and
+## speeders set their own.
+var streak_length := 0.7
+var streak_radius := 0.018
 var matte := false             ## issue #96: a thrown rock: plain colour, no glow, no light
 ## A ship's seeker in the air: it turns toward `seek` (a ShipHull, a node) by up to
 ## turn_rate radians a second while that is still there, and where it bursts it goes

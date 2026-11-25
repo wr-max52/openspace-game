@@ -117,6 +117,9 @@ func _ready() -> void:
 			b.stylize = true
 			b.sweep = true
 			b.color = color
+			# The speeder's laser keeps its own size (hand-gun bolts are thinner).
+			b.streak_length = float(laser.get("bolt_length", 0.9))
+			b.streak_radius = float(laser.get("bolt_radius", 0.035))
 			b.on_hit.connect(_on_laser_hit)
 			b.on_splash.connect(_on_laser_hit)
 		chase.fit_to(float(cfg.get("look", {}).get("length", 4.6)))

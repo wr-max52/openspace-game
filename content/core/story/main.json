@@ -189,6 +189,7 @@
     "log_tally": "Runs sold: %d    Bounties paid: %d",
     "log_quests": "OPTIONAL",
     "log_ships": "YOUR SHIPS",
+    "log_speeders": "YOUR SPEEDERS",
     "log_gear": "YOUR GEAR UPGRADES",
     "quest_open": "Open",
     "quest_done": "Done",

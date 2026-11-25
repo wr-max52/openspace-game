@@ -182,7 +182,13 @@
                       -14.0
                 ],
                 "fov": 60.0
-          }
+          },
+          "market_stall_close": { "note": "The food seller's stall in the sellers' yard, from where a customer stands.", "pos": [51.5, 1.7, -61.5], "target": [46.8, 1.2, -63.8], "fov": 62.0 },
+          "market_yard": { "note": "The sellers' yard from the ring road: the four trading stalls in a horseshoe, the lamp street going out of its back.", "pos": [44.5, 2.2, -47.5], "target": [60.0, 1.2, -66.0], "fov": 68.0 },
+          "lamp_street": { "note": "Up the lamp street from the back of the yard: tiny huts with stalls between, lamps on alternate sides.", "pos": [60.2, 2.6, -60.8], "target": [64.6, 1.6, -74.0], "fov": 70.0 },
+          "lamp_street_turn": { "note": "At the top of the lamp street, looking left down its second leg toward the huts.", "pos": [70.5, 1.8, -95.0], "target": [34.0, 1.8, -104.0], "fov": 66.0 },
+          "market_bazaar": { "note": "A bazaar lane east of the yard: crooked stalls in broken runs.", "pos": [78.9, 1.8, -64.8], "target": [90.0, 1.2, -46.0], "fov": 68.0 },
+          "market_aerial": { "note": "The whole market from above the main street: yard, L-shaped lamp street, bazaar, shops on the wall.", "pos": [104.0, 58.0, -22.0], "target": [48.0, 0.0, -86.0], "fov": 60.0 }
     }
   }
 }

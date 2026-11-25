@@ -4,6 +4,8 @@
   "kind": "weapon",
   "value": 400,
   "look": "red_saber",
+  "icon": "res://assets/ui/weapon_icons/energy_blade.png",
+  "icon_tint": "#ff5a4a",
   "blade_color": "#ff2a2a",
   "hilt": "res://assets/gear/saber_hilt_dark.glb",
   "slot": "blade",

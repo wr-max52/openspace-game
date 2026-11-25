@@ -5,6 +5,7 @@
   "locals_label": "Kaldor VX-88 Kestrel (Local)",
   "faction": "imperial_remnant",
   "look": "interceptor_dark",
+  "icon": "res://assets/ui/vehicle_icons/interceptor.png",
   "pilot": "remnant_hunter",
   "hull": 120,
   "shield": {

@@ -3,7 +3,7 @@
   "class": "rifle",
   "label": "Rifle Blaster",
   "damage": 24,
-  "bolt_speed": 48.0,
+  "bolt_speed": 72.0,
   "rate": 0.18,
   "recoil": 3.5,
   "range": 110.0,

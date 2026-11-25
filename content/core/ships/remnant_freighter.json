@@ -5,6 +5,7 @@
   "locals_label": "Marchbank GR-75 Frigatebird (Local)",
   "faction": "imperial_remnant",
   "look": "freighter_dark",
+  "icon": "res://assets/ui/vehicle_icons/freighter.png",
   "pilot": "remnant_hunter",
   "hull": 260,
   "shield": {

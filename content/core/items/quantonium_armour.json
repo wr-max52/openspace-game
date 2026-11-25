@@ -5,6 +5,7 @@
   "slot": "armour",
   "value": 500,
   "look": "armour_case",
+  "icon": "res://assets/ui/item_icons/quantonium_armour.svg",
   "health_mult": 3.0,
   "outfit": {
     "head": "guard:desert",

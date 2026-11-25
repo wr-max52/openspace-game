@@ -43,6 +43,8 @@ var _cursor_box: StyleBoxFlat
 var _row_box: StyleBoxEmpty
 var _freed_mouse := false         ## we showed the mouse for the buttons
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
+var _counted := false             ## this menu is in open_count
+static var open_count := 0        ## menus up right now: the player does not walk while any is
 signal option_selected(id: String)
 
 
@@ -93,6 +95,22 @@ func _ready() -> void:
 
 func is_open() -> bool:
 	return panel != null and panel.visible
+
+
+## Some menu is up. W/S move its cursor, so the player's body stands still
+## (CharacterBody checks this), whether or not the shop locked the player itself.
+static func any_open() -> bool:
+	return open_count > 0
+
+
+func _count(on: bool) -> void:
+	if on != _counted:
+		_counted = on
+		open_count = maxi(open_count + (1 if on else -1), 0)
+
+
+func _exit_tree() -> void:
+	_count(false)
 
 
 ## Show the menu. keep_cursor: the same menu again (after a buy or a sale), so the
@@ -148,6 +166,7 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 	_fit()
 	_show_cursor()
 	panel.visible = true
+	_count(true)
 	if has_buttons() and not _freed_mouse:
 		_mouse_before = Input.mouse_mode
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -268,6 +287,7 @@ func choose(id: String) -> void:
 			break
 	if panel != null:
 		panel.visible = false
+	_count(false)
 	if _freed_mouse:
 		_freed_mouse = false
 		Input.mouse_mode = _mouse_before

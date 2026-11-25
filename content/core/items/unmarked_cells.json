@@ -5,5 +5,6 @@
   "contraband": true,
   "value": 30,
   "look": "cell_case",
+  "icon": "res://assets/ui/item_icons/unmarked_cells.svg",
   "note": "IP-neutral. Military-grade power cells with the serials ground off. The Remnant confiscates them at the gate; the fence in the market pays twice their value. Not worn (no slot)."
 }

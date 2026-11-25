@@ -3,7 +3,7 @@
   "class": "pistol",
   "label": "Pistol Blaster",
   "damage": 12,
-  "bolt_speed": 32.0,
+  "bolt_speed": 48.0,
   "rate": 0.12,
   "recoil": 2.0,
   "range": 60.0,

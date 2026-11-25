@@ -35,3 +35,16 @@ func test_the_cursor_wraps_round() -> void:
 	assert_eq(m.selected, 2, "up from the top lands on the last row")
 	_press(m, KEY_S)
 	assert_eq(m.selected, 0, "down from the last row lands on the first")
+
+
+## W/S move the cursor, not the player: while any menu is up the player's body
+## stands still, even when the shop that opened it (the race crew) did not lock them.
+func test_an_open_menu_holds_the_player_still() -> void:
+	var before := DroidMenu.open_count
+	var m := _menu()
+	assert_true(DroidMenu.any_open(), "open: the player does not walk")
+	m.choose("")
+	assert_eq(DroidMenu.open_count, before, "closed: they walk again")
+	m.open("t", [{ "id": "a", "text": "A" }], func(_id): pass)
+	m.free()
+	assert_eq(DroidMenu.open_count, before, "a menu freed while open lets go too")

@@ -148,7 +148,7 @@
     "radius": 230,
     "inner": 80
   },
-  "bolt": { "length": 0.9, "radius": 0.035, "energy": 5.0 },
+  "bolt": { "length": 0.7, "radius": 0.018, "energy": 5.0 },
   "recoil": { "back": 0.05, "up_deg": 7.0, "recover_s": 0.12 },
   "muzzle_light": { "note": "The flash's light. It sits `ahead` metres past the muzzle so the hand on the grip is lit warm, not blown out.", "energy": 1.5, "range": 4.5, "ahead": 0.35 },
   "blade_volume": { "note": "issue #16: the blade was too loud; dB for its one-shots and its hum", "db": -13.0, "hum_db": -24.0 },

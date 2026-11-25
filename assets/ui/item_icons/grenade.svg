@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="92" viewBox="38 24 56 92"><g fill="#fff" fill-rule="evenodd">
+<path d="M49 40 L79 40 Q84 40 84 45 L84 101 Q84 106 79 106 L49 106 Q44 106 44 101 L44 45 Q44 40 49 40 Z M44 61 L84 61 L84 63 L44 63 Z M44 85 L84 85 L84 87 L44 87 Z"/>
+<rect x="40" y="66" width="48" height="16" rx="3"/>
+<path d="M52 40 L56 26 L72 26 L76 40 Z"/>
+<path d="M72 28 L92 36 L92 62 L86 62 L86 40 L72 34 Z"/>
+<rect x="41" y="104" width="46" height="10" rx="2"/>
+</g></svg>

@@ -4,5 +4,6 @@
   "kind": "weapon",
   "value": 300,
   "look": "rifle_case",
+  "icon": "res://assets/ui/weapon_icons/rifle_blaster.png",
   "note": "Issue #210: the rifle as something you own. In a story save the rifle can only be drawn once you have it (WorldState.weapon_allowed); one lies on the barracks roof (pickups/port_town.json)."
 }
