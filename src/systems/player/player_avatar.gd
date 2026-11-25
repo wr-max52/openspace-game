@@ -184,32 +184,34 @@ func build_weapons(ids: Array) -> void:
 			wrap.add_child(muzzle)
 			var tint: Dictionary = spec.get("tint", {})
 			var gcol := Color.html(str(tint.get("glow", "#ff7a3a")))
-			# Emitter ring around the barrel tip (faces forward, +Z), a dim core
-			# inside it, and a flash sprite that only shows when firing.
-			var ring := MeshInstance3D.new()
-			ring.name = "EmitterRing"
-			var tor := TorusMesh.new()
-			tor.inner_radius = 0.016
-			tor.outer_radius = 0.024
-			tor.rings = 16
-			tor.ring_segments = 8
-			ring.mesh = tor
-			ring.rotation_degrees = Vector3(90, 0, 0)
-			# tint "ring": the ring and core in that colour instead (the black sniper's are black).
-			var rcol := Color.html(str(tint.get("ring", tint.get("glow", "#ff7a3a"))))
-			ring.material_override = _emissive(gcol, 2.5) if not tint.has("ring") else _emissive(rcol, 0.0)
-			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			muzzle.add_child(ring)
-			var core := MeshInstance3D.new()
-			var cm := CylinderMesh.new()
-			cm.top_radius = 0.013
-			cm.bottom_radius = 0.013
-			cm.height = 0.004
-			core.mesh = cm
-			core.rotation_degrees = Vector3(90, 0, 0)
-			core.material_override = _emissive(gcol.darkened(0.5), 0.8) if not tint.has("ring") else _emissive(rcol, 0.0)
-			core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			muzzle.add_child(core)
+			# Emitter ring around the barrel tip (faces forward, +Z) and a dim core
+			# inside it; hand_weapons "emitter": false leaves them off (the pistol
+			# and rifle: no orange tip). A flash sprite only shows when firing.
+			if spec.get("emitter", true) != false:
+				var ring := MeshInstance3D.new()
+				ring.name = "EmitterRing"
+				var tor := TorusMesh.new()
+				tor.inner_radius = 0.016
+				tor.outer_radius = 0.024
+				tor.rings = 16
+				tor.ring_segments = 8
+				ring.mesh = tor
+				ring.rotation_degrees = Vector3(90, 0, 0)
+				# tint "ring": the ring and core in that colour instead (the black sniper's are black).
+				var rcol := Color.html(str(tint.get("ring", tint.get("glow", "#ff7a3a"))))
+				ring.material_override = _emissive(gcol, 2.5) if not tint.has("ring") else _emissive(rcol, 0.0)
+				ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				muzzle.add_child(ring)
+				var core := MeshInstance3D.new()
+				var cm := CylinderMesh.new()
+				cm.top_radius = 0.013
+				cm.bottom_radius = 0.013
+				cm.height = 0.004
+				core.mesh = cm
+				core.rotation_degrees = Vector3(90, 0, 0)
+				core.material_override = _emissive(gcol.darkened(0.5), 0.8) if not tint.has("ring") else _emissive(rcol, 0.0)
+				core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				muzzle.add_child(core)
 			muzzle.add_child(_make_flash(gcol))
 		wrap.visible = false
 		(joints.chest as Node3D).add_child(wrap)
