@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cb4f4yo1whaai"
-path="res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.ctex"
+path.s3tc="res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.s3tc.ctex"
+path.etc2="res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "bd63c1b902bf70de66c53f589f0aed22"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/vehicles/gunship_model_emission.png"
-dest_files=["res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.ctex"]
+dest_files=["res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.s3tc.ctex", "res://.godot/imported/gunship_model_emission.png-f57e72ea01443cf3e3e7cd4507c695f7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
