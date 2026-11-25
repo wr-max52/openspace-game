@@ -4,5 +4,6 @@
   "kind": "trade",
   "value": 22,
   "look": "crystal_case",
+  "icon": "res://assets/ui/item_icons/quartz.svg",
   "note": "IP-neutral. Issue #96: raw quartz the desert packs dig out of the dunes. They trade it for food; the food stall in town buys it."
 }

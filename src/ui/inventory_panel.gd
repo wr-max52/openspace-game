@@ -8,7 +8,9 @@ extends HBoxContainer
 ## empty ones; the gear you have on (the jetpack, the armour) with its Take off
 ## button; your droids; your ships and what T-89 fitted to them (issue #207); the
 ## fence's gear upgrades (issue #208). Each item says how many, what a vendor would
-## pay, and CONTRABAND on what the Remnant would confiscate at the gate.
+## pay, and CONTRABAND on what the Remnant would confiscate at the gate. Every
+## backpack and worn row starts with the item's silhouette (its "icon"; the
+## pistol's is gear.json "fixed_icons"; a missing one is the carry case).
 ##
 ## Right, the story and your jobs (Objective.log_entries), then the optional quests
 ## (Quests.entries, issue #201), then the tally. Every one with somewhere to point
@@ -27,6 +29,10 @@ const INK := Color(0.95, 0.92, 0.85, 0.95)
 const AMBER := Color("#e0a050")
 const RED := Color("#ff6a55")
 const DIM := 0.55                 ## alpha of the second line under a name, done quests, the tally
+const ICON_BOX := Vector2(44, 34)  ## the most an item's silhouette takes, left of its name
+const ICON_FALLBACK := "res://assets/ui/item_icons/item.svg"   ## an item with no "icon" of its own
+
+static var _icons: Dictionary = {}  ## path -> Texture2D, or null when it does not load
 
 var inventory: Inventory          ## null = WorldState.inventory, read fresh (a load replaces it)
 var content                       ## CoreContent (item labels, values, contraband)
@@ -46,6 +52,7 @@ var backpack_label: Label
 var list: VBoxContainer           ## the left column under the credits
 var jobs: VBoxContainer           ## the right column under its heading
 var rows: Array = []              ## the text of each backpack, worn and droid row, for tests
+var row_icons: Array = []         ## the icon path of each backpack and worn row ("" on an empty slot), for tests
 var owned_rows: Array = []        ## the ships and gear upgrades, for tests
 var job_rows: Array = []          ## the job log's text, title then line, for tests
 var quest_buttons: Dictionary = {}  ## quest id -> its waypoint toggle (tests)
@@ -117,6 +124,7 @@ func _heading(parent: Control, t: String) -> Label:
 func refresh() -> void:
 	_job_log()
 	rows.clear()
+	row_icons.clear()
 	owned_rows.clear()
 	wear_buttons.clear()
 	for c in list.get_children():
@@ -128,13 +136,16 @@ func refresh() -> void:
 	for label in Inventory.fixed_slots():
 		n += 1
 		rows.append("[%d]  %s" % [n, str(label)])
-		_line(list, "%d  %s" % [n, str(label)], "", INK)
+		var path := Inventory.fixed_icon(str(label))
+		row_icons.append(path)
+		_icon(_line(list, "%d  %s" % [n, str(label)], "", INK), path, INK)
 	for id in inv.packed_ids():
 		n += 1
 		_item_row(inv, str(id), n)
 	for i in range(n, Inventory.backpack_slots()):
 		rows.append("[%d]  - empty -" % (i + 1))
-		_line(list, "%d  -" % (i + 1), "", Color(INK, 0.4))
+		row_icons.append("")
+		_icon(_line(list, "%d  -" % (i + 1), "", Color(INK, 0.4)), "", INK)
 	var worn: Array = inv.item_ids().filter(func(id): return inv.is_attached(str(id)))
 	if not worn.is_empty():
 		_heading(list, Objective.line("ledger_worn"))
@@ -162,8 +173,30 @@ func _item_row(inv: Inventory, id: String, slot: int) -> void:
 	if illegal:
 		detail += "    CONTRABAND"
 	var h := _line(list, ("%d  " % slot if slot > 0 else "") + shown, ("   " if slot > 0 else "") + detail, RED if illegal else INK)
+	var path := str(it.get("icon", ICON_FALLBACK))
+	row_icons.append(path)
+	_icon(h, path, Color(str(it.get("icon_tint"))) if it.has("icon_tint") else (RED if illegal else INK))
 	if toggle_item.is_valid() and str(it.get("slot", "")) != "":
 		_wear_button(h, id, inv.is_attached(id), it.get("toggle_labels", ["Wear", "Take off"]))
+
+
+## An item's white silhouette at the left of its row, tinted like its name (the
+## item's "icon"; the weapons share the weapon wheel's). An empty path keeps the
+## gap so the names stay in a column.
+func _icon(h: HBoxContainer, path: String, tint: Color) -> void:
+	var r := TextureRect.new()
+	r.custom_minimum_size = ICON_BOX
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.modulate = tint
+	if path != "":
+		if not _icons.has(path):
+			_icons[path] = load(path if ResourceLoader.exists(path) else ICON_FALLBACK)
+		r.texture = _icons[path]
+	h.add_child(r)
+	h.move_child(r, 0)
 
 
 ## A row in the left column: a name, a dim line under it, room on the right for a
