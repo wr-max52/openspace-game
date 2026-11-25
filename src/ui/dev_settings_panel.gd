@@ -829,7 +829,9 @@ func _world_page(v: VBoxContainer) -> void:
 	_row(v, "Game speed", speed)
 	_refreshers.append(func(): speed.select(maxi(0, SPEEDS.find(Engine.time_scale))))
 	var credits: SpinBox = _cheat(_spin(0, 99999, 10))
-	credits.value_changed.connect(func(x): WorldState.credits = int(x))
+	credits.value_changed.connect(func(x):
+		WorldState.credits = int(x)
+		CreditToast.settle())                # a cheat is not money changing hands
 	_row(v, "Credits", credits)
 	_refreshers.append(func(): credits.set_value_no_signal(WorldState.credits))
 	# Issue #46: whether flying out of the atmosphere starts the pad's space fight.
