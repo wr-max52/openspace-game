@@ -608,6 +608,8 @@ func seat_npc(body: NpcBody, seat: String = "driver") -> bool:
 	if body.look_body != null and is_instance_valid(body.look_body) and body._look_rest != Vector3.INF:
 		body.look_body.position = body._look_rest
 	_body_collision(body, false)
+	if seat == "driver" and bool(cfg.get("show_driver", false)):
+		_sit_npc(body)
 	if not body.died.is_connected(_on_rider_died):
 		body.died.connect(_on_rider_died.bind(body))
 	_carry_riders()
@@ -641,6 +643,11 @@ func step_off(body: NpcBody = null) -> bool:
 func _free_body(b: NpcBody, spot: Vector3) -> void:
 	if b.died.is_connected(_on_rider_died):
 		b.died.disconnect(_on_rider_died)
+	if b.has_meta("seated_weapon"):
+		var w = b.get_meta("seated_weapon")
+		b.remove_meta("seated_weapon")
+		if w != null and is_instance_valid(w):
+			(w as Node3D).visible = true    # their own walk poses them again from here
 	_body_collision(b, true)
 	b.global_position = spot
 	b.velocity = Vector3.ZERO
@@ -696,11 +703,14 @@ func _carry_riders() -> void:
 		return
 	var xf := model.transform()
 	var f := model.forward()
+	# A seated driver at a yoke (show_driver) bobs with the look, as the yoke does.
+	var at_yoke := bool(cfg.get("show_driver", false)) and visual != null
 	for seat in npc_seats:
 		var b = npc_seats[seat]
 		if b == null or not is_instance_valid(b):
 			continue
-		b.global_position = xf * seat_offset(str(seat))
+		var frame := xf * visual.transform if at_yoke and str(seat) == "driver" else xf
+		b.global_position = frame * seat_offset(str(seat))
 		b.facing = atan2(f.x, f.z)
 		b.rotation.y = b.facing
 		b.velocity = Vector3.ZERO
@@ -794,12 +804,7 @@ func _seat_player() -> bool:
 			"upper": BodyAnimator.UPPER_FREE, "cam_yaw": av.facing_yaw })
 	for w in av.weapons.values():
 		(w as Node3D).visible = false    # the next animate on foot shows the one in hand again
-	# Sat down at the bars (the next animate on foot stands it up again).
-	var sit := BodyAnimator.sit_pose()
-	for jn in sit.joints:
-		if av.joints.has(jn):
-			(av.joints[jn] as Node3D).rotation_degrees = sit.joints[jn]
-	(av.joints.pelvis as Node3D).position = Vector3(0.0, float(sit.pelvis_y), 0.0)
+	_sit(av.joints)             # the next animate on foot stands it up again
 	av._sync_skin()
 	av.top_level = true
 	_place_seated()
@@ -831,6 +836,34 @@ func _unseat_player() -> void:
 	var tilt = p.get("tilt") if p != null else null
 	av.align_to_ground(tilt if tilt is Basis else Basis.IDENTITY)
 	av.reset_render_smoothing()
+
+
+## Joints (the kit's skeleton, the player's or an NPC's) sat down at the bars.
+static func _sit(joints: Dictionary) -> void:
+	var sit := BodyAnimator.sit_pose()
+	for jn in sit.joints:
+		if joints.has(jn):
+			(joints[jn] as Node3D).rotation_degrees = sit.joints[jn]
+	if joints.has("pelvis"):
+		(joints.pelvis as Node3D).position = Vector3(0.0, float(sit.pelvis_y), 0.0)
+
+
+## A rival at the wheel of a show_driver speeder sits as you do, hands on the
+## yoke, its weapon out of sight until it steps off. Seated, its body is not
+## animated (seat_npc stops its processing), so the pose holds.
+func _sit_npc(b: NpcBody) -> void:
+	if b.joints.is_empty() or b.look_body == null or not is_instance_valid(b.look_body):
+		return                                 # the greybox capsule: nothing to pose
+	_sit(b.joints)
+	if b.look_body.has_meta("weapon"):
+		var w: Node3D = b.look_body.get_meta("weapon")
+		if w != null and is_instance_valid(w) and w.visible:
+			w.visible = false
+			b.set_meta("seated_weapon", w)
+	if b.look_body.has_meta("skin"):
+		var sk := b.look_body.get_meta("skin") as SkinnedBody
+		sk.holds.clear()                       # the hands let go of the gun
+		sk.sync(b.look_body)
 
 
 func _exit_tree() -> void:
