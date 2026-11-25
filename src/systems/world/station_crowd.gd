@@ -77,11 +77,13 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ the walk cycle
 
+const SAMPLE_SPEED := 1.4
+
 ## The walk, sampled once: BodyAnimator stepped at a walking pace until it settles,
 ## then a frame each CYCLE-th of a stride. Standing is one more frame at rest.
 func _sample_cycle() -> void:
 	var anim := BodyAnimatorT.new()
-	var speed := 1.4
+	var speed := SAMPLE_SPEED
 	var inp := { "speed": speed, "move_local": Vector2(0, 1), "grounded": true, "upper": BodyAnimatorT.UPPER_FREE }
 	for i in 240:
 		anim.step(1.0 / 120.0, inp)
@@ -333,7 +335,8 @@ func _go(p: Dictionary, act: Dictionary, dt: float) -> bool:
 	act.i = i
 	if moved > 0.0001:
 		p.moving = true
-		p.phase = fposmod(float(p.phase) + TAU * moved / BodyAnimatorT.WALK_STRIDE, TAU)
+		# Issue #632: over the sampled pace's own stride, so the baked feet stay planted.
+		p.phase = fposmod(float(p.phase) + TAU * moved / BodyAnimatorT.stride_for(SAMPLE_SPEED), TAU)
 	return i >= pts.size()
 
 

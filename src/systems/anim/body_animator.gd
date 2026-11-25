@@ -35,6 +35,40 @@ const SPRINT_SPEED := 10.0
 const WALK_STRIDE := 2.1
 const RUN_STRIDE := 3.0
 const SPRINT_STRIDE := 4.0
+## Issue #632: below the walk the stride shortens with the pace (a slow amble takes
+## short steps, a guard's walk longer ones), so the step rate and the step length
+## both grow with speed: SLOW_STRIDE_BASE + SLOW_STRIDE_PER_MS * speed, up to the walk's
+## (and shorter still under 1 m/s).
+const SLOW_STRIDE_BASE := 0.85
+const SLOW_STRIDE_PER_MS := 0.45
+
+## Issue #632: planted feet. The legs are placed by where each foot is, not swung
+## by an angle: a foot on the ground moves back under the hip at exactly the body's
+## speed (so it stays put in the world) and rolls heel to toe; then it lifts and
+## swings forward. Hip and knee come from two-bone IK on CharacterKit's leg.
+const THIGH := 0.46
+const SHIN := 0.43
+const HIP_Y := -0.04                   ## the hip joints below the pelvis joint
+const ANKLE_REST_Y := PELVIS_Y + HIP_Y - THIGH - SHIN   ## the ankle standing straight
+const ANKLE_ABOVE_SOLE := 0.085        ## the boot: ankle over the sole
+const HEEL_BACK := 0.075               ## heel behind the ankle
+const BALL_AHEAD := 0.14               ## ball of the foot ahead of the ankle
+const LEG_REACH := 0.993               ## of the full leg: a planted knee never quite locks
+const MAX_DROP := 0.07                 ## the most the hips dip to keep both feet down
+## Share of a cycle each foot is on the ground (duty factor) at walk, run and sprint:
+## a walk always has a foot down, a run spends time in the air.
+const DUTY_SLOW := 0.58
+const DUTY_WALK := 0.5
+const DUTY_RUN := 0.36
+const DUTY_SPRINT := 0.27
+## The swinging foot's lift over the straight line (m), and how early in the swing
+## it peaks (a run kicks the heel up behind first).
+const LIFT_WALK := 0.07
+const LIFT_RUN := 0.24
+const LIFT_SPRINT := 0.42
+const STRIKE_DEG := 12.0               ## toes up as the heel lands (walk)
+const PUSH_DEG := 26.0                 ## toes down as the foot leaves (walk; more on a run)
+const STEADY_S := 0.25                 ## steady walking this long: the legs stop smoothing
 
 var state := State.LOCOMOTION
 var phase := 0.0               ## gait phase, radians
@@ -51,6 +85,13 @@ var pelvis_x := 0.0            ## issue #87: side-to-side hip shift (metres, + =
 var slide_w := 0.0
 var slide_blend_s := 0.14
 
+var gait_speed := 0.0          ## issue #632: the speed the gait's shape follows (smoothed)
+var steady := 0.0              ## issue #632: 0..1, how settled the walk is (1 = legs unsmoothed)
+const GAIT_SPEED_SMOOTH := 6.0
+const PELVIS_SMOOTH := 20.0    ## the walk's hip height, smoothed before the legs reach for the ground
+const LEG_JOINTS := { "l_hip": true, "r_hip": true, "l_knee": true, "r_knee": true,
+	"l_ankle": true, "r_ankle": true }
+var _dt := 1.0 / 60.0
 var _cur: Dictionary = {}      ## joint -> Vector3 degrees (smoothed)
 var _last_state := State.LOCOMOTION
 var states_seen := {}          ## for tests/traces: every state name entered
@@ -107,20 +148,32 @@ func step(dt: float, inp: Dictionary) -> Dictionary:
 	if state == State.AIRBORNE:
 		states_seen["JUMP" if vy > 0.0 else "FALL"] = true
 
-	# ---- gait phase: one full cycle per stride (two steps)
-	var stride := stride_for(speed)
+	# ---- gait phase: one full cycle per stride (two steps). Issue #632: the gait's
+	# shape (stride, duty, lift) follows a smoothed speed so a change of pace never
+	# jumps a planted foot; the phase runs on the real speed over that same stride,
+	# so the planted foot moves back at exactly the body's speed.
+	gait_speed = lerpf(gait_speed, speed, 1.0 - exp(-GAIT_SPEED_SMOOTH * dt))
+	var stride := stride_for(gait_speed)
 	if crouch:
 		stride = 0.9
 	if state == State.LOCOMOTION and speed > 0.05:
 		phase = fmod(phase + TAU * speed / stride * dt, TAU)
 
 	slide_w = move_toward(slide_w, 1.0 if bool(inp.get("slide", false)) and grounded else 0.0, dt / slide_blend_s)
+	# Steady walking (on the ground, upright, no slide, dance or set): the legs and
+	# hips are posed exactly, since the smoothing lagged and shrank every step. Any
+	# other pose blends in through the smoothing as before.
+	var plain := state == State.LOCOMOTION and not crouch and slide_w <= 0.0 \
+		and not dancing and performing == ""
+	steady = move_toward(steady, 1.0, dt / STEADY_S) if plain else 0.0
+	_dt = dt
 	var target := _target(inp, speed, crouch, vy)
 	var k := 1.0 - exp(-smoothing * dt)
+	var kl := lerpf(k, 1.0, steady)
 	for j in target.joints:
 		var v: Vector3 = target.joints[j]
-		_cur[j] = (_cur.get(j, v) as Vector3).lerp(v, k)
-	pelvis_y = lerpf(pelvis_y, target.pelvis_y, k)
+		_cur[j] = (_cur.get(j, v) as Vector3).lerp(v, kl if LEG_JOINTS.has(j) else k)
+	pelvis_y = lerpf(pelvis_y, target.pelvis_y, kl)
 	pelvis_x = lerpf(pelvis_x, target.pelvis_x, k)
 	var out := _out if share_out else {}
 	out["joints"] = _cur if share_out else _cur.duplicate()
@@ -135,9 +188,136 @@ func step(dt: float, inp: Dictionary) -> Dictionary:
 
 ## Issue #133: stride length (one full cycle, metres) for a ground speed.
 static func stride_for(speed: float) -> float:
+	if speed < WALK_SPEED:
+		# Under 1 m/s the steps shrink to nothing, so a body coming to a stop ends
+		# with both feet under it.
+		return minf(SLOW_STRIDE_BASE + SLOW_STRIDE_PER_MS * speed, WALK_STRIDE) * clampf(speed, 0.05, 1.0)
 	if speed <= RUN_SPEED:
 		return lerpf(WALK_STRIDE, RUN_STRIDE, clampf((speed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED), 0.0, 1.0))
 	return lerpf(RUN_STRIDE, SPRINT_STRIDE, clampf((speed - RUN_SPEED) / (SPRINT_SPEED - RUN_SPEED), 0.0, 1.0))
+
+
+## Issue #632: share of a cycle each foot is on the ground at a speed.
+static func gait_duty(speed: float) -> float:
+	if speed <= 2.0:
+		return DUTY_SLOW
+	if speed <= WALK_SPEED:
+		return lerpf(DUTY_SLOW, DUTY_WALK, (speed - 2.5) / (WALK_SPEED - 2.5))
+	if speed <= RUN_SPEED:
+		return lerpf(DUTY_WALK, DUTY_RUN, (speed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED))
+	return lerpf(DUTY_RUN, DUTY_SPRINT, clampf((speed - RUN_SPEED) / (SPRINT_SPEED - RUN_SPEED), 0.0, 1.0))
+
+
+## Issue #632: the legs for gait `phase` (radians; the left heel lands at 0, the
+## right half a cycle later) at `speed`, moving along (fwd, side) in the body frame.
+## `prev_pelvis_y` and `dt` smooth the hips' height before the legs reach the
+## ground from it, so the planted feet stay exactly on it. Writes the hips, knees
+## and ankles (degrees) into `into` and returns
+## { joints: into, pelvis_y, feet: { l, r: { z, x, y, pitch, planted } } },
+## feet in metres from under the hip (z along the body's forward, x to its left,
+## y the ankle's height over its standing height).
+static func gait_legs(phase_r: float, speed: float, fwd: float, side: float,
+		prev_pelvis_y: float, dt: float, into: Dictionary = {}) -> Dictionary:
+	var stride := stride_for(speed)
+	var duty := gait_duty(speed)
+	var sweep := duty * stride
+	var g := clampf(speed / 1.0, 0.0, 1.0)
+	var walk01 := clampf(speed / WALK_SPEED, 0.0, 1.0)
+	var run01 := clampf((speed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED), 0.0, 1.0)
+	var dash01 := clampf((speed - RUN_SPEED) / (SPRINT_SPEED - RUN_SPEED), 0.0, 1.0)
+	# A heel strike and a push off only walking forwards; backwards and sideways
+	# the foot stays flat. roll = (strike deg, push deg, heel off at).
+	var ahead := clampf(fwd * 2.0, 0.0, 1.0)
+	var roll := Vector3(STRIKE_DEG * (1.0 - run01) * ahead * g, (PUSH_DEG + 14.0 * run01) * ahead * g,
+		lerpf(0.55, 0.3, run01))
+	var lift := g * (LIFT_WALK + 0.03 * walk01) + LIFT_RUN * run01 + (LIFT_SPRINT - LIFT_RUN) * dash01
+	var peak_exp := log(0.5) / log(lerpf(0.45, 0.3, run01))
+	# Where the foot lands and leaves (centred under the hip, a touch forward: the
+	# heel lands ahead).
+	var on := _stance_ankle(0.0, sweep, roll)
+	var off := _stance_ankle(1.0, sweep, roll)
+	var centre := -0.5 * (on.x + off.x) + 0.03 * g
+	on.x += centre
+	off.x += centre
+	var feet := {}
+	var hip_max := INF        # how high the hips may ride with every planted foot still down
+	var r := LEG_REACH * (THIGH + SHIN)
+	var down_any := false
+	for leg in ["l", "r"]:
+		var p := fposmod(phase_r / TAU + (0.0 if leg == "l" else 0.5), 1.0)
+		var planted := p < duty
+		var f: Vector3
+		if planted:
+			f = _stance_ankle(p / duty, sweep, roll)
+			f.x += centre
+		else:
+			var u := (p - duty) / maxf(1.0 - duty, 0.001)
+			var e := 0.5 - 0.5 * cos(PI * u)
+			f = Vector3(lerpf(off.x, on.x, e), lerpf(off.y, on.y, e) + lift * sin(PI * pow(u, peak_exp)),
+				lerpf(off.z, on.z, _smooth01(u)))
+		var z := f.x * fwd
+		var x := f.x * side
+		feet[leg] = { "z": z, "x": x, "y": f.y, "pitch": f.z * ahead, "planted": planted }
+		if planted:
+			down_any = true
+			hip_max = minf(hip_max, ANKLE_REST_Y + f.y + sqrt(r * r - minf(z * z + x * x, r * r * 0.98)))
+	# The hips: as high as the planted feet allow (so a walk rises over the foot and
+	# dips between steps), never more than MAX_DROP down; a run sits lower (knees
+	# taking the load) and bounces up into the flight.
+	var base := PELVIS_Y - 0.008 * g - 0.02 * run01 - 0.03 * dash01
+	if not down_any:
+		base += 0.03 * run01
+	var want := clampf(hip_max - HIP_Y, base - MAX_DROP - 0.03 * run01, base) if down_any else base
+	var py := lerpf(prev_pelvis_y, want, 1.0 - exp(-PELVIS_SMOOTH * dt))
+	var hip_y := py + HIP_Y
+	for leg in ["l", "r"]:
+		var ft: Dictionary = feet[leg]
+		var ay: float = ANKLE_REST_Y + float(ft.y) - hip_y      # the ankle, from the hip (negative)
+		var lat := float(ft.x)
+		var down := sqrt(ay * ay + lat * lat)
+		var ik := leg_ik(float(ft.z), -down)
+		into[leg + "_hip"] = Vector3(ik.x, 0, rad_to_deg(atan2(lat, down)) + (2.0 if leg == "l" else -2.0))
+		into[leg + "_knee"] = Vector3(ik.y, 0, 0)
+		# Foot pitch in the world (toes up +) = -(hip + knee + ankle) about X.
+		into[leg + "_ankle"] = Vector3(-float(ft.pitch) - ik.x - ik.y, 0, 0)
+	return { "joints": into, "pelvis_y": py, "feet": feet }
+
+
+## Two-bone IK in the leg's plane: the ankle at `z` ahead of the hip and `y` above
+## it (negative). Returns Vector2(hip X, knee X) in degrees (+hip swings the leg
+## back, +knee bends the shin back), the knee always forward.
+static func leg_ik(z: float, y: float) -> Vector2:
+	var reach := THIGH + SHIN
+	var d := clampf(sqrt(z * z + y * y), absf(THIGH - SHIN) + 0.01, reach * 0.9995)
+	var knee := PI - acos(clampf((THIGH * THIGH + SHIN * SHIN - d * d) / (2.0 * THIGH * SHIN), -1.0, 1.0))
+	var a := atan2(z, -y)                   # the hip-to-ankle line, forward of straight down
+	var b := acos(clampf((THIGH * THIGH + d * d - SHIN * SHIN) / (2.0 * THIGH * d), -1.0, 1.0))
+	return Vector2(-rad_to_deg(a + b), rad_to_deg(knee))
+
+
+## The planted foot's ankle at `u` (0..1 through its stance), with no centring: a
+## point on the ground under it moves from +sweep/2 to -sweep/2 (back at the body's
+## speed, so it stays put in the world). The heel lands toes up (roll.x degrees)
+## and rocks flat, the foot stays flat, then from roll.z the heel lifts and it rolls
+## over the ball to roll.y degrees toes down. Returns Vector3(forward m, height m
+## over the standing ankle, foot pitch degrees, toes up +).
+static func _stance_ankle(u: float, sweep: float, roll: Vector3) -> Vector3:
+	var ground := sweep * (0.5 - u)          # the heel's spot, moving back with the ground
+	var pitch := 0.0
+	var pivot := ground
+	var arm_z := HEEL_BACK                   # pivot -> ankle, foot flat
+	if u < 0.15:
+		pitch = roll.x * (1.0 - _smooth01(u / 0.15))
+	elif u > roll.z:
+		pitch = -roll.y * _smooth01((u - roll.z) / maxf(1.0 - roll.z, 0.001))
+		pivot = ground + HEEL_BACK + BALL_AHEAD
+		arm_z = -BALL_AHEAD
+	if pitch == 0.0:
+		return Vector3(pivot + arm_z, 0.0, 0.0)
+	var rad := deg_to_rad(pitch)
+	var c := cos(rad)
+	var sn := sin(rad)
+	return Vector3(pivot + arm_z * c - ANKLE_ABOVE_SOLE * sn, arm_z * sn + ANKLE_ABOVE_SOLE * c - ANKLE_ABOVE_SOLE, pitch)
 
 
 func state_name() -> String:
@@ -348,43 +528,40 @@ func _target(inp: Dictionary, speed: float, crouch: bool, vy: float) -> Dictiona
 			#           and the arms bend to about 80 degrees.
 			#   sprint: a hard forward lean, high knee drive in front, a high kick
 			#           behind and arms pumping with the elbows locked near 90.
-			var hip_a := 26.0 * walk01 + 18.0 * run01 + 12.0 * dash01
-			var drive := (10.0 * run01 + 22.0 * dash01) * maxf(0.0, fwd)
-			var knee_a := 40.0 * walk01 + 45.0 * run01 + 30.0 * dash01
-			var stance := 5.0 * walk01 + 12.0 * run01
-			var strut := walk01 * (1.0 - run01)
-			# Legs: swing along the move direction (backwards walking reverses it); the
-			# leg in front lifts a little higher as the pace picks up.
-			j.l_hip = Vector3(-hip_a * s * fwd - drive * maxf(0.0, s), 0, 14.0 * walk01 * s * side + 2.0)
-			j.r_hip = Vector3(hip_a * s * fwd - drive * maxf(0.0, -s), 0, 14.0 * walk01 * s * side - 2.0)
-			j.l_knee = Vector3(knee_a * maxf(0.0, c) + stance, 0, 0)
-			j.r_knee = Vector3(knee_a * maxf(0.0, -c) + stance, 0, 0)
-			j.l_ankle = Vector3(-0.35 * j.l_knee.x + 10.0 * walk01 * s * fwd, 0, 0)
-			j.r_ankle = Vector3(-0.35 * j.r_knee.x - 10.0 * walk01 * s * fwd, 0, 0)
-			# Hips: a walk is highest over the planted foot and dips between steps; a
-			# run is lowest mid-stance (knee taking the load) and rises into the flight.
-			py = PELVIS_Y - 0.022 * strut * s * s - 0.035 * run01 * (1.0 - s * s) \
-				- 0.02 * run01 - 0.03 * dash01
-			px = -0.026 * strut * s
-			j.pelvis = Vector3(0, -8.0 * walk01 * s, -4.0 * strut * s)
-			j.spine = Vector3(8.0 * run01 + 12.0 * dash01, 0, 2.0 * strut * s)
-			j.chest = Vector3(3.0 * walk01 + 4.0 * run01 + 6.0 * dash01, 11.0 * walk01 * s, 1.5 * strut * s)
-			j.head = Vector3(-3.0 * walk01 - 6.0 * run01 - 12.0 * dash01, -3.0 * walk01 * s, 2.0 * strut * s)
+			# Issue #632: `g` is how much the body is walking at all (full by 1 m/s, so a
+			# slow amble still swings its arms and shifts its weight); walk01 is how far
+			# up the walk's pace it is.
+			var g := clampf(speed / 1.0, 0.0, 1.0)
+			var strut := g * (1.0 - run01)
+			var gait := gait_legs(phase, gait_speed, fwd, side, pelvis_y, _dt, j)
+			py = gait.pelvis_y
+			# Leg forwardness: + while the left leg is ahead (its heel lands at phase 0
+			# and it leaves the ground at the duty), so the hips, chest and arms turn
+			# with the steps the feet actually take.
+			var sw := cos(phase - PI * (gait_duty(gait_speed) - 0.5))
+			var stance_mid := cos(phase - PI * gait_duty(gait_speed))   # + over the left foot
+			px = 0.026 * strut * stance_mid
+			j.pelvis = Vector3(0, -g * (4.0 + 4.0 * walk01) * sw, 3.0 * strut * stance_mid)
+			j.spine = Vector3(8.0 * run01 + 12.0 * dash01, 0, -1.5 * strut * stance_mid)
+			j.chest = Vector3(3.0 * walk01 + 4.0 * run01 + 6.0 * dash01, g * (6.0 + 5.0 * walk01) * sw,
+				-1.0 * strut * stance_mid)
+			j.head = Vector3(-3.0 * walk01 - 6.0 * run01 - 12.0 * dash01, -g * (2.0 + walk01) * sw,
+				-1.5 * strut * stance_mid)
 			# Arms counter-swing the legs: loose from the shoulder on a walk (the
 			# forearm swings up a touch on the way forward), bent on the run, pumping
 			# hard on the sprint.
-			var arm_a := 24.0 * walk01 + 18.0 * run01 + 30.0 * dash01
+			var arm_a := g * (12.0 + 12.0 * walk01) + 18.0 * run01 + 30.0 * dash01
 			var bend := 18.0 * strut
 			var elbow := -14.0 - 8.0 * walk01 - 55.0 * run01 - 20.0 * dash01
 			var arm_out := 9.0 + 3.0 * strut - 3.0 * dash01
-			j.l_shoulder = Vector3(arm_a * s, 4.0 * strut * s, arm_out)
-			j.r_shoulder = Vector3(-arm_a * s, 4.0 * strut * s, -arm_out)
-			j.l_elbow = Vector3(elbow - bend * maxf(0.0, -s), 0, 0)
-			j.r_elbow = Vector3(elbow - bend * maxf(0.0, s), 0, 0)
+			j.l_shoulder = Vector3(arm_a * sw, 4.0 * strut * sw, arm_out)
+			j.r_shoulder = Vector3(-arm_a * sw, 4.0 * strut * sw, -arm_out)
+			j.l_elbow = Vector3(elbow - bend * maxf(0.0, -sw), 0, 0)
+			j.r_elbow = Vector3(elbow - bend * maxf(0.0, sw), 0, 0)
 			j.l_wrist = Vector3(-6.0 * walk01, 0, 0)
 			j.r_wrist = Vector3(-6.0 * walk01, 0, 0)
 			# Idle: breathe, shift the weight from foot to foot and glance around.
-			var idle := 1.0 - walk01
+			var idle := 1.0 - g
 			var sway := sin(time * 0.55)
 			j.chest.x += idle * 1.5 * sin(time * 1.7)
 			j.l_shoulder.z += idle * 0.8 * sin(time * 1.7)
