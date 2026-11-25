@@ -41,6 +41,9 @@ var crossings := 0                  ## tunnels crossed (traces, tests)
 var stops := 0                      ## times someone stood at a stall, booth, door or room (traces)
 var kills := 0
 var scares := 0                     ## people sent to hide by a fight (issue #605; traces, tests)
+var keepers := 0                    ## people standing behind a counter (issue #643: curio sellers, the vendors)
+var _posted := {}                   ## the fill's post lists already read ("<tower>/<floor>" -> true)
+var _keeper_q: Array = []           ## [floor id, post] still to stand up, one a frame
 var posed := 0                      ## bodies posed last frame (review)
 var cost_ms := 0.0                  ## this node's own time a frame, smoothed (review)
 var built := false
@@ -192,6 +195,7 @@ func _frame_work(dt: float) -> void:
 	_frame += 1
 	_tick_fight(dt)
 	_hear()
+	_place_keepers()
 	var due: Array = []
 	var show_dy := float(cfg.get("show_dy", 30.0))
 	var people_m := float(cfg.get("people_m", 100.0))
@@ -298,6 +302,9 @@ func _step(p: Dictionary, dt: float) -> void:
 		"stood":
 			stops += 1
 			legs.pop_front()
+		"post":
+			# Issue #643: behind a counter for good, facing the alley.
+			p.yaw = lerp_angle(float(p.yaw), float(act.face), minf(1.0, dt * 4.0))
 		"hide":
 			# Issue #605: crouched until it has been quiet for quiet_s.
 			p.cower = true
@@ -669,6 +676,9 @@ func _respawn(p: Dictionary) -> void:
 	var a := _rng.randf() * TAU
 	p.pos = _pt(c, float(p.tower.floors[int(p.fi)].y), float(p.rw), a)
 	p.legs = []
+	if p.has("post_at"):                  # issue #643: a keeper is back behind the counter
+		p.pos = p.post_at
+		p.legs = [{ "kind": "post", "face": float(p.post_yaw) }]
 	p.shown = false
 	holder.visible = false
 	(p.hit as CrowdHit).collision_layer = 0
@@ -762,6 +772,40 @@ func _tick_fight(dt: float) -> void:
 	for p in people:
 		if p.fighter != null:
 			_settle(p)
+
+
+# ------------------------------------------------------------------ keepers (issue #643)
+
+## The fill's posts (StationFill.posts: the curio sellers' and the vendors' places
+## behind their counters, known once a floor is planned): a person for each, stood
+## up one a frame like the rest of the crowd.
+func _place_keepers() -> void:
+	var fill = station.fill if station != null else null
+	if fill != null and fill.posts.size() != _posted.size():
+		for key in fill.posts:
+			if _posted.has(key):
+				continue
+			_posted[key] = true
+			for post in fill.posts[key]:
+				_keeper_q.append([str(key).get_slice("/", 1), post])
+	if _keeper_q.is_empty():
+		return
+	var job: Array = _keeper_q.pop_front()
+	var n := people.size()
+	_add(str(job[0]))
+	if people.size() == n:
+		return
+	var p: Dictionary = people[-1]
+	var post: Dictionary = job[1]
+	p.pos = post.at
+	p.yaw = float(post.yaw)
+	p.post_at = post.at
+	p.post_yaw = float(post.yaw)
+	p.post_kind = str(post.get("kind", "curio"))
+	p.armed = false                       # sellers, not fighters
+	p.legs = [{ "kind": "post", "face": float(post.yaw) }]
+	_place(p)
+	keepers += 1
 
 
 # ------------------------------------------------------------------ a fight starts (issue #605)

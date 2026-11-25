@@ -1,0 +1,103 @@
+{
+  "id": "station_gear_trader",
+  "label": "Gear Trader",
+  "location": "ringed_giant_town",
+  "marker": "vendor_2",
+  "reach": 3.5,
+  "buys": [
+    "gear"
+  ],
+  "buy_rate": 0.5,
+  "sell_rate": 1.0,
+  "stock": [],
+  "prices": {
+    "grenade": 40
+  },
+  "endless_stock": [
+    "jetpack",
+    "grenade"
+  ],
+  "offers": [
+    {
+      "id": "pistol_recoil",
+      "label": "Pistol: steady grip",
+      "about": "half the recoil, tighter shots",
+      "price": 150,
+      "target": "pistol_blaster",
+      "mult": {
+        "recoil": 0.35,
+        "spread_deg": 0.4
+      }
+    },
+    {
+      "id": "pistol_damage",
+      "label": "Pistol: overcharged cells",
+      "about": "75% more damage",
+      "price": 150,
+      "target": "pistol_blaster",
+      "mult": {
+        "damage": 1.75
+      }
+    },
+    {
+      "id": "pistol_rate",
+      "label": "Pistol: hair trigger",
+      "about": "fires 60% faster",
+      "price": 150,
+      "target": "pistol_blaster",
+      "mult": {
+        "rate": 0.62
+      }
+    },
+    {
+      "id": "rifle_recoil",
+      "label": "Rifle: steady grip",
+      "about": "half the recoil, tighter shots",
+      "price": 300,
+      "target": "rifle_blaster",
+      "mult": {
+        "recoil": 0.35,
+        "spread_deg": 0.4
+      }
+    },
+    {
+      "id": "rifle_damage",
+      "label": "Rifle: overcharged cells",
+      "about": "75% more damage",
+      "price": 300,
+      "target": "rifle_blaster",
+      "mult": {
+        "damage": 1.75
+      }
+    },
+    {
+      "id": "rifle_rate",
+      "label": "Rifle: hair trigger",
+      "about": "fires 60% faster",
+      "price": 300,
+      "target": "rifle_blaster",
+      "mult": {
+        "rate": 0.62
+      }
+    },
+    {
+      "id": "jetpack_fuel",
+      "label": "Jetpack: long-range tank",
+      "about": "twice the fuel",
+      "price": 250,
+      "target": "jetpack",
+      "mult": {
+        "jetpack.fuel": 2.0
+      }
+    },
+    {
+      "id": "sniper_rifle",
+      "label": "Sniper rifle",
+      "about": "a long black rifle that hits dead on at 100 m; weapon 4",
+      "price": 600,
+      "item": "sniper_rifle",
+      "endless": true
+    }
+  ],
+  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates). Its marker is put at the booth by StationHull.favela_vendors."
+}
