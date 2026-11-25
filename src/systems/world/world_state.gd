@@ -770,6 +770,23 @@ static func bounty_collectable() -> bool:
 	return str(bounty.get("state", "")) == "dead"
 
 
+## Issue #614: a contract may be a runner now: the story's bounty is done (one
+## paid), it is not the story's bounty chapter, and the general is not the target.
+static func runner_allowed() -> bool:
+	return count("bounties_paid") > 0 and Story.chapter() != "bounty" and not bool(bounty.get("general", false))
+
+
+## Issue #614: the runner got away. The contract ends unpaid and a fresh one rolls
+## the next time it is offered.
+static func on_bounty_got_away() -> void:
+	if str(bounty.get("state", "")) != "out":
+		return
+	log_event(str(Story.bounty_cfg().get("runner", {}).get("event", "%s got away into the desert.")) % str(bounty.name))
+	QuestNews.push("target_escaped", str(bounty.name))
+	bump("bounties_escaped")
+	bounty = { "run": int(bounty.get("run", 0)), "outpost": str(bounty.get("outpost", "")), "state": "" }
+
+
 static func on_bounty_killed() -> void:
 	if str(bounty.get("state", "")) != "out":
 		return
@@ -882,6 +899,8 @@ static func _bounty_job(j: Dictionary) -> Dictionary:
 	var cfg := Story.bounty_cfg()
 	out["text"] = str(cfg.get("offer", "%s %s %s %d")) % [str(bounty.name), Story.outpost_label(str(bounty.outpost)),
 		str(bounty.crime), int(bounty.pay)]
+	if bool(bounty.get("runner", false)):
+		out["text"] += " " + str(cfg.get("runner", {}).get("hint", ""))     # issue #614
 	out["pays"] = int(bounty.pay)
 	return out
 
@@ -915,6 +934,10 @@ static func _roll_bounty() -> void:
 		"pay": int(cfg.get("first_pay", 1200)) if first else rng.randi_range(int(span[0]), int(span[1])),
 		"state": "rolled",
 	}
+	# Issue #614: some repeat contracts run for it on a speeder. Never the story's
+	# bounty (its chapter, the general, or any before the first is paid).
+	if runner_allowed() and rng.randf() < float(cfg.get("runner", {}).get("chance", 0.33)):
+		bounty["runner"] = true
 
 
 static func _start_bounty(j: Dictionary) -> bool:
