@@ -6,8 +6,8 @@ extends Node3D
 ## node adds what moves and what you see:
 ##   - the look: every part merged by finish, the cruiser's metal, glass, glow
 ##   - the energy shield across the bay's mouth (ships and bolts through, not you),
-##     the shields in the tunnels' roofs and round the gaps between floors (you
-##     through, not the air)
+##     the shields in the tunnels' roofs, round the gaps between floors and across
+##     each floor's gap (you through, not the air)
 ##   - an elevator in each tower: a platform riding its shaft floor to floor, and the
 ##     shaft's doors, open only where it has stopped
 ##   - Z docking: the same calls the cruiser answers (can_dock, dock_path, dock_yaw,
@@ -35,6 +35,7 @@ const StationFill := preload("res://src/systems/world/station_fill.gd")
 const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const StationCrowd := preload("res://src/systems/world/station_crowd.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
+const CharBody := preload("res://src/systems/player/character_body.gd")
 
 var demo                               ## town_demo.gd
 var ground: WorldGround
@@ -45,7 +46,7 @@ var id := ""
 var frame := Transform3D.IDENTITY
 var inv := Transform3D.IDENTITY
 var vessel_name := ""
-var cars: Array = []                   ## per tower: { tower, c, stops, body, at, i, dir, wait, moving, doors: [[floor, CollisionShape3D, Node3D]] }
+var cars: Array = []                   ## per tower: { tower, c, stops, body, look, at, prev, tick, i, dir, wait, moving, doors: [[floor, CollisionShape3D, Node3D]] }
 var falls := 0                         ## times you were pulled back aboard (traces, tests)
 var rides := 0                         ## elevator stops reached with you aboard the car (traces)
 var fill: StationFill                  ## issue #315: what is in the floors (with the look layer only)
@@ -95,6 +96,7 @@ func _ready() -> void:
 	_build_shield()
 	_build_hatches()
 	_build_tubes()
+	_build_gap_shields()
 	_build_elevators()
 	_build_label()
 	if not (cfg.get("crowd", {}) as Dictionary).is_empty():
@@ -305,9 +307,14 @@ func _build_elevators() -> void:
 		_root.add_child(body)
 		var y0: float = e.stops[0]
 		body.position = Vector3(c.x, y0, c.y)
+		var look: Node3D = null
 		if demo != null and demo.use_look:
-			_dress_car(body, r)
-		var car := { "tower": str(e.tower), "c": c, "stops": e.stops, "body": body, "at": y0, "i": 0, "dir": 1,
+			look = Node3D.new()
+			look.name = "Look"
+			body.add_child(look)
+			_dress_car(look, r)
+		var car := { "tower": str(e.tower), "c": c, "stops": e.stops, "body": body, "look": look, "at": y0,
+			"prev": y0, "tick": 0, "i": 0, "dir": 1,
 			"wait": float(el.get("wait", 3.5)), "moving": false, "target": 0, "doors": [], "rider": false }
 		for d in hull.doors:
 			if str(d.tower) != str(e.tower):
@@ -321,10 +328,10 @@ func _build_elevators() -> void:
 			db.add_child(dcs)
 			_root.add_child(db)
 			db.transform = d.xf
-			var look: Node3D = null
+			var door_look: Node3D = null
 			if demo != null and demo.use_look:
-				look = _mesh_box(d.size, _door_mat(), d.xf)
-			car.doors.append([int(d.floor), dcs, look])
+				door_look = _mesh_box(d.size, _door_mat(), d.xf)
+			car.doors.append([int(d.floor), dcs, door_look])
 		cars.append(car)
 		_set_doors(car)
 
@@ -340,6 +347,8 @@ func _step_car(car: Dictionary, dt: float, player: Vector3) -> void:
 	var on_car := Vector2(player.x - c.x, player.z - c.y).length() <= float(el.get("car_radius", 4.5)) + 0.3 \
 		and absf(player.y - float(car.at)) < 2.5
 	var n := stops.size()
+	car.prev = float(car.at)                 # issue #604: where it was last tick (draw_y)
+	car.tick = Engine.get_physics_frames()
 	if bool(car.moving):
 		var ty := float(stops[int(car.target)])
 		car.at = move_toward(float(car.at), ty, float(el.get("speed", 4.0)) * dt)
@@ -392,6 +401,29 @@ func _called_floor(car: Dictionary, player: Vector3) -> int:
 	return -1
 
 
+## Issue #604: the car's height to draw this frame (the station's frame). The car
+## moves on the physics tick; the player and the camera are drawn between ticks
+## (CharacterBody.render_origin), so a car drawn at its tick height steps against
+## them and its riders shake. Its look and the crowd's riders (StationCrowd) are
+## drawn here instead: the point between last tick and this one, like the player.
+static func draw_y(car: Dictionary) -> float:
+	var at := float(car.at)
+	if not CharBody.smoothing_active() or Engine.get_physics_frames() - int(car.get("tick", 0)) > 1:
+		return at
+	return lerpf(float(car.get("prev", at)), at, clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0))
+
+
+## Each frame: the cars' looks at their drawn height (draw_y).
+func _smooth_cars() -> void:
+	for car in cars:
+		var look = car.get("look")
+		if look == null:
+			continue
+		var off := draw_y(car) - float(car.at)
+		if (look as Node3D).position.y != off:
+			(look as Node3D).position.y = off
+
+
 ## Open the doors of the floor the car has stopped at; close the rest.
 func _set_doors(car: Dictionary) -> void:
 	for d in car.doors:
@@ -401,7 +433,7 @@ func _set_doors(car: Dictionary) -> void:
 			(d[2] as Node3D).visible = not open
 
 
-func _dress_car(body: AnimatableBody3D, r: float) -> void:
+func _dress_car(body: Node3D, r: float) -> void:
 	var deck := CylinderMesh.new()
 	deck.top_radius = r
 	deck.bottom_radius = r
@@ -507,6 +539,51 @@ func _build_tubes() -> void:
 		var c: Vector2 = tb.c
 		mi.position = Vector3(c.x, (float(tb.y0) + float(tb.y1)) * 0.5, c.y)
 		_root.add_child(mi)
+
+
+## Issue #603: the shields across the gap round the shaft (StationHull.gap_shields):
+## no collider (jump the railing and you drop through, floor after floor; jetpack up
+## through the top one onto the roof), only the look, as the tunnels' hatches. Flat
+## rings with the moon pit shield's round rim at the railing; every one shares one
+## mesh and one material (render rules: share materials).
+func _build_gap_shields() -> void:
+	if demo == null or not demo.use_look:
+		return
+	var meshes := {}
+	var mats := {}
+	for gs in hull.gap_shields:
+		var r0 := float(gs.r0)
+		var r1 := float(gs.r1)
+		var key := "%.2f/%.2f" % [r0, r1]
+		if not meshes.has(key):
+			meshes[key] = _flat_ring(r0, r1, 48)
+			var rim := minf(3.0, r1 * 0.1)
+			mats[key] = LookMaterials.energy_shield(Vector3(r1 * 2.0, 0.1, r1 * 2.0), Vector3(rim, 0, rim), Vector3.RIGHT, true)
+		var mi := MeshInstance3D.new()
+		mi.name = "GapFloorShield_%s_%d_%d" % [str(gs.tower), int(gs.floor), int(float(gs.y))]
+		mi.mesh = meshes[key]
+		mi.material_override = mats[key]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var c: Vector2 = gs.c
+		mi.position = Vector3(c.x, float(gs.y), c.y)
+		_root.add_child(mi)
+
+
+## A flat ring from r0 to r1 in the x/z plane, facing up (the shield's shader draws
+## both faces).
+static func _flat_ring(r0: float, r1: float, n: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in n:
+		var t0 := TAU * k / n
+		var t1 := TAU * (k + 1) / n
+		var a0 := Vector3(cos(t0), 0, sin(t0))
+		var a1 := Vector3(cos(t1), 0, sin(t1))
+		for v: Vector3 in [a0 * r0, a1 * r1, a0 * r1, a0 * r0, a1 * r0, a1 * r1]:
+			st.set_normal(Vector3.UP)
+			st.set_uv(Vector2(v.x, v.z) / (r1 * 2.0) + Vector2(0.5, 0.5))
+			st.add_vertex(v)
+	return st.commit()
 
 
 ## The shield's curve as a mesh in its own frame (StationHull.shield): the wall's arc
@@ -702,6 +779,7 @@ func _build_label() -> void:
 
 
 func _process(_dt: float) -> void:
+	_smooth_cars()
 	if _label == null or demo == null:
 		return
 	var pilot = demo.get("pilot")
