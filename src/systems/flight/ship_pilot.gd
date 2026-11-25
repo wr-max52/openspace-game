@@ -1460,10 +1460,12 @@ func _on_event(e: Dictionary) -> void:
 			crash_left = CRASH_TOW_TIME
 			if demo.terrain != null:
 				demo.terrain.prefetch(home) # ground at the pad, ready before the tow
+			var shot := str(e.get("what", "")) == "shot_down"
+			if visual == null or not crash_wreck(visual, atmo.crash_velocity if shot else Vector3.ZERO, not shot):
+				_crash_fx(e.at)
+				Sound.play("vehicle_boom", e.at)
 			if visual != null:
 				visual.visible = false
-			_crash_fx(e.at)
-			Sound.play("vehicle_boom", e.at)
 		"reached_space":
 			if space_time < 0.0:
 				space_time = flight_time
@@ -2121,8 +2123,9 @@ func _wreck_berth(i: int, boom: bool, sold: bool = false) -> void:
 	var v: Node3D = b.visual
 	if boom and is_instance_valid(v):
 		var at := v.global_position + Vector3(0, 1.5, 0)
-		_crash_fx(at)
-		Sound.play("vehicle_boom", at)
+		if not crash_wreck(v, Vector3.ZERO, true):   # issue #404: blast, split, burn
+			_crash_fx(at)
+			Sound.play("vehicle_boom", at)
 		WorldState.log_event("A parked ship in the pit was shot to pieces.", "pit")
 	if is_instance_valid(v):
 		v.visible = false
@@ -2817,6 +2820,19 @@ func _set_player_collision(on: bool) -> void:
 
 func _crash_fx(at: Vector3) -> void:
 	ExplosionFx.big(demo, at)
+
+
+## Issue #404: a copy of ship model `v` crashes where it is: carrying on at `vel`,
+## rolling and falling to the sand (or, `parked`, straight to the blast), then
+## splits, burns and goes cold (CrashWreck). The model itself stays (hidden) for
+## the berth. False with the look off or no ground: the caller blows it up as before.
+func crash_wreck(v: Node3D, vel: Vector3, parked: bool) -> bool:
+	if v == null or not is_instance_valid(v) or not v.is_inside_tree() or not demo.use_look or ground == null:
+		return false
+	var g := ground
+	var start := { "pos": v.global_position, "basis": v.global_transform.basis, "up": g.up_at(v.global_position), "vel": vel }
+	return CrashWreck.spawn(demo, "ship", CrashWreck.model_copy(v), start, func(p: Vector3) -> Vector3: return g.surface_below(p),
+		{ "parked": parked }) != null
 
 
 func _just(action: String) -> bool:
