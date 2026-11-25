@@ -4,6 +4,7 @@ extends CanvasLayer
 ## credits) and a footer along the bottom (health, stamina, jetpack fuel, what you
 ## are doing). Click either, or press F1, for the info screen: where you are, the
 ## time, money, speeders, standing with every faction and the latest news.
+## Money in or out also shows as a line under the credits (CreditToast).
 ##
 ## It only reads: WorldState, the player and the town's look. Styled by RetroSkin.
 
@@ -19,6 +20,7 @@ var _money: Label
 var _vitals: Label
 var _mode: Label
 var _info_text: Label
+var credit_toast: CreditToast         ## +/- credits under the banner's credits, top right
 var _left := 0.0
 
 
@@ -46,6 +48,8 @@ func _ready() -> void:
 	_info_text = Label.new()
 	_info_text.add_theme_font_size_override("font_size", 20)
 	info.add_child(_info_text)
+	credit_toast = CreditToast.new()
+	add_child(credit_toast)
 	refresh()
 
 

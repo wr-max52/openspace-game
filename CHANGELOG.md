@@ -2,6 +2,15 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Credits in and out show on screen (2026-11-25)
+
+- **Every payment shows top right.** Whenever money changes hands (buying,
+  selling, bounties, job pay, race pots, bribes, the cantina tab), a line under
+  the banner's credits reads "+120 credits" in green or "-40 credits" in red,
+  holds about three seconds and fades.
+- **Several at once stack as a list**, newest on top, each fading on its own.
+- Loading a save and the F11 credits cheat do not show a line.
+
 ## Race gates on flat ground (2026-11-25)
 
 - **Start lines and checkpoints moved onto flat sand.** Every gate on the
