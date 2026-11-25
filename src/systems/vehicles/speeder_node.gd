@@ -59,9 +59,11 @@ var jolt := BoardJolt.new()      ## issue #87: sink, lift and shudder as you cli
 var _lean := Vector2.ZERO        ## smoothed (pitch, roll) for the eye
 var _jolt_xf := Transform3D.IDENTITY
 static var _hulls: Dictionary = {}   ## issue #82: model -> its hull shape (see _model_hull)
+static var _stand_ins: Dictionary = {}   ## issue #627: a stand-in's pieces -> its meshes per colour and bounds
 var _engine: AudioStreamPlayer3D   ## issue #16: the speeder's drone while you ride
 ## Issue #95: the mechanic's looks parts (cfg.parts) and how big the body is.
 var _size := Vector3(2.4, 1.2, 5.0)
+var _stand_in_box := AABB()          ## issue #627: the stand-in body's bounds (the hull with no model)
 var _flames: Array = []              ## the turbo boosters' flames (scaled by boost)
 var _roof: Node3D                    ## the soft-top's hinge (folds back while you ride)
 var _roof_fold := 0.0                ## 0 = up, 1 = folded
@@ -72,7 +74,11 @@ var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sit
 var _boarding: Dictionary = {}       ## NpcBody walking to a seat -> { seat, t, free_walk }
 var _npc_cmd: Dictionary = {}        ## what the NPC driver did this frame (the lean reads it)
 var gear: SpeederGear                ## issue #616: seekers, mines, deflector (the parts fitted)
-var hover_steps := 0                 ## issue #617: parked hover ticks run (tests: a sleeping one runs none)
+## Issue #627: parked speeders sleep (no hover step) while the player is beyond
+## the config's sleep_distance, so owning one of each costs what one did.
+var asleep := false
+var parked_steps := 0                ## hover steps taken while parked (tests)
+var hover_steps := 0                 ## issue #617: the same count, as the pink-slip tests read it
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -221,7 +227,7 @@ func hull_body() -> CollisionObject3D:
 
 
 func threat_velocity() -> Vector3:
-	return model.forward() * model.speed
+	return model.travel_dir() * model.speed     # issue #627: a drifting truck moves along its slide
 
 
 ## Bolts land here (the hull's parent). Riding or parked, the hull takes it.
@@ -238,6 +244,22 @@ func apply_damage(amount: float) -> void:
 
 
 # ------------------------------------------------------------------ frame
+
+## Issue #627: parked and settled (nobody aboard or boarding, not moving, on the
+## ground) with the player more than sleep_distance away. A parked speeder only
+## settles its hover; asleep it keeps where it is until someone comes near.
+func _sleeps() -> bool:
+	if riding or not npc_seats.is_empty() or not _boarding.is_empty():
+		return false
+	if model.airborne or absf(model.speed) > 0.05 or absf(model.vy) > 0.05:
+		return false
+	var reach := float(cfg.get("sleep_distance", 60.0))
+	if reach <= 0.0:
+		return false
+	var p := player()
+	if p == null or not is_instance_valid(p):
+		return false                   # nobody to measure from (bare tests): as before
+	return p.global_position.distance_squared_to(model.position) > reach * reach
 
 func _physics_process(dt: float) -> void:
 	if model == null or not model.alive():
@@ -259,12 +281,13 @@ func _physics_process(dt: float) -> void:
 		if free_now and _just("interact"):
 			mount()
 			return
-		# Issue #617: parked and nobody near: no hover tick (a row of five costs what
-		# one did). It wakes as you come within sleep_m.
-		if npc_seats.is_empty() and _asleep():
-			_carry_riders()
+		if _sleeps():
+			# Issue #627: parked with every player far off: no hover step, no sync.
+			asleep = true
 			return
+		asleep = false
 		model.set_command(0.0, 0.0)
+		parked_steps += 1
 		for e in model.step(dt):
 			log_events.append(e)
 		hover_steps += 1
@@ -434,14 +457,6 @@ func _yaw_from(xf: Transform3D) -> float:
 	f -= u * f.dot(u)
 	var local := PlanetSphere.tilt_to(u).inverse() * f
 	return atan2(-local.x, -local.z) if Vector2(local.x, local.z).length() > 0.01 else model.yaw
-
-
-## Issue #617: parked with the player beyond sleep_m (none in the scene: never).
-func _asleep() -> bool:
-	var p := player()
-	if p == null or not is_instance_valid(p):
-		return false
-	return p.global_position.distance_to(model.position) > float(cfg.get("sleep_m", 60.0))
 
 
 # ------------------------------------------------------------------ NPC riders (issue #609)
@@ -682,10 +697,28 @@ func _burst() -> void:
 	if riding:
 		dismount()
 	_throw_riders_clear()
-	ExplosionFx.big(get_parent(), at + Vector3(0, 0.6, 0), 0.6)
-	Sound.play("vehicle_boom", at)
+	if not _crash():
+		ExplosionFx.big(get_parent(), at + Vector3(0, 0.6, 0), 0.6)
+		Sound.play("vehicle_boom", at)
 	destroyed.emit(at)
 	queue_free()
+
+
+## Issue #404: with the look on, the speeder's own model tumbles on, hits the sand,
+## splits and burns (CrashWreck); a small blast here, the big one at impact. False
+## (greybox, no ground): it pops as it always did.
+func _crash() -> bool:
+	if visual == null or model.ground == null or demo == null or not bool(demo.get("use_look")):
+		return false
+	var g: WorldGround = model.ground
+	var start := { "pos": global_position, "basis": global_transform.basis, "up": model.up(),
+		"vel": model.forward() * model.speed + model.up() * model.vy }
+	var w := CrashWreck.spawn(get_parent(), "speeder", visual, start, func(p: Vector3) -> Vector3: return g.surface_below(p))
+	if w == null:
+		return false
+	visual = null
+	ExplosionFx.big(get_parent(), global_position + model.up() * 0.6, 0.3)
+	return true
 
 
 func _just(action: String) -> bool:
@@ -729,32 +762,132 @@ func _build_visual() -> void:
 	var scene := str(look.get("paints", {}).get(paint, look.get("scene", "")))
 	if _build_model(scene, float(look.get("base_y", -0.65))):
 		return
-	# The tub: a low wedge-ended body, the rider sits in it.
-	_part(_box(Vector3(1.5, 0.5, 3.0)), hullm, Vector3(0, -0.15, 0.1))
-	_part(_box(Vector3(1.2, 0.35, 1.0)), hullm, Vector3(0, -0.05, -1.75), Vector3(-18, 0, 0))
-	_part(_box(Vector3(1.56, 0.1, 3.06)), trim, Vector3(0, 0.12, 0.1))
-	_part(_box(Vector3(0.7, 0.3, 0.8)), seat, Vector3(0, 0.15, 0.6))
-	_part(_box(Vector3(0.9, 0.5, 0.12)), metal, Vector3(0, 0.3, -0.55), Vector3(-25, 0, 0))
-	# Two outrigger skids on struts, with the hover glow under them.
-	for side in [-1.0, 1.0]:
-		_part(_cyl(0.16, 0.16, 4.4), trim, Vector3(side * 1.25, -0.45, -0.1), Vector3(90, 0, 0))
-		_part(_cyl(0.05, 0.05, 0.6), metal, Vector3(side * 1.0, -0.3, -1.0), Vector3(0, 0, side * 50))
-		_part(_cyl(0.05, 0.05, 0.6), metal, Vector3(side * 1.0, -0.3, 0.9), Vector3(0, 0, side * 50))
-		_part(_box(Vector3(0.24, 0.04, 3.8)), _glow_mat, Vector3(side * 1.25, -0.63, -0.1))
-		# Twin lasers along the skids' noses.
-		_part(_cyl(0.05, 0.05, 0.9), metal, Vector3(side * 0.55, 0.15, -2.15), Vector3(90, 0, 0))
-	# The rear ducted fan.
-	var duct := _part(_cyl(0.6, 0.6, 0.35), metal, Vector3(0, 0.15, 1.85), Vector3(90, 0, 0))
-	duct.name = "Duct"
-	_fan = Node3D.new()
-	_fan.position = Vector3(0, 0.15, 1.85)
-	visual.add_child(_fan)
-	for k in 3:
-		var blade := MeshInstance3D.new()
-		blade.mesh = _box(Vector3(0.12, 1.0, 0.04))
-		blade.material_override = trim
-		blade.rotation.z = k * PI / 3.0
-		_fan.add_child(blade)
+	_build_stand_in(look, { "hull": hullm, "trim": trim, "metal": metal, "seat": seat, "glow": _glow_mat,
+		"glass": mats.flat(Color(str(look.get("glass", "#22323f"))), 0.15, 0.3) })
+
+
+## Issue #627: the primitive body from data (look.stand_in), built when there is
+## no model: the Sand-boxer's old sled, and the racer's and the box truck's until
+## issue #628 renders them. Each piece is a box (size) or a cyl (top, bottom, h)
+## at `at`, turned `rot` degrees, in one of the look's colours; `mirror` builds it
+## on both sides (x and the y and z turns flipped). The pieces end as one mesh per
+## colour (docs/RENDER_RULES.md 1 and 5: batched, built from our own numbers),
+## shared by every speeder of that look. `fan` is a spinning rear fan. The body's
+## size (for the looks parts and the hull) is the pieces' bounds, glow left out,
+## and the blasters go on at laser.muzzle as on a model.
+func _build_stand_in(look: Dictionary, mat_of: Dictionary) -> void:
+	var key := str(look.get("stand_in", [])).hash()
+	if not _stand_ins.has(key):
+		_stand_ins[key] = _stand_in_meshes(look.get("stand_in", []))
+	var built: Dictionary = _stand_ins[key]
+	var meshes: Dictionary = built.meshes
+	for mat_name in meshes:
+		var mi := _part(meshes[mat_name], mat_of.get(mat_name, mat_of.hull), Vector3.ZERO)
+		mi.name = "StandIn_" + str(mat_name)
+	var box: AABB = built.box
+	if box.size != Vector3.ZERO:
+		_size = box.size
+		_stand_in_box = box
+	var fan: Dictionary = look.get("fan", {})
+	if not fan.is_empty():
+		_fan = Node3D.new()
+		_fan.position = _v3(fan.get("at", [0, 0, 0]))
+		visual.add_child(_fan)
+		var blades := int(fan.get("blades", 3))
+		for k in blades:
+			var blade := MeshInstance3D.new()
+			blade.mesh = _box(_v3(fan.get("size", [0.12, 1.0, 0.04])))
+			blade.material_override = mat_of.get(str(fan.get("mat", "trim")), mat_of.trim)
+			blade.rotation.z = k * PI / float(blades)
+			_fan.add_child(blade)
+	_build_blasters()
+
+
+## The stand-in's pieces as { meshes: colour -> ArrayMesh, box: bounds without
+## the glow }.
+static func _stand_in_meshes(pieces: Array) -> Dictionary:
+	var tools := {}
+	var box := AABB()
+	var first := true
+	for piece in pieces:
+		var pc: Dictionary = piece
+		var mat := str(pc.get("mat", "hull"))
+		if not tools.has(mat):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			st.set_smooth_group(-1)          # flat, faceted normals
+			tools[mat] = st
+		var at := _v3(pc.get("at", [0, 0, 0]))
+		var rot := _v3(pc.get("rot", [0, 0, 0]))
+		var sides: Array = [1.0, -1.0] if bool(pc.get("mirror", false)) else [1.0]
+		for side in sides:
+			var r := Vector3(deg_to_rad(rot.x), deg_to_rad(rot.y * side), deg_to_rad(rot.z * side))
+			var xf := Transform3D(Basis.from_euler(r), Vector3(at.x * side, at.y, at.z))
+			var pts: PackedVector3Array
+			if str(pc.get("shape", "box")) == "cyl":
+				var top := float(pc.get("top", 0.1))
+				pts = _add_cyl(tools[mat], xf, top, float(pc.get("bottom", top)), float(pc.get("h", 1.0)))
+			else:
+				pts = _add_box(tools[mat], xf, _v3(pc.get("size", [1, 1, 1])))
+			if mat == "glow":
+				continue                     # the hover glow is light, not body
+			for q in pts:
+				box = AABB(q, Vector3.ZERO) if first else box.expand(q)
+				first = false
+	var meshes := {}
+	for mat in tools:
+		var st: SurfaceTool = tools[mat]
+		st.generate_normals()
+		meshes[mat] = st.commit()
+	return { "meshes": meshes, "box": box }
+
+
+## A box of `size` centred on xf's origin; returns its corners.
+static func _add_box(st: SurfaceTool, xf: Transform3D, size: Vector3) -> PackedVector3Array:
+	var h := size * 0.5
+	var c := PackedVector3Array()
+	for k in 8:
+		c.append(xf * Vector3(h.x if k & 1 else -h.x, h.y if k & 2 else -h.y, h.z if k & 4 else -h.z))
+	var b := xf.basis
+	LookMeshKit.add_quad(st, c[1], c[3], c[7], c[5], b.x)     # +x
+	LookMeshKit.add_quad(st, c[0], c[4], c[6], c[2], -b.x)    # -x
+	LookMeshKit.add_quad(st, c[2], c[6], c[7], c[3], b.y)     # +y
+	LookMeshKit.add_quad(st, c[0], c[1], c[5], c[4], -b.y)    # -y
+	LookMeshKit.add_quad(st, c[4], c[5], c[7], c[6], b.z)     # +z
+	LookMeshKit.add_quad(st, c[0], c[2], c[3], c[1], -b.z)    # -z
+	return c
+
+
+## A cylinder along xf's y, `h` tall, radius `top` above and `bottom` below, 12
+## sides, capped; returns its rim points.
+static func _add_cyl(st: SurfaceTool, xf: Transform3D, top: float, bottom: float, h: float) -> PackedVector3Array:
+	const N := 12
+	var up := xf * Vector3(0, h * 0.5, 0)
+	var down := xf * Vector3(0, -h * 0.5, 0)
+	var rim := PackedVector3Array()
+	for k in N + 1:
+		var a := TAU * float(k % N) / float(N)
+		var d := Vector3(cos(a), 0, sin(a))
+		rim.append(xf * (d * top + Vector3(0, h * 0.5, 0)))
+		rim.append(xf * (d * bottom + Vector3(0, -h * 0.5, 0)))
+	for k in N:
+		var a := TAU * (float(k) + 0.5) / float(N)
+		var out := xf.basis * Vector3(cos(a), 0, sin(a))
+		var t0 := rim[k * 2]
+		var b0 := rim[k * 2 + 1]
+		var t1 := rim[k * 2 + 2]
+		var b1 := rim[k * 2 + 3]
+		if top > 0.0001 or bottom > 0.0001:
+			LookMeshKit.add_quad(st, t0, t1, b1, b0, out)
+		if top > 0.0001:
+			LookMeshKit.add_tri(st, up, t0, t1, xf.basis.y)
+		if bottom > 0.0001:
+			LookMeshKit.add_tri(st, down, b0, b1, -xf.basis.y)
+	return rim
+
+
+static func _v3(a) -> Vector3:
+	return Vector3(float(a[0]), float(a[1]), float(a[2])) if a is Array and a.size() >= 3 else Vector3.ZERO
 
 
 ## Issue #43: the Hyper3D speeder (the look's "scene", prepped by
@@ -942,10 +1075,12 @@ func _build_hull() -> void:
 	cs.name = "Shape"
 	cs.shape = _model_hull()
 	if cs.shape == null:
+		# Issue #627: no model: the stand-in's own bounds, so bolts hit what you see.
 		var shape := BoxShape3D.new()
-		shape.size = Vector3(3.0, 1.0, 4.6)
+		var b := _stand_in_box if _stand_in_box.size != Vector3.ZERO else AABB(Vector3(-1.5, -0.7, -2.3), Vector3(3.0, 1.0, 4.6))
+		shape.size = b.size
 		cs.shape = shape
-		cs.position = Vector3(0, -0.2, 0)
+		cs.position = b.get_center()
 	hull.add_child(cs)
 	add_child(hull)
 
@@ -996,8 +1131,9 @@ func _build_hud() -> void:
 	help.position = Vector2(-420, -100)
 	help.size = Vector2(840, 28)
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	help.text = "[W/S] Throttle   [A/D] Steer   [Shift] Boost   [LMB] Lasers   [Space] Grav Lifter   [E] Get off" \
-		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] Boost   [Space / LMB] Lasers   [E] Get off"
+	var shift := "Drift" if model.ability() == "drift" else "Boost"     # issue #627: the box truck drifts
+	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter   [E] Get off" \
+		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] %s   [Space / LMB] Lasers   [E] Get off") % shift
 	help.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	help.add_theme_constant_override("outline_size", 4)
 	_hud.add_child(help)
@@ -1028,8 +1164,9 @@ func _show_prompt(on: bool) -> void:
 func _update_hud() -> void:
 	if _readout == null:
 		return
-	_readout.text = "SPEEDER\nSPEED  %3d m/s   %3d km/h\nHULL   %3d / %d\nBOOST  %3d%%%s" % [
+	_readout.text = "SPEEDER\nSPEED  %3d m/s   %3d km/h\nHULL   %3d / %d\n%s  %3d%%%s" % [
 		int(absf(model.speed)), int(absf(model.speed) * 3.6), model.hp, model.max_hp,
+		"DRIFT" if model.ability() == "drift" else "BOOST",
 		int(model.boost_left / maxf(model.p("boost_time", 3.5), 0.001) * 100.0),
 		"\nAIRBORNE" if model.airborne else ""]
 	if model.has_lifter():

@@ -1,7 +1,7 @@
 {
   "id": "remnant_cruiser",
   "label": "Remnant star cruiser",
-  "note": "IP-neutral. Issue #193: the Remnant's star cruiser, holding orbit over the home planet far to the east, out of sight of the port but plain to see from space. Its geometry is code (src/systems/world/cruiser_hull.gd, all in the cruiser's own frame: x to starboard, where the bay opens, y up, z bow to stern); where it hangs is the home world's 'cruiser' landmark (content/core/worlds/port_desert.json). This file is everything else: its pads and the ships parked on them, how Z docks you, who is aboard, the droids, the reward and every line. Points are [x, y, z] in the cruiser's frame: the bay, corridor and shaft decks are at y -14, the bridge at 58, its crew pits at 55. When the general is dead the cruiser is taken (WorldState flag cruiser_taken): nobody is aboard from then on, and it is still there to fly to and walk round.",
+  "note": "IP-neutral. Issue #193: the Remnant's star cruiser, holding orbit over the home planet far to the east, out of sight of the port but plain to see from space. Its geometry is code (src/systems/world/cruiser_hull.gd, all in the cruiser's own frame: x to starboard, where the bay opens, y up, z bow to stern); where it hangs is the home world's 'cruiser' landmark (content/core/worlds/port_desert.json). This file is everything else: its pads and the ships parked on them, how Z docks you, who is aboard, the droids, the reward and every line. Points are [x, y, z] in the cruiser's frame: the bay, corridor and shaft decks are at y -14, the bridge at 58, its crew pits at 55. When the general is dead the cruiser is taken (WorldState flag cruiser_taken): his crew are gone once you fly away, and \"holders\" says who is aboard from then on (issue #497).",
   "naming": { "vessel": "vessel" },
   "pads": [
     { "id": "bay_a", "at": [24, 0, -124], "yaw_deg": -90, "radius": 11, "ship": "remnant_interceptor", "flyable": true },
@@ -73,6 +73,13 @@
     { "soldier": "cruiser_trooper", "at": [10, 34, 274], "face": [0, 0, 1] },
     { "soldier": "cruiser_sentry", "at": [0, -2, 323], "face": [0, 0, -1] }
   ],
+  "holders": {
+    "note": "Issue #497: who crews the cruiser once it is taken, on a handful of its crew points (the key is the index in \"crew\", the value the soldier profile). locals: once the general is dead and the dark master has left it, a locals' crew on the bay and the bridge, on your standing with the locals; a friend of theirs (friend_standing or better) borrows a bay ship for borrow_standing, anyone else steals it and sets off their alarm. oath: you swore the dark master's oath, so his Remnant are back aboard on the same posts and on your side, and lend you the bay's ships for borrow_standing in Remnant standing. While he is aboard nobody else is. No droids, no general.",
+    "locals": { "faction": "locals", "friend_standing": 15, "borrow_standing": -2,
+      "posts": { "2": "local_guard", "3": "local_guard", "4": "local_sentry", "5": "local_sentry", "13": "local_gate_guard", "14": "local_gate_guard", "17": "local_guard", "18": "local_guard" } },
+    "oath": { "faction": "imperial_remnant", "borrow_standing": -2,
+      "posts": { "2": "cruiser_trooper", "3": "cruiser_trooper", "4": "cruiser_trooper", "5": "cruiser_trooper", "13": "cruiser_honour_guard", "14": "cruiser_honour_guard", "17": "cruiser_honour_guard", "18": "cruiser_honour_guard" } }
+  },
   "droids": [
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[30, -14, -140], [30, -14, -100], [0, -14, -100], [0, -14, -140]] },
     { "kind": "assassin", "variant": "remnant", "hp": 60, "route": [[-20, -14, -80], [-14, -14, -80], [-14, -14, 4], [-20, -14, 4]] },

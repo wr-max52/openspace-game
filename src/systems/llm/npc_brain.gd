@@ -61,6 +61,7 @@ var extra_brief: Callable            ## () -> Array of lines: this character's o
 var wares: Callable                  ## issue #305: () -> [{ id, name, price, text }] what they can sell you now (offer_item)
 var ship_offer: Callable             ## issue #295: () -> { id, name, price, stolen } a ship they would buy now, or {}
 var sale_open: Callable              ## () -> bool: whether their card's "sale" is on offer now (Skrugs: not once you own your one speeder)
+var sale_models: Callable            ## issue #627: () -> Array of the card's sale.models ids still for sale to them (all when unset)
 
 var _turn_id := -1
 var _raw := ""
@@ -343,6 +344,7 @@ func say(text: String) -> bool:
 		"ship_buy": _ship_offer(),
 		"wares": wares.call() if wares.is_valid() else [],
 		"sale_open": _sale_open(),
+		"sale_models": _open_models(),
 	}
 	var built := builder.build(world, rel, rumors, jobs, history, text)
 	_messages = built.messages
@@ -577,6 +579,34 @@ func _sale_open() -> bool:
 	return bool(sale_open.call()) if sale_open.is_valid() else true
 
 
+## Issue #627: the ids of the card's sale.models still for sale to them.
+func _open_models() -> Array:
+	if sale_models.is_valid():
+		return sale_models.call()
+	return (card.get("sale", {}).get("models", []) as Array).map(func(m): return str(m.get("id", "")))
+
+
+## Issue #627: the model they asked for (its words in what they said), or the
+## first still for sale. { } with no models on the card; "owned": true when the
+## one they named is not for sale to them any more.
+func _sale_model_for(text: String) -> Dictionary:
+	var models: Array = card.get("sale", {}).get("models", [])
+	if models.is_empty():
+		return {}
+	var open := _open_models()
+	var low := text.to_lower()
+	for m in models:
+		for w in m.get("words", []):
+			if low.contains(str(w)):
+				var got: Dictionary = (m as Dictionary).duplicate()
+				got["owned"] = not open.has(str(m.get("id", "")))
+				return got
+	for m in models:
+		if open.has(str(m.get("id", ""))):
+			return m
+	return {}
+
+
 ## The player accepted a job she offered (from the job card).
 func accept_job(id: String) -> bool:
 	if not WorldState.accept_job(id):
@@ -651,7 +681,15 @@ func canned_reply(text: String, topic: String = "") -> Dictionary:
 		"buy":
 			if not _sale_open():
 				return { "say": _pick(c.get("one_only", ["You have one already."])), "actions": [] }
-			return { "say": _pick(c.get("sell", ["Yours for the price on the board."])), "actions": [{ "type": "offer_speeder" }] }
+			var m := _sale_model_for(text)          # issue #627: which model they mean
+			if m.is_empty():
+				return { "say": _pick(c.get("sell", ["Yours for the price on the board."])), "actions": [{ "type": "offer_speeder" }] }
+			if bool(m.get("owned", false)):
+				var other := _sale_model_for("")
+				return { "say": _pick(c.get("owned_model", ["You have that one already. The %s, though..."])) % str(other.get("name", "")),
+					"actions": [] }
+			return { "say": _pick(c.get("sell_model", ["The %s: %d credits."])) % [str(m.get("name", "")), int(m.get("price", 0))],
+				"actions": [{ "type": "offer_speeder", "id": str(m.get("id", "")) }] }
 		"bye":
 			return { "say": _pick(c.get("bye", ["Go on."])), "actions": [{ "type": "end_conversation" }] }
 		"vibe":

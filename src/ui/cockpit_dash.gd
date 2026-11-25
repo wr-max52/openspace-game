@@ -88,16 +88,42 @@ static func glint(to_light: Vector3) -> Vector3:
 	return Vector3(h.x, -h.dot(Vector3(0.0, cos(lean), -sin(lean))), smoothstep(0.42, 0.8, h.dot(normal)))
 
 
+## Filled shapes go out as one triangle list each (tris), never through
+## draw_polygon or draw_colored_polygon: those cost about 0.3 ms a call here (each
+## is triangulated and gets its own buffer), and one paint of the dash made several
+## hundred of them, a quarter of a second every paint while the cockpit view was up
+## (issue #637).
+static func tris(ci: CanvasItem, pts: PackedVector2Array, cols: PackedColorArray) -> void:
+	if pts.size() >= 3:
+		RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), PackedInt32Array(), pts, cols)
+
+
+## A convex polygon in one colour, as a fan from its first point.
+static func fill(ci: CanvasItem, poly: PackedVector2Array, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in range(1, poly.size() - 1):
+		pts.append(poly[0])
+		pts.append(poly[i])
+		pts.append(poly[i + 1])
+	tris(ci, pts, PackedColorArray([col]))
+
+
 ## A soft round light: `col` in the middle fading to nothing at radius r.
 static func halo(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	if col.a <= 0.003 or r < 1.0:
 		return
 	var clear := Color(col, 0.0)
 	var n := 24
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
 	for i in n:
-		var a := c + Vector2.from_angle(TAU * float(i) / float(n)) * r
-		var b := c + Vector2.from_angle(TAU * float(i + 1) / float(n)) * r
-		ci.draw_polygon(PackedVector2Array([c, a, b]), PackedColorArray([col, clear, clear]))
+		pts.append(c)
+		pts.append(c + Vector2.from_angle(TAU * float(i) / float(n)) * r)
+		pts.append(c + Vector2.from_angle(TAU * float(i + 1) / float(n)) * r)
+		cols.append(col)
+		cols.append(clear)
+		cols.append(clear)
+	tris(ci, pts, cols)
 
 
 ## The dash's body is modelled (CockpitView.dash_mesh, in a dark shade of the
@@ -207,7 +233,7 @@ func _attitude(c: Vector2, r: float, pitch: float, roll: float) -> void:
 	if ground.size() >= 3:
 		for i in ground.size():
 			ground.set(i, ground[i] + c)
-		draw_colored_polygon(ground, PAPER_EARTH)
+		fill(self, ground, PAPER_EARTH)
 	_paper(c, r)
 	if absf(h.offset) < r:
 		var half := sqrt(r * r - h.offset * h.offset)
@@ -289,7 +315,7 @@ func _compass(c: Vector2, r: float, heading: float, font: Font, fs: int) -> void
 			var p := c + d * r * 0.6
 			draw_string(font, p + Vector2(-12, fs * 0.3), FlightSimHud.compass_label(deg), HORIZONTAL_ALIGNMENT_CENTER,
 				24, fs - 4, RetroUI.accent if deg == 0 else Color(0.9, 0.87, 0.8))
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r * 0.98), c + Vector2(-6, -r * 0.8), c + Vector2(6, -r * 0.8)]), RetroUI.accent)
+	fill(self, PackedVector2Array([c + Vector2(0, -r * 0.98), c + Vector2(-6, -r * 0.8), c + Vector2(6, -r * 0.8)]), RetroUI.accent)
 	draw_string(font, c + Vector2(-r, r + fs + 2.0), "HDG %03d" % posmod(int(round(heading)), 360),
 		HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, fs - 4, Color(0.75, 0.72, 0.66))
 	_glass(c, r)
@@ -305,7 +331,9 @@ func _face(c: Vector2, r: float) -> void:
 ## rim, brighter in pools where each one sits, fading out before the middle.
 func _leds(c: Vector2, r: float) -> void:
 	var led := RetroUI.accent
-	_ring(c, r * 0.72, r * 0.98, Color(led, 0.0), Color(led, LED_GLOW * 0.5))
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	_ring_into(pts, cols, c, r * 0.72, r * 0.98, Color(led, 0.0), Color(led, LED_GLOW * 0.5))
 	for a in [-150.0, -30.0, 90.0]:
 		var at := c + Vector2.from_angle(deg_to_rad(a)) * r * 0.9
 		var pool := circle_points(r * 0.32, 24)
@@ -321,18 +349,28 @@ func _leds(c: Vector2, r: float) -> void:
 			tint.append(Color(led, 0.0))
 		for i in pool.size():
 			var j := (i + 1) % pool.size() + 1
-			draw_polygon(PackedVector2Array([inside[0], inside[i + 1], inside[j]]),
-				PackedColorArray([tint[0], tint[i + 1], tint[j]]))
+			for k in [0, i + 1, j]:
+				pts.append(inside[k])
+				cols.append(tint[k])
+	tris(self, pts, cols)
 
 
 ## A ring from radius r0 to r1 round c, shaded c0 on the inside to c1 on the outside.
 func _ring(c: Vector2, r0: float, r1: float, c0: Color, c1: Color) -> void:
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	_ring_into(pts, cols, c, r0, r1, c0, c1)
+	tris(self, pts, cols)
+
+
+static func _ring_into(pts: PackedVector2Array, cols: PackedColorArray, c: Vector2, r0: float, r1: float, c0: Color, c1: Color) -> void:
 	var n := 48
 	for i in n:
 		var a := Vector2.from_angle(TAU * float(i) / n)
 		var b := Vector2.from_angle(TAU * float(i + 1) / n)
-		draw_polygon(PackedVector2Array([c + a * r0, c + b * r0, c + b * r1, c + a * r1]),
-			PackedColorArray([c0, c0, c1, c1]))
+		for q in [[a * r0, c0], [b * r0, c0], [b * r1, c1], [a * r0, c0], [b * r1, c1], [a * r1, c1]]:
+			pts.append(c + (q[0] as Vector2))
+			cols.append(q[1])
 
 
 ## A steady pseudo-random 0..1 for (i, k), so the card's fibres do not crawl.
@@ -406,7 +444,7 @@ func _fill_at(poly: PackedVector2Array, at: Vector2, col: Color) -> void:
 		return
 	for i in poly.size():
 		poly.set(i, poly[i] + at)
-	draw_colored_polygon(poly, col)
+	fill(self, poly, col)
 
 
 func _needle(c: Vector2, length: float, angle: float) -> void:

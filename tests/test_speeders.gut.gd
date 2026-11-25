@@ -228,18 +228,21 @@ func test_one_speeder_to_a_customer() -> void:
 	assert_not_null(post.speeders[0].visual.get_node_or_null("Model"), "the Sand-boxer, not the stand-in")
 
 
+## Issue #627: one of each model; once they own all three he offers none.
 func test_he_does_not_offer_a_second() -> void:
 	var t = _town()
 	var post: SpeederPost = t.speeder_post
 	var brain: NpcBrain = post.spot.brain
 	var open_ids: Dictionary = brain.builder.briefing({ "sale_open": brain._sale_open() }, brain.rel, [], []).ids
 	assert_eq(str(open_ids.sale.get("id", "")), "speeder", "none owned: on sale")
-	WorldState.credits = 1000
-	post.buy()
+	WorldState.credits = 1800
+	post.buy("speeder")
+	post.buy("racer")
+	post.buy("hauler")
 	assert_false(brain._sale_open())
 	var b: Dictionary = brain.builder.briefing({ "sale_open": brain._sale_open() }, brain.rel, [], [])
 	assert_true(b.ids.sale.is_empty(), "an offer_speeder is dropped")
-	assert_string_contains(str(b.message.content), "ALREADY OWN A SPEEDER")
+	assert_string_contains(str(b.message.content), "ALREADY OWN ONE OF EACH")
 	var said := brain.canned_reply("How much for the speeder?")
 	assert_true((said.actions as Array).is_empty(), "no AI: no offer either")
 	assert_eq(str(said.say), str(brain.card.canned.one_only[0]))
@@ -247,29 +250,40 @@ func test_he_does_not_offer_a_second() -> void:
 	t.bar.start_talk(post.spot)
 	brain.sale_offered.emit({ "id": "speeder", "name": "speeder", "price": 100 })
 	t.bar.panel.answer_card(true)
-	assert_eq(WorldState.credits, 900)
-	assert_eq(post.speeders.size(), 1)
+	assert_eq(WorldState.credits, 1000)
+	assert_eq(post.speeders.size(), 3)
 	t.bar.end_talk()
 
 
 func test_an_old_save_keeps_its_first_speeder() -> void:
-	# Issue #617: speeders won on pink slips (or kept after a chase) are yours too,
-	# so a save keeps up to owned_cap (the row outside the back gate); only past
-	# that are the rest gone. Skrugs still sells you only one.
-	var paints := ["tide", "steel", "crimson", "remnant", "tide", "steel", "crimson"]
-	WorldState.counters["speeders_owned"] = paints.size()
-	WorldState.speeder_fits = paints.map(func(p): return SpeederUpgrades.new_fit(p))
+	WorldState.counters["speeders_owned"] = 3
+	WorldState.speeder_fits = [SpeederUpgrades.new_fit("tide"), SpeederUpgrades.new_fit("steel"), SpeederUpgrades.new_fit("crimson")]
 	WorldState.speeder_fits[0].parts = ["engine_1"]
 	var t = _town()
 	var post: SpeederPost = t.speeder_post
-	var cap := post.owned_cap()
-	assert_lt(cap, paints.size(), "the test save has more than the cap")
-	assert_eq(post.speeders.size(), cap, "the rest are gone")
-	assert_eq(WorldState.count("speeders_owned"), cap)
-	assert_eq(WorldState.speeder_fits.size(), cap)
+	assert_eq(post.speeders.size(), 1, "the rest are gone")
+	assert_eq(WorldState.count("speeders_owned"), 1)
+	assert_eq(WorldState.speeder_fits.size(), 1)
 	assert_eq(post.speeders[0].paint, "tide", "the first one, as it was")
 	assert_eq(WorldState.speeder_fits[0].parts, ["engine_1"])
-	assert_true(post.at_limit(), "and Skrugs sells no more")
+
+
+## Issue #617: speeders won on pink slips (or kept after a chase) are not his to
+## limit: a save keeps them as well as one bought of each model, up to owned_cap.
+func test_won_speeders_are_kept_past_the_one_of_each_rule() -> void:
+	var fits: Array = [SpeederUpgrades.new_fit("tide"), SpeederUpgrades.new_fit("steel")]
+	for p in ["crimson", "remnant", "tide", "steel", "crimson"]:
+		var f := SpeederUpgrades.new_fit(p)
+		f["won"] = true
+		fits.append(f)
+	WorldState.counters["speeders_owned"] = fits.size()
+	WorldState.speeder_fits = fits
+	var t = _town()
+	var post: SpeederPost = t.speeder_post
+	var cap := post.owned_cap()
+	assert_eq(post.speeders.size(), cap, "one bought, the won ones, up to the cap")
+	assert_eq(str(WorldState.speeder_fits[0].paint), "tide", "the first bought one")
+	assert_eq(WorldState.speeder_fits.filter(func(f): return not bool(f.get("won", false))).size(), 1, "only one bought Sand-boxer")
 
 
 func test_the_remnant_parks_a_black_and_red_one_outside_the_front_gate() -> void:
