@@ -88,9 +88,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    not physics: an aisle's arc can graze a stall, and they pass through you and
    each other. A puppet's outfit can change when its real body swaps in.
    *(the station's crowd and Remnant deck, 2026-11-04; fix: #701)*
-6. **Pulled back with no warning:** walk off a floor's roof (no railing) and you
-   are put back in the bay; outside on the giant, the same once you drop 40 m
-   under the lowest floor. *(the station, 2026-11-03 and 2026-11-04; fix: #702)*
 7. **Seven small ones** *(2026-10-29 to 2026-11-05; fix: #703)*:
    - Selling the gun in your hand to the fence leaves it drawn until you switch.
    - A barge fighter's body hangs in the air if the barge drives off while it
