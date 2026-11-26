@@ -457,6 +457,11 @@ func _sit_on_slope() -> void:
 	# Her belly's centre on the plane, straight down along up from where it was.
 	var down := (belly - pts[0]).dot(plane) / u.dot(plane)
 	flight.position = belly - u * down + n * clearance
+	# The plane misses her tail: on a dune crest it would sit in the sand. Lift her
+	# along up until no part of her footprint is under the ground.
+	var sunk := agl()
+	if sunk < 0.0:
+		flight.position -= u * sunk
 
 
 func _crash(at: Vector3, what: String) -> void:
