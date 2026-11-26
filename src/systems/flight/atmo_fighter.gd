@@ -14,7 +14,8 @@ extends Node3D
 ##   - on top of the space pilot it keeps off the ground (`floor_agl` now and
 ##     `look_ahead_s` ahead) and under the edge of space (`ceiling_margin`),
 ##   - with nothing to chase for `give_up_s` (you landed, climbed into space, are
-##     not wanted any more) it flies home and lands on its pad,
+##     not wanted any more) it flies home and lands on its pad; so it does once you
+##     have stayed above its ceiling for `ceiling_give_up_s` (issue #703),
 ##   - shot down, it blows up and a new one stands on the pad `respawn_s` later;
 ##     if it shoots you down you both start again in town (you in the pit, it on
 ##     its pad),
@@ -62,6 +63,7 @@ var home_yaw := 0.0
 var mode := Mode.PARKED
 var respawn_left := -1.0
 var idle_left := 0.0              ## seconds left with nothing to chase before it goes home
+var high_for := 0.0               ## issue #703: seconds you have been above its ceiling (it goes home at ceiling_give_up_s)
 var reset_pending := false        ## it shot you down: back to the pad once you are towed
 var berth := -1                   ## its pilot berth while it stands on the pad (yours to take), or -1
 
@@ -259,10 +261,13 @@ func _hunt(dt: float) -> void:
 		idle_left = p("give_up_s", 10.0)
 	else:
 		idle_left -= dt
-		if idle_left <= 0.0:
-			mode = Mode.RETURNING
-			_toast(GameFlow.label("interceptor_home"))
-			return
+	# Issue #703: you above its ceiling, where it can't follow: it stops circling under you.
+	high_for = high_for + dt if up and player_high() else 0.0
+	if idle_left <= 0.0 or high_for >= p("ceiling_give_up_s", 10.0):
+		high_for = 0.0
+		mode = Mode.RETURNING
+		_toast(GameFlow.label("interceptor_home"))
+		return
 	var b = brain
 	b.has_target = up
 	if up:
@@ -303,7 +308,7 @@ func _keep_clear(cmd: Dictionary) -> bool:
 	var ahead: Vector3 = f.position + f.velocity() * p("look_ahead_s", 2.5)
 	var floor_h := p("floor_agl", 45.0)
 	var low := atmo.agl() < floor_h or pilot.ground.height_above(ahead - up * atmo.clearance) < floor_h * 0.6
-	var high := atmo.altitude() > atmo.space_altitude - p("ceiling_margin", 900.0)
+	var high := atmo.altitude() > ceiling()
 	if not low and not high:
 		return false
 	var fwd: Vector3 = f.forward()
@@ -314,6 +319,16 @@ func _keep_clear(cmd: Dictionary) -> bool:
 	steer(cmd, aim)
 	cmd.throttle = 1.0
 	return true
+
+
+## The highest it flies: ceiling_margin under the edge of space.
+func ceiling() -> float:
+	return atmo.space_altitude - p("ceiling_margin", 900.0)
+
+
+## Issue #703: your ship is above its ceiling, where it can't follow.
+func player_high() -> bool:
+	return pilot != null and pilot.atmo.altitude() > ceiling()
 
 
 ## The brain's steering toward a world point, into `cmd`.
@@ -328,7 +343,7 @@ func _return(dt: float) -> void:
 	if atmo.state == AtmoFlight.State.LANDING:
 		_events(atmo.step(dt))
 		return
-	if target_up() and wanted():
+	if target_up() and wanted() and not player_high():     # issue #703: not back up after you while you stay high
 		mode = Mode.HUNTING
 		idle_left = p("give_up_s", 10.0)
 		return

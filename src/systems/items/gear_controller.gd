@@ -91,6 +91,7 @@ var menu: DroidMenu             ## a stall's trade menu: sell, buy, the fence's 
 var last_trade := ""            ## what the last pick in it did: "sold", "bought", "cant_afford", ...
 var _trade_said := ""           ## the trade menu's body: the pitch, then what the last trade did
 var on_refit := Callable()      ## issue #208: () after an upgrade (the town refits the player's guns)
+var on_sold := Callable()       ## issue #703: (id) after the last one of an item is sold (the town holsters that gun)
 var _armour_look := false       ## issue #209: the desert guard's look is on (story saves)
 var _dressed := ""              ## the outfit_note of armour just put on in free roam, said after the put-on line
 var _last_safe := Vector3.ZERO
@@ -664,6 +665,8 @@ func sell_item(id: String, v: Dictionary) -> String:
 	WorldState.log_event(_l("event_sold") % str(it.get("label", id)).to_lower())
 	if not inv().has(id):
 		_packs.erase(id)
+		if on_sold.is_valid():
+			on_sold.call(id)
 	sync_gear()
 	if bool(it.get("contraband", false)):
 		WorldState.on_contraband_sold()     # issue #64: a smuggling run done?

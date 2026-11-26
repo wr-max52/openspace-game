@@ -691,6 +691,18 @@ func _save_memory() -> void:
 	save.save_to(save_path)
 
 
+## Issue #703: write the world into the save at `path` with no cantina to do it
+## (open space builds no bar). The characters' memories and where you load (the
+## last planet's spot: SaveSystem.set_where never keeps open space) stay as they are.
+static func save_world(path: String) -> void:
+	var s := SaveSystem.new()
+	if not s.load_from(path):
+		s.new_game()
+	s.set_world(WorldState.to_save())
+	s.data["credits"] = WorldState.credits
+	s.save_to(path)
+
+
 ## Issue #113: the planet you are on, and your spot on it when you are standing
 ## on your own feet (not flying, riding, falling or down). Otherwise the last
 ## good spot on this planet is kept; a different planet's spot is dropped.

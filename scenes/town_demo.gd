@@ -551,6 +551,13 @@ func open_space() -> bool:
 	return str(planet.get("ground", "")) == "none"
 
 
+## Issue #703: quitting (or leaving) in open space saves the world as a planet's
+## bar would; only where a bar would have been built and saving (look on).
+func _exit_tree() -> void:
+	if open_space() and use_look and with_bar and not lookdev_mode and bar == null:
+		ConversationHost.save_world(SaveSlots.current_path())
+
+
 ## Issue #121: the town's own collider, from its worker thread (a poll step).
 func _terrain_town_ground() -> bool:
 	return (terrain as PlanetTerrain).finish_town_collider() if terrain is PlanetTerrain else true
@@ -1770,6 +1777,9 @@ func _build_gear() -> void:
 	gear.on_refit = func():             # issue #208: the fence's gun upgrades
 		if player_kit != null and player_kit.weapons != null:
 			player_kit.weapons.refit()
+	gear.on_sold = func(id: String):    # issue #703: a sold gun does not stay in your hand
+		if player_kit != null and player_kit.weapons != null:
+			player_kit.weapons.put_away(id)
 	add_child(gear)
 
 
