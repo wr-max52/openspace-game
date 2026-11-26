@@ -3,7 +3,8 @@
   "archetypes": {
     "desert_nomad": {"note": "Issue #96: the home planet's dune people. The kit pieces the issue names (head Goggles, upper body Cantina Owner, lower body Player), in sun-faded colours; the head is the sand Nomad head (round goggles joined to a nose cover over a full cloth face wrap, re-rendered in the nomad head re-render), and a pack picks one colour of the other two (content/core/species/*.json styles) and the leader wears the Cantina Owner head (the helmet). Each pack's head is dyed its tunic colour. Without a pack style (the party barge's crowd) a nomad wears one of the four nomad head shapes, never the helmet, and 'matched' keeps head, tunic and legs in one pack colour (the lists line up: the 16 heads are the 4 colours once per shape, legs paired as in the pack styles). Leaner and a little shorter than the port's people.", "height": 1.82, "bulk": 0.95, "robe": "#9c8262", "hood": "#86694a", "gloves": "#5a4636", "wrap": "#a8322a", "boots": "#4a3628", "model": {"scene": "res://assets/characters/kit/parts.glb", "pieces": true, "colors": "res://assets/characters/kit/colors/%s.png", "parts": {"head": ["nomad:sand", "nomad:madder", "nomad:slate", "nomad:teal", "nomad_crest:sand", "nomad_crest:madder", "nomad_crest:slate", "nomad_crest:teal", "nomad_maw:sand", "nomad_maw:madder", "nomad_maw:slate", "nomad_maw:teal", "nomad_horn:sand", "nomad_horn:madder", "nomad_horn:slate", "nomad_horn:teal"], "torso": ["cantina_owner:sand", "cantina_owner:madder", "cantina_owner:slate", "cantina_owner:teal"], "legs": ["player:sand", "player:rust", "player:dusk", "player:olive"]}, "matched": true, "bones": {"pelvis": "Hips", "spine": "Spine", "chest": "Spine2", "neck": "Neck", "head": "Head", "l_shoulder": "LeftArm", "l_elbow": "LeftForeArm", "l_wrist": "LeftHand", "r_shoulder": "RightArm", "r_elbow": "RightForeArm", "r_wrist": "RightHand", "l_hip": "LeftUpLeg", "l_knee": "LeftLeg", "l_ankle": "LeftFoot", "r_hip": "RightUpLeg", "r_knee": "RightLeg", "r_ankle": "RightFoot"}}},
     "remnant_trooper": {
-      "height": 2.06, "bulk": 1.12,
+      "height": 1.94, "bulk": 1.0,
+      "note": "The player's size (player_smuggler), so a guard's rifle sits in the shoulder exactly as the player's does; desert_guard and barge_guard take it through base. A bulk other than 1.0 scales the body unevenly, which skews the rifle and arms once the torso turns into the shot.",
       "armor": "#3d4147", "armor_light": "#5a5e63", "under": "#3a1517", "trim": "#a8844a",
       "cloth": "#6b1e1e", "visor": "#ffae4a", "boots": "#1e1c1c", "gloves": "#1a1818",
       "model": {
@@ -43,7 +44,7 @@
       "model": {"scene": "res://assets/characters/kit/parts.glb", "pieces": true, "colors": "res://assets/characters/kit/colors/%s.png", "parts": {"head": ["guard:void"], "torso": ["guard:void"], "legs": ["guard:void"]}, "bones": {"pelvis": "Hips", "spine": "Spine", "chest": "Spine2", "neck": "Neck", "head": "Head", "l_shoulder": "LeftArm", "l_elbow": "LeftForeArm", "l_wrist": "LeftHand", "r_shoulder": "RightArm", "r_elbow": "RightForeArm", "r_wrist": "RightHand", "l_hip": "LeftUpLeg", "l_knee": "LeftLeg", "l_ankle": "LeftFoot", "r_hip": "RightUpLeg", "r_knee": "RightLeg", "r_ankle": "RightFoot"}}
     },
     "remnant_marked": {
-      "height": 2.08, "bulk": 1.08,
+      "height": 1.94, "bulk": 1.0,
       "note": "Issue #64: the red Remnant officer Oda puts a price on (soldiers/bounty_target.json). The commander's kit in oxblood, every piece tinted red ('tint' multiplies the model's colours), so the target stands out at an outpost.",
       "tint": "#ff5a48",
       "armor": "#7a1c1c", "armor_light": "#a8302a", "under": "#2a1012", "trim": "#c9a058",

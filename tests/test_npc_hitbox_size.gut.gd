@@ -21,11 +21,11 @@ func _cap(body: CharacterBody3D) -> CapsuleShape3D:
 	return null
 
 
-func test_a_trooper_is_taller_and_wider_than_a_local() -> void:
+func test_a_trooper_is_the_players_size_and_taller_than_a_local() -> void:
 	var trooper := _cap(_npc({ "archetype": "remnant_trooper" }))
 	var local := _cap(_npc({ "archetype": "local" }))
 	assert_gt(trooper.height, local.height, "the trooper's hitbox is taller")
-	assert_gt(trooper.radius, local.radius, "and wider")
+	assert_eq(CharacterKit.size_of("remnant_trooper"), CharacterKit.size_of("player_smuggler"), "the player's size")
 	var s := CharacterKit.size_of("remnant_trooper")
 	assert_almost_eq(trooper.height, 1.8 * s.y, 0.001, "height with the look's height")
 	assert_almost_eq(trooper.radius, 0.4 * s.x, 0.001, "radius with the look's width")
