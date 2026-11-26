@@ -3,8 +3,9 @@ extends GutTest
 ## its far side), each lying its own way (heading, dive, list and how deep in the
 ## sand) with its decks, ramps and bridge fitted to that pose, and otherwise barely
 ## different from the original; the same crew aboard each, back three minutes after
-## they fall or as soon as you are 500 ft away; a supply crate with a random prize
-## on every wreck's bridge platform, the original's too.
+## they fall or as soon as you are 500 ft away; a supply crate on every wreck's
+## bridge platform, the original's too, always 10 refined quantonium, and stray
+## loot on the floors climbing up to it, better the higher you go.
 ## Pure WorldGround queries on the analytic planet, plus small scenes.
 
 const CoreScript := preload("res://src/systems/dataload/core_content.gd")
@@ -373,12 +374,10 @@ func test_a_supply_crate_stands_on_every_bridge_platform() -> void:
 		assert_eq(g.hit(at + up * 1.0, 0.6), "", "%s is not inside anything" % c.id)
 	for id in IDS:
 		assert_true(sites.has(id), "a crate on %s, the original too" % id)
-	var kinds := {}
-	for e in content.get_crate_prizes("port_town"):
-		kinds["credits" if e.has("credits") else str(e.item)] = e.get("credits", e.get("count", 0))
-	assert_true(content.get_crate_prizes("port_town").any(func(e): return int(e.get("credits", 0)) == 300), "300 credits")
-	assert_eq(int(kinds.get("food", 0)), 10, "10 food")
-	assert_eq(int(kinds.get("refined_quantonium", 0)), 5, "5 refined quantonium")
+	var prizes: Array = content.get_crate_prizes("port_town")
+	assert_eq(prizes.size(), 1, "one sure prize, not a roll")
+	assert_eq(str(prizes[0].get("item", "")), "refined_quantonium")
+	assert_eq(int(prizes[0].get("count", 0)), 10, "10 refined quantonium")
 
 
 func _gear() -> Array:
@@ -424,16 +423,77 @@ func test_opening_a_crate_gives_its_prize_once() -> void:
 	assert_eq(left.size(), 2)
 
 
-func test_the_prize_is_rolled_from_the_table() -> void:
+func test_every_crate_gives_ten_refined_quantonium() -> void:
 	var s := _gear()
 	var gear: GearController = s[0]
 	gear.rng.seed = 7
-	var seen := {}
-	for i in 200:
+	for i in 50:
 		var pr := gear.roll_crate_prize()
-		assert_false(pr.is_empty())
-		seen["credits:%d" % int(pr.credits) if pr.has("credits") else str(pr.item)] = true
-	assert_gte(seen.size(), 4, "it varies")
+		assert_eq(str(pr.get("item", "")), "refined_quantonium")
+		assert_eq(int(pr.get("count", 0)), 10)
+
+
+# ---- the stray loot ---------------------------------------------------------------
+
+func _loot_point(spot: Dictionary, site: String) -> Vector3:
+	var pt: Array = spot.point
+	return StarcruiserWreck.site_point(g, Vector3(pt[0], pt[1], pt[2]), str(spot.frame), site)
+
+
+func test_stray_loot_lies_on_a_floor_on_every_wreck() -> void:
+	var content = CoreScript.new()
+	content.load_from()
+	var spots: Array = content.get_site_loot("port_town")
+	assert_gte(spots.size(), 5)
+	for site in IDS:
+		for spot in spots:
+			var at := _loot_point(spot, site)
+			if StarcruiserWreck._buried(g, at):
+				assert_eq([site, str(spot.frame)], ["starcruiser_wreck_3", "hull"], "only _3's hold is under the sand (%s)" % spot.id)
+				continue
+			var up := g.up_at(at)
+			assert_almost_eq(g.height_above(at + up), 1.0, 0.4, "%s on %s sits on a floor" % [spot.id, site])
+			assert_eq(g.hit(at + up * 1.0, 0.4), "", "%s on %s is not inside anything" % [spot.id, site])
+
+
+func test_the_loot_gets_better_going_up() -> void:
+	var content = CoreScript.new()
+	content.load_from()
+	var spots: Array = content.get_site_loot("port_town")
+	assert_eq(str(spots[0].item), "grenade", "grenades at the bottom")
+	var last_v := -INF
+	var last_worth := 0
+	for spot in spots:
+		var at := _loot_point(spot, "starcruiser_wreck")
+		var v: float = (StarcruiserWreck.frame(g, "starcruiser_wreck", "level").affine_inverse() * at).y
+		assert_gte(v, last_v - 0.01, "%s is no lower than the one before" % spot.id)
+		var worth := int(content.get_item(str(spot.item)).get("value", 0)) * int(spot.count)
+		assert_gte(worth, last_worth, "%s is worth no less than the one below it" % spot.id)
+		assert_false(bool(content.get_item(str(spot.item)).get("contraband", false)), "%s shows in a story save" % spot.id)
+		last_v = v
+		last_worth = worth
+	var prize: Dictionary = content.get_crate_prizes("port_town")[0]
+	var crate_worth := int(content.get_item(str(prize.item)).get("value", 0)) * int(prize.count) * 2     # a fence pays double
+	assert_gt(crate_worth, last_worth, "the crate on top is the best of all")
+
+
+func test_stray_loot_is_put_out_and_taken_once() -> void:
+	var s := _gear()
+	var gear: GearController = s[0]
+	var p: FakePlayer = s[1]
+	var loot: Array = gear.pickups.filter(func(n): return str(n.pickup.id).contains("/"))
+	var spots: int = gear.content.get_site_loot("port_town").size()
+	var hull_spots: int = gear.content.get_site_loot("port_town").filter(func(e): return str(e.frame) == "hull").size()
+	assert_eq(loot.size(), spots * IDS.size() - hull_spots, "every spot on every wreck, but _3's buried hold")
+	var nade = loot.filter(func(n): return str(n.pickup.id) == "starcruiser_wreck_2/hold_grenades_stern")[0]
+	p.global_position = nade.base + g.up_at(nade.base) * 0.2
+	gear.focus = {}
+	var n0 := WorldState.inventory.count("grenade")
+	assert_eq(gear.interact(), "picked_up")
+	assert_eq(WorldState.inventory.count("grenade"), n0 + 2, "two grenades")
+	var again: Array = (_gear()[0] as GearController).pickups.filter(func(n): return str(n.pickup.id).contains("/"))
+	assert_eq(again.size(), loot.size() - 1, "taken once, the rest still there")
+	assert_true(again.all(func(n): return str(n.pickup.id) != "starcruiser_wreck_2/hold_grenades_stern"))
 
 
 class FakePlayer extends CharacterBody3D:
