@@ -8,7 +8,35 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
-## After the speeder race lag fix (2026-11-25)
+## After the speeder boost lag fix (2026-11-25)
+
+**Checked:** `test_smoke`, a headless town boot, and a rendered probe (Vulkan,
+this Mac, the user's graphics settings, a scratch `HOME`): mount a speeder at the
+yard crew's grid, 25 s flat out on boost into the open desert, then the yard
+race. Boosting: 355 frames in 25 s with 117 frames of ~280 ms (the physics tick
+at ~37 ms, so Godot ran several a frame) → 2,828 frames, p50 9.6 ms, p95 16 ms,
+one frame over 25 ms. Racing: p50 10.6 ms, p95 15.1 ms (was ~38 ms: the race lag fix below). The
+binned pads give the same height as the old loop (40,000 samples, none differ).
+
+**What it was:** every ground sample tested all 51 level pads (outposts, camps,
+droid sites, the climbable mountains' shelves, the race gates' pads), so the
+1 m ground's two rows a physics tick cost ~14 ms instead of ~1.2. Now the pads
+are binned by 128 m map cell (`PlanetSphere._flat_grid`). On top, the 1 m
+ground is not rebuilt under a speeder faster than `speeder_prefetch_speed`
+(20 m/s): it never finished at speed anyway. The boost's dust streaks are gone
+(graphics only). Speed rules 11 to 13 in `docs/RENDER_RULES.md`.
+
+**Not run:** the race suites, `test_race_course` (sets `flat_sites` by hand;
+the setter re-bins it), the planet and terrain suites.
+
+**Still there:**
+- Flat out, the ground round you is the 4 m mid ring; the 1 m patch comes back
+  once you slow under 20 m/s or get off. The dune edges are a separate issue.
+- GPU spikes of 12 to 17 ms now and then while driving fast (SDFGI on in the
+  user's settings, most likely its cascades scrolling); left on, p95 GPU is 8 ms.
+- Idle physics at the yard is ~9 ms a frame with nothing moving; not looked at.
+- `DesertTerrain` (the flat-world terrain, tests only) still scans its pads.
+
 
 **Checked:** `test_smoke`, a headless town boot, and a rendered probe of the yard
 crew's race (Vulkan, this Mac, a scratch `HOME`): accept 160 ms then 180-220 ms
@@ -20,8 +48,6 @@ countdown 10.8 ms; racing p50 15.4 ms, p95 38 ms.
 updated for the parked speeders and the staggered set-off but not run.
 
 **Still there:**
-- Racing p95 is ~38 ms with or without the track beast, most likely the ground
-  streaming in at speed (driving fast anywhere does it); not measured apart.
 - The beast's look is ~145 mesh nodes (a node per sphere and limb, render rule
   1); posing it less often helps the tick, not the draw calls.
 - Racers walk from their spot to their speeder on foot; with you far off (no

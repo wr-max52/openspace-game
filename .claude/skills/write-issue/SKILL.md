@@ -186,8 +186,10 @@ reasons are in `DECISIONS.md`.
 Anything drawn or ticked also follows the render rules in
 [`docs/RENDER_RULES.md`](../../../docs/RENDER_RULES.md) (batch, share materials,
 boxes before models, no new shaders, build over ticks, draw and tick by
-distance, measure). An issue that adds props, people or per-frame work names the
-ones it leans on.
+distance, never build what you outrun, bin anything the ground's height checks,
+no speed-feel effects, measure). An issue that adds props, people or per-frame
+work names the ones it leans on; one that adds level pads, rocks or dips to the
+ground's height says what a patch's rows cost before and after.
 
 ## Issue format
 

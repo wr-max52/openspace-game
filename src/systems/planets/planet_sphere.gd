@@ -32,7 +32,22 @@ var up_blend := 450.0
 var site_rect := Rect2()
 var under_rect := Rect2()
 var sinks: Array = []                ## [{ rect: Rect2, y: float }]
-var flat_sites: Array = []           ## small level pads around remote landmarks
+## Small level pads round remote landmarks ({ rect, y, blend }, map metres).
+## Setting it bins them by map cell (_index_flat_sites).
+var flat_sites: Array = []:
+	set(v):
+		flat_sites = v
+		_index_flat_sites()
+## Speeder lag: every ground sample (two per point of the 1 m ground, rebuilt as
+## you move) used to test all ~50 pads; at speed that was ~14 ms a physics tick
+## and frames of ~280 ms. Each pad is binned into the FLAT_CELL squares its
+## rectangle plus blend touches, so a sample only tests the pads in its square
+## (none, almost everywhere). Read-only after it is built: safe on the workers.
+const FLAT_CELL := 128.0
+var _flat_grid := {}                 ## cell key -> PackedInt32Array of pad indices, ascending
+var _flat_rects: Array[Rect2] = []
+var _flat_blends := PackedFloat64Array()
+var _flat_indexed := -1              ## flat_sites.size() when binned; -1 = not binned
 var pad_y := 0.0
 var under_y := -0.12
 var pad_margin := 30.0
@@ -202,7 +217,55 @@ func elevation(dir: Vector3, grow: float = 2.0) -> float:
 	return _apply_flat_sites(m.x, m.y, lerpf(flat, _dunes(p) - dune_offset, k))
 
 
+static func _flat_key(cx: int, cz: int) -> int:
+	return (cx + 1048576) | ((cz + 1048576) << 21)
+
+
+func _index_flat_sites() -> void:
+	_flat_grid = {}
+	_flat_rects = []
+	_flat_blends = PackedFloat64Array()
+	for i in flat_sites.size():
+		var site: Dictionary = flat_sites[i]
+		var rect: Rect2 = site.get("rect", Rect2())
+		var b := maxf(0.1, float(site.get("blend", 8.0)))
+		_flat_rects.append(rect)
+		_flat_blends.append(b)
+		var reach := rect.grow(b)
+		for cz in range(floori(reach.position.y / FLAT_CELL), floori(reach.end.y / FLAT_CELL) + 1):
+			for cx in range(floori(reach.position.x / FLAT_CELL), floori(reach.end.x / FLAT_CELL) + 1):
+				var key := _flat_key(cx, cz)
+				var list: PackedInt32Array = _flat_grid.get(key, PackedInt32Array())
+				list.append(i)
+				_flat_grid[key] = list
+	_flat_indexed = flat_sites.size()
+
+
 func _apply_flat_sites(x: float, z: float, base_height: float) -> float:
+	if flat_sites.is_empty():
+		return base_height
+	if _flat_indexed != flat_sites.size():
+		return _apply_flat_sites_all(x, z, base_height)   # appended to in place: not binned
+	var found = _flat_grid.get(_flat_key(floori(x / FLAT_CELL), floori(z / FLAT_CELL)))
+	if found == null:
+		return base_height                 # no pad reaches this square (almost everywhere)
+	var list: PackedInt32Array = found
+	var h := base_height
+	var p := Vector2(x, z)
+	for i in list:
+		var distance := _rect_dist(_flat_rects[i], p)
+		var blend_distance := _flat_blends[i]
+		if distance >= blend_distance:
+			continue
+		var y := _flat_site_y(flat_sites[i], x, z, base_height)
+		if distance <= 0.0:
+			return y
+		h = lerpf(y, h, smoothstep(0.0, blend_distance, distance))
+	return h
+
+
+## The same pads tested one by one (the binned path gives the same answer).
+func _apply_flat_sites_all(x: float, z: float, base_height: float) -> float:
 	var h := base_height
 	var p := Vector2(x, z)
 	for site in flat_sites:
@@ -211,18 +274,24 @@ func _apply_flat_sites(x: float, z: float, base_height: float) -> float:
 		var blend_distance := maxf(0.1, float(site.get("blend", 8.0)))
 		if distance >= blend_distance:
 			continue
-		var y := float(site.get("y", base_height))
-		if site.has("plane_u"):
-			# Level to the "up" bodies feel there (plane_u at plane_c), not to the
-			# ball's radius: they part where up eases from the plateau's to the ball's.
-			var pu: Vector3 = site.plane_u
-			var du := map_dir(x, z).dot(pu)
-			if du > 0.1:
-				y = ((site.plane_c as Vector3) - center).dot(pu) / du - radius
+		var y := _flat_site_y(site, x, z, base_height)
 		if distance <= 0.0:
 			return y
 		h = lerpf(y, h, smoothstep(0.0, blend_distance, distance))
 	return h
+
+
+## A pad's own level at map (x, z): its y, or, with a plane, the level of the
+## "up" bodies feel there (plane_u at plane_c), not the ball's radius: they part
+## where up eases from the plateau's to the ball's.
+func _flat_site_y(site: Dictionary, x: float, z: float, base_height: float) -> float:
+	var y := float(site.get("y", base_height))
+	if site.has("plane_u"):
+		var pu: Vector3 = site.plane_u
+		var du := map_dir(x, z).dot(pu)
+		if du > 0.1:
+			y = ((site.plane_c as Vector3) - center).dot(pu) / du - radius
+	return y
 
 
 ## World y of the ground on the vertical line through world (x, z): what flat-world

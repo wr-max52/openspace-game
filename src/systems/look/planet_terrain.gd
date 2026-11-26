@@ -741,6 +741,16 @@ func prefetch(pos: Vector3) -> void:
 	set_physics_process(true)
 
 
+## Speeder lag: going faster than a near rebuild can keep up (it takes ~2 s and
+## restarts every recenter_distance), drop the one half built: it would be
+## outrun anyway, and its rows are main-thread work every physics tick. The old
+## near patch stays where it was; the mid ring shows round you meanwhile.
+func drop_near_rows() -> void:
+	if _jobs.has("near") and _jobs.near.stage == "rows":
+		_jobs.erase("near")
+	_pending_jobs.erase("near")
+
+
 func _process(_dt: float) -> void:
 	if far_root == null or _far_instances.is_empty() or not is_inside_tree():
 		return

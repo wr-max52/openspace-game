@@ -58,11 +58,36 @@ a frame, with headroom left for the local LLM.
     of bodies are posed a frame, nearest first. Per-tick code allocates nothing
     and scans no tree: find things once and keep the list.
 
+## Speed
+
+Smooth frames beat finished detail: ground or props that come in late or
+coarse while you go fast are fine, a long frame is not. Lifted from the speeder
+lag fix (2026-11-25) and issue #574.
+
+11. **Never build what you outrun.** Anything built by position (the 1 m
+    ground, a patch, a ring of props) is started only while the player is slow
+    enough for it to finish; faster, a half-built one is dropped, and what is
+    already there stays until you slow down. The speeds are data:
+    `prefetch_speed` (ships) and `speeder_prefetch_speed` (speeders) in
+    `content/core/flow/launch_pads.json`.
+12. **Per-sample code is the hottest loop there is.** The ground's height
+    (`PlanetSphere.elevation`) runs twice for every point of every ground
+    patch: hundreds of thousands of times a rebuild, a few hundred every
+    physics tick while you move. Whatever it checks (level pads, sinks,
+    landmarks) is binned by map cell (`PlanetSphere._flat_grid`), never a scan
+    of every one. 51 pads scanned per sample were ~14 ms a tick and ~280 ms
+    frames on a boosting speeder. A new kind of pad, rock or dip in it is a
+    performance change: time a patch's rows in a probe before and after.
+13. **Speed feel is cheap or nothing.** Effects that only sell speed (dust
+    streaks, trails, particles) are not added; the camera's FOV kick and the
+    boosters' own glow do that job. A new material compiles on first use
+    (rule 4), so it would hitch on the first boost.
+
 ## Data and proof
 
-11. **Look numbers in `content/look/`, gameplay numbers in `content/core/`.**
+14. **Look numbers in `content/look/`, gameplay numbers in `content/core/`.**
     A literal colour or distance in a script is a review comment.
-12. **Measure.** Draw calls and primitives from a probe, before and after, in
+15. **Measure.** Draw calls and primitives from a probe, before and after, in
     the PR. Frame time only as a median over several runs; GPU ms on this Mac
     is noisy, and headless timing is not a render measurement
     ([`performance-traces.md`](performance-traces.md)).

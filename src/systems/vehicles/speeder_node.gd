@@ -92,7 +92,6 @@ var cam_override_on := false
 var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
-var _dust: CPUParticles3D            ## dust streaking past while you boost
 var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
 
 
@@ -358,11 +357,18 @@ func _ride(dt: float) -> void:
 	var p := player()
 	p.global_position = model.position
 	if demo.terrain != null and model.height_over_ground() < 30.0:
-		demo.terrain.prefetch(model.position)      # ground to step off onto, built in the background
-	# Issue #618: speed feel: the view widens a little and dust streaks past while
-	# you boost, easing back after. A finish cam takes the view while it runs.
+		# Ground to step off onto, built in the background, but only while slow
+		# enough for it to finish (flow data speeder_prefetch_speed): faster, the
+		# half-built one is dropped. Render rules: never build what you outrun.
+		if absf(model.speed) <= GameFlow.setting("speeder_prefetch_speed", 20.0):
+			demo.terrain.prefetch(model.position)
+		elif demo.terrain.has_method("drop_near_rows"):
+			demo.terrain.drop_near_rows()
+	# Issue #618: speed feel: the view widens a little while you boost, easing back
+	# after. A finish cam takes the view while it runs. (The boost's dust streaks
+	# went: a particle system and an alpha material compiled on the first boost,
+	# for a look nobody missed. Render rules: speed comes first.)
 	_fov_k = move_toward(_fov_k, 1.0 if model.boosting() else 0.0, dt * 2.5)
-	_tick_dust()
 	if demo._rig != null:
 		var view := chase.update(dt, model.transform().translated_local(Vector3(0, 0.6, 0)))
 		if cam_override_on:
@@ -508,37 +514,6 @@ func _tick_tow(dt: float) -> void:
 				want = 1.0
 				break
 	model.tow = move_toward(model.tow, want, dt / maxf(float(cfg.get("tow_build_s", 1.0)), 0.01))
-
-
-func _tick_dust() -> void:
-	if _dust == null and is_inside_tree() and demo != null and demo.get("use_look") == true:
-		_dust = CPUParticles3D.new()
-		_dust.amount = 36
-		_dust.lifetime = 0.45
-		_dust.local_coords = false
-		_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-		_dust.emission_box_extents = Vector3(3.5, 1.2, 1.0)
-		_dust.direction = Vector3(0, 0, 1)
-		_dust.spread = 8.0
-		_dust.initial_velocity_min = 4.0
-		_dust.initial_velocity_max = 9.0
-		_dust.gravity = Vector3.ZERO
-		_dust.scale_amount_min = 0.6
-		_dust.scale_amount_max = 1.2
-		var q := QuadMesh.new()
-		q.size = Vector2(0.05, 1.4)
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.albedo_color = Color(0.93, 0.82, 0.62, 0.35)
-		m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
-		q.material = m
-		_dust.mesh = q
-		_dust.position = Vector3(0, 0.8, -6.0)
-		_dust.emitting = false
-		add_child(_dust)
-	if _dust != null:
-		_dust.emitting = riding and _fov_k > 0.3
 
 
 # ------------------------------------------------------------------ NPC riders (issue #609)
