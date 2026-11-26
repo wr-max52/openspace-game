@@ -82,12 +82,10 @@
       "id": "outpost",
       "kind": "location",
       "location": "outpost",
-      "at": [
-        2600,
-        0,
-        -1900
-      ],
-      "yaw_deg": 30
+      "note": "The racers' outpost: the old abandoned outpost, taken over by the basin crew (content/core/locations/outpost.json). Moved from 2.6 km out east into the Basin Run's infield, about 150 m in from the racing line all round and 165 m from the start line, its gate (+x) turned toward the start. 'clear' keeps the rocks off its yard.",
+      "at": [715, 0, -1835],
+      "yaw_deg": 185,
+      "clear": 45
     },
     {
       "id": "skrugs_post",

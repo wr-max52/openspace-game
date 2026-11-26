@@ -290,10 +290,10 @@ const LAVA_PAD_HALF := 26.0
 const LAVA_PAD_LIFT := 1.5
 
 static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
-	var sites: Array = []                # the port's outposts and ranches, and the moons' (remnant_outpost_moon_*, _lava_*)
+	var sites: Array = []                # the port's outposts and ranches, the racers' outpost, and the moons' (remnant_outpost_moon_*, _lava_*)
 	for lm in planet.get("world", {}).get("landmarks", []):
 		var location_id := str(lm.get("location", ""))
-		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_")):
+		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_") or location_id == "outpost"):
 			continue
 		var loc = ItemKit._read_json("res://content/core/locations/%s.json" % location_id)
 		if not (loc is Dictionary) or not bool(loc.get("pad", true)):

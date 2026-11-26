@@ -1,9 +1,9 @@
 {
   "id": "basin_run",
   "label": "Basin Run",
-  "note": "Issue #615: the basin crew's course, a quick loop over the dunes south of the port, its start/finish line about 100 m from the basin's droid post. Same shape as hoodoo_run.json (read its note); no track beast here.",
+  "note": "Issue #615: the basin crew's course, a quick loop over the dunes south of the port, its start/finish line about 165 m from the racers' outpost in its infield (the basin crew's hangout) and 280 m from the basin's droid post. Same shape as hoodoo_run.json (read its note); no track beast here.",
   "world": "port_desert",
-  "near": "droid_post_basin",
+  "near": "outpost",
   "laps": 2,
   "gate_width": 26.0,
   "antenna_height": 7.0,

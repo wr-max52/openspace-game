@@ -38,7 +38,7 @@
     "port": { "shape": "port", "role": "service" },
     "remnant_outpost": { "shape": "bunker", "role": "hostile" },
     "village": { "shape": "village", "role": "hostile" },
-    "outpost": { "shape": "ruin", "role": "neutral" },
+    "outpost": { "shape": "village", "role": "race" },
     "droid_merchant_outpost": { "shape": "droid", "role": "droid" },
     "race": { "shape": "flag", "role": "race" },
     "speeders": { "shape": "speeder", "role": "vehicle" },

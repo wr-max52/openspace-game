@@ -31,6 +31,10 @@ const TownMarket := preload("res://src/systems/world/town_market.gd")
 const WAKE_DIST := 320.0           ## bodies further than this from the player sleep
 const DRAW_M := 1500.0             ## nothing here is drawn further than this
 const DRAW_FADE := 150.0
+## Location kinds built here: the ranch villages, and the racers' outpost (the old
+## abandoned outpost, a walled yard the basin crew took over: content/core/locations/outpost.json;
+## no Remnant outpost in it, no stands, racers round the fire).
+const KINDS := ["ranch", "outpost"]
 const KEEPER_BACK := 1.3           ## metres behind a stand's counter its keeper stands
 const SHOP_FRONT := 1.4            ## ... and in front, where a customer stands
 
@@ -78,7 +82,7 @@ func build_step() -> bool:
 		_cc = CoreContent.shared()
 		for lm in _cc.world_for_town("port_town").get("landmarks", []):
 			var loc := _cc.get_location(str(lm.get("location", "")))
-			if str(loc.get("kind", "")) == "ranch":
+			if str(loc.get("kind", "")) in KINDS:
 				_queue.append(_place.bind(lm, loc))
 	if _queue.is_empty():
 		return true
@@ -266,9 +270,10 @@ func _dress(r: Dictionary) -> void:
 	var market := TownMarket.new(kit)
 	var looks: Dictionary = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
 	var stall_cfg: Dictionary = r.cfg.get("stalls", {})
+	var lk: Dictionary = r.cfg.get("look", {})          # the racers' outpost: their own paint
 	var wall := mats.plaster(-1.0e7, -1.0e7, LookMaterials.CLOTH_SAND, Color("#d6c09c"))
-	var cap := mats.plaster(-1.0e7, -1.0e7, LookMaterials.CLOTH_SAND, Color("#b89a72"))
-	var banner := mats.canvas(LookMaterials.CLOTH_TEAL)
+	var cap := mats.plaster(-1.0e7, -1.0e7, LookMaterials.CLOTH_SAND, Color(str(lk.get("cap", "#b89a72"))))
+	var banner := mats.canvas(Color(str(lk.get("banner", LookMaterials.CLOTH_TEAL.to_html()))))
 	var stalls: Array = []
 	var trades := {}
 	for b in r.cfg.get("buildings", []):

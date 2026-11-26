@@ -200,7 +200,7 @@ func test_town_demo_builds_the_desert() -> void:
 	var gates := 0
 	for c in RaceCourse.courses_for("port_desert"):
 		gates += (c.gates as Array).size()
-	assert_eq(d.terrain.flat_sites.size() - yards.size(), 12 + gates, "and a pad under each pack's camp (2), outpost and ranch (10) and race gate")
+	assert_eq(d.terrain.flat_sites.size() - yards.size(), 13 + gates, "and a pad under each pack's camp (2), outpost and ranch (10), the racers' outpost (1) and race gate")
 	for site in yards:
 		var r: Rect2 = site.rect
 		var y := float(site.y)

@@ -1,25 +1,25 @@
 {
   "id": "basin",
   "label": "the basin crew",
-  "note": "Issue #615: the second rung of the race ladder: three locals who race out of the droid post in the basin, south of the port, on the Basin Run. They only race you once you have beaten the yard crew (`after`). Same shape as yard.json (read its note); `rung` orders the ladder, `after` is the crew you must beat first, and `rules.gear` the race gear they may use (issue #616). Speeder classes: the second racer drives a box truck with a racing engine (`model`), the fastest thing here on a straight; the others ride tuned Sand-boxers; they bring seekers and mines.",
+  "note": "Issue #615: the second rung of the race ladder: three locals who race out of the old outpost they took over (the racers' outpost, content/core/locations/outpost.json), in the Basin Run's infield south of the port, on the Basin Run. They stand and park outside its gate, Torrin's stall beside them, the start line about 135 m off. They only race you once you have beaten the yard crew (`after`). Same shape as yard.json (read its note); `rung` orders the ladder, `after` is the crew you must beat first, and `rules.gear` the race gear they may use (issue #616). Speeder classes: the second racer drives a box truck with a racing engine (`model`), the fastest thing here on a straight; the others ride tuned Sand-boxers; they bring seekers and mines.",
   "rung": 2,
   "after": "yard",
   "course": "basin_run",
   "profile": "local_racer",
   "hangout": {
-    "near": "droid_post_basin",
-    "face": [-48.9, -17.6]
+    "near": "outpost",
+    "face": [160.0, 0.0]
   },
   "shop": {
     "id": "torrin",
-    "at": [-12.0, 10.0],
-    "yaw_deg": 180
+    "at": [27.0, 14.0],
+    "yaw_deg": 0
   },
   "racers": [
     {
       "leader": true,
-      "stand": [-20.7, -7.4],
-      "park": [-31.1, -11.2],
+      "stand": [24.0, -2.0],
+      "park": [31.0, -9.0],
       "look": {
         "head": "guard:gunmetal",
         "torso": "local:worn_darker",
@@ -34,8 +34,8 @@
       "skill": "ace"
     },
     {
-      "stand": [-19.9, -9.8],
-      "park": [-35.9, -14.7],
+      "stand": [25.5, -4.5],
+      "park": [31.0, -16.0],
       "look": {
         "head": "guard:desert",
         "torso": "local:worn_lighter",
@@ -50,8 +50,8 @@
       "skill": "racer"
     },
     {
-      "stand": [-21.5, -5.1],
-      "park": [-26.2, -7.7],
+      "stand": [23.0, 0.4],
+      "park": [31.0, -23.0],
       "look": {
         "head": "guard:gunmetal",
         "torso": "local:worn_blue",
@@ -89,7 +89,7 @@
     "slips_lost": "They drive off in your speeder. Win it back: race them for pink slips again.",
     "talk": "[E] Talk to {name}",
     "challenge": [
-      "The yard crew sent you? Cute. Out here we race for real money.",
+      "The yard crew sent you? Cute. This outpost is ours now, and out here we race for real money.",
       "Two laps of the basin. Seekers and mines allowed. Still want in?"
     ],
     "menu_title": "{name} \u2014 {crew}",
