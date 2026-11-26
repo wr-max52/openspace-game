@@ -676,6 +676,16 @@ func _lamp_at(parent: Node3D, pos: Vector3) -> void:
 	lamps.append(l)
 
 
+## Issue #705: the lamp by the cantina's door, unless a club with no cantina
+## building covers it (the moon's rave fills the whole dome, so the door is a spot
+## in the middle of the room).
+static func door_lamp_wanted(town) -> bool:
+	if town.get_marker("cantina_door").is_empty():
+		return false
+	var building: bool = not (town.get_box("cantina_wall_w").is_empty() and town.get_box("cantina_body").is_empty())
+	return building or not town.data.has("club")
+
+
 func _add_lamps(town) -> void:
 	var root := Node3D.new()
 	root.name = "Lamps"
@@ -688,7 +698,7 @@ func _add_lamps(town) -> void:
 		for i in 3:
 			var z := lerpf((lc[0] as Vector3).z, (lc[1] as Vector3).z, (i + 0.5) / 3.0)
 			_lamp_at(root, frame * Vector3((lc[1] as Vector3).x + 1.0, 3.0, z))
-	if not town.get_marker("cantina_door").is_empty():
+	if door_lamp_wanted(town):
 		_lamp_at(root, town.marker_pos("cantina_door") + Vector3(1.0, 2.9, 2.5))
 	# Pit: one big light over the pad, set up like the beauty corner's landing bay.
 	var pit: Dictionary = town.get_box("pit_floor")
