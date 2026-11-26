@@ -46,6 +46,10 @@ const AUTO := ["bounty", "heist", "smuggle", "supply", "story", "cruiser"]     #
 ## urgent (AUTO). `key` names the job log entry it is ("map" for the F11 map's).
 ## Issue #611: set by a race while you race it: { text, target: "race:<course>:<gate>", key }.
 static var race: Dictionary = {}
+## Issue #711: metres from the player to the bounty's outpost while its officer is
+## out there (RemnantOutposts sets it each tick; INF otherwise). Within the bounty
+## data's mark_near_m the pointer moves from the outpost to the officer.
+static var bounty_dist := INF
 
 
 static func current() -> Dictionary:
@@ -132,7 +136,8 @@ static func _bounty() -> Dictionary:
 		var where := Story.outpost_label(str(b.outpost))
 		if not home():
 			return { "text": line("hunt_away") % [str(b.name), where], "target": "" }
-		return { "text": line("hunt") % [str(b.name), where], "target": "outpost:" + str(b.outpost) }
+		var close := bounty_dist <= float(Story.bounty_cfg().get("mark_near_m", 200.0))
+		return { "text": line("hunt") % [str(b.name), where], "target": "npc:bounty" if close else "outpost:" + str(b.outpost) }
 	return {}
 
 
