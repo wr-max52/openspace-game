@@ -59,6 +59,10 @@ var shell_ms := 0.0                   ## step time run_now() spent before start(
 var started_usec := 0                 ## when start() was called
 var finished_usec := 0                ## when the last step finished
 var _frame_usec := 0                  ## issue #574: when this frame's step time began
+var last_frame_ms := 0.0              ## issue #693: step time spent on the last frame that ran steps
+var piece_watch_ms := 0.0             ## issue #693: > 0 (probes): note pieces of sliced steps longer than this
+var slow_pieces: Array = []           ## { step, ms, at } the pieces over piece_watch_ms, `at` where they ended
+var _piece_usec := 0
 var _slicing := false                 ## a sliced step runs under the budget (not run_all)
 var _sliced_started := false
 var _sliced_done := false
@@ -84,9 +88,28 @@ func add_sliced(step_name: String, fn: Callable) -> void:
 ## Issue #574: between the pieces of a sliced step. Waits for the next frame once
 ## this frame's budget is spent; otherwise (or outside a staged build) goes on.
 func slice() -> void:
+	if piece_watch_ms > 0.0 and _slicing:
+		_note_piece()
 	if not _slicing or (Time.get_ticks_usec() - _frame_usec) / 1000.0 < budget_ms:
 		return
 	await _resume
+	_piece_usec = Time.get_ticks_usec()
+
+
+## Issue #693: a piece longer than piece_watch_ms, with the line it ended on.
+func _note_piece() -> void:
+	var now := Time.get_ticks_usec()
+	var from := maxi(_piece_usec, _frame_usec)
+	var ms := (now - from) / 1000.0
+	_piece_usec = now
+	if ms < piece_watch_ms:
+		return
+	var at := ""
+	for f in get_stack():
+		if not str(f.source).ends_with("staged_build.gd"):
+			at = "%s:%d" % [str(f.source).get_file(), int(f.line)]
+			break
+	slow_pieces.append({ "step": current, "ms": ms, "at": at })
 
 
 ## Issue #574: `sb` may be null (a build outside any staged plan): then never waits.
@@ -221,6 +244,7 @@ func run_frame() -> float:
 			ran += 1
 	var ms := (Time.get_ticks_usec() - t0) / 1000.0
 	if ran > 0:
+		last_frame_ms = ms
 		_account_frame(ms)
 	if failed_step != "":
 		set_process(false)

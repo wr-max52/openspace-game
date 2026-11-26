@@ -173,6 +173,9 @@ func _ready() -> void:
 	# now, in order. A no-fade handoff (the ship flying straight in from another
 	# planet) runs only the flight shell now and the rest over the next frames.
 	staging = staged_handoff and not lookdev_mode and str(GameFlow.arrival.get("mode", "")) == "handoff"
+	ClubTextures.async_paint = staging    # issue #693: textures painted on a worker, a stand-in till then
+	ModelCache.begin_planet(str(planet.get("id", "")))    # issue #693: what this planet loads, for next time
+	tree_exiting.connect(func(): ModelCache.save_use())
 	staged = StagedBuild.new()
 	staged.budget_ms = stage_budget_ms
 	for s in build_plan(staging):
@@ -383,7 +386,7 @@ func build_plan(staged_build: bool) -> Array:
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
 	var speeders_step := func(st: StagedBuild) -> void:     # issue #693: the post, then a speeder a piece
 		if with_speeders and pilot != null and has_feature("speeders"):
-			_build_speeder_post()
+			await _build_speeder_post(st)
 			await StagedBuild.slice_of(st)
 			await _park_gate_speeders(st)
 	add.call("speeders", LATER, speeders_step, "sliced")
@@ -1419,10 +1422,14 @@ func _repaint_town(owner: String) -> void:
 ## Issue #42: Skrugs's speeder stall outside the back gate. Skrugs joins the bar's
 ## conversation host when there is one (a test that builds the bar later calls
 ## speeder_post.attach_host itself).
-func _build_speeder_post() -> void:
-	speeder_post = SpeederPost.new()
-	speeder_post.setup(self, pilot.ground)
-	add_child(speeder_post)
+func _build_speeder_post(st: StagedBuild = null) -> void:
+	var sp := SpeederPost.new()
+	sp.setup(self, pilot.ground)
+	sp.build_later = st != null           # issue #693: a part a piece
+	add_child(sp)
+	if st != null:
+		await sp.build(st)
+	speeder_post = sp                     # whole before anything asks for it
 	if bar != null:
 		speeder_post.attach_host(bar)
 
@@ -1546,7 +1553,10 @@ func _build_race_courses(st: StagedBuild = null) -> void:
 			continue
 		var rcw := RaceCrew.new()
 		rcw.setup(self, pilot.ground, c, course)
+		rcw.build_later = st != null        # issue #693: a racer a piece
 		add_child(rcw)
+		if st != null:
+			await rcw.build(st)
 		race_crews.append(rcw)
 		await StagedBuild.slice_of(st)
 

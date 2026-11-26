@@ -33,7 +33,9 @@ a frame, with headroom left for the local LLM.
 5. **Never read a mesh back** from the renderer (`append_from`,
    `surface_get_arrays`, `PrimitiveMesh.get_mesh_arrays`): about 8 ms a mesh
    waiting on the GPU. Build triangles from your own numbers
-   (`StationFill._flat`, `LookMeshKit.ring_segment` with a transform).
+   (`StationFill._flat`, `LookMeshKit.ring_segment` with a transform). To merge
+   boxes, cylinders, spheres and rings use `PrimBatch` (`add`, `add_box`,
+   `commit`), never `SurfaceTool.append_from` on a primitive.
 6. **Draw by distance, from data.** `DrawDistance` gives every mesh under 6 m
    and every light a range from the `draw_distance` block of
    `content/look/world.json` (outdoor, interior, person, orbit). Register a new
@@ -63,7 +65,11 @@ a frame, with headroom left for the local LLM.
     ready before showing: data, meshes and source geometry on a worker
     (`WorkerThreadPool`), read-only content from `CoreContent.shared()`,
     never a full content read per body. Graphics may come in late; a frame may
-    never wait for them.
+    never wait for them: a handoff paints club textures on a worker behind a
+    flat stand-in (`ClubTextures.async_paint`), and a planet's models start
+    loading on the way in from open space (`ModelCache.prefetch_planet`, from
+    what it used last time). A sliced build that is still too long names its
+    piece: set `StagedBuild.piece_watch_ms` in a probe and read `slow_pieces`.
 10. **Tick by distance.** People sleep past the draw distance and think less
     often further out (puppets, not NPCs, until a fight); at most a set number
     of bodies are posed a frame, nearest first. Per-tick code allocates nothing

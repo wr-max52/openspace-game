@@ -177,10 +177,22 @@ func setup(town_demo, world_ground: WorldGround, crew_data: Dictionary, race_cou
 	_rng.randomize()
 
 
+var build_later := false              ## issue #693: build() runs over frames (a handoff), not in _ready
+
+
 func _ready() -> void:
+	if not build_later:
+		build(null)
+
+
+## The racers (a body each), their crowd's brain, the menu, HUD and stall. `st` (a
+## StagedBuild, may be null) puts each racer on its own piece; the crew only ticks
+## (`found`) once it is whole.
+func build(st: StagedBuild = null) -> void:
 	_find_hangout()
 	if not found or course == null:
 		return
+	found = false
 	var face := _ground(_v2(crew.get("hangout", {}).get("face", [0, 0])))
 	var bodies: Array = []
 	var i := 0
@@ -198,12 +210,15 @@ func _ready() -> void:
 			"slot": 0, "set_off": 0.0, "seated": false, "left_t": 0.0, "home": true, "finished": false, "out": false })
 		bodies.append(b)
 		i += 1
+		await StagedBuild.slice_of(st)
 	if not bodies.is_empty() and demo.has_method("make_townsfolk"):
 		folk = demo.make_townsfolk("RaceFolk_" + id, bodies)
 	menu = DroidMenu.new()
 	add_child(menu)
 	_build_hud()
+	await StagedBuild.slice_of(st)
 	_build_stall()
+	found = true
 
 
 ## The crew file's "shop" block: a speeder mechanic's stall (SpeederStall: one of

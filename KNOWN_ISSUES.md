@@ -8,6 +8,45 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## Coming down, part 4, round 2: smaller pieces, and the cold route (issue #693, 2026-11-26)
+
+**Checked:** `test_smoke` (2), `test_staged_build` (14), `test_barge_trace` (9,
+after `scenes/barge_trace.gd`), `test_race_course` (14), `test_race_crews` (12),
+`test_speeders` (23), `test_cruiser_crew` (7), `test_belt_cruiser` (7),
+`test_club_people` (6), `test_kit_outfits` (3), `test_m4_outpost` (2), a headless
+town boot, and a rendered descent probe (a copy of `scenes/descent_trace.tscn`
+that also names each slow piece, scratch HOME, this Mac).
+
+| Home route | round 1 | round 2 |
+|---|---|---|
+| Warm (home loaded once first), frames over budget | 36 | 21 |
+| Warm, coming down p99 / worst | 25.8 / 91 ms | 21.6 / 93 ms |
+| Cold (a session only on the giant, then home), frames over | 44 | 42 |
+| Cold, worst | 392 ms | 384 ms |
+
+**The cold route is the gas giant flight, and it is not fixed.** The descent
+trace warms home before it measures (`DESCENT_COLD` aside), so every number
+before this round was a session that had been home already. Flying in from the
+giant, home's scene loads fresh, and what a warm session keeps is made on the
+way down: the rock landforms' meshes and trimeshes (~366 ms, one step), the
+wrecks' boxes and plates (~320 ms piece, ~530 total), the town garrison
+(~225 ms, `_make_garrison`), the decor batch flush (~170 ms), the first native
+body (~170 ms, with 21 pipeline compiles). The models a planet used last time
+now start loading 30 km out (`prepare_m`), which covers model reads only.
+Next: make those once-a-session caches on a worker from 30 km out, and warm the
+material variants.
+
+**Warm route, still over:** the club room's booths (~85 ms piece) and an
+instrument (~48), the barge's first commit and hull skin (~40 each), the cruiser's
+first hull piece (~38), a box (~34), decor step 7 (~41), the player's body (~33),
+each native pack member (21-39) and the switch (71 ms: desert, dust, ship pilot,
+96 far-ball uploads).
+
+**People by distance (proposed, not built):** the cantina's patrons and vendors
+are built at ~7 km; they could wait until you are within a few hundred metres of
+town, and every place could let its people go when you fly away. Guards need
+their brain to take a body that comes in later.
+
 ## After coming down, part 4: build by sight (issue #693, 2026-11-25)
 
 **Checked:** `test_smoke` (2), `test_staged_build` (14, five new: a held step,

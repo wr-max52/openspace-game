@@ -69,14 +69,14 @@ func build(b: PartyBarge, st: StagedBuild = null) -> void:
 	_portholes()
 	await StagedBuild.slice_of(st)
 	_repulsors()
-	_top_deck()
+	await _top_deck(st)
 	await StagedBuild.slice_of(st)
 	_band()
 	await StagedBuild.slice_of(st)
-	_lower_deck()
+	await _lower_deck(st)
 	await StagedBuild.slice_of(st)
 	_steerage()
-	_console()
+	await _console(st)
 	await StagedBuild.slice_of(st)
 	_finish(self)
 
@@ -200,10 +200,8 @@ func _portholes() -> void:
 	var W := barge._W
 	var rim := ClubTextures.local(ClubTextures.brushed(Color("#b08e50"), 0.9))
 	var glass := ClubTextures.glow(Color("#ffc070"), 2.2)
-	var rims := SurfaceTool.new()
-	rims.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var panes := SurfaceTool.new()
-	panes.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rims := PrimBatch.new()           # issue #693: nothing read back from the GPU
+	var panes := PrimBatch.new()
 	var ring := CylinderMesh.new()
 	ring.top_radius = 0.32
 	ring.bottom_radius = 0.32
@@ -222,12 +220,12 @@ func _portholes() -> void:
 		while z < barge._L * 0.5 - 2.0:
 			for sx in [-1.0, 1.0]:
 				var xf := Transform3D(Basis(Vector3.FORWARD, PI * 0.5), Vector3(sx * x, y, z))
-				rims.append_from(ring, 0, xf)
-				panes.append_from(pane, 0, xf)
+				rims.add(ring, xf)
+				panes.add(pane, xf)
 			z += float(row[1])
 	for pair in [[rims, rim], [panes, glass]]:
 		var mi := MeshInstance3D.new()
-		mi.mesh = (pair[0] as SurfaceTool).commit()
+		mi.mesh = (pair[0] as PrimBatch).commit()
 		mi.material_override = pair[1]
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		barge.look.add_child(mi)
@@ -254,11 +252,12 @@ func _repulsors() -> void:
 
 # ------------------------------------------------------------------ the top deck
 
-func _top_deck() -> void:
+func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	var W := barge._W
 	var top := _top
 	var stage_end := _bow + PartyBarge.STAGE_D
 	var brass := ClubTextures.brushed(Color("#b08e50"), 0.9)
+	await StagedBuild.slice_of(st)
 	# The checker dance floor between the stage and the awning's far poles, in brass.
 	var fz0 := stage_end
 	var fz1 := -6.8
@@ -269,6 +268,7 @@ func _top_deck() -> void:
 	for sx in [-1.0, 1.0]:
 		jazz._box(jazz, Vector3(0.06, 0.016, fz1 - fz0), Vector3(sx * fw * 0.5, top + 0.008, (fz0 + fz1) * 0.5), brass)
 	jazz._box(jazz, Vector3(W - 1.2, 0.03, 0.06), Vector3(0, top + 0.135, stage_end), brass)       # the stage's lip
+	await StagedBuild.slice_of(st)
 	# Behind the band: wainscot, a brass rail and a velvet drape on the bow wall.
 	var wall_z := _bow + 0.27
 	jazz._box(jazz, Vector3(W - 1.4, 1.3, 0.04), Vector3(0, top + 0.12 + 0.65, wall_z), ClubTextures.panels(Color("#3e2414"), 1.1))
@@ -278,12 +278,14 @@ func _top_deck() -> void:
 	for k in 14:
 		jazz._box(jazz, Vector3(0.12, 1.9, 0.05), Vector3(-W * 0.5 + 1.1 + k * (W - 2.2) / 13.0, top + 0.12 + 1.35 + 0.95, wall_z + 0.03), velvet)
 	_sign(Vector3(0, top + 4.3, _bow + 0.12))
+	await StagedBuild.slice_of(st)
 	# Spots on the band from the awning's front edge, a blue wash from the corners.
 	var band_at := Vector3(0, top + 1.2, _bow + 2.6)
 	for x in [-3.2, 0.0, 3.2]:
 		jazz.spot(Vector3(x, top + 4.25, stage_end + 0.5), band_at + Vector3(x * 0.4, 0, 0), Color("#ffb468"), 7.0)
 	for sx in [-1.0, 1.0]:
 		jazz.spot(Vector3(sx * (W * 0.5 - 0.8), top + 3.6, _bow + 0.6), band_at + Vector3(-sx * 1.0, -0.6, 1.0), Color("#3a6aff"), 5.0, 10.0)
+	await StagedBuild.slice_of(st)
 	# Speaker stacks at the stage's front corners, facing aft.
 	for sx in [-1.0, 1.0]:
 		var foot := Vector3(sx * (W * 0.5 - 1.1), top + 0.12, stage_end - 0.5)
@@ -291,6 +293,7 @@ func _top_deck() -> void:
 		jazz.speaker(Transform3D(Basis(Vector3.UP, -sx * 0.25), foot + Vector3(0, 1.4, 0)), Vector3(0.7, 0.7, 0.55))
 	_piano(Transform3D(Basis.IDENTITY, Vector3(-W * 0.5 + 1.6, top + 0.12, _bow + 0.85)))
 	_sax(Transform3D(Basis(Vector3.UP, -0.6), Vector3(W * 0.5 - 1.7, top + 0.12, _bow + 3.4)))
+	await StagedBuild.slice_of(st)
 	# The bar: bottles along it and glasses, a lamp over it.
 	var colors := CantinaDressing.SERVED_COLORS
 	for i in 11:
@@ -300,6 +303,7 @@ func _top_deck() -> void:
 	for i in 4:
 		jazz._glass(jazz, Vector3(W * 0.5 - 1.0, top + 1.18, -2.8 + i * 1.2), Color(colors[(i * 3) % colors.size()]))
 	_lamp(Vector3(W * 0.5 - 1.6, top + 3.0, -1.0), 1.6, 8.0)
+	await StagedBuild.slice_of(st)
 	# Candlelit tables aft of the dance floor, and lamps over the dais.
 	for at in [Vector3(-W * 0.5 + 1.6, top, 5.0), Vector3(-W * 0.5 + 1.6, top, 8.0), Vector3(W * 0.5 - 1.6, top, 4.4), Vector3(W * 0.5 - 1.6, top, 7.4)]:
 		jazz.cocktail_table(at, 0.42, 0.8)
@@ -410,11 +414,12 @@ func _band() -> void:
 # ------------------------------------------------------------------ below
 
 ## The lower deck: a small rave at the bow end round the DJ, a lounge aft.
-func _lower_deck() -> void:
+func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	var W := barge._W
 	var y1 := float(barge._y[1])
 	var ceil := _top - 0.3
 	var dj_z := _bow + 3.0
+	await StagedBuild.slice_of(st)
 	# The light-up floor in front of the DJ.
 	var fz0 := _bow + 5.0
 	var cols := 6
@@ -430,7 +435,9 @@ func _lower_deck() -> void:
 			rave._box(rave, Vector3(0.92, 0.035, 0.92), Vector3(x, y1 + 0.02, z), m)
 			rave.cycles.append([m, 0.06, (x + z) * 0.03])
 			rave.pulses.append([m, 0.25, 2.6, 1.0, -Vector2(x, z - fz0 - rows * 0.5).length() * 0.09])
+		await StagedBuild.slice_of(st)
 	_hologram(Vector3(0, y1, _bow + 0.5), 6.4, ceil - y1 - 0.6)
+	await StagedBuild.slice_of(st)
 	# Speaker stacks either side of the DJ, a strobe on each.
 	for sx in [-1.0, 1.0]:
 		var foot := Vector3(sx * 3.6, y1, dj_z - 0.2)
@@ -447,6 +454,7 @@ func _lower_deck() -> void:
 		flash.position = foot + Vector3(0, 2.0, 0.5)
 		rave.add_child(flash)
 		rave.lights.append([flash, 0.0, 3.0, 2.0, 0.0])
+	await StagedBuild.slice_of(st)
 	# Moving heads on the ceiling, sweeping over the floor; a mirror ball.
 	var hues := [Color("#ff2bd6"), Color("#2bd9ff"), Color("#7aff5a"), Color("#ff2bd6")]
 	var k := 0
@@ -457,11 +465,13 @@ func _lower_deck() -> void:
 			rave.lights.append([l, 3.0, 9.0, 1.0, k * 0.25])
 			k += 1
 	rave.mirror_ball(Vector3(0, ceil - 0.6, fz0 + rows * 0.5), ceil, 0.28)
+	await StagedBuild.slice_of(st)
 	# Neon strips down both walls over the rave, cyan low, magenta high.
 	for sx in [-1.0, 1.0]:
 		var x: float = sx * (W * 0.5 - 0.44)
 		rave.neon(PackedVector3Array([Vector3(x, y1 + 0.35, _bow + 0.6), Vector3(x, y1 + 0.35, -7.2)]), Color("#2bd9ff"), false, 0.025, 4.0)
 		rave.neon(PackedVector3Array([Vector3(x, ceil - 0.25, _bow + 0.6), Vector3(x, ceil - 0.25, -7.2)]), Color("#ff2bd6"), false, 0.025, 4.0)
+	await StagedBuild.slice_of(st)
 	# The lounge aft: booths on the port wall, a rug, tables and warm lamps.
 	jazz._box(jazz, Vector3(4.0, 0.012, 7.6), Vector3(-W * 0.5 + 2.7, y1 + 0.006, 8.4), ClubTextures.rug(Color("#5a1e22"), Color("#c9a058"), 1.2))
 	for z in [6.2, 10.4]:
@@ -520,7 +530,7 @@ func _steerage() -> void:
 ## The control panel, in the cruiser bridge's colours: a desk tipped toward you,
 ## a compass screen with the course needle (the bow is up), a hologram arrow over
 ## it pointing the course, rows of buttons, a big engage button and a lever.
-func _console() -> void:
+func _console(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	var c := jazz._group("Console", Transform3D(Basis.IDENTITY, Vector3(3.6, _top, 16.1)))
 	var face := jazz._group("Face", Transform3D(Basis(Vector3.RIGHT, 0.38), Vector3(0, 1.04, 0.0)), c)
 	jazz._box(face, Vector3(1.86, 0.05, 0.78), Vector3.ZERO, ClubTextures.brushed(Color("#26282c"), 0.7))
@@ -537,6 +547,7 @@ func _console() -> void:
 	needle.position = Vector3(0, 0.045, 0)
 	face.add_child(needle)
 	jazz._box(needle, Vector3(0.025, 0.01, 0.17), Vector3(0, 0, -0.085), ClubTextures.glow(Color("#ffcc33"), 4.0))
+	await StagedBuild.slice_of(st)
 	# Buttons either side of the screen, blinking on their own time.
 	var palette := [Color("#3fe8ff"), Color("#2b8cff"), Color("#ffcc33"), Color("#ff4a3a"), Color("#7aff5a")]
 	for sx in [-1.0, 1.0]:
@@ -553,6 +564,7 @@ func _console() -> void:
 	face.add_child(lever)
 	jazz._rod(lever, Vector3.ZERO, Vector3(0, 0.22, 0), 0.015, jazz._flat(Color("#c0c0c4"), 0.3, 0.9))
 	jazz._sphere(lever, 0.04, Vector3(0, 0.24, 0), jazz._flat(Color("#a8322a"), 0.4))
+	await StagedBuild.slice_of(st)
 	# The hologram arrow over the panel, turning with the course.
 	arrow = Node3D.new()
 	arrow.position = Vector3(0, 1.75, -0.2)

@@ -51,6 +51,7 @@ var handoffs := 0                    ## seamless switches started (traces, tests
 var staged := false                  ## issue #121: built during a staged handoff (balls refine over frames)
 var _prechecks: Array = []           ## issue #121: worker tasks checking the neighbours' towns
 var prewarmed: Array = []            ## planets whose handoff scene was prewarmed (PlanetTerrain.prewarm_far)
+var prepared: Array = []             ## issue #693: planets whose models started loading on the way in
 var here_id := ""                    ## issue #573: the place this scene is (a planet, or open space)
 var open := false                    ## issue #573: this scene is open space
 var _open_body: Dictionary = {}      ## open space as a handoff target: its origin here (offset)
@@ -175,6 +176,8 @@ func _physics_process(_dt: float) -> void:
 				continue          # issue #573: a bubble is entered from open space only (they never touch)
 			# Issue #99: close enough to its ball: its scene, seamlessly.
 			var gap := pos.distance_to(b.at) - float(b.radius) - float(b.handoff)
+			if gap <= GameFlow.setting("prepare_m", 30000.0):
+				_prepare(b.id)
 			if gap <= PREWARM:
 				_prewarm(b.id)
 			if gap <= 0.0:
@@ -234,6 +237,18 @@ var last_handoff: Dictionary = {}     ## what the last handoff carried (tests, w
 
 
 ## A handoff to `id` is close: start its scene's slow first-frame work now.
+## Issue #693: heading for planet `id` from open space: the models it used last
+## time (ModelCache.used_by) and the outfit textures start loading on worker
+## threads, long before its scene takes over and asks for them.
+func _prepare(id: String) -> void:
+	if prepared.has(id):
+		return
+	prepared.append(id)
+	if pilot != null and bool(pilot.demo.get("use_look")):
+		ModelCache.prefetch_planet(id)
+		ModelCache.prefetch(CharacterKit.outfit_textures())
+
+
 func _prewarm(id: String) -> void:
 	if prewarmed.has(id):
 		return

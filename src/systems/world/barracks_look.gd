@@ -142,15 +142,12 @@ func _meshes(hall_id: String, parts: Array) -> void:
 			groups[f] = []
 		groups[f].append(p)
 	for f in groups:
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var batch := PrimBatch.new()      # issue #693: nothing read back from the GPU
 		for p in groups[f]:
-			var bm := BoxMesh.new()
-			bm.size = p.size
-			st.append_from(bm, 0, p.xf)
+			batch.add_box(p.size, p.xf)
 		var mi := MeshInstance3D.new()
 		mi.name = "%s_%s" % [hall_id, f]
-		mi.mesh = st.commit()
+		mi.mesh = batch.commit()
 		mi.material_override = _mat(str(f))
 		if f in ["screen", "glow"]:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
