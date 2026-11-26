@@ -291,8 +291,11 @@ func _draw() -> void:
 			var text := str(pins[named].label)
 			if str(pins[named].get("status", "")) != "":
 				text += " - " + str(pins[named].status)
+			if str(pins[named].kind) == "station":
+				text += "  ·  " + GlobeMap.line("station_open")
 			var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var at := Vector2(clampf(s.x - w * 0.5, 4.0, size.x - w - 4.0), maxf(s.y - 14.0, fs + 4.0))
+			var lift := 24.0 if str(pins[named].kind) == "station" else 14.0     # over the station's badge
+			var at := Vector2(clampf(s.x - w * 0.5, 4.0, size.x - w - 4.0), maxf(s.y - lift, fs + 4.0))
 			draw_rect(Rect2(at + Vector2(-4, -fs - 1), Vector2(w + 8, fs + 7)), Color(0, 0, 0, 0.7))
 			draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.96, 0.92, 0.84))
 
@@ -389,6 +392,8 @@ func _draw_pin(at: Vector2, pin: Dictionary, hot: bool) -> void:
 	var lk := GlobeMap.look()
 	var p := pin_look(pin)
 	var size_px := float(lk.get("pin_size", 6.0)) * (1.35 if hot else 1.0)
+	if str(pin.get("kind", "")) == "station":
+		size_px *= 1.7                       # a badge you click into, not a dot
 	draw_shape(self, at, str(p.get("shape", "circle")), Color(str(p.get("color", "#f2e2b0"))), size_px)
 
 
@@ -568,6 +573,9 @@ static func draw_shape(ci: CanvasItem, at: Vector2, shape: String, col: Color, r
 		"cruiser":
 			draw_cruiser_badge(ci, at, col, r)
 			return
+		"station":
+			draw_station_badge(ci, at, col, r)
+			return
 		_:
 			ci.draw_circle(at, r * 0.85 + 1.0, edge)
 			ci.draw_circle(at, r * 0.85, col)
@@ -601,3 +609,40 @@ static func draw_cruiser_badge(ci: CanvasItem, at: Vector2, col: Color, r: float
 	var glow := Color(0.62, 0.86, 1.0)
 	ci.draw_circle(o + Vector2(-1.52, -0.02) * r, maxf(r * 0.14, 1.0), glow)
 	ci.draw_circle(o + Vector2(-1.52, 0.26) * r, maxf(r * 0.14, 1.0), glow)
+
+
+## Half the size of a station badge drawn at `r` (px): for hit tests and layout.
+static func station_badge_half(r: float) -> Vector2:
+	return Vector2(r * 1.6, r * 1.3)
+
+
+## A space station's icon: the same dark frame as the cruiser's, with the station
+## side on inside it (the bay's dome on the left, a tunnel to the main tower's
+## stacked floors, the top one the widest, and a shorter second tower), so it
+## reads as somewhere you can click into.
+static func draw_station_badge(ci: CanvasItem, at: Vector2, col: Color, r: float) -> void:
+	var half := station_badge_half(r)
+	var box := Rect2(at - half, half * 2.0)
+	ci.draw_rect(box.grow(1.0), Color(0, 0, 0, 0.85))
+	ci.draw_rect(box, Color(0.04, 0.045, 0.06, 0.92))
+	ci.draw_rect(box, col, false, 1.5)
+	var th := maxf(r * 0.16, 1.0)
+	var deck := at.y + r * 0.62
+	# The bay: a low dome on the deck line.
+	ci.draw_arc(Vector2(at.x - r * 1.05, deck), r * 0.42, PI, TAU, 10, col, maxf(r * 0.14, 1.0), true)
+	# The tunnel from the bay to the main tower, and on to the second.
+	ci.draw_line(Vector2(at.x - r * 0.65, deck - th * 0.5), Vector2(at.x + r * 1.1, deck - th * 0.5), col, th)
+	# The main tower: floors widening upward, round its elevator shaft.
+	var mx := at.x - r * 0.05
+	ci.draw_line(Vector2(mx, deck), Vector2(mx, at.y - r * 0.95), Color(col, 0.7), maxf(r * 0.08, 1.0))
+	for k in 4:
+		var w := r * (0.38 + 0.11 * k)
+		var y := deck - r * 0.5 * k
+		ci.draw_rect(Rect2(mx - w, y - th * 1.6, w * 2.0, th * 1.6), col)
+	# The second tower: shorter, narrower.
+	var sx := at.x + r * 1.0
+	for k in 3:
+		var w := r * (0.24 + 0.06 * k)
+		var y := deck - r * 0.5 * k
+		ci.draw_rect(Rect2(sx - w, y - th * 1.4, w * 2.0, th * 1.4), Color(col, 0.85))
+	ci.draw_circle(Vector2(mx, at.y - r * 0.95), maxf(r * 0.12, 1.0), Color(0.62, 0.86, 1.0))

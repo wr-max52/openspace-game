@@ -119,6 +119,20 @@ func aboard(p: Vector3) -> bool:
 	return hull != null and hull.aboard(inv * p)
 
 
+## A world point in the station's own frame (the F11 map's side view).
+func to_local_point(p: Vector3) -> Vector3:
+	return inv * p
+
+
+## Where the pointer goes for "station:<part>" (ObjectiveHud.where): one of its map
+## places (StationHull.map_places: the bay, a floor), or the bay with no part.
+func objective_point(part: String = "") -> Vector3:
+	if hull == null:
+		return Vector3.INF
+	var at := hull.map_place(part if part != "" else "bay")
+	return frame * at if at != Vector3.INF else Vector3.INF
+
+
 func label() -> String:
 	var l := str(cfg.get("label", "station"))
 	return str(cfg.get("name_fmt", "%s")) % vessel_name if vessel_name != "" else l

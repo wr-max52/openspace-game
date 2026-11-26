@@ -325,8 +325,13 @@ func _outline(col: Color) -> void:
 
 ## Corner brackets round a place: four L's, a quarter of the shorter side each.
 func _brackets(r: Rect2, col: Color, width: float) -> void:
+	brackets(self, r, col, width)
+
+
+## The same on any canvas item (StationMapView marks its places with them too).
+static func brackets(ci: CanvasItem, r: Rect2, col: Color, width: float) -> void:
 	var l := clampf(minf(r.size.x, r.size.y) * 0.3, 4.0, 14.0)
 	for c: Vector2 in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
 		var sx := 1.0 if c.x == r.position.x else -1.0
 		var sy := 1.0 if c.y == r.position.y else -1.0
-		draw_polyline(PackedVector2Array([c + Vector2(sx * l, 0), c, c + Vector2(0, sy * l)]), col, width, true)
+		ci.draw_polyline(PackedVector2Array([c + Vector2(sx * l, 0), c, c + Vector2(0, sy * l)]), col, width, true)

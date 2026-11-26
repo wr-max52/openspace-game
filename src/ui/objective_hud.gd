@@ -168,6 +168,12 @@ func where(target: String) -> Vector3:
 			# or one part of it by name: the bay, the stairs, the general.
 			if demo.get("cruiser") != null:
 				return demo.cruiser.objective_point(_player_pos(), id)
+		"station":
+			# The F11 map's station side view: one of its places (the bay, a floor) on
+			# the space station in this sky.
+			for s in demo.get("stations") if demo.get("stations") != null else []:
+				if is_instance_valid(s):
+					return s.objective_point(id)
 		"droid_post":
 			# Issue #212: the nearest desert droid merchant's post.
 			var posts = demo.get("droid_merchant_outposts")
