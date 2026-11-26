@@ -22,5 +22,5 @@ func _init(r: float = 3500.0, surface: Dictionary = {}) -> void:
 
 
 ## The cloud tops: the same height everywhere (no plateau under the town: it floats).
-func elevation(_dir: Vector3, _grow: float = 2.0) -> float:
+func elevation(_dir: Vector3, _grow: float = 2.0, _soft: float = 0.0) -> float:
 	return -depth

@@ -129,7 +129,7 @@ func _scatter(layers: Array) -> void:
 
 
 ## The open rock at a point on the bare ball (metres above it).
-func _dunes(p: Vector3) -> float:
+func _dunes(p: Vector3, _soft: float = 0.0) -> float:
 	var h := 0.0
 	for L in craters:
 		h += _crater_layer(p, L)
