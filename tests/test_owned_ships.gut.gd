@@ -226,3 +226,35 @@ func test_skrugs_cleans_up_a_stolen_ship_for_you_to_keep() -> void:
 	assert_true(Fleet.owns(t.pilot.berth_key(i)), "yours")
 	assert_eq(Fleet.primary(), t.pilot.berth_key(i), "your first ship: the primary")
 	assert_eq(str(post.ship_offer().get("kind", "")), "owned", "he would buy it back now, honestly")
+
+
+# ---- issue #703: the frigate's pad -------------------------------------------------
+
+## The frigate (18 x 16 m) is too big for the pit's 12 m pads: it waits on the
+## bigger pad outside the pit, comes home there, and the pit stays the small ships'.
+func test_the_frigate_waits_on_the_big_pad_outside_the_pit() -> void:
+	WorldState.hangar = "courier"
+	var k := Fleet.keep("frigate")
+	Fleet.set_primary(k)
+	var t = _town()
+	var pilot: ShipPilot = t.pilot
+	var big: Dictionary = t.town.get_box(str(pilot.pad.get("big_pad_box", "")))
+	assert_false(big.is_empty(), "the town has a pad for big ships")
+	if big.is_empty():
+		return
+	var side := minf(float(big.max[0]) - float(big.min[0]), float(big.max[2]) - float(big.min[2]))
+	assert_gt(side, 18.0, "the big pad is wider than the frigate is long")
+	var c := Vector3((float(big.min[0]) + float(big.max[0])) * 0.5, 0.0, (float(big.min[2]) + float(big.max[2])) * 0.5)
+	var pit := pilot._pad_foot()
+	assert_gt(_flat_dist(c, pit), 38.0, "the big pad is outside the pit")
+	var i: int = pilot.berth_of(k, true)
+	assert_gte(i, 0, "the frigate is here")
+	assert_lt(_flat_dist((pilot.berths[i].visual as Node3D).global_position, c), 1.0, "it stands on the big pad")
+	assert_lt(_flat_dist(pilot.berths[i].home, c), 1.0, "and comes home there (Z, a tow)")
+	assert_true(pilot.set_primary(Fleet.T89))
+	pilot.woke_in_pit()
+	var j: int = pilot.berth_of(Fleet.T89)
+	assert_lt(_flat_dist((pilot.berths[j].visual as Node3D).global_position, pit), 1.0, "a small primary still wakes on the pit pad")
+	assert_true(pilot.set_primary(k))
+	pilot.woke_in_pit()
+	assert_lt(_flat_dist((pilot.berths[i].visual as Node3D).global_position, c), 1.0, "waking, the frigate is on the big pad, not in the pit")
