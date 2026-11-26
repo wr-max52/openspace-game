@@ -801,6 +801,9 @@ func _floor(t: Dictionary, i: int) -> void:
 	# A glowing band round the plate's edge outside, and the underside's trim.
 	_ring(pre + "_edge_glow", c, r + 0.05, r + 0.35, y - 0.75, y - 0.45, "decor", "glow")
 	_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+	# Issue #702: out on this floor's roof, a low rail round its edge (the roof walk's
+	# own finish, 24 boxes in the station's one body): you stop there, not fall off.
+	_ring(pre + "_roof_rail", c, r - 0.3, r, ceil_y + plate, ceil_y + plate + RAIL_H, "solid", "rail", [], 24)
 	if top:
 		# Over the top floor's gap, a shield too: jetpack up through it onto the roof.
 		gap_shields.append({ "tower": str(t.id), "floor": i, "c": c, "r0": shaft_r, "r1": gap_r, "y": ceil_y + 0.15 })
