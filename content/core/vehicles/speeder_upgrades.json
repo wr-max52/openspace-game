@@ -69,9 +69,9 @@
       "name": "Torrin Vask",
       "bay_radius": 9.0,
       "outfit": {
-        "head": "local:darker",
-        "torso": "local:yellow",
-        "legs": "local:darker"
+        "head": "local:worn_darker",
+        "torso": "local:worn_yellow",
+        "legs": "local:worn_darker"
       },
       "lines": {
         "hello": "Racing the basin crew? Then she needs it. Park her on the pad and pick.",
@@ -93,9 +93,9 @@
       "name": "Jorrin Vask",
       "bay_radius": 9.0,
       "outfit": {
-        "head": "local:lighter",
-        "torso": "local:red",
-        "legs": "local:lighter"
+        "head": "local:worn_lighter",
+        "torso": "local:worn_red",
+        "legs": "local:worn_lighter"
       },
       "lines": {
         "hello": "The flats eat slow speeders. Park her on the pad and let's fix that.",
