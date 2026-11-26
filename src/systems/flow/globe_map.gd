@@ -20,13 +20,21 @@ extends RefCounted
 ## `status` joins the name on hover. Read when the pins are built, which the page
 ## does each time it opens.
 ##
-## Off planet: every planet you can fly to from here (SpaceTravel's bodies) and
-## every Remnant cruiser in the system, as { id, kind, label, target }.
+## Off planet: every planet you can fly to from here (SpaceTravel's bodies),
+## every Remnant cruiser in the system and every space station, as { id, kind,
+## label, target }.
+##
+## A space station (StationHull) shows as its own pin on its planet's globe
+## (kind "station", in place of the port where the planet's town is the station's
+## bay) and as a badge on the system chart; either opens its side view
+## (StationMapView: orbital_pins), where a floor or the bay is a waypoint
+## ("station:<place>").
 ##
 ## The waypoint lives in WorldState.map_waypoint (saved): { id, label, target,
 ## planet, arrive }. One pointer at a time: setting it turns any quest's waypoint
 ## off, and switching a quest's on clears it (Quests.toggle_waypoint). Its target
-## is a word ObjectiveHud.where understands: map:<x>,<z>, planet:<id>, cruiser.
+## is a word ObjectiveHud.where understands: map:<x>,<z>, planet:<id>, cruiser,
+## station:<place>.
 ##
 ## The page can also show somewhere you are not (GlobeMap.other_planet: another
 ## planet's ball, from its data; CruiserMapView: the Remnant cruiser's side view,
@@ -73,9 +81,23 @@ static func kind_cfg(kind: String) -> Dictionary:
 ## `town` the port's own stops (town_pins).
 static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Array:
 	var front := Territory.front_for_planet(str(planet.get("id", world.get("planet", ""))))
-	var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
-	_stamp_owner(port, Territory.barracks_of(front))
-	var out: Array = [port]
+	var out: Array = []
+	# A space station's pin where it hangs (orbital_pins: click it to open its side
+	# view). Where the planet's town is the station's bay (the ringed giant's
+	# "station_town"), the station stands in for the port.
+	var station_town := str(planet.get("town", {}).get("station_town", ""))
+	for lm in StationHull.landmarks(world):
+		if not lm.has("at"):
+			continue
+		var at: Array = lm.at
+		var sp := _pin("station_" + str(lm.get("id", "")), "station", station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }),
+			Vector2(float(at[0]), float(at[2])))
+		sp["view"] = "station:" + str(planet.get("id", world.get("planet", "")))
+		out.append(sp)
+	if station_town == "" or out.is_empty():
+		var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
+		_stamp_owner(port, Territory.barracks_of(front))
+		out.push_front(port)
 	out.append_array(station_pins(planet, front))
 	var skip: Array = cfg().get("skip", [])
 	for lm in world.get("landmarks", []):
@@ -88,8 +110,8 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			var loc := _location(str(lm.get("location", id)))
 			kind = str(loc.get("kind", "post"))
 			label = str(loc.get("label", ""))
-		if kind_cfg(kind).is_empty() or kind in ["cruiser", "planet", "port"]:
-			continue             # the cruiser is off planet; anything unnamed is not a place
+		if kind_cfg(kind).is_empty() or kind in ["cruiser", "planet", "port", "station"]:
+			continue             # the cruiser is off planet, the station has its own pin; anything unnamed is not a place
 		label = str(cfg().get("labels", {}).get(id, label if label != "" else _kind_label(kind)))
 		var at: Array = lm.at
 		var pin := _pin(id, kind, _cap(label), Vector2(float(at[0]), float(at[2])))
@@ -568,7 +590,7 @@ static func spot_pin(map: Vector2) -> Dictionary:
 ## SpaceTravel's ({ id, name }). Then every cruiser in the system (`cruisers`,
 ## system_cruisers), each with the planet it hangs over and who holds it (issue
 ## #497: coloured by that, the locals' green once they do).
-static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Array:
+static func off_planet(bodies: Array, cruisers: Array = system_cruisers(), stations: Array = system_stations()) -> Array:
 	var out: Array = []
 	for b in bodies:
 		var label := str(b.get("name", ""))
@@ -577,6 +599,9 @@ static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Ar
 	for c in cruisers:
 		out.append({ "id": str(c.id), "kind": "cruiser", "label": line("cruiser_over") % planet_name(str(c.planet)),
 			"target": "cruiser", "planet": str(c.planet), "cfg": str(c.cfg), "owner": cruiser_owner(c) })
+	for s in stations:
+		out.append({ "id": str(s.id), "kind": "station", "label": line("station_over") % planet_name(str(s.planet)),
+			"target": "station", "planet": str(s.planet), "station": str(s.station) })
 	return out
 
 
@@ -836,6 +861,138 @@ static func cruiser_color(c: Dictionary) -> Color:
 		Territory.LOCALS:
 			return Color(str(ow.get("locals", "#5fd35f")))
 	return Color(str(ow.get("empty", "#a89a80")))
+
+
+static var _stations: Array = []
+
+
+## Every space station in the system (each planet's "station" landmarks:
+## StationHull, today the ringed giant's over its top): [{ id (its landmark),
+## station (content/core/stations/<station>.json), planet, pos (system frame) }].
+## Once a session. Like the cruisers, one a planet: the Map page names a station by
+## the planet it hangs over ("station:<planet>").
+static func system_stations() -> Array:
+	if not _stations.is_empty():
+		return _stations
+	for b in system():
+		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
+		for lm in StationHull.landmarks(world):
+			if not lm.has("at"):
+				continue
+			var at: Array = lm.at
+			var r := float(b.radius)
+			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
+			_stations.append({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")), "planet": str(b.id), "pos": pos })
+			break                                # one a planet
+	return _stations
+
+
+## The station over planet `planet` (system_stations), or {}.
+static func station_on(planet: String) -> Dictionary:
+	for s in system_stations():
+		if str(s.planet) == planet:
+			return s
+	return {}
+
+
+## A station's name, as SpaceStation.label gives it: the name this save gave it in
+## its config's name_fmt, or its config's label.
+static func station_label(s: Dictionary) -> String:
+	var hull := StationHull.for_id(str(s.get("station", "")))
+	var cfg: Dictionary = hull.cfg if hull != null else {}
+	var n := NameHooks.vessel(cfg, "station:" + str(s.get("id", "")))
+	var l := str(cfg.get("label", _kind_label("station")))
+	return _cap(str(cfg.get("name_fmt", "%s")) % n if n != "" else l)
+
+
+## The station's places for its side view (StationHull.map_places), as pins:
+## { id, kind, label, target, rect, tower, arrive }, and on each floor what is on
+## it for its plan: `floor` (its index in its tower), `rooms` (room_pins), `owner`
+## (an open floor's, from the station's "map" floors), `what` and `summary` (one
+## line: who holds how many rooms, or what the open floor is). `s` is a
+## system_stations entry.
+static func orbital_pins(s: Dictionary) -> Array:
+	var out: Array = []
+	var hull := StationHull.for_id(str(s.get("station", "")))
+	if hull == null:
+		return out
+	var names: Dictionary = cfg().get("station_places", {})
+	var floors: Dictionary = hull.cfg.get("map", {}).get("floors", {})
+	for p in hull.map_places():
+		var pin := { "id": "station_" + str(p.id), "kind": "station_place", "label": str(names.get(str(p.id), str(p.id).capitalize())),
+			"target": "station:" + str(p.id), "rect": p.rect, "tower": str(p.tower),
+			"arrive": float(kind_cfg("station_place").get("arrive", 12.0)), "rooms": [], "owner": "", "what": "", "summary": "" }
+		var t := hull.tower(str(p.tower))
+		if not t.is_empty():
+			for i in (t.floors as Array).size():
+				if str(t.floors[i].id) == str(p.id):
+					pin["floor"] = i
+					pin["rooms"] = room_pins(s, hull, t, i)
+			var fc: Dictionary = floors.get(str(p.id), {})
+			pin["owner"] = station_owner(s, str(fc.get("owner", "")))
+			pin["what"] = str(fc.get("what", ""))
+			pin["summary"] = _floor_summary(pin)
+		out.append(pin)
+	return out
+
+
+## The rooms of floor `i` of tower `t` (StationHull.floor_rooms) as pins you can set
+## a waypoint on ("station:<floor>.<k>"): { id, kind, label, use, owner, owner_label,
+## target, arrive, a, half, r0, r1, open }.
+static func room_pins(s: Dictionary, hull: StationHull, t: Dictionary, i: int) -> Array:
+	var out: Array = []
+	var fid := str(t.floors[i].id)
+	var names: Dictionary = cfg().get("station_rooms", {})
+	var owners: Dictionary = hull.cfg.get("map", {}).get("owners", {})
+	for rm in hull.floor_rooms(t, i):
+		var use := str(rm.use)
+		var who := station_owner(s, str(owners.get(use, "")))
+		out.append({ "id": "station_%s.%d" % [fid, int(rm.k)], "kind": "station_place", "label": str(names.get(use, use.capitalize())),
+			"use": use, "owner": who, "owner_label": owner_label(who), "target": "station:%s.%d" % [fid, int(rm.k)],
+			"arrive": float(kind_cfg("station_place").get("arrive", 12.0)) * 0.5,
+			"a": float(rm.a), "half": float(rm.half), "r0": float(rm.r0), "r1": float(rm.r1), "open": bool(rm.open) })
+	return out
+
+
+## Who holds a part of station `s` now: its data's owner, except that the Remnant's
+## parts are the locals' once you have taken the station's Remnant deck (Territory
+## "station_<landmark id>").
+static func station_owner(s: Dictionary, data_owner: String) -> String:
+	if data_owner == Territory.REMNANT and Territory.owner(Territory.STATION + str(s.get("id", ""))) == Territory.LOCALS:
+		return Territory.LOCALS
+	return data_owner
+
+
+## An owner's name on the map ("" for nobody's).
+static func owner_label(who: String) -> String:
+	return str(cfg().get("station_owners", {}).get(who, who.capitalize())) if who != "" else ""
+
+
+## An owner's colour on the station's map (content/look/map.json "station_view").
+static func owner_color(who: String) -> Color:
+	return Color(str(look().get("station_view", {}).get("owners", {}).get(who, "#a89a80")))
+
+
+## A floor's line under its name: each owner and how many rooms they hold (the
+## most first), or what an open floor is and who runs it.
+static func _floor_summary(pin: Dictionary) -> String:
+	var rooms: Array = pin.get("rooms", [])
+	if rooms.is_empty():
+		var what := str(cfg().get("station_floor_kinds", {}).get(str(pin.get("what", "")), ""))
+		var who := owner_label(str(pin.get("owner", "")))
+		if what != "" and who != "":
+			return line("station_floor_open") % [what, who]
+		return what
+	var count := {}
+	for r in rooms:
+		var who := str(r.owner)
+		count[who] = int(count.get(who, 0)) + 1
+	var keys := count.keys()
+	keys.sort_custom(func(a, b): return int(count[a]) > int(count[b]))
+	var parts: Array = []
+	for k in keys:
+		parts.append("%s %d" % [owner_label(str(k)) if str(k) != "" else line("station_nobody"), int(count[k])])
+	return "  \u00b7  ".join(parts)
 
 
 ## A planet's name for the map's title and its lines.

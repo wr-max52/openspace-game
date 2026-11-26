@@ -46,7 +46,7 @@ func test_off_planet_lists_planets_and_every_cruiser() -> void:
 	var off := GlobeMap.off_planet([{ "id": "grit_station", "name": "Grit Station" }])
 	var cruisers := GlobeMap.system_cruisers()
 	assert_eq(cruisers.size(), 2, "the home cruiser and the belt one")
-	assert_eq(off.size(), 1 + cruisers.size())
+	assert_eq(off.size(), 1 + cruisers.size() + GlobeMap.system_stations().size(), "and every station after them")
 	assert_eq(str(off[0].label), "Grit Station")
 	assert_eq(str(off[0].target), "planet:grit_station")
 	assert_eq(str(off[1].target), "cruiser")

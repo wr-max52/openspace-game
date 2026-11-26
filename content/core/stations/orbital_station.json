@@ -115,6 +115,20 @@
     "sleep_m": 120.0,
     "locals_after_s": 8.0
   },
+  "map_note": "The F11 Map page's side view of the station and its floor plans (src/ui/station_map_view.gd, GlobeMap.orbital_pins). 'owners': who holds each room, by its use (StationHull.floor_rooms: the top deck's and the engine deck's fill 'rooms', the Remnant deck's 'remnant' rooms, a 'suite', a locked 'home'). 'remnant' rooms follow the Remnant deck: once you take it (Territory 'station_<landmark id>') they are the locals' too. The owners' names and colours: content/core/flow/map.json 'station_owners', content/look/map.json 'station_view'. 'floors': what an open floor is (the markets, the favela), named on the map in place of its rooms.",
+  "map": {
+    "owners": {
+      "bridge": "remnant", "barracks": "remnant", "cantina": "smugglers", "lounge": "locals", "garden": "locals",
+      "engine": "locals", "cargo": "smugglers", "pumps": "locals", "workshop": "locals",
+      "control": "remnant", "bunks": "remnant", "armoury": "remnant", "command": "remnant", "mess": "remnant",
+      "suite": "locals", "home": "locals"
+    },
+    "floors": {
+      "markets": { "owner": "locals", "what": "stalls" },
+      "markets_2": { "owner": "locals", "what": "stalls" },
+      "homes": { "owner": "locals", "what": "favela" }
+    }
+  },
   "droids_note": "Issue #607: the town's patrol droids (droids.json's 'remnant' or 'locals' units, whoever holds the town) walk rounds of the walkway on these floors, one floor each in turn, two on a floor half a round apart: 'points' corners round the middle of the walkway (the gap's railing out to 'walkway' metres), clear on every floor. No floors: no droids aboard. Not the home port's street points, which ran through the station's walls.",
   "droids": { "floors": ["markets", "markets_2"], "points": 16 },
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
