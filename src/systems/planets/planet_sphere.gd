@@ -39,6 +39,16 @@ var pad_margin := 30.0
 var blend := 260.0
 var dune_offset := 12.0
 var sink_ramp := 3.0
+## The dunes' brinks: every crest is rounded over a short band (in ridge-noise
+## units, about 8 m across on a typical crest), so it is an edge a speeder rides
+## up and launches off, not a knife that each mesh grid cuts into a row of teeth.
+## The ground you stand on, the colliders and the near mesh all use this.
+var crest_round := 0.07
+## A coarser mesh asks for rounder crests (`soft`), so it never tries to draw an
+## edge finer than its own cells: about one cell across. Rounding only lowers a
+## crest, so a coarse layer never pokes up through the finer one inside it.
+const CREST_SOFT_PER_M := 0.009
+const CREST_SOFT_MAX := 0.5
 const UNDER_INSET := 1.5
 
 ## Issue #193: places with gravity of their own (the Remnant cruiser in orbit):
@@ -187,11 +197,13 @@ func height_above_ground(p: Vector3) -> float:
 
 ## The ground's height above the bare ball along `dir` (unit). `grow` widens the
 ## dip under sunken floors (the collider asks for a little more than the mesh).
-func elevation(dir: Vector3, grow: float = 2.0) -> float:
+## `soft` (crest_softness) rounds the crests more for a coarse mesh; 0 = the real
+## ground (what anything that stands, drives or lands on must use).
+func elevation(dir: Vector3, grow: float = 2.0, soft: float = 0.0) -> float:
 	var m := dir_map(dir)
 	var p := dir * radius
 	if not site_rect.has_area() or dir.y < 0.5:   # the town is never 60 degrees round
-		return _apply_flat_sites(m.x, m.y, _dunes(p) - dune_offset)
+		return _apply_flat_sites(m.x, m.y, _dunes(p, soft) - dune_offset)
 	var d := _rect_dist(site_rect, m)
 	var k := smoothstep(pad_margin, pad_margin + blend, d)
 	var flat := 0.0
@@ -199,7 +211,12 @@ func elevation(dir: Vector3, grow: float = 2.0) -> float:
 		flat = _plateau(dir) + _site_y(m.x, m.y, d, p, grow)
 	if k <= 0.0:
 		return _apply_flat_sites(m.x, m.y, flat)
-	return _apply_flat_sites(m.x, m.y, lerpf(flat, _dunes(p) - dune_offset, k))
+	return _apply_flat_sites(m.x, m.y, lerpf(flat, _dunes(p, soft) - dune_offset, k))
+
+
+## The crest rounding a mesh with cells `cell` metres across asks elevation() for.
+static func crest_softness(cell: float) -> float:
+	return clampf(cell * CREST_SOFT_PER_M, 0.0, CREST_SOFT_MAX)
 
 
 func _apply_flat_sites(x: float, z: float, base_height: float) -> float:
@@ -268,13 +285,19 @@ func _site_y(x: float, z: float, d: float, p: Vector3, grow: float) -> float:
 
 ## The open dunes at a point on the ball (metres): long crested dunes, ridged
 ## noise stretched across the wind, on a slow swell. 3D noise, so they wrap the
-## whole ball with no seam.
-func _dunes(p: Vector3) -> float:
+## whole ball with no seam. The ridge's fold (|noise| = 0, the crest) is rounded
+## over crest_round (or `soft`, if wider): a parabola there, the same slopes
+## outside it, so the faces keep their angle and only the very top is eased.
+func _dunes(p: Vector3, soft: float = 0.0) -> float:
 	var f := 0.0016
 	var wx := p.x + _warp.get_noise_3d(p.x * f, p.y * f, p.z * f) * 140.0
 	var wy := p.y + _warp.get_noise_3d(p.y * f + 40.0, p.z * f, p.x * f) * 140.0
 	var wz := p.z + _warp.get_noise_3d(p.z * f, p.x * f + 40.0, p.y * f) * 140.0
-	var ridge := 1.0 - absf(_dune.get_noise_3d(wx * 0.0021, wy * 0.0042, wz * 0.0042))
+	var fold := absf(_dune.get_noise_3d(wx * 0.0021, wy * 0.0042, wz * 0.0042))
+	var k := maxf(crest_round, soft)
+	if fold < k:
+		fold = (fold * fold / k + k) * 0.5
+	var ridge := maxf(1.0 - fold, 0.0)
 	var h := pow(ridge, 2.6) * 26.0
 	h += _swell.get_noise_3d(p.x * 0.0006, p.y * 0.0006, p.z * 0.0006) * 24.0 + 10.0
 	h += _small.get_noise_3d(p.x * 0.004, p.y * 0.004, p.z * 0.004) * 0.65
@@ -295,15 +318,16 @@ static func _rect_dist(r: Rect2, p: Vector2) -> float:
 ## ((cells+1)^2, row-major, z rows), verts: PackedVector3Array (frame-local) }.
 ## Heights are what a HeightMapShape3D needs; verts are the same points for a
 ## mesh. Thread-safe (reads only).
-func patch(cx: float, cz: float, cells: int, step: float, grow: float = 2.0) -> Dictionary:
-	var p := patch_rows(cx, cz, cells, step, grow, 0, cells + 1)
+func patch(cx: float, cz: float, cells: int, step: float, grow: float = 2.0, soft: float = 0.0) -> Dictionary:
+	var p := patch_rows(cx, cz, cells, step, grow, 0, cells + 1, soft)
 	p.xform = patch_frame(cx, cz)
 	return p
 
 
 ## Rows j0..j1-1 of patch(): { heights, verts } for just those rows, so a caller
-## can build a patch a few rows at a time.
-func patch_rows(cx: float, cz: float, cells: int, step: float, grow: float, j0: int, j1: int) -> Dictionary:
+## can build a patch a few rows at a time. `soft`: see elevation().
+func patch_rows(cx: float, cz: float, cells: int, step: float, grow: float, j0: int, j1: int,
+		soft: float = 0.0) -> Dictionary:
 	var xf := patch_frame(cx, cz)
 	var n := cells + 1
 	var half := cells * step * 0.5
@@ -325,7 +349,7 @@ func patch_rows(cx: float, cz: float, cells: int, step: float, grow: float, j0: 
 			var q := o + bx * u + bz * v - center
 			var h := 0.0
 			for k in 2:
-				var r := radius + elevation((q + by * h).normalized(), grow)
+				var r := radius + elevation((q + by * h).normalized(), grow, soft)
 				var qb := q.dot(by)
 				h = -qb + sqrt(maxf(qb * qb - q.length_squared() + r * r, 0.0))
 			heights[(j - j0) * n + i] = h

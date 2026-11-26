@@ -10,9 +10,11 @@ extends DesertTerrain
 ##           from the very same heights, so the dunes you see are the dunes you
 ##           stand on (no sinking into a crest, no floating over a dip).
 ##   mid  -- 1 km square under the camera at 4 m, mesh only.
-##   far  -- the whole ball, a cube sphere at about 40 m, built once.
+##   far  -- the whole ball, a cube sphere at about 30 m, built once.
 ## Each layer sinks its own sand a few metres wherever the layer inside it covers
-## (instance shader parameters), so a coarse crest never pokes through.
+## (instance shader parameters), so a coarse crest never pokes through. mid and
+## far round their crests to their own cells (PlanetSphere.crest_softness), so a
+## coarse grid crossing a crest draws a soft top, not a row of teeth.
 ##
 ## near and mid follow (near: `follow`, the player; mid: the camera) and rebuild on
 ## a worker thread; the new mesh and collider are swapped in whole on one frame.
@@ -928,7 +930,10 @@ func _compute(layer: String, c: Vector2, cells_override: int = -1, step_override
 	var cells := cells_override if cells_override > 0 else (near_cells if near else _mid_cells_for_quality())
 	var step := step_override if step_override > 0.0 else (near_step if near else _mid_step_for_quality())
 	var grow := _collider_grow() if near else sink_grow
-	var p := sphere.patch(c.x, c.y, cells, step, grow)
+	# The mid ring is look only: its crests rounded to its cells (the near layer is
+	# the real ground, the collider's own heights).
+	var soft := 0.0 if near else PlanetSphere.crest_softness(step)
+	var p := sphere.patch(c.x, c.y, cells, step, grow, soft)
 	p.center = c
 	p.cells = cells
 	p.step = step
@@ -1153,13 +1158,16 @@ func _far_chunk(k: int, cells: int = -1) -> Dictionary:
 	var norm: Vector3 = face[0]
 	var ax: Vector3 = face[1]
 	var ay: Vector3 = face[2]
+	# About this many metres a cell (a quarter of the ball's round per face side):
+	# the crests rounded to match, so the far ball draws soft dunes, not teeth.
+	var soft := PlanetSphere.crest_softness(PI * 0.5 * sphere.radius / (far_chunks * fc))
 	for j in n:
 		for i in n:
 			# Equal-angle cube mapping keeps the cells near the same size everywhere.
 			var a := (float(ci * fc + i - 1) / (far_chunks * fc)) * 2.0 - 1.0
 			var b := (float(cj * fc + j - 1) / (far_chunks * fc)) * 2.0 - 1.0
 			var dir := (norm + ax * tan(a * PI * 0.25) + ay * tan(b * PI * 0.25)).normalized()
-			verts[j * n + i] = sphere.center + dir * (sphere.radius + sphere.elevation(dir, sink_grow))
+			verts[j * n + i] = sphere.center + dir * (sphere.radius + sphere.elevation(dir, sink_grow, soft))
 	var full := _grid_arrays(verts, n)
 	var m := n - 2
 	var cv := PackedVector3Array()
