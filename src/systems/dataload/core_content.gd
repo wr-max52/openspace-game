@@ -261,6 +261,12 @@ func get_crate_prizes(location_id: String) -> Array:
 	return pickups.get(location_id, {}).get("crate_prizes", [])
 
 
+## Wreck field: the stray loot along the climb through every wreck ({ id, frame,
+## point, item, count }; frame "hull" or "level", as StarcruiserWreck.site_point).
+func get_site_loot(location_id: String) -> Array:
+	return pickups.get(location_id, {}).get("site_loot", [])
+
+
 func get_world(id: String) -> Dictionary:
 	return worlds.get(id, {})
 
