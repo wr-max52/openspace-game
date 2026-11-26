@@ -1,0 +1,13 @@
+{
+ "title": "T-89's ship upgrades and the mechanic's speeder looks parts, stock and with everything fitted (ShipKit.dress, SpeederNode._build_parts)",
+ "out": "res://docs/lookdev/vehicles/27_upgrades.png",
+ "views": ["front34", "side", "rear34"],
+ "cells": [
+  { "name": "courier", "ship_look": "courier" },
+  { "name": "courier_all", "ship_look": "courier", "fits": ["shields", "hull", "boost"] },
+  { "name": "gunship_all", "ship_look": "gunship", "fits": ["shields", "hull", "boost"] },
+  { "name": "interceptor_all", "ship_look": "interceptor", "fits": ["shields", "hull", "boost"] },
+  { "name": "speeder", "speeder": "speeder" },
+  { "name": "speeder_parts", "speeder": "speeder", "parts": ["turbo_boosters", "soft_top"] }
+ ]
+}

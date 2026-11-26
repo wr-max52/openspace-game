@@ -63,6 +63,7 @@ var _readout: Label
 var _prompt: Label
 var _fan: Node3D
 var _glow_mat: StandardMaterial3D
+static var _heat_mat: StandardMaterial3D   ## the boosters' nozzle glow, shared by every speeder
 var _t := 0.0
 var jolt := BoardJolt.new()      ## issue #87: sink, lift and shudder as you climb on
 var _lean := Vector2.ZERO        ## smoothed (pitch, roll) for the eye
@@ -1258,18 +1259,31 @@ func _build_parts() -> void:
 		flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		flame_mat.albedo_color.a = 0.85
+		# Plated like the ships' bolt-ons (ShipKit.plate_material): a gunmetal can,
+		# a band in the speeder's trim, a dark flared nozzle with a dim heat glow.
+		var can := ShipKit.plate_material(Color(str(cfg.get("look", {}).get("metal", "#4a4c52"))).lightened(0.12))
+		var band := ShipKit.plate_material(Color(str(cfg.get("look", {}).get("trim", "#8e3a26"))))
+		var nozzle := ShipKit.plate_material(Color("#2a2b2f"))
+		if _heat_mat == null:
+			_heat_mat = StandardMaterial3D.new()
+			_heat_mat.albedo_color = Color("#2a1a12")
+			_heat_mat.emission_enabled = true
+			_heat_mat.emission = Color("#ff8a40")
+			_heat_mat.emission_energy_multiplier = 0.45
 		for side in [-1.0, 1.0]:
 			# Issue #100: out past the tail, so the body never swallows them.
 			var at := Vector3(side * (hx * 0.62), base_y + 0.55, back + 0.1)
-			_part(_cyl(0.2, 0.24, 1.3), metal, at, Vector3(90, 0, 0)).name = "Booster"
-			_part(_cyl(0.26, 0.26, 0.12), metal, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
-			_part(_cyl(0.15, 0.15, 0.04), _glow_mat, at + Vector3(0, 0, 0.7), Vector3(90, 0, 0)).name = "BoosterGlow"
+			_part(_cyl(0.19, 0.22, 1.2), can, at, Vector3(90, 0, 0)).name = "Booster"
+			_part(_cyl(0.225, 0.225, 0.1), band, at + Vector3(0, 0, -0.3), Vector3(90, 0, 0)).name = "BoosterBand"
+			_part(_cyl(0.23, 0.2, 0.16), nozzle, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
+			_part(_cyl(0.12, 0.12, 0.02), _heat_mat, at + Vector3(0, 0, 0.745), Vector3(90, 0, 0)).name = "BoosterGlow"
 			var flame := _part(_cyl(0.16, 0.0, 1.0), flame_mat, at + Vector3(0, 0, 1.2), Vector3(-90, 0, 0))
 			flame.name = "BoosterFlame"
 			flame.visible = false
 			_flames.append(flame)
 	if has_part("soft_top"):
-		var cloth := mats.flat(Color(str(cfg.get("look", {}).get("roof", "#8a7456"))), 0.95)
+		var cloth := mats.canvas(Color(str(cfg.get("look", {}).get("roof", "#8a7456"))))   # woven, sun-faded (StallTextures)
+		metal = ShipKit.plate_material(Color(str(cfg.get("look", {}).get("metal", "#4a4c52"))))
 		_roof = Node3D.new()
 		_roof.name = "SoftTop"
 		_roof.position = Vector3(0, base_y + _size.y * 0.78, 0.9)   # the hinge, behind the seat
@@ -1288,10 +1302,17 @@ func _build_parts() -> void:
 			post.position = Vector3(side * w * 0.5, 0.27, 0.0)
 			_roof.add_child(post)
 		var top := MeshInstance3D.new()
-		top.mesh = _box(Vector3(w + 0.06, 0.06, 1.25))
+		top.mesh = _box(Vector3(w + 0.06, 0.03, 1.25))
 		top.material_override = cloth
 		top.position = Vector3(0, 0.6, -0.58)
 		_roof.add_child(top)
+		for z in [-1.2, 0.04]:                   # the canvas rolled over the front and back bars
+			var hem := MeshInstance3D.new()
+			hem.mesh = _cyl(0.035, 0.035, w + 0.06)
+			hem.material_override = cloth
+			hem.position = Vector3(0, 0.6, z)
+			hem.rotation_degrees = Vector3(0, 0, 90)
+			_roof.add_child(hem)
 
 
 ## Boost lights the flames; the roof folds back while someone rides.

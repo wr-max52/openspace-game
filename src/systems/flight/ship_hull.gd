@@ -59,6 +59,29 @@ func fit(model: Node3D) -> bool:
 	return not pieces.is_empty()
 
 
+## Issue #703: fit again to `model` as it is now (T-89 bolted parts on, or a paint
+## job swapped the model). The same body keeps its layers, its owner's hooks and
+## whether it is solid; only its pieces change. False, and the old pieces kept,
+## when there is nothing to fit.
+func refit(model: Node3D) -> bool:
+	var pieces := shape_of(model)
+	if pieces.is_empty():
+		return false
+	var off := false
+	for ch in get_children():
+		if ch is CollisionShape3D:
+			off = off or (ch as CollisionShape3D).disabled
+			remove_child(ch)
+			ch.queue_free()
+	for i in pieces.size():
+		var cs := CollisionShape3D.new()
+		cs.name = "Piece%d" % i
+		cs.shape = pieces[i]
+		cs.disabled = off
+		add_child(cs)
+	return true
+
+
 ## A plain box: the greybox, or a model with nothing to fit.
 func fit_box(size: Vector3, center: Vector3) -> void:
 	var cs := CollisionShape3D.new()
@@ -110,7 +133,7 @@ static func _gather(n: Node, xf: Transform3D, out: Array) -> void:
 				continue
 			t = xf * (c as Node3D).transform
 		if c is MeshInstance3D and (c as MeshInstance3D).mesh != null:
-			out.append({"xf": t, "mesh": (c as MeshInstance3D).mesh})
+			out.append({"xf": t, "mesh": (c as MeshInstance3D).mesh, "pool": c.has_meta("hull_pool")})
 		_gather(c, t, out)
 
 
@@ -128,7 +151,7 @@ static func _fit_parts(parts: Array) -> Array:
 				pts.append(xf * v)
 		if pts.is_empty():
 			continue
-		if pts.size() <= part_verts:
+		if pts.size() <= part_verts and not bool(p.get("pool", false)):   # a batch of parts (ShipKit.dress) is cut into cells
 			var hull := _hull(pts)
 			if hull != null:
 				pieces.append(hull)
