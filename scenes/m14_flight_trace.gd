@@ -401,8 +401,8 @@ func _run() -> void:
 	out("EXIT_AT_PAD", pilot.exit_ship())
 	await frames(20)
 	out("FINAL_ON_FLOOR", player.is_on_floor())
-	# In the 6 m pit, not up on the street. Issue #545: the hull follows the model now
-	# and the 5.5 m exit spot can land you on a wing (1.3 m up), still in the pit.
+	# In the 6 m pit, not up on the street. Issue #698: on its floor, not 1.3 m up on
+	# something beside the ship.
 	out("FINAL_IN_PIT", player.global_position.y < -3.0)
 	out("FINAL_ABOVE_PIT_FLOOR_M", snappedf(player.global_position.y + 6.0, 0.1))
 	# Walk straight at the parked ship: its hull stops you.
