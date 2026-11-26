@@ -2391,6 +2391,14 @@ func call_state() -> Dictionary:
 	return { "ok": true, "text": GameFlow.label("call") }
 
 
+## The F11 Map page pauses the game, but a ship you called keeps flying to you
+## while it is open, so the map shows her coming (DevSettingsPanel calls this each
+## physics tick then). Nothing while the game runs: the frame flies her then.
+func call_tick(dt: float) -> void:
+	if calling and not piloting and atmo != null and not can_process():
+		_call_step(dt)
+
+
 ## One frame of a call: up off the ground, across at cruise height over whatever is
 ## under her, then straight down over the spot with the normal landing. The same
 ## flight model's state, moved the way the bay landing moves it (_bay_step).

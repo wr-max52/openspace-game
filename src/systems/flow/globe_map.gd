@@ -581,6 +581,103 @@ static func _turn(v: Vector2, deg: float) -> Vector2:
 	return Vector2(w.x, w.z)
 
 
+# ------------------------------------------------------------------ vehicles
+
+## The vehicle kinds, in the legend's order: your ships and speeders, then the
+## enemy's (the Remnant's), then the rival racers.
+const VEHICLE_KINDS := ["ship_yours", "speeder_yours", "ship_enemy", "speeder_enemy", "speeder_rival"]
+
+
+## Every vehicle in this scene the map shows, wherever it is now: [{ id, kind,
+## label, pos (world), icon }]. Yours: the ships you own (Fleet, ShipPilot's
+## berths with a key: parked, flown, or flying itself to you on a call) and the
+## speeders you own (SpeederPost.speeders). The enemy's ships only while they fly
+## (the Remnant interceptor in the air, AtmoFighter; the ships parked at their
+## outposts are not on it), and, while the Remnant hold the town, the gate
+## speeders and the chase speeder (GateChase). The rival racers' speeders only
+## while their race runs (RaceCrew, Phase.RACING). `icon` is the vehicle's own
+## silhouette (its ship or vehicle file's "icon"). Ids stay the same while the
+## scene lives, so a waypoint on one follows it (target "vehicle:<id>",
+## vehicle_pos).
+static func vehicles(demo) -> Array:
+	var out: Array = []
+	if demo == null or not is_instance_valid(demo):
+		return out
+	var pilot = demo.get("pilot")
+	if pilot != null and is_instance_valid(pilot):
+		for b in pilot.berths:
+			var key := str(b.get("key", ""))
+			if key == "" or bool(b.get("destroyed", false)) or b.has("hijacked_by") or not (b.get("visual") is Node3D) or not is_instance_valid(b.visual):
+				continue
+			var cfg: Dictionary = b.get("cfg", {})
+			out.append({ "id": "ship_" + key, "kind": "ship_yours", "pos": (b.visual as Node3D).global_position,
+				"label": line("your_vehicle") % str(cfg.get("label", str(b.get("ship_id", "")).capitalize())), "icon": str(cfg.get("icon", "")) })
+	var f = demo.get("interceptor")
+	if f is AtmoFighter and is_instance_valid(f) and f.atmo != null and f.flying():
+		out.append({ "id": "fighter", "kind": "ship_enemy", "label": str(f.cfg.get("label", "")), "pos": f.position(),
+			"icon": str(f.cfg.get("icon", "")) })
+	var mine: Array = []
+	var post = demo.get("speeder_post")
+	if post != null and is_instance_valid(post):
+		for s in post.speeders:
+			if _speeder_ok(s):
+				mine.append(s)
+				out.append(_speeder(s, "speeder_yours", line("your_vehicle")))
+	if GateChase.holder() == Territory.REMNANT:
+		var theirs: Array = []
+		var gate = demo.get("gate_speeders")
+		if gate is Array:
+			theirs.append_array(gate)
+		var gc = demo.get("gate_chase")
+		if gc != null and is_instance_valid(gc) and gc.chaser != null:
+			theirs.append(gc.chaser)
+		for s in theirs:
+			if not _speeder_ok(s) or s in mine or s.riding or (gc != null and is_instance_valid(gc) and s == gc.stolen):
+				continue             # the one you took is not theirs any more
+			out.append(_speeder(s, "speeder_enemy", line("enemy_vehicle")))
+	var crews = demo.get("race_crews")
+	if crews is Array:
+		for c in crews:
+			if not (c is RaceCrew) or not is_instance_valid(c) or c.phase != RaceCrew.Phase.RACING:
+				continue
+			for r in c.racers:
+				var s = r.get("speeder")
+				if _speeder_ok(s) and not s in mine and not s.riding:
+					out.append(_speeder(s, "speeder_rival", line("rival_vehicle")))
+	return out
+
+
+static func _speeder_ok(s) -> bool:
+	return s is SpeederNode and is_instance_valid(s) and not s.is_queued_for_deletion()
+
+
+static func _speeder(s: SpeederNode, kind: String, fmt: String) -> Dictionary:
+	return { "id": "speeder_%d" % s.get_instance_id(), "kind": kind, "pos": s.global_position,
+		"label": fmt % str(s.cfg.get("label", "")), "icon": str(s.cfg.get("icon", "")) }
+
+
+## The vehicles as map pins (vehicles), at map (x, z) by `to_map`; each a waypoint
+## that follows it ("vehicle:<id>").
+static func vehicle_pins(demo, to_map: Callable) -> Array:
+	var out: Array = []
+	for v in vehicles(demo):
+		var p := _pin("veh_" + str(v.id), str(v.kind), str(v.label), to_map.call(v.pos))
+		p["target"] = "vehicle:" + str(v.id)
+		p["vehicle"] = true
+		if str(v.get("icon", "")) != "":
+			p["icon"] = str(v.icon)
+		out.append(p)
+	return out
+
+
+## Where vehicle `id` (vehicles) is now, or INF once it is gone.
+static func vehicle_pos(demo, id: String) -> Vector3:
+	for v in vehicles(demo):
+		if str(v.id) == id:
+			return v.pos
+	return Vector3.INF
+
+
 ## A spot the player clicked on bare ground.
 static func spot_pin(map: Vector2) -> Dictionary:
 	return _pin("spot", "spot", line("marked"), map)

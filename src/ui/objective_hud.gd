@@ -77,8 +77,8 @@ func _process(dt: float) -> void:
 
 
 ## Re-read the objective and find its place. A waypoint set on the F11 map
-## clears itself once the player is there, and one on another LAN player once
-## they leave.
+## clears itself once the player is there, one on another LAN player once
+## they leave, and one on a vehicle once it is gone.
 func refresh() -> void:
 	objective = Objective.current()
 	var tg := str(objective.get("target", ""))
@@ -86,6 +86,10 @@ func refresh() -> void:
 		GlobeMap.clear_waypoint()             # they left the game (or you did)
 		objective = Objective.current()
 	target_pos = where(str(objective.get("target", "")))
+	if str(objective.get("target", "")).begins_with("vehicle:") and target_pos == Vector3.INF:
+		GlobeMap.clear_waypoint()             # the vehicle is gone (wrecked, sold)
+		objective = Objective.current()
+		target_pos = where(str(objective.get("target", "")))
 	if objective.get("map", false) and target_pos != Vector3.INF:
 		var d := distance()
 		if d >= 0.0 and d < float(objective.get("arrive", 30.0)):
@@ -201,6 +205,10 @@ func where(target: String) -> Vector3:
 			# A planet not in this sky (the lava moon, seen from Grit Station): its
 			# port in this scene all the same, from the star system's one frame.
 			return GlobeMap.port_from(id, GameFlow.current_planet_id())
+		"vehicle":
+			# A vehicle picked on the F11 map (GlobeMap.vehicles): where it is now,
+			# your ship flying itself to you, a speeder, the Remnant's interceptor.
+			return GlobeMap.vehicle_pos(demo, id)
 		"player":
 			# A LAN player picked on the F11 map: where they stand now, or their
 			# ship while they sit in it (INF on another planet: the line alone).
