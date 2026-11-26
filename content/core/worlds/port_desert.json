@@ -217,6 +217,37 @@
       "yaw_deg": 181.5
     },
     {
+      "id": "remnant_outpost_cragfall",
+      "kind": "location",
+      "location": "remnant_outpost_cragfall",
+      "at": [-10173.3, 0, 7601.8],
+      "yaw_deg": -33.0,
+      "clear": 60,
+      "note": "Races 4 and 5: the two ranch villages on the far side of the planet, Cragfall (the crag crew's, by the Crooked Mile, 12.6 km round the ball from the port) and Farleap (the leap crew's, by the Far Leaps, nearly 14 km round, the furthest place there is), each by the far mountains a race runs through. Built like the three other ranch villages (each two landmarks at one spot), but turned so the gate (+x) faces their crew's start line, not the port (half a planet away)."
+    },
+    {
+      "id": "ranch_cragfall",
+      "kind": "location",
+      "location": "ranch_cragfall",
+      "at": [-10173.3, 0, 7601.8],
+      "yaw_deg": -33.0
+    },
+    {
+      "id": "remnant_outpost_farleap",
+      "kind": "location",
+      "location": "remnant_outpost_farleap",
+      "at": [-8804.5, 0, -10787.6],
+      "yaw_deg": 61.8,
+      "clear": 60
+    },
+    {
+      "id": "ranch_farleap",
+      "kind": "location",
+      "location": "ranch_farleap",
+      "at": [-8804.5, 0, -10787.6],
+      "yaw_deg": 61.8
+    },
+    {
       "id": "mechanic_yard",
       "kind": "location",
       "location": "mechanic_yard",

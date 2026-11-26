@@ -1,5 +1,6 @@
 extends GutTest
-## Issue #615: three race crews at their own spots, a ladder, and parts you unlock
+## Issue #615: race crews at their own spots (three round the port, two more on the
+## far side of the planet: races 4 and 5), a ladder, and parts you unlock
 ## by beating them (story mode only; free roam sells everything). Every crew and
 ## course is a file on clear sand; the story never needs a locked part; the map
 ## shows the races you have heard of.
@@ -26,7 +27,7 @@ func _town() -> Node:
 	t.npc_brains = false
 	add_child_autofree(t)
 	for i in 900:
-		if t.race_crews.size() >= 3:
+		if t.race_crews.size() >= 5:
 			break
 		await wait_physics_frames(1)
 	return t
@@ -41,8 +42,8 @@ func _crew(t, id: String) -> RaceCrew:
 
 func test_three_crews_three_spots_three_courses() -> void:
 	var t = await _town()
-	assert_eq(t.race_crews.size(), 3, "the yard, basin and salt crews")
-	assert_eq(t.race_courses.size(), 3, "a course each")
+	assert_eq(t.race_crews.size(), 5, "the yard, basin, salt, crag and leap crews")
+	assert_eq(t.race_courses.size(), 5, "a course each")
 	var ground: WorldGround = t.pilot.ground
 	for crew: RaceCrew in t.race_crews:
 		assert_true(crew.found, "%s found its hangout" % crew.id)
