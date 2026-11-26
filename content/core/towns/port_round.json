@@ -2149,6 +2149,24 @@
    "note": "Issue #237: a surface pad on the ring round the bowl. No collision: you walk across it."
   },
   {
+   "id": "frigate_pad",
+   "zone": "ground",
+   "kind": "pad",
+   "min": [
+    57.0,
+    0.0,
+    -33.0
+   ],
+   "max": [
+    79.0,
+    0.03,
+    -11.0
+   ],
+   "shape": "round",
+   "parked_yaw_deg": -90.0,
+   "note": "Issue #703: the big ships' pad, outside the pit, south of the main street by the ring. A ship too big for the pit's 12 m pads (the frigate, 18 x 16 m) waits and comes home here (launch_pads.json big_pad_box). No collision: you walk across it."
+  },
+  {
    "id": "yard_1_container",
    "zone": "spaceport",
    "kind": "solid",
