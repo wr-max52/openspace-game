@@ -180,8 +180,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    2026-10-31; fix: #706)*
 5. **Ships rest level** wherever they land, so a slope leaves one side hanging.
    *(M14, 2026-10-26; fix: #708)*
-6. **The ground can hop you a few cm** when the walkable desert re-centres under a
-   player standing still. Not rechecked. *(M14, 2026-10-26; fix: #709)*
 7. **Loading a save can make a coin sound.** *(#16, 2026-10-27; fix: #710)*
 8. **Bounty targets have no marker:** the pointer leads to the outpost, not the
    person. *(#65, 2026-10-27; fix: #711)*

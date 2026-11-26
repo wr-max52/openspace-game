@@ -32,8 +32,14 @@ func test_the_pit_is_still_a_pit() -> void:
 func test_out_of_the_gate_onto_sand() -> void:
 	assert_eq(t.get("REACHED_GATE"), "true")
 	assert_eq(t.get("REACHED_DESERT_EXIT"), "true")
-	assert_eq(t.get("EXIT_ON_FLOOR"), "true")
-	assert_lt(int(t.get("EXIT_SETTLE_FRAMES", 99)), 30, "at most a brief hop when the collider re-centres")
+	assert_eq(t.get("EXIT_ON_FLOOR"), "true", "on the sand at once, no settle wait")
+
+
+## Issue #709: the ground swapping in under still feet does not hop them.
+func test_no_hop_when_the_ground_swaps_in() -> void:
+	assert_eq(t.get("STILL_SWAPPED"), "true", "a new patch swapped in under the player")
+	assert_lt(float(t.get("STILL_LIFT", 9)), 0.01, "feet stay where they stood")
+	assert_eq(int(t.get("STILL_AIR_FRAMES", 9)), 0, "never off the ground")
 
 
 func test_into_the_dunes_and_back() -> void:
