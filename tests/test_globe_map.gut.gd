@@ -167,3 +167,30 @@ func test_a_short_hold_shows_and_the_town_goes_green() -> void:
 	pins = _by_id(GlobeMap.pins(home.world, home))
 	assert_eq(str(pins.port.owner), Territory.LOCALS, "the barracks are the locals' once the fleet is beaten")
 	assert_eq(GlobeView.pin_look(pins.port).color, GlobeMap.look().owners.locals)
+
+
+## Issue #712: the ringed giant's globe pins its ring station (in place of the
+## port, since the giant's town is the station's bay), and the station's places
+## are waypoints the objective pointer follows ("station:<place>").
+func test_ringed_giant_pins_its_ring_station() -> void:
+	var giant := PlanetGen.build("ringed_giant")
+	var stations: Array = GlobeMap.pins(giant.world, giant).filter(func(p): return str(p.kind) == "station")
+	assert_eq(stations.size(), 1, "one pin for the ring station")
+	if stations.is_empty():
+		return
+	assert_eq(str(stations[0].view), "station:ringed_giant", "clicking it opens the station's side view")
+	assert_ne(str(stations[0].label), "", "it has a name")
+	var st: Dictionary = {}
+	for s in GlobeMap.system_stations():
+		if str(s.planet) == "ringed_giant":
+			st = s
+	assert_false(st.is_empty(), "the system chart knows the station too")
+	var places := _by_id(GlobeMap.orbital_pins(st))
+	assert_true(places.has("station_bay"), "the side view has the landing bay")
+	if not places.has("station_bay"):
+		return
+	GlobeMap.set_waypoint(places.station_bay, "ringed_giant")
+	assert_eq(str(WorldState.map_waypoint.planet), "ringed_giant")
+	assert_eq(str(GlobeMap.waypoint().target), "planet:ringed_giant", "from home the pointer leads to the giant first")
+	GameFlow.planet_id = "ringed_giant"
+	assert_eq(str(GlobeMap.waypoint().target), "station:bay", "then, in its sky, to the station's bay")
