@@ -2,6 +2,11 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.4 (2026-11-26)
+
+- Share builds are now **OpenSpace V1.7.4**. Everything below, down to "New
+  version is 1.7.3", is in it.
+
 ## Explosions burn hotter, at no extra cost (2026-11-26)
 
 - **Grenades, speeders, ships, seekers and mines go up with a real fireball.**
