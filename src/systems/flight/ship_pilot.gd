@@ -2827,17 +2827,23 @@ func _drop_hijacked(wrecked: bool) -> void:
 ## Beside the ship (left, then right, then behind), on whatever ground is there.
 ## Clear of her wings: 5.5 m out, or half her look's span and a bit more for a big
 ## one (the station's frigate is 16 m across, so 5.5 m put you inside her hull).
+## Where you step out: four spots round the ship, then (issue #698) four more
+## `exit_ring_grow` times as far. A spot more than `exit_max_rise` above the ground
+## she rests on (up on something beside her) is skipped. Runs only when you get out.
 func _exit_spot() -> Vector3:
 	var b: Basis = atmo.flight.basis
 	var s := atmo.position()
 	var u := atmo.up()
+	var rest := s - u * atmo.clearance
+	var rise := float(pad.get("exit_max_rise", 0.5))
 	var side := maxf(5.5, _look_span() * 0.5 + 1.5)
 	var back := maxf(side + 3.0, _look_length() * 0.5 + 1.5)
-	for off in [-b.x * side, b.x * side, b.z * back, -b.z * back]:
-		var flat: Vector3 = off - u * off.dot(u)
-		var at := ground.surface_below(s + flat) + u * 0.05
-		if ground.hit(at + u, 0.6) == "":
-			return at
+	for grow in [1.0, float(pad.get("exit_ring_grow", 1.5))]:
+		for off in [-b.x * side * grow, b.x * side * grow, b.z * back * grow, -b.z * back * grow]:
+			var flat: Vector3 = off - u * off.dot(u)
+			var at := ground.surface_below(s + flat) + u * 0.05
+			if (at - rest).dot(u) <= rise + 0.05 and ground.hit(at + u, 0.6) == "":
+				return at
 	return ground.surface_below(s + u * 5.0) + u * 0.05
 
 

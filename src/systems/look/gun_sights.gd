@@ -25,16 +25,35 @@ static var _cut_cache: Dictionary = {}
 static var _noise: NoiseTexture2D
 
 
-static func add_to(model: Node3D, spec: Dictionary) -> void:
+## Issue #695: `shared` (an NPC's gun): the scope, sights and barrel are built once
+## per spec and copied, so every NPC gun of a kind shares their meshes and
+## materials. The player's own guns build their own (aiming in changes them).
+static var _parts_shared := {}
+
+
+static func add_to(model: Node3D, spec: Dictionary, shared := false) -> void:
 	if spec.get("cut") is Dictionary:
 		for box in spec.cut.get("boxes", []):
 			cut(model, box)
+	var key := str(spec)
+	if shared and _parts_shared.has(key):
+		for part in _parts_shared[key]:
+			model.add_child((part as Node3D).duplicate())
+		return
+	var made: Array = []
 	if spec.get("scope") is Dictionary:
-		model.add_child(build_scope(spec.scope))
+		made.append(build_scope(spec.scope))
 	if spec.get("sights") is Dictionary:
-		model.add_child(build_iron_sights(spec.sights))
+		made.append(build_iron_sights(spec.sights))
 	if spec.get("barrel") is Dictionary:
-		model.add_child(build_barrel(spec.barrel, spec.get("dark", {})))
+		made.append(build_barrel(spec.barrel, spec.get("dark", {})))
+	for part in made:
+		model.add_child(part)
+	if shared:
+		var kept: Array = []
+		for part in made:
+			kept.append((part as Node3D).duplicate())
+		_parts_shared[key] = kept
 
 
 static func _v3(a, d := Vector3.ZERO) -> Vector3:

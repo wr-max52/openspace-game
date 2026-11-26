@@ -688,10 +688,16 @@ func _tick_pack(p: Dictionary, dt: float, ppos: Vector3) -> void:
 func _tick_member(p: Dictionary, m: Dictionary, dt: float, ppos: Vector3) -> void:
 	var npc: NpcBody = m.npc
 	var lod := float(people.get("pack", {}).get("far_lod_m", 90.0))
+	var far := ppos == Vector3.INF or npc.global_position.distance_to(ppos) > lod
 	# Physics only where the sand's collider is under them: it follows the player
 	# and can lag tens of metres behind on the way in (they fell through it).
-	var far := ppos == Vector3.INF or npc.global_position.distance_to(ppos) > lod \
-			or not _has_floor(npc.global_position)
+	# Issue #704: near you with no collider yet, they stand where they are (no
+	# physics, no sliding in a frozen pose) until it comes.
+	if not far and not _has_floor(npc.global_position):
+		if npc.process_mode != Node.PROCESS_MODE_DISABLED:
+			npc.process_mode = Node.PROCESS_MODE_DISABLED
+		m["far_acc"] = 0.0
+		return
 	if far:
 		# Out of sight of the player: slid along the ground, no physics (there may
 		# be no collider under them out here).

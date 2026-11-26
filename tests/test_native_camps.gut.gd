@@ -250,6 +250,40 @@ func test_no_physics_where_the_sand_has_no_collider() -> void:
 	assert_ne(npc.process_mode, Node.PROCESS_MODE_DISABLED, "then it walks with physics")
 
 
+## Issue #704: a member near the player but with no collider under it yet (the
+## sand's collider lags behind on a run out) stands where it is, frozen in place,
+## rather than sliding along the ground in its last pose; once the collider comes
+## it walks on. Out past far_lod_m (nobody looking) the pack still slides along.
+func test_off_the_collider_near_you_they_stand_still() -> void:
+	var t = _town()
+	await wait_physics_frames(3)
+	var nat = t.natives
+	nat.set_physics_process(false)
+	nat.far_stride = 1
+	var p: Dictionary = nat.packs[0]
+	p.state = "travel"
+	p.route_i = (int(p.get("camp_i", 0)) + 1) % (p.route as Array).size()
+	var lead: NpcBody = nat.leader(p)
+	var up: Vector3 = nat.up_at(lead.global_position)
+	var near: Vector3 = lead.global_position + NativeSteer._side(up) * 10.0
+	assert_false(nat._has_floor(lead.global_position), "no collider out at the pack yet")
+	var before := {}
+	for m in nat.alive(p):
+		before[m.npc] = (m.npc as NpcBody).global_position
+	for i in 60:
+		nat._tick_pack(p, DT, near)
+	var moved := 0.0
+	for m in nat.alive(p):
+		moved = maxf(moved, (m.npc as NpcBody).global_position.distance_to(before[m.npc]))
+		assert_eq((m.npc as NpcBody).process_mode, Node.PROCESS_MODE_DISABLED, "no physics off the collider")
+	assert_almost_eq(moved, 0.0, 0.001, "nobody slides while the collider is on its way (moved %.3f m)" % moved)
+	# Far out (past far_lod_m) they slide on along their route.
+	var away: Vector3 = lead.global_position + NativeSteer._side(up) * (float(nat.people.pack.get("far_lod_m", 90.0)) + 60.0)
+	for i in 60:
+		nat._tick_pack(p, DT, away)
+	assert_gt(lead.global_position.distance_to(before[lead]), 0.5, "out of sight they slide along their route")
+
+
 ## Issue #707: standing in a tent, the third person camera comes no further than
 ## the camp's camera_m (under the roof); outside, it is back to normal.
 func test_the_camera_stays_under_a_tent_roof() -> void:

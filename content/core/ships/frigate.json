@@ -103,7 +103,8 @@
     "touchdown_speed": 9.0,
     "crash_speed": 34.0,
     "body_radius": 7.6,
-    "clearance": 2.0
+    "clearance": 2.0,
+    "land_tilt_max_deg": 15.0
   },
   "note": "The station's frigate (issue #316): the freighter's airframe at twice the size (look 'frigate', content/look/ships.json 'scale'), built heavier and slower: more hull and shield, two seeker racks, and Shift still drifts. It stands on the ringed giant's station's bay pad 'frigate' (orbital_station.json pads) and flies like the port's other bay ships. 'sold': false keeps it off T-89's and T-99's lots (ShipSalesman.stock). Her liftoff_height is 0.8 of the 22 m she first had, so lifting off her pad she hovers well under the bay's 30 m roof.",
   "naming": {

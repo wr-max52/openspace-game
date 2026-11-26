@@ -162,6 +162,45 @@ func test_rests_on_the_high_side_of_a_slope() -> void:
 		"never sinks into the slope")
 
 
+## Issue #708: a ship that lands on a dune slope sits on it, tilted to the sand,
+## not level with one side in the air; a steep one tilts her only to the cap.
+## A plain desert whose sand rises `rise` metres a metre along x.
+func _land_on_slope(rise: float) -> void:
+	ground = WorldGround.new()
+	ground.setup(content.get_world("port_desert"), null, content, func(x: float, _z: float) -> float: return x * rise, 4000.0)
+	a = AtmoFlight.new()
+	a.setup(content.get_ship("interceptor"), ground)
+	a.place_flying(Vector3(200, 200.0 * rise + 30.0, 40), Vector3.FORWARD.rotated(Vector3.UP, 0.6), 0.0, 0.0)
+	assert_true(a.land())
+	var ev := _run(15.0)
+	assert_true(_types(ev).has("landed"))
+
+
+func test_lands_tilted_to_a_dune_slope() -> void:
+	_land_on_slope(0.15)                       # 8.5 degrees
+	var n := Vector3(-0.15, 1.0, 0.0).normalized()
+	var off := rad_to_deg(a.flight.basis.y.angle_to(n))
+	assert_lt(off, 2.0, "her up matches the slope (%.1f deg off)" % off)
+	assert_gte(a.agl(), -0.3, "on the sand, not buried in it")
+	assert_lt(a.agl(), 0.3, "and no side left in the air")
+
+
+func test_a_steep_slope_tilts_her_only_to_the_cap() -> void:
+	_land_on_slope(0.6)                        # 31 degrees
+	var cap := float(a.cfg.get("land_tilt_max_deg", 15.0))
+	assert_almost_eq(rad_to_deg(a.flight.basis.y.angle_to(Vector3.UP)), cap, 0.5, "tilted to the cap, no further")
+
+
+func test_a_flat_roof_lands_level() -> void:
+	var roof: Dictionary = ground.boxes.filter(func(b): return b.id == "watchtower")[0]
+	var c: Vector3 = ((roof.min as Vector3) + (roof.max as Vector3)) * 0.5
+	a.place_flying(Vector3(c.x, (roof.max as Vector3).y + 40.0, c.z), Vector3.FORWARD, 0.0, 0.0)
+	assert_true(a.land())
+	_run(15.0)
+	assert_eq(a.state, AtmoFlight.State.PARKED)
+	assert_almost_eq(a.flight.basis.y.angle_to(Vector3.UP), 0.0, 0.001, "pads and roofs stay level")
+
+
 func test_leaves_the_atmosphere_once_in_30_to_40_seconds() -> void:
 	a.park(Vector3(0.3, -6, 0), -PI * 0.5)
 	a.takeoff()

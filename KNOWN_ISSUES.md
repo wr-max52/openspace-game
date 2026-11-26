@@ -75,8 +75,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    hitbox is adult-sized. A bigger trooper may poke through a seat, a speeder or
    a door frame (seated and riding NPCs were not looked at). *(NPC sizes,
    2026-11-25; fix: #697)*
-2. **Getting out of the ship in the round pit can put you on its wing**, 1.3 m up:
-   the exit spot only checks the town's boxes. *(#545, 2026-11-05; fix: #698)*
 3. **Guards find bodies through walls:** a body within 16 m in the sight cone is
    "seen". Bodies can't be hidden; they stay where they fall. *(#307,
    2026-10-31; fix: #699)*
@@ -85,9 +83,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    onto a rock. A speeder's touch is a centre-distance check, so a glancing pass
    at the nose or tail may miss. *(#220, #266, 2026-10-30 and 2026-11-01; fix:
    #700)*
-6. **Pulled back with no warning:** walk off a floor's roof (no railing) and you
-   are put back in the bay; outside on the giant, the same once you drop 40 m
-   under the lowest floor. *(the station, 2026-11-03 and 2026-11-04; fix: #702)*
 7. **Seven small ones** *(2026-10-29 to 2026-11-05; fix: #703)*:
    - Selling the gun in your hand to the fence leaves it drawn until you switch.
    - A barge fighter's body hangs in the air if the barge drives off while it
@@ -173,8 +168,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    the arms wobble about a millimetre; scoped in, the barrel casts no shadow, and
    the scope's last frames of aiming in can wobble once. *(the cruiser pass,
    2026-10-31; fix: #706)*
-5. **Ships rest level** wherever they land, so a slope leaves one side hanging.
-   *(M14, 2026-10-26; fix: #708)*
 7. **Loading a save can make a coin sound.** *(#16, 2026-10-27; fix: #710)*
 8. **Bounty targets have no marker:** the pointer leads to the outpost, not the
    person. *(#65, 2026-10-27; fix: #711)*
