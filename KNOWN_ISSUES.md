@@ -75,8 +75,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    hitbox is adult-sized. A bigger trooper may poke through a seat, a speeder or
    a door frame (seated and riding NPCs were not looked at). *(NPC sizes,
    2026-11-25; fix: #697)*
-2. **Getting out of the ship in the round pit can put you on its wing**, 1.3 m up:
-   the exit spot only checks the town's boxes. *(#545, 2026-11-05; fix: #698)*
 3. **Guards find bodies through walls:** a body within 16 m in the sight cone is
    "seen". Bodies can't be hidden; they stay where they fall. *(#307,
    2026-10-31; fix: #699)*
