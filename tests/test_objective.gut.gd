@@ -133,6 +133,21 @@ func test_a_bounty_points_at_its_outpost_then_the_fence() -> void:
 	assert_string_contains(_log_text(), str(int(b.pay)))
 
 
+## Issue #711: far from the outpost the pointer is the outpost; at 150 m (inside
+## the data's mark_near_m) it is the officer.
+func test_close_to_the_outpost_the_pointer_marks_the_officer() -> void:
+	Story.skip_to("bounty")
+	Story.beat("cantina_owner")
+	assert_true(WorldState.accept_job("j_bounty"))
+	var b := WorldState.bounty
+	Objective.bounty_dist = 2000.0
+	assert_eq(_target(), "outpost:" + str(b.outpost), "far off: the outpost")
+	Objective.bounty_dist = 150.0
+	assert_eq(_target(), "npc:bounty", "at 150 m: the officer")
+	Objective.bounty_dist = INF
+	assert_eq(_target(), "outpost:" + str(b.outpost), "no officer out: the outpost")
+
+
 func test_reading_never_rolls_a_job_or_moves_the_story() -> void:
 	Story.skip_to("smuggle_1")
 	var before := [WorldState.smuggle.duplicate(true), WorldState.bounty.duplicate(true), WorldState.story.duplicate(true)]

@@ -319,10 +319,10 @@
       "kinds": ["floating"],
       "sold_at": "rave",
       "variant": "rave",
-      "fan": { "beams": 12, "tiers": [-0.2, -0.04], "spread": 0.8, "length": 16.0, "sweep_deg": 20.0, "sweep_s": 2.8, "colors": ["#3aff4a", "#ff2a3a", "#2bd9ff"] },
+      "fan": { "beams": 12, "tiers": [-0.2, -0.04], "spread": 0.8, "length": 6.0, "sweep_deg": 20.0, "sweep_s": 2.8, "colors": ["#3aff4a", "#ff2a3a", "#2bd9ff"] },
       "ring": { "y": 0.22, "inner": 0.42, "outer": 0.47, "color": "#ff2bd6" },
       "bpm": 126,
-      "note": "Issue #392: the laser rig, for a floating droid ('kinds'), sold only by a droid merchant whose stall says it sells 'rave' upgrades (droids.json 'club_vendor'; 'sold_at'). Fitted, the droid wears the 'variant' look (black, magenta trim and eye) and a neon ring round its belly ('ring', model metres), and a fan of lasers hangs under it like the stage's laser droid ('fan': beams in two tiers dipping 'tiers' under level, 'spread' radians either side of ahead, 'length' metres, sweeping 'sweep_deg' every 'sweep_s' seconds). A new rig is dark: E beside the droid turns the lasers on or off, anywhere, and on or off is saved with the droid ('lasers_on'). They go dark when it is knocked out and come back when it reboots."
+      "note": "Issue #392: the laser rig, for a floating droid ('kinds'), sold only by a droid merchant whose stall says it sells 'rave' upgrades (droids.json 'club_vendor'; 'sold_at'). Fitted, the droid wears the 'variant' look (black, magenta trim and eye) and a neon ring round its belly ('ring', model metres), and a fan of lasers hangs under it like the stage's laser droid ('fan': beams in two tiers dipping 'tiers' under level, 'spread' radians either side of ahead, 'length' metres (issue #703: 6, so from its 1.7 m hover the lowest beam ends half a metre over the floor and they no longer reach through walls and floors across the room; a fixed length, no ray per beam), sweeping 'sweep_deg' every 'sweep_s' seconds). A new rig is dark: E beside the droid turns the lasers on or off, anywhere, and on or off is saved with the droid ('lasers_on'). They go dark when it is knocked out and come back when it reboots."
     },
     "health": { "label": "Armour plating", "prices": [260], "per_level": 1.5 },
     "cargo": { "label": "Cargo racks", "prices": [190], "per_level": 6 },

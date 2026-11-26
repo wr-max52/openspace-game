@@ -80,7 +80,8 @@
     "touchdown_speed": 9.0,
     "crash_speed": 32.0,
     "body_radius": 2.0,
-    "clearance": 1.0
+    "clearance": 1.0,
+    "land_tilt_max_deg": 15.0
   },
   "note": "Issue #76: the Remnant's own interceptor, painted dark: the same airframe and guns as the port's (interceptor.json). One sits beside each desert outpost (flyable: taking it sets off that outpost's alarm and scrambles the barracks interceptor), and one dark interceptor stands on the barracks pad and hunts you in the air (src/systems/flight/atmo_fighter.gd). 'scramble' (interceptor only) is how that one behaves. 'locals_label': its name while the locals hold its outpost (ShipPilot.berth_label).",
   "naming": {
@@ -110,6 +111,7 @@
     "look_ahead_s": 2.5,
     "ceiling_margin": 900.0,
     "give_up_s": 10.0,
+    "ceiling_give_up_s": 10.0,
     "respawn_s": 120.0,
     "replace_s": 8.0,
     "pad_clear": 30.0,
@@ -119,6 +121,6 @@
     "bolt_color": "#ff3020",
     "seekers": 1,
     "seeker_gap_s": 10.0,
-    "note": "seekers: 1 = it locks on your ship and launches its seekers when it holds the lock (0 = guns only; the cockpit's seeker warning sounds when it locks or one is coming); seeker_gap_s: seconds between its launches.launch_distance: metres from the town's edge you must be before it takes off after you (a stolen outpost ship scrambles it at once). floor_agl / look_ahead_s: it pulls up when it is lower than this above the ground now or look_ahead_s ahead. ceiling_margin: it never climbs closer than this to the edge of space. give_up_s: seconds with nothing to chase (you landed, went to space, or are not wanted) before it flies home. respawn_s: shot down (in the air or on its pad), a new one stands on the pad this long after. replace_s: taken from its pad (it is flyable there, and taking it sounds the barracks alarm), a new one lands this long after, once nothing is within pad_clear metres of the pad, and comes after you. land_from: metres from the pad where it comes straight down; return_altitude: how high it flies home."
+    "note": "seekers: 1 = it locks on your ship and launches its seekers when it holds the lock (0 = guns only; the cockpit's seeker warning sounds when it locks or one is coming); seeker_gap_s: seconds between its launches.launch_distance: metres from the town's edge you must be before it takes off after you (a stolen outpost ship scrambles it at once). floor_agl / look_ahead_s: it pulls up when it is lower than this above the ground now or look_ahead_s ahead. ceiling_margin: it never climbs closer than this to the edge of space. give_up_s: seconds with nothing to chase (you landed, went to space, or are not wanted) before it flies home. ceiling_give_up_s: issue #703, seconds you stay above its ceiling (edge of space less ceiling_margin) before it flies home too. respawn_s: shot down (in the air or on its pad), a new one stands on the pad this long after. replace_s: taken from its pad (it is flyable there, and taking it sounds the barracks alarm), a new one lands this long after, once nothing is within pad_clear metres of the pad, and comes after you. land_from: metres from the pad where it comes straight down; return_altitude: how high it flies home."
   }
 }

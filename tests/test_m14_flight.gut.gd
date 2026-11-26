@@ -163,6 +163,7 @@ func test_land_back_on_the_pad() -> void:
 	_true("EXIT_AT_PAD")
 	_true("FINAL_ON_FLOOR")
 	_true("FINAL_IN_PIT")
+	assert_lt(float(t.get("FINAL_ABOVE_PIT_FLOOR_M", 9)), 0.3, "issue #698: on the pit floor, not up beside the ship")
 
 
 func test_a_jetpack_over_the_wall_lands_on_the_desert() -> void:

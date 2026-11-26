@@ -39,6 +39,14 @@
     "seat": "#222428",
     "glass": "#1c3a4f",
     "glow": "#7fe0d0",
+    "mounts": {
+      "hood": {"at": [0, 0.3, 1.6], "tilt": 10},
+      "rack": {"at": [1.0, 0.1, 1.2]},
+      "tanks": {"at": [-1.0, 0.1, 0.9]},
+      "dome": {"at": [0, 0.43, 0.85]},
+      "flank": {"at": [1.2, -0.25, 1.6]},
+      "tail": {"at": [0, -0.3, 2.85]}
+    },
     "scene": "res://assets/vehicles/racer.glb",
     "paints": {
       "race": "res://assets/vehicles/racer.glb",

@@ -476,6 +476,31 @@
         }
       }
     },
+    "wear": {
+      "local_worn": {
+        "note": "Worn variants of the locals' outfit for working folk (the speeder mechanics and the race crews): sun fade, dust from the boots up, grease at the thighs and cuffs, grime in the folds, scuffed leather, and one roughness/metal map for them all (tools/look/wear_outfit.gd). Worn as 'local:worn_<colour>' (worn_sand is the plain local; the underscore keeps them out of the character builder).",
+        "meshes": ["local_head", "local_torso", "local_legs"],
+        "base": "res://assets/characters/kit/parts_texture_diffuse6.png",
+        "source": "res://assets/characters/kit/colors/local_%s.png",
+        "out": "res://assets/characters/kit/colors/local_%s.png",
+        "colors": {
+          "worn_sand": "",
+          "worn_darker": "darker",
+          "worn_lighter": "lighter",
+          "worn_blue": "blue",
+          "worn_red": "red",
+          "worn_yellow": "yellow"
+        },
+        "cloth": ["blue", "red"],
+        "normal": "res://assets/characters/kit/parts_model_normal11.png",
+        "orm": "res://assets/characters/kit/parts_model_orm11.png",
+        "orm_out": "res://assets/characters/kit/colors/local_worn_orm.png",
+        "seed": 611,
+        "grease": 1.0,
+        "dust": 1.0,
+        "fade": 1.0
+      }
+    },
     "part_colors": {
       "out": "res://assets/characters/kit/colors/%s_%s.png",
       "parts": {

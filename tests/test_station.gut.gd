@@ -386,6 +386,58 @@ func test_outside_is_breathable_and_dropping_toward_the_clouds_puts_you_back_in_
 	assert_true(s.aboard(p.global_position), "back aboard")
 
 
+## Issue #702: out on a floor's roof (up through the gap's shield), walking to its
+## edge stops at a low rail; you do not walk off it.
+func test_a_floor_roof_has_a_rail_at_its_edge() -> void:
+	var t = _host()
+	var s = await _station(t)
+	if s == null:
+		fail_test("no station")
+		return
+	var p = t._player
+	p.global_position = s.frame * (s.hull.spawn_point() + Vector3(0, 0.5, 0))
+	await wait_physics_frames(3)
+	var tw: Dictionary = s.hull.tower("main")
+	var f: Dictionary = tw.floors[1]                       # the markets: its roof under the homes
+	var c: Vector2 = tw.c
+	var r := float(f.r)
+	var roof_y: float = float(f.y) + s.hull.floor_h + s.hull.plate
+	p.global_position = s.frame * Vector3(c.x + r - 6.0, roof_y + 0.3, c.y)
+	p.rotation.y = 0.0
+	await wait_physics_frames(5)
+	var out_dir: Vector3 = (s.frame.basis * Vector3.RIGHT).normalized()
+	for i in 180:
+		p.set_command(Vector2(out_dir.x, out_dir.z).normalized(), false, false, false)
+		await wait_physics_frames(1)
+	p.set_command(Vector2.ZERO, false, false, false)
+	var l: Vector3 = s.frame.affine_inverse() * p.global_position
+	assert_lt(Vector2(l.x - c.x, l.z - c.y).length(), r, "stopped at the rail, still over the roof")
+	assert_almost_eq(l.y, roof_y, 0.5, "standing on the roof")
+	assert_eq(s.falls, 0, "never fell off")
+
+
+## Issue #702: dropping under the giant's station, a warning comes before the pull.
+func test_a_warning_before_the_clouds_pull_you_back() -> void:
+	var t = _host()
+	var s = await _station(t)
+	if s == null:
+		fail_test("no station")
+		return
+	var p = t._player
+	p.global_position = s.frame * (s.hull.spawn_point() + Vector3(0, 0.5, 0))
+	await wait_physics_frames(3)
+	var warn: String = s.line("fell_clouds_warn")
+	assert_ne(warn, "", "the warning's line is in the station's data")
+	var drop := float(s.cfg.outside.drop_below)
+	p.global_position = s.frame * Vector3(30, s.hull.bottom_y() - drop + 10.0, 0)   # past the warning, short of the pull
+	await wait_physics_frames(2)
+	assert_eq(s.falls, 0, "not pulled back yet")
+	assert_eq(t.gear.hud.toast_label.text, warn, "warned")
+	p.global_position = s.frame * Vector3(30, s.hull.bottom_y() - drop - 20.0, 0)
+	await wait_physics_frames(3)
+	assert_eq(s.falls, 1, "then pulled back")
+
+
 # ------------------------------------------------------------------ the bay's pads and T-99 (issue #316)
 
 ## Six pads in two rows, every one inside the bay and clear of the others, and the

@@ -108,13 +108,8 @@ func _run() -> void:
 	out("REACHED_GATE", ok)
 	var exit: Vector3 = demo.town.marker_pos("desert_exit")
 	out("REACHED_DESERT_EXIT", await walk_to(exit) >= 0)
-	# A collider re-centre that lands just before this can hop the player a few cm
-	# (KNOWN_ISSUES); let them settle before asking, and record how long it took.
-	var settle := 0
-	while not player.is_on_floor() and settle < 30:
-		await physics_frame
-		settle += 1
-	out("EXIT_SETTLE_FRAMES", settle)
+	# Issue #709: no settle wait. A collider re-centre swaps in after the player has
+	# moved that frame, so they never miss the ground and there is no hop to wait out.
 	out("EXIT_ON_FLOOR", player.is_on_floor())
 
 	# ---- 700 m out into the dunes and back, never falling, never stuck
@@ -180,7 +175,40 @@ func _run() -> void:
 	out("RESCUED_ON_SAND", absf(player.global_position.y - g) < 1.5)
 
 	out("STAND_COVERED", terrain.collider_covers(300, 60, 8.0))
+
+	# ---- issue #709: standing still while the ground swaps in under you (a 5 cm
+	# hop here before the fix): put there, the patch rebuilt round them, then a new
+	# one 60 m off swapped in under still feet.
+	await still_through_swap(Vector3(150, 0, 250))
 	_write()
+
+
+func still_through_swap(at: Vector3) -> void:
+	var g := terrain.ground_at(at.x, at.z)
+	place(Vector3(at.x, g, at.z))
+	var wait := 0
+	while (terrain.is_rebuilding() or not player.is_on_floor()) and wait < 600:
+		await physics_frame
+		wait += 1
+	await frames(10)
+	var r0 := terrain.recenters
+	terrain.prefetch(player.global_position + Vector3(60, 0, 0))
+	var y0: float = player.global_position.y
+	wait = 0
+	while terrain.recenters == r0 and wait < 600:
+		y0 = player.global_position.y
+		await physics_frame
+		wait += 1
+	var lift := 0.0
+	var air := 0
+	for i in 30:
+		lift = maxf(lift, absf(player.global_position.y - y0))
+		if not player.is_on_floor():
+			air += 1
+		await physics_frame
+	out("STILL_SWAPPED", terrain.recenters > r0)
+	out("STILL_LIFT", snappedf(lift, 0.001))
+	out("STILL_AIR_FRAMES", air)
 
 
 func _write() -> void:

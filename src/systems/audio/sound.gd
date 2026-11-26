@@ -63,6 +63,7 @@ var _deck: AudioStreamPlayer   ## the track playing now
 var _spare: AudioStreamPlayer  ## the last one, fading out
 var _tw: Tween
 var _credits := -1
+var _credits_loads := -1       ## issue #710: WorldState.loads when _credits was read (a load is not a coin)
 var _carried: Dictionary = {}  ## key -> AudioStreamPlayer (carried_loop)
 var club := ""                 ## issue #104: the playlist of the club you are near ("" = none)
 var club_near := 0.0           ## 0 out of earshot .. 1 at the wall
@@ -517,6 +518,9 @@ func _club_fade() -> float:
 
 func _watch_credits() -> void:
 	var now: int = WorldState.credits
+	if _credits_loads != WorldState.loads:
+		_credits = -1                  # a reset or a load: take the new balance without a sound
+		_credits_loads = WorldState.loads
 	if _credits >= 0 and now != _credits:
 		Sound.play("coin_gain" if now > _credits else "coin_spend")
 	_credits = now

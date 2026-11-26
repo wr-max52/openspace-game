@@ -6,6 +6,8 @@ extends GutTest
 
 const TownDemo := preload("res://scenes/town_demo.gd")
 const TownDecor := preload("res://src/systems/world/town_decor.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+const TownLayout := preload("res://src/systems/world/town_layout.gd")
 
 ## Boxes the addendum's table deliberately leaves greybox (gate lintel: overhead
 ## in the perimeter zone has no row).
@@ -267,3 +269,22 @@ func test_port_ship_is_the_flight_ship_and_fits_its_box() -> void:
 		if c is CollisionShape3D and (c as CollisionShape3D).shape is BoxShape3D:
 			has_shape = true
 	assert_true(has_shape, "collision stays")
+
+
+## Issue #705: the moon's rave fills the dome, so the cantina door's lamp would
+## hang in the middle of the room: no lamp there. Every other door keeps its lamp.
+func test_no_door_lamp_inside_a_club_dome() -> void:
+	var cc = CoreContent.new()
+	cc.load_from()
+	for id in ["grit_station", "cinder_station"]:
+		var t := TownLayout.new()
+		t.load_from_dict(PlanetGen.build(id, cc).town)
+		assert_false(TownDecor.door_lamp_wanted(t), id + ": no street lamp in the club room")
+	var port := TownLayout.new()
+	port.load_from_dict(PlanetGen.build("port_desert", cc).town)
+	assert_true(port.data.has("club"), "the port's cantina is a club too")
+	assert_true(TownDecor.door_lamp_wanted(port), "its door is outside the club: the lamp stays")
+	var plain := TownLayout.new()
+	plain.load_from_dict(TownGen.generate("probe_town", 1, 7))
+	assert_false(plain.get_marker("cantina_door").is_empty())
+	assert_true(TownDecor.door_lamp_wanted(plain), "a town without a club keeps its door lamp")

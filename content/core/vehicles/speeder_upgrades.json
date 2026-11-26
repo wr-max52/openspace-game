@@ -1,5 +1,5 @@
 {
-  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only; Torrin and Jorrin, Dorrin's cousins, at the basin and salt crews' stalls: content/core/locations/speeder_stall.json, placed by a crew file's 'shop' block, each with an 'outfit' for the shopkeeper), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #627: a part with a 'model' fits only that vehicle (content/core/vehicles/<model>.json; none = the Sand-boxer), and a vehicle's 'shop_groups' limit the menu (the racer and the box truck: paint only); a vehicle's 'scrap_base' replaces 'base'. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale. Issue #616: race gear (group \"race\"): seekers, mines and a deflector carry a `gear` block (SpeederGear: load, refill, damage, lock cone and range; a mine's blast is the grenade's keys); nitro tiers are plain mods on boost_time and boost_recharge. Speeder classes: `shared_groups` are the groups whose parts (with no 'model') fit every vehicle, so the racer and the box truck take the same engines, thrusters, cannons, race gear and Grav Lifter as the Sand-boxer; looks stay the Sand-boxer's, and each model's paint parts carry its 'model' (issue #628: the racer's and the box truck's are recolours of their own Hyper3D bodies, look.paints in their vehicle files). A mod on a number the vehicle does not have (an engine's boost_speed on the box truck, which drifts) does nothing. Balance: a laser bolt is 15% of a Sand-boxer, a seeker (hit and splash) or a mine a third, so three of either wreck one; the racer has half its health and the box truck three times.",
+  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only; Torrin, Jorrin, Vorrin and Kerrin, Dorrin's cousins, at the basin, salt, crag and leap crews' stalls: content/core/locations/speeder_stall.json, placed by a crew file's 'shop' block, each with an 'outfit' for the shopkeeper), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #627: a part with a 'model' fits only that vehicle (content/core/vehicles/<model>.json; none = the Sand-boxer), and a vehicle's 'shop_groups' limit the menu (the racer and the box truck: paint only); a vehicle's 'scrap_base' replaces 'base'. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale. Issue #616: race gear (group \"race\"): seekers, mines and a deflector carry a `gear` block (SpeederGear: load, refill, damage, lock cone and range; a mine's blast is the grenade's keys); nitro tiers are plain mods on boost_time and boost_recharge. Speeder classes: `shared_groups` are the groups whose parts (with no 'model') fit every vehicle, so the racer and the box truck take the same engines, thrusters, cannons, race gear and Grav Lifter as the Sand-boxer; looks stay the Sand-boxer's, and each model's paint parts carry its 'model' (issue #628: the racer's and the box truck's are recolours of their own Hyper3D bodies, look.paints in their vehicle files). A mod on a number the vehicle does not have (an engine's boost_speed on the box truck, which drifts) does nothing. A part's optional 'look' is what it bolts on, so a part you buy shows on the speeder: pieces in the vehicle files' stand-in piece format (box or cyl, 'mat' plate, dark, trim or glow) placed at one of the vehicle's look.mounts (hood, rack, tanks, dome, flank, tail, each an 'at' and an optional 'tilt'; 'muzzle' is laser.muzzle and 'belly' the underside), built by SpeederNode._build_fit_looks; 'mirror' copies a piece across the speeder's centre line. Kept small and in the speeder's own metal and trim. Balance: a laser bolt is 15% of a Sand-boxer, a seeker (hit and splash) or a mine a third, so three of either wreck one; the racer has half its health and the box truck three times.",
   "mechanic": {
     "name": "Dorrin Vask",
     "location": "mechanic_yard",
@@ -69,9 +69,9 @@
       "name": "Torrin Vask",
       "bay_radius": 9.0,
       "outfit": {
-        "head": "local:darker",
-        "torso": "local:yellow",
-        "legs": "local:darker"
+        "head": "local:worn_darker",
+        "torso": "local:worn_yellow",
+        "legs": "local:worn_darker"
       },
       "lines": {
         "hello": "Racing the basin crew? Then she needs it. Park her on the pad and pick.",
@@ -93,9 +93,9 @@
       "name": "Jorrin Vask",
       "bay_radius": 9.0,
       "outfit": {
-        "head": "local:lighter",
-        "torso": "local:red",
-        "legs": "local:lighter"
+        "head": "local:worn_lighter",
+        "torso": "local:worn_red",
+        "legs": "local:worn_lighter"
       },
       "lines": {
         "hello": "The flats eat slow speeders. Park her on the pad and let's fix that.",
@@ -111,6 +111,54 @@
         "event_sold_speeder": "Someone bought a %s at Jorrin's stall by the salt crew.",
         "event_bought": "Someone had a %s fitted at Jorrin's stall by the salt crew.",
         "event_scrapped": "Someone sold a speeder for scrap at Jorrin's stall by the salt crew."
+      }
+    },
+    "vorrin": {
+      "name": "Vorrin Vask",
+      "bay_radius": 9.0,
+      "outfit": {
+        "head": "local:worn_darker",
+        "torso": "local:worn_blue",
+        "legs": "local:worn_sand"
+      },
+      "lines": {
+        "hello": "Out here the rocks do the tuning. Park her on the pad and let's undo what they did.",
+        "no_speeder": "Nothing on my pad. Park her on the lift for parts, or buy one off me.",
+        "speeders_hello": "Every model Skrugs sells, same price. Cousin Dorrin taught me to tune them. Which one?",
+        "sold_speeder": "She's yours. I'll have her run round to the row outside the town's back gate. That's half the planet away, so don't hold your breath.",
+        "have_one": "You've got one of those already. One of each, same as everyone.",
+        "bought": "Done. She'll feel it on the next lap.",
+        "too_poor": "Come back when your credits can pay for it.",
+        "scrapped": "Pleasure doing business. She'll keep the crew in spares."
+      },
+      "labels": {
+        "event_sold_speeder": "Someone bought a %s at Vorrin's stall by the crag crew.",
+        "event_bought": "Someone had a %s fitted at Vorrin's stall by the crag crew.",
+        "event_scrapped": "Someone sold a speeder for scrap at Vorrin's stall by the crag crew."
+      }
+    },
+    "kerrin": {
+      "name": "Kerrin Vask",
+      "bay_radius": 9.0,
+      "outfit": {
+        "head": "local:worn_darker",
+        "torso": "local:worn_yellow",
+        "legs": "local:worn_sand"
+      },
+      "lines": {
+        "hello": "Ramps break suspensions. Park her on the pad and let's see what's left.",
+        "no_speeder": "Nothing on my pad. Park her on the lift for parts, or buy one off me.",
+        "speeders_hello": "Every model Skrugs sells, same price. Cousin Dorrin taught me to tune them. Which one?",
+        "sold_speeder": "She's yours. She goes to the row outside the town's back gate, the far side of the planet from here.",
+        "have_one": "You've got one of those already. One of each, same as everyone.",
+        "bought": "Done. She'll feel it on the next lap.",
+        "too_poor": "Come back when your credits can pay for it.",
+        "scrapped": "Pleasure doing business. She'll keep the crew in spares."
+      },
+      "labels": {
+        "event_sold_speeder": "Someone bought a %s at Kerrin's stall by the leap crew.",
+        "event_bought": "Someone had a %s fitted at Kerrin's stall by the leap crew.",
+        "event_scrapped": "Someone sold a speeder for scrap at Kerrin's stall by the leap crew."
       }
     }
   },
@@ -130,30 +178,43 @@
     { "id": "turbo_boosters", "slot": "boosters", "group": "looks", "label": "Turbo boosters", "price": 120 },
     { "id": "soft_top", "slot": "roof", "group": "looks", "label": "Convertible soft-top", "price": 90 },
     { "id": "engine_1", "slot": "engine", "group": "performance", "label": "Tuned engine (+12% top speed)", "price": 150,
-      "mods": { "max_speed": 1.12, "boost_speed": 1.1 } },
+      "mods": { "max_speed": 1.12, "boost_speed": 1.1 },
+      "look": {"mount": "hood", "pieces": [{"shape": "box", "size": [0.44, 0.1, 0.5], "at": [0, 0.05, 0], "mat": "plate"}, {"shape": "box", "size": [0.36, 0.06, 0.02], "at": [0, 0.05, -0.26], "mat": "dark"}]} },
     { "unlocked_by": "yard", "id": "engine_2", "slot": "engine", "group": "performance", "label": "Racing engine (+25% top speed)", "price": 320, "requires": "engine_1",
-      "mods": { "max_speed": 1.25, "boost_speed": 1.2 } },
+      "mods": { "max_speed": 1.25, "boost_speed": 1.2 },
+      "look": {"mount": "hood", "pieces": [{"shape": "box", "size": [0.52, 0.14, 0.62], "at": [0, 0.07, 0], "mat": "plate"}, {"shape": "box", "size": [0.2, 0.08, 0.02], "at": [0.12, 0.07, -0.32], "mat": "dark", "mirror": true}, {"shape": "box", "size": [0.05, 0.02, 0.62], "at": [0, 0.145, 0], "mat": "trim"}]} },
     { "id": "thrusters_1", "slot": "thrusters", "group": "performance", "label": "Thrusters (+30% acceleration)", "price": 120,
-      "mods": { "accel": 1.3 } },
+      "mods": { "accel": 1.3 },
+      "look": {"mount": "flank", "pieces": [{"shape": "box", "size": [0.05, 0.14, 0.4], "at": [0.02, 0, 0], "mat": "dark", "mirror": true}, {"shape": "box", "size": [0.012, 0.035, 0.32], "at": [0.05, 0, 0], "mat": "glow", "mirror": true}]} },
     { "unlocked_by": "basin", "id": "thrusters_2", "slot": "thrusters", "group": "performance", "label": "Twin thrusters (+60% acceleration)", "price": 260, "requires": "thrusters_1",
-      "mods": { "accel": 1.6, "brake": 1.2 } },
+      "mods": { "accel": 1.6, "brake": 1.2 },
+      "look": {"mount": "flank", "pieces": [{"shape": "box", "size": [0.05, 0.14, 0.4], "at": [0.02, 0, 0], "mat": "dark", "mirror": true}, {"shape": "box", "size": [0.012, 0.035, 0.32], "at": [0.05, 0, 0], "mat": "glow", "mirror": true}, {"shape": "box", "size": [0.05, 0.14, 0.4], "at": [0.02, 0, 0.5], "mat": "dark", "mirror": true}, {"shape": "box", "size": [0.012, 0.035, 0.32], "at": [0.05, 0, 0.5], "mat": "glow", "mirror": true}]} },
     { "id": "cannons_1", "slot": "cannons", "group": "performance", "label": "Hot cannons (+25% damage)", "price": 140,
-      "mods": { "laser.damage": 1.25 } },
+      "mods": { "laser.damage": 1.25 },
+      "look": {"mount": "muzzle", "pieces": [{"shape": "cyl", "top": 0.092, "bottom": 0.092, "h": 0.32, "at": [0, 0, 0.36], "mat": "plate", "mirror": true, "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.1, "bottom": 0.1, "h": 0.03, "at": [0, 0, 0.2], "mat": "dark", "mirror": true, "rot": [90, 0, 0]}]} },
     { "unlocked_by": "salt", "id": "cannons_2", "slot": "cannons", "group": "performance", "label": "Overcharged cannons (+50% damage)", "price": 300, "requires": "cannons_1",
-      "mods": { "laser.damage": 1.5 } },
+      "mods": { "laser.damage": 1.5 },
+      "look": {"mount": "muzzle", "pieces": [{"shape": "cyl", "top": 0.095, "bottom": 0.095, "h": 0.5, "at": [0, 0, 0.42], "mat": "plate", "mirror": true, "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.105, "bottom": 0.105, "h": 0.035, "at": [0, 0, 0.2], "mat": "dark", "mirror": true, "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.105, "bottom": 0.105, "h": 0.035, "at": [0, 0, 0.66], "mat": "dark", "mirror": true, "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.1, "bottom": 0.1, "h": 0.05, "at": [0, 0, 0.44], "mat": "trim", "mirror": true, "rot": [90, 0, 0]}]} },
     { "id": "grav_lifter", "slot": "lifter", "group": "lifter", "label": "Grav Lifter (Space: 2 s of no gravity; ramps launch you)", "price": 900,
-      "hover": { "hop_vy": 6.5, "float_s": 2.0, "recharge_s": 4.0 } },
+      "hover": { "hop_vy": 6.5, "float_s": 2.0, "recharge_s": 4.0 },
+      "look": {"mount": "belly", "pieces": [{"shape": "cyl", "top": 0.2, "bottom": 0.2, "h": 0.05, "at": [0.75, -0.03, -1.5], "mat": "dark", "mirror": true}, {"shape": "cyl", "top": 0.2, "bottom": 0.2, "h": 0.05, "at": [0.75, -0.03, 1.5], "mat": "dark", "mirror": true}, {"shape": "cyl", "top": 0.14, "bottom": 0.14, "h": 0.01, "at": [0.75, -0.06, -1.5], "mat": "glow", "mirror": true}, {"shape": "cyl", "top": 0.14, "bottom": 0.14, "h": 0.01, "at": [0.75, -0.06, 1.5], "mat": "glow", "mirror": true}]} },
     { "unlocked_by": "yard", "id": "seekers", "slot": "seekers", "group": "race", "label": "Seeker rack (4 homing missiles, RMB)", "price": 450,
-      "gear": { "kind": "seekers", "load": 4, "refill_s": 30.0, "rate": 0.6, "speed": 95.0, "turn_rate": 2.2, "damage": 30, "personnel_damage": 70, "range": 400.0, "lock_cone_deg": 25.0, "lock_range": 160.0, "splash_radius": 4.0, "splash_damage": 10, "blast_size": 0.5, "color": "#ffd28a", "length": 1.1, "width": 0.22 } },
+      "gear": { "kind": "seekers", "load": 4, "refill_s": 30.0, "rate": 0.6, "speed": 95.0, "turn_rate": 2.2, "damage": 30, "personnel_damage": 70, "range": 400.0, "lock_cone_deg": 25.0, "lock_range": 160.0, "splash_radius": 4.0, "splash_damage": 10, "blast_size": 0.5, "color": "#ffd28a", "length": 1.1, "width": 0.22 },
+      "look": {"mount": "rack", "pieces": [{"shape": "box", "size": [0.34, 0.16, 0.5], "at": [0, 0.08, 0], "mat": "plate"}, {"shape": "box", "size": [0.36, 0.02, 0.06], "at": [0, 0.17, 0.2], "mat": "trim"}, {"shape": "cyl", "top": 0.045, "bottom": 0.045, "h": 0.04, "at": [-0.08, 0.045, -0.25], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.045, "bottom": 0.045, "h": 0.04, "at": [-0.08, 0.115, -0.25], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.045, "bottom": 0.045, "h": 0.04, "at": [0.08, 0.045, -0.25], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.045, "bottom": 0.045, "h": 0.04, "at": [0.08, 0.115, -0.25], "mat": "dark", "rot": [90, 0, 0]}]} },
     { "unlocked_by": "basin", "id": "mines", "slot": "mines", "group": "race", "label": "Mine dropper (3 mines, G)", "price": 380,
-      "gear": { "kind": "mines", "load": 3, "refill_s": 30.0, "rate": 0.8, "arm_s": 1.0, "trigger_m": 2.6, "life_s": 120.0, "cap": 6, "blast_radius": 5.0, "blast_damage": 150, "vehicle_damage": 40, "player_damage": 45, "blast_size": 0.6, "noise_radius": 70.0 } },
+      "gear": { "kind": "mines", "load": 3, "refill_s": 30.0, "rate": 0.8, "arm_s": 1.0, "trigger_m": 2.6, "life_s": 120.0, "cap": 6, "blast_radius": 5.0, "blast_damage": 150, "vehicle_damage": 40, "player_damage": 45, "blast_size": 0.6, "noise_radius": 70.0 },
+      "look": {"mount": "tail", "pieces": [{"shape": "box", "size": [0.5, 0.16, 0.26], "at": [0, 0, 0], "mat": "dark"}, {"shape": "box", "size": [0.52, 0.04, 0.27], "at": [0, 0.04, 0], "mat": "trim"}]} },
     { "unlocked_by": "basin", "id": "deflector", "slot": "deflector", "group": "race", "label": "Deflector (soaks one hit, recharges)", "price": 520,
-      "gear": { "kind": "deflector", "recharge_s": 12.0, "grace_s": 0.3 } },
+      "gear": { "kind": "deflector", "recharge_s": 12.0, "grace_s": 0.3 },
+      "look": {"mount": "dome", "pieces": [{"shape": "cyl", "top": 0.13, "bottom": 0.15, "h": 0.05, "at": [0, 0.025, 0], "mat": "plate"}, {"shape": "cyl", "top": 0.04, "bottom": 0.11, "h": 0.09, "at": [0, 0.095, 0], "mat": "dark"}, {"shape": "cyl", "top": 0.116, "bottom": 0.116, "h": 0.012, "at": [0, 0.056, 0], "mat": "glow"}]} },
     { "id": "nitro_1", "slot": "nitro", "group": "race", "label": "Nitro tank (+30% boost, faster refill)", "price": 160,
-      "mods": { "boost_time": 1.3, "boost_recharge": 1.25 } },
+      "mods": { "boost_time": 1.3, "boost_recharge": 1.25 },
+      "look": {"mount": "tanks", "pieces": [{"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.0, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.0, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.0, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}]} },
     { "id": "nitro_2", "slot": "nitro", "group": "race", "label": "Big nitro tank (+60% boost, faster refill)", "price": 320, "requires": "nitro_1",
-      "mods": { "boost_time": 1.6, "boost_recharge": 1.5 } },
+      "mods": { "boost_time": 1.6, "boost_recharge": 1.5 },
+      "look": {"mount": "tanks", "pieces": [{"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.0, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.0, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.0, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.14, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.14, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.14, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}]} },
     { "unlocked_by": "salt", "id": "nitro_3", "slot": "nitro", "group": "race", "label": "Racing nitro (+100% boost, fast refill)", "price": 600, "requires": "nitro_2",
-      "mods": { "boost_time": 2.0, "boost_recharge": 1.9 } }
+      "mods": { "boost_time": 2.0, "boost_recharge": 1.9 },
+      "look": {"mount": "tanks", "pieces": [{"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.0, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.0, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.0, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.14, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.14, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.14, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.06, "bottom": 0.06, "h": 0.46, "at": [0.28, 0.06, 0], "mat": "trim", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.035, "bottom": 0.035, "h": 0.06, "at": [0.28, 0.06, -0.26], "mat": "plate", "rot": [90, 0, 0]}, {"shape": "cyl", "top": 0.062, "bottom": 0.062, "h": 0.03, "at": [0.28, 0.06, 0.12], "mat": "dark", "rot": [90, 0, 0]}]} }
   ]
 }

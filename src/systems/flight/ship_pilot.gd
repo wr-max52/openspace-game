@@ -509,14 +509,18 @@ func sell_berth(i: int) -> bool:
 
 ## Issue #207: T-89 fitted an upgrade: the parked ship you fly takes it now
 ## (in the air it waits for the next landing), and an upgrade with a paint job
-## repaints its ship (ShipUpgrades.look). Every owned ship shows its parts at once.
+## repaints its ship (ShipUpgrades.look). Every owned ship shows its parts at once,
+## and issue #703: its hull takes the new shape now, not at the next load.
 func refit() -> void:
 	for b in berths:
 		if not bool(b.get("destroyed", false)) and is_instance_valid(b.visual):
 			var base := str(content.get_ship(str(b.ship_id)).get("look", ""))
+			var was := ShipKit.shown(b.visual)
 			kit.repaint(b.visual, ShipUpgrades.look(str(b.ship_id), base))
 			if b.visual.has_meta("look_id"):
 				kit.dress(b.visual, ShipUpgrades.fitted(str(b.ship_id)))
+			if was != ShipKit.shown(b.visual) and b.get("hull") != null and is_instance_valid(b.hull):
+				(b.hull as ShipHull).refit(b.visual)
 	if not piloting and not berths.is_empty():
 		_use_berth(berth)
 
@@ -2299,6 +2303,8 @@ func place_fleet() -> void:
 	# the guest flew in on their own (Fleet.LAN, the moon handoff): that one is theirs.
 	if Fleet.lan() and not berths.is_empty() and str(berths[0].get("key", "")) != Fleet.LAN:
 		_stow(0)
+	_pit_foot = _pad_foot()
+	_to_big_pad(0)       # issue #703: the frigate waits outside the pit, not on its 12 m pad
 	var here := GameFlow.current_planet_id()
 	for e in Fleet.owned():
 		var key := str(e.key)
@@ -2367,13 +2373,17 @@ func bring_primary_to_pit() -> void:
 		i = _spawn_owned(key, Transform3D(Basis.IDENTITY, foot))
 		if i < 0:
 			return
+	var big := _big_pad(i)         # issue #703: too big for the pit: the big pad outside it
+	if not big.is_empty():
+		foot = big[0]
+		yaw = big[1]
 	if bool(berths[i].get("destroyed", false)) or WorldState.has_flag(Fleet.WRECKED):
 		_patch_up(i)
 	if i == berth and atmo.state != AtmoFlight.State.PARKED:
 		crash_left = -1.0
 		atmo.park(foot, yaw)
 	for j in berths.size():
-		if j != i and _on_pad(j):
+		if j != i and big.is_empty() and _on_pad(j):
 			_move_aside(j)
 	var u := ground.up_at(foot)
 	berths[i].home = foot + u * float(berths[i].clearance)
@@ -2449,6 +2459,14 @@ func call_state() -> Dictionary:
 	if WorldState.has_flag(Fleet.WRECKED):
 		return { "ok": false, "text": GameFlow.label("call_wrecked") }
 	return { "ok": true, "text": GameFlow.label("call") }
+
+
+## The F11 Map page pauses the game, but a ship you called keeps flying to you
+## while it is open, so the map shows her coming (DevSettingsPanel calls this each
+## physics tick then). Nothing while the game runs: the frame flies her then.
+func call_tick(dt: float) -> void:
+	if calling and not piloting and atmo != null and not can_process():
+		_call_step(dt)
 
 
 ## One frame of a call: up off the ground, across at cruise height over whatever is
@@ -2586,8 +2604,42 @@ func _move_aside(i: int) -> void:
 
 ## The pit pad's deck: under berth 0's home.
 func _pad_foot() -> Vector3:
+	if _pit_foot != Vector3.INF:
+		return _pit_foot
 	var h: Vector3 = berths[0].home
 	return h - ground.up_at(h) * float(berths[0].clearance)
+var _pit_foot := Vector3.INF     ## the pit pad's deck, kept once a big ship moves off it (#703)
+
+
+## Issue #703: berth `i`'s ship is too big for the pit's pads (body_radius over the
+## pad's big_ship_radius) and the town has a big pad: [its deck, its yaw]. Else [].
+func _big_pad(i: int) -> Array:
+	var r := float(berths[i].cfg.get("atmosphere", {}).get("body_radius", 0.0)) if berths[i].cfg is Dictionary else 0.0
+	if r <= float(pad.get("big_ship_radius", INF)) or demo == null or demo.town == null:
+		return []
+	var box: Dictionary = demo.town.get_box(str(pad.get("big_pad_box", "")))
+	if box.is_empty():
+		return []
+	var c := Vector3((float(box.min[0]) + float(box.max[0])) * 0.5, float(box.min[1]), (float(box.min[2]) + float(box.max[2])) * 0.5)
+	var u := ground.up_at(c)
+	return [ground.surface_below(c + u * 20.0), deg_to_rad(float(box.get("parked_yaw_deg", 0.0)))]
+
+
+## Berth `i` onto the big pad (and its home there) when it is too big for the pit.
+func _to_big_pad(i: int) -> void:
+	if i >= berths.size() or bool(berths[i].get("destroyed", false)) or not is_instance_valid(berths[i].visual):
+		return
+	if i == berth and (piloting or atmo.state != AtmoFlight.State.PARKED):
+		return
+	var big := _big_pad(i)
+	if big.is_empty():
+		return
+	_stand(i, big[0], big[1])
+	berths[i].home = big[0] + ground.up_at(big[0]) * float(berths[i].clearance)
+	berths[i].home_yaw = big[1]
+	if i == berth:
+		home = berths[i].home
+		home_yaw = big[1]
 
 
 ## Berth `i` stood on the ground at `foot`, facing `yaw` (in the ground's own frame).
@@ -2878,17 +2930,23 @@ func _drop_hijacked(wrecked: bool) -> void:
 ## Beside the ship (left, then right, then behind), on whatever ground is there.
 ## Clear of her wings: 5.5 m out, or half her look's span and a bit more for a big
 ## one (the station's frigate is 16 m across, so 5.5 m put you inside her hull).
+## Where you step out: four spots round the ship, then (issue #698) four more
+## `exit_ring_grow` times as far. A spot more than `exit_max_rise` above the ground
+## she rests on (up on something beside her) is skipped. Runs only when you get out.
 func _exit_spot() -> Vector3:
 	var b: Basis = atmo.flight.basis
 	var s := atmo.position()
 	var u := atmo.up()
+	var rest := s - u * atmo.clearance
+	var rise := float(pad.get("exit_max_rise", 0.5))
 	var side := maxf(5.5, _look_span() * 0.5 + 1.5)
 	var back := maxf(side + 3.0, _look_length() * 0.5 + 1.5)
-	for off in [-b.x * side, b.x * side, b.z * back, -b.z * back]:
-		var flat: Vector3 = off - u * off.dot(u)
-		var at := ground.surface_below(s + flat) + u * 0.05
-		if ground.hit(at + u, 0.6) == "":
-			return at
+	for grow in [1.0, float(pad.get("exit_ring_grow", 1.5))]:
+		for off in [-b.x * side * grow, b.x * side * grow, b.z * back * grow, -b.z * back * grow]:
+			var flat: Vector3 = off - u * off.dot(u)
+			var at := ground.surface_below(s + flat) + u * 0.05
+			if (at - rest).dot(u) <= rise + 0.05 and ground.hit(at + u, 0.6) == "":
+				return at
 	return ground.surface_below(s + u * 5.0) + u * 0.05
 
 

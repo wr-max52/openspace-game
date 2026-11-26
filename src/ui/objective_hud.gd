@@ -77,8 +77,8 @@ func _process(dt: float) -> void:
 
 
 ## Re-read the objective and find its place. A waypoint set on the F11 map
-## clears itself once the player is there, and one on another LAN player once
-## they leave.
+## clears itself once the player is there, one on another LAN player once
+## they leave, and one on a vehicle once it is gone.
 func refresh() -> void:
 	objective = Objective.current()
 	var tg := str(objective.get("target", ""))
@@ -86,6 +86,10 @@ func refresh() -> void:
 		GlobeMap.clear_waypoint()             # they left the game (or you did)
 		objective = Objective.current()
 	target_pos = where(str(objective.get("target", "")))
+	if str(objective.get("target", "")).begins_with("vehicle:") and target_pos == Vector3.INF:
+		GlobeMap.clear_waypoint()             # the vehicle is gone (wrecked, sold)
+		objective = Objective.current()
+		target_pos = where(str(objective.get("target", "")))
 	if objective.get("map", false) and target_pos != Vector3.INF:
 		var d := distance()
 		if d >= 0.0 and d < float(objective.get("arrive", 30.0)):
@@ -136,6 +140,8 @@ func where(target: String) -> Vector3:
 			var g = demo.get("general_post")
 			if id == "general" and g != null and is_instance_valid(g) and g.body != null and g.body.visible:
 				return g.body.global_position          # issue #203: wherever he stands now
+			if id == "bounty":
+				return _bounty_pos()                   # issue #711: the officer, once you are close
 			return _marker(id)
 		"wreck":
 			# Issue #205: the crashed cruiser on the horizon.
@@ -168,6 +174,12 @@ func where(target: String) -> Vector3:
 			# or one part of it by name: the bay, the stairs, the general.
 			if demo.get("cruiser") != null:
 				return demo.cruiser.objective_point(_player_pos(), id)
+		"station":
+			# The F11 map's station side view: one of its places (the bay, a floor) on
+			# the space station in this sky.
+			for s in demo.get("stations") if demo.get("stations") != null else []:
+				if is_instance_valid(s):
+					return s.objective_point(id)
 		"droid_post":
 			# Issue #212: the nearest desert droid merchant's post.
 			var posts = demo.get("droid_merchant_outposts")
@@ -195,6 +207,10 @@ func where(target: String) -> Vector3:
 			# A planet not in this sky (the lava moon, seen from Grit Station): its
 			# port in this scene all the same, from the star system's one frame.
 			return GlobeMap.port_from(id, GameFlow.current_planet_id())
+		"vehicle":
+			# A vehicle picked on the F11 map (GlobeMap.vehicles): where it is now,
+			# your ship flying itself to you, a speeder, the Remnant's interceptor.
+			return GlobeMap.vehicle_pos(demo, id)
 		"player":
 			# A LAN player picked on the F11 map: where they stand now, or their
 			# ship while they sit in it (INF on another planet: the line alone).
@@ -222,6 +238,18 @@ func where(target: String) -> Vector3:
 					if str(o.id) == id:
 						return o.origin
 	return Vector3.INF
+
+
+## Issue #711: the bounty's officer where they stand now (or ride, a runner), else
+## their outpost.
+func _bounty_pos() -> Vector3:
+	var ro = demo.get("outposts")
+	if ro == null or not is_instance_valid(ro):
+		return Vector3.INF
+	var t = ro.target
+	if t != null and is_instance_valid(t) and not t.dead:
+		return t.global_position
+	return where("outpost:" + str(WorldState.bounty.get("outpost", "")))
 
 
 func _marker(id: String) -> Vector3:

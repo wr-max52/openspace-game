@@ -2,6 +2,20 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Explosions burn hotter, at no extra cost (2026-11-26)
+
+- **Grenades, speeders, ships, seekers and mines go up with a real fireball.**
+  The fire burns white-hot in its billows and orange to ember red in the
+  creases between them, then cools into the soot, instead of flat peach puffs.
+- **Tongues of flame shoot out of the burst** in the first half second and pull
+  back in, and the light flashes white then glows orange as the fire burns.
+- **The blast blows a low skirt of dust out along the ground** in place of the
+  floating shock ring (space blasts keep the ring). Sparks and smoke as before.
+- **Droid pops and bolt hits** get the same hotter fire, at their small size.
+- **Same cost:** the same draw calls (62 for six grenades at once), slightly
+  fewer primitives, the same GPU time; the same two shaders, which the game
+  still compiles while the town loads.
+
 ## New version is 1.7.3 (2026-11-26)
 
 - Share builds are now **OpenSpace V1.7.3**. Everything below, down to "New

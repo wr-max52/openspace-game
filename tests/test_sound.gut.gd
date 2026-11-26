@@ -147,13 +147,30 @@ func test_credits_make_coin_noises() -> void:
 	var s := Sound.lib()
 	var before := s.one_shots
 	var had := WorldState.credits
-	s._credits = had
+	s._watch_credits()
 	WorldState.credits = had + 25
 	s._watch_credits()
 	assert_eq(s.one_shots, before + 1, "a coin sound for credits in")
 	WorldState.credits = had
 	s._watch_credits()
 	assert_eq(s.one_shots, before + 2, "and one for credits out")
+
+
+## Issue #710: loading a save with a different balance is not a coin sound; buying
+## something after it still is.
+func test_loading_a_save_makes_no_coin_sound() -> void:
+	var s := Sound.lib()
+	var had := WorldState.to_save()
+	s._watch_credits()
+	var before := s.one_shots
+	WorldState.from_save({ "credits": WorldState.credits + 500 })
+	s._watch_credits()
+	assert_eq(s.one_shots, before, "no coin sound for the loaded balance")
+	WorldState.credits -= 40
+	s._watch_credits()
+	assert_eq(s.one_shots, before + 1, "buying something after the load still plays one")
+	WorldState.from_save(had)
+	s._watch_credits()
 
 
 func test_blade_is_quieter() -> void:

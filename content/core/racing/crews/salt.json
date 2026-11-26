@@ -22,8 +22,8 @@
       "park": [20.2, 67.6],
       "look": {
         "head": "guard:white",
-        "torso": "local:lighter",
-        "legs": "local:lighter"
+        "torso": "local:worn_lighter",
+        "legs": "local:worn_lighter"
       },
       "paint": "steel",
       "parts": [
@@ -40,8 +40,8 @@
       "park": [15.8, 63.5],
       "look": {
         "head": "guard:navy",
-        "torso": "local:blue",
-        "legs": "local:lighter"
+        "torso": "local:worn_blue",
+        "legs": "local:worn_lighter"
       },
       "model": "hauler",
       "paint": "",
@@ -57,8 +57,8 @@
       "park": [24.5, 71.7],
       "look": {
         "head": "guard:white",
-        "torso": "local:blue",
-        "legs": "local"
+        "torso": "local:worn_blue",
+        "legs": "local:worn_sand"
       },
       "model": "racer",
       "paint": "",
@@ -126,6 +126,6 @@
     "leader_lost": "Lucky run. We'll have you next time.",
     "leader_won": "Told you. Better luck next time.",
     "not_yet": "Beat the basin crew first. Nobody skips the ladder.",
-    "next_crew": "You beat us all. Come back any time, if you've got the nerve."
+    "next_crew": "You beat us all round here. There's more, if you've got the nerve: the crag crew race the Crooked Mile out of Cragfall village, by the far mountains on the other side of the planet."
   }
 }

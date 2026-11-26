@@ -103,10 +103,14 @@ func test_home_planet_mountains_are_globally_distributed_and_climbable() -> void
 	var min_lat := 90.0
 	var max_lat := -90.0
 	var longitudes := {}
-	for m in spots:
-		min_lat = minf(min_lat, float(m[0]))
-		max_lat = maxf(max_lat, float(m[0]))
-		longitudes[int(round(float(m[1])))] = true
+	# Every mountain, the course ranges too (by where they stand on the ball).
+	var ball := PlanetTerrain.for_planet(PlanetGen.build(PlanetGen.home_id())).sphere
+	for m in Landforms.mountain_spots(data, ball):
+		var d := ball.map_dir((m.map as Vector2).x, (m.map as Vector2).y)
+		var lat := rad_to_deg(asin(d.y))
+		min_lat = minf(min_lat, lat)
+		max_lat = maxf(max_lat, lat)
+		longitudes[int(round(rad_to_deg(atan2(d.x, -d.z))))] = true
 	assert_lt(min_lat, -65.0, "mountains reach the southern hemisphere")
 	assert_gt(max_lat, 65.0, "mountains reach the northern hemisphere")
 	assert_gt(longitudes.size(), 12, "mountains are spread around the full longitude range")

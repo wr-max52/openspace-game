@@ -61,6 +61,7 @@ var _inside: Node3D
 var _layer: CanvasLayer
 var _label: Label
 var _was_aboard := false
+var _warned := false                   ## issue #702: warned of the pull on this drop
 var _shadow_capped := false
 var _fill_tick := 0
 
@@ -117,6 +118,20 @@ func to_world(local: Vector3) -> Vector3:
 
 func aboard(p: Vector3) -> bool:
 	return hull != null and hull.aboard(inv * p)
+
+
+## A world point in the station's own frame (the F11 map's side view).
+func to_local_point(p: Vector3) -> Vector3:
+	return inv * p
+
+
+## Where the pointer goes for "station:<part>" (ObjectiveHud.where): one of its map
+## places (StationHull.map_places: the bay, a floor), or the bay with no part.
+func objective_point(part: String = "") -> Vector3:
+	if hull == null:
+		return Vector3.INF
+	var at := hull.map_place(part if part != "" else "bay")
+	return frame * at if at != Vector3.INF else Vector3.INF
 
 
 func label() -> String:
@@ -192,9 +207,18 @@ func _fall_guard(p: Node3D) -> void:
 	if open_air:
 		if ground == null or ground.lethal_below == -INF or aboard(p.global_position):
 			return
-		var drop := float(cfg.get("outside", {}).get("drop_below", 40.0))
-		if (inv * p.global_position).y >= hull.bottom_y() - drop or distance(p.global_position) > 3000.0:
+		var outside: Dictionary = cfg.get("outside", {})
+		var drop := float(outside.get("drop_below", 40.0))
+		var below := hull.bottom_y() - (inv * p.global_position).y
+		if below <= drop - float(outside.get("warn_before", 15.0)) or distance(p.global_position) > 3000.0:
+			_warned = false
 			return
+		if below <= drop:
+			if not _warned:
+				_warned = true            # issue #702: once on the way down, before the pull
+				_toast(line("fell_clouds_warn"), 3.0)
+			return
+		_warned = false
 		_pull_back(p, line("fell_clouds"))
 		return
 	if aboard(p.global_position):

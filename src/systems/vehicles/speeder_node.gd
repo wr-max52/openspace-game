@@ -63,6 +63,10 @@ var _readout: Label
 var _prompt: Label
 var _fan: Node3D
 var _glow_mat: StandardMaterial3D
+static var _heat_mat: StandardMaterial3D   ## the boosters' nozzle glow, shared by every speeder
+static var _dim_glows := {}               ## the parts' glows, by colour
+static var _fit_meshes := {}              ## model + parts -> the parts' meshes, by material
+var _fit_node: Node3D                      ## the parts that only change numbers, shown (_build_fit_looks)
 var _t := 0.0
 var jolt := BoardJolt.new()      ## issue #87: sink, lift and shudder as you climb on
 var _lean := Vector2.ZERO        ## smoothed (pitch, roll) for the eye
@@ -95,8 +99,9 @@ var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
 var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
-## Speeder race crash-outs: a race sets this on your speeder while it runs. Above
-## 0, a hit that would burst it while you ride crashes you out instead: a bang,
+## Speeder race crash-outs: a race sets this on every speeder in it while it runs
+## (yours, and its racers' a little longer). Above 0, a hit that would burst it
+## while you or an NPC drive it crashes it out instead: a bang,
 ## it stops dead and sits smoking while it is patched up for this many seconds
 ## (no throttle, no guns, no hits), then it is back to full hull and you race on.
 var crash_repair_s := 0.0
@@ -282,7 +287,7 @@ func apply_damage(amount: float) -> void:
 	for e in model.events:
 		log_events.append(e)
 	if killed:
-		if crash_repair_s > 0.0 and riding:
+		if crash_repair_s > 0.0 and (riding or npc_driven()):
 			_crash_out()
 		else:
 			_burst()
@@ -304,6 +309,33 @@ func _crash_out() -> void:
 	if visual != null and demo != null and bool(demo.get("use_look")):
 		_repair_smoke = ExplosionFx.smoke_trail(visual, Vector3(0, 0.6, 0), 0.5, 10, 2.5)
 	crashed_out.emit(at)
+
+
+## Crashed out: a frame of patching up, the controls held at nothing. False when
+## it is not crashed out (drive as normal). Issue #722: a rider with a welder holds
+## E and is back at full hull in Welder.weld_s; left to the patch-up the player
+## comes back at Welder.unwelded_hull (a crew's racer has no welder and comes back
+## whole, as before).
+func _tick_repair(dt: float) -> bool:
+	if repair_left <= 0.0:
+		return false
+	repair_left -= dt
+	model.set_command(0.0, 0.0)
+	if riding and Welder.owned() and Welder.e_held():
+		weld_t += dt
+		_set_weld_fx(true)
+		if weld_t >= Welder.weld_s():
+			welded_outs += 1
+			repair_left = maxf(repair_left, 0.01)
+			finish_repair(1.0)
+			return true
+	elif weld_t > 0.0:
+		weld_t = 0.0
+		_set_weld_fx(false)
+	if repair_left <= 0.0:
+		repair_left = 0.01
+		finish_repair(Welder.unwelded_hull() if riding else 1.0)
+	return true
 
 
 ## Patched up: `share` of full hull (issue #722: full when welded, less when the
@@ -404,26 +436,8 @@ func _physics_process(dt: float) -> void:
 
 func _ride(dt: float) -> void:
 	var fire := false
-	if repair_left > 0.0:
-		# Crashed out: it sits where it stopped until it is patched up. Issue #722:
-		# with a welder, hold E and it is back at full hull in Welder.weld_s; left to
-		# the patch-up it comes back at Welder.unwelded_hull.
-		repair_left -= dt
-		model.set_command(0.0, 0.0)
-		if Welder.owned() and Welder.e_held():
-			weld_t += dt
-			_set_weld_fx(true)
-			if weld_t >= Welder.weld_s():
-				welded_outs += 1
-				repair_left = maxf(repair_left, 0.01)
-				finish_repair(1.0)
-				return
-		elif weld_t > 0.0:
-			weld_t = 0.0
-			_set_weld_fx(false)
-		if repair_left <= 0.0:
-			repair_left = 0.01
-			finish_repair(Welder.unwelded_hull())
+	if _tick_repair(dt):
+		pass                             # crashed out: it sits where it stopped till patched up
 	elif _external.is_empty():
 		if _just("interact") and not model.airborne and not _hijack_claims():
 			dismount()
@@ -758,7 +772,12 @@ func _throw_riders_clear() -> void:
 
 ## The NPC driver's frame: its brain's command (or a bot's) through the model.
 func _npc_drive(dt: float) -> void:
-	if brain != null:
+	if _tick_repair(dt):
+		# Crashed out: the driver sits it out, no throttle, no guns.
+		_npc_cmd = {}
+		if brain != null:
+			brain.command = { "throttle": 0.0, "steer": 0.0, "boost": false, "fire": false }
+	elif brain != null:
 		brain.model = model
 		_npc_cmd = brain.update(dt)
 	else:
@@ -1267,12 +1286,15 @@ func _ensure_parts() -> void:
 	var want_roof := has_part("soft_top")
 	var have_boosters := not _flames.is_empty() and _flames.all(func(f): return is_instance_valid(f) and (f as Node).is_inside_tree())
 	var have_roof := _roof != null and is_instance_valid(_roof) and _roof.is_inside_tree()
-	if (want_boosters and not have_boosters) or (want_roof and not have_roof):
+	var want_fit := _fit_looks().size() > 0
+	var have_fit := _fit_node != null and is_instance_valid(_fit_node) and _fit_node.is_inside_tree()
+	if (want_boosters and not have_boosters) or (want_roof and not have_roof) or (want_fit and not have_fit):
 		for n in visual.get_children():
-			if str(n.name).begins_with("Booster") or n.name == "SoftTop":
+			if str(n.name).begins_with("Booster") or n.name == "SoftTop" or n.name == "FitParts":
 				n.queue_free()
 		_flames = []
 		_roof = null
+		_fit_node = null
 		_build_parts()
 
 
@@ -1292,18 +1314,31 @@ func _build_parts() -> void:
 		flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		flame_mat.albedo_color.a = 0.85
+		# Plated like the ships' bolt-ons (ShipKit.plate_material): a gunmetal can,
+		# a band in the speeder's trim, a dark flared nozzle with a dim heat glow.
+		var can := ShipKit.plate_material(Color(str(cfg.get("look", {}).get("metal", "#4a4c52"))).lightened(0.12))
+		var band := ShipKit.plate_material(Color(str(cfg.get("look", {}).get("trim", "#8e3a26"))))
+		var nozzle := ShipKit.plate_material(Color("#2a2b2f"))
+		if _heat_mat == null:
+			_heat_mat = StandardMaterial3D.new()
+			_heat_mat.albedo_color = Color("#2a1a12")
+			_heat_mat.emission_enabled = true
+			_heat_mat.emission = Color("#ff8a40")
+			_heat_mat.emission_energy_multiplier = 0.45
 		for side in [-1.0, 1.0]:
 			# Issue #100: out past the tail, so the body never swallows them.
 			var at := Vector3(side * (hx * 0.62), base_y + 0.55, back + 0.1)
-			_part(_cyl(0.2, 0.24, 1.3), metal, at, Vector3(90, 0, 0)).name = "Booster"
-			_part(_cyl(0.26, 0.26, 0.12), metal, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
-			_part(_cyl(0.15, 0.15, 0.04), _glow_mat, at + Vector3(0, 0, 0.7), Vector3(90, 0, 0)).name = "BoosterGlow"
+			_part(_cyl(0.19, 0.22, 1.2), can, at, Vector3(90, 0, 0)).name = "Booster"
+			_part(_cyl(0.225, 0.225, 0.1), band, at + Vector3(0, 0, -0.3), Vector3(90, 0, 0)).name = "BoosterBand"
+			_part(_cyl(0.23, 0.2, 0.16), nozzle, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
+			_part(_cyl(0.12, 0.12, 0.02), _heat_mat, at + Vector3(0, 0, 0.745), Vector3(90, 0, 0)).name = "BoosterGlow"
 			var flame := _part(_cyl(0.16, 0.0, 1.0), flame_mat, at + Vector3(0, 0, 1.2), Vector3(-90, 0, 0))
 			flame.name = "BoosterFlame"
 			flame.visible = false
 			_flames.append(flame)
 	if has_part("soft_top"):
-		var cloth := mats.flat(Color(str(cfg.get("look", {}).get("roof", "#8a7456"))), 0.95)
+		var cloth := mats.canvas(Color(str(cfg.get("look", {}).get("roof", "#8a7456"))))   # woven, sun-faded (StallTextures)
+		metal = ShipKit.plate_material(Color(str(cfg.get("look", {}).get("metal", "#4a4c52"))))
 		_roof = Node3D.new()
 		_roof.name = "SoftTop"
 		_roof.position = Vector3(0, base_y + _size.y * 0.78, 0.9)   # the hinge, behind the seat
@@ -1322,10 +1357,116 @@ func _build_parts() -> void:
 			post.position = Vector3(side * w * 0.5, 0.27, 0.0)
 			_roof.add_child(post)
 		var top := MeshInstance3D.new()
-		top.mesh = _box(Vector3(w + 0.06, 0.06, 1.25))
+		top.mesh = _box(Vector3(w + 0.06, 0.03, 1.25))
 		top.material_override = cloth
 		top.position = Vector3(0, 0.6, -0.58)
 		_roof.add_child(top)
+		for z in [-1.2, 0.04]:                   # the canvas rolled over the front and back bars
+			var hem := MeshInstance3D.new()
+			hem.mesh = _cyl(0.035, 0.035, w + 0.06)
+			hem.material_override = cloth
+			hem.position = Vector3(0, 0.6, z)
+			hem.rotation_degrees = Vector3(0, 0, 90)
+			_roof.add_child(hem)
+	_build_fit_looks()
+
+
+## The looks of the parts that only change numbers (engines, thrusters, cannons,
+## the Grav Lifter, race gear), so what you bought shows: each part's "look" in
+## speeder_upgrades.json, pieces at one of this model's look.mounts. Small and in
+## the speeder's own metal and trim (ShipKit.plate_material), the glows dim. Every
+## piece of every part ends in one mesh per material (docs/RENDER_RULES.md 1),
+## shared by every speeder with the same parts.
+func _build_fit_looks() -> void:
+	var looks := _fit_looks()
+	if looks.is_empty() or visual == null:
+		return
+	var key := str(cfg.get("look", {}).get("scene", "")) + str(cfg.get("parts", []))
+	if not _fit_meshes.has(key):
+		var pieces: Array = []
+		for look: Dictionary in looks:
+			pieces.append_array(_mounted(look))
+		_fit_meshes[key] = _stand_in_meshes(pieces).meshes
+	var lk: Dictionary = cfg.get("look", {})
+	var metal := Color(str(lk.get("metal", "#4a4c52")))
+	var mat_of := {
+		"plate": ShipKit.plate_material(metal.lightened(0.12)),
+		"dark": ShipKit.plate_material(Color("#2a2b2f")),
+		"trim": ShipKit.plate_material(Color(str(lk.get("trim", "#8e3a26")))),
+		"glow": _dim_glow(Color(str(lk.get("glow", "#7fe0d0")))),
+	}
+	_fit_node = Node3D.new()
+	_fit_node.name = "FitParts"
+	visual.add_child(_fit_node)
+	var meshes: Dictionary = _fit_meshes[key]
+	for mat_name in meshes:
+		var mi := MeshInstance3D.new()
+		mi.mesh = meshes[mat_name]
+		mi.material_override = mat_of.get(mat_name, mat_of.plate)
+		if mat_name == "glow":
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_fit_node.add_child(mi)
+
+
+## The fitted parts' looks (each { mount, pieces }).
+func _fit_looks() -> Array:
+	var out: Array = []
+	for id in cfg.get("parts", []):
+		var look: Dictionary = SpeederUpgrades.part(str(id)).get("look", {})
+		if not look.is_empty():
+			out.append(look)
+	return out
+
+
+## A part's pieces placed at its mount, in the speeder's frame: turned by the
+## mount's tilt, and a "mirror" piece copied across the centre line (so a right
+## side mount's piece gets its left twin).
+func _mounted(look: Dictionary) -> Array:
+	var mount_id := str(look.get("mount", ""))
+	var lk: Dictionary = cfg.get("look", {})
+	var at := Vector3.ZERO
+	var tilt := 0.0
+	match mount_id:
+		"muzzle":
+			at = _muzzle()
+		"belly":
+			at = Vector3(0, float(lk.get("base_y", -0.65)), 0)
+		_:
+			var m: Dictionary = lk.get("mounts", {}).get(mount_id, {})
+			if m.is_empty():
+				return []                  # this model has no such mount: nothing shows
+			at = _v3(m.get("at", [0, 0, 0]))
+			tilt = float(m.get("tilt", 0.0))
+	var mount := Transform3D(Basis.from_euler(Vector3(deg_to_rad(tilt), 0, 0)), at)
+	var flip := Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1))
+	var out: Array = []
+	for pc: Dictionary in look.get("pieces", []):
+		var r := _v3(pc.get("rot", [0, 0, 0])) * (PI / 180.0)
+		var xf := mount * Transform3D(Basis.from_euler(r), _v3(pc.get("at", [0, 0, 0])))
+		var sides: Array = [xf]
+		if bool(pc.get("mirror", false)):
+			sides.append(Transform3D(flip * xf.basis * flip, flip * xf.origin))
+		for t: Transform3D in sides:
+			var q := pc.duplicate()
+			q.erase("mirror")
+			var e := t.basis.get_euler() * (180.0 / PI)
+			q["at"] = [t.origin.x, t.origin.y, t.origin.z]
+			q["rot"] = [e.x, e.y, e.z]
+			out.append(q)
+	return out
+
+
+## A dim glow for the parts (vents, the lifter's rings, the deflector), one per colour.
+static func _dim_glow(c: Color) -> StandardMaterial3D:
+	var k := c.to_html()
+	if not _dim_glows.has(k):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c.darkened(0.5)
+		m.emission_enabled = true
+		m.emission = c
+		m.emission_energy_multiplier = 0.5
+		_dim_glows[k] = m
+	return _dim_glows[k]
 
 
 ## Boost lights the flames; the roof folds back while someone rides.

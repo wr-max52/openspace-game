@@ -1008,52 +1008,89 @@ func _build_ramp_collider() -> void:
 	for b in ground.boxes:
 		if not (str(b.id).begins_with(RAMP + "/") or str(b.id).begins_with(LANDMARK + "/")) or str(b.get("rise", "")) == "":
 			continue
-		var mn: Vector3 = b.min
-		var mx: Vector3 = b.max
-		var pts := PackedVector3Array()
-		# Six corners: the low edge, the high edge up top, and the base.
-		match str(b.rise):
-			"-z":
-				pts = [Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
-					Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mx.y, mn.z), Vector3(mx.x, mx.y, mn.z)]
-			"+z":
-				pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z),
-					Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mx.y, mx.z), Vector3(mx.x, mx.y, mx.z)]
-			"-x":
-				pts = [Vector3(mx.x, mn.y, mn.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
-					Vector3(mn.x, mn.y, mx.z), Vector3(mn.x, mx.y, mn.z), Vector3(mn.x, mx.y, mx.z)]
-			_:
-				pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mn.z),
-					Vector3(mx.x, mn.y, mx.z), Vector3(mx.x, mx.y, mn.z), Vector3(mx.x, mx.y, mx.z)]
-		var body := StaticBody3D.new()
-		body.name = "RampCollider"
-		var cs := CollisionShape3D.new()
-		var shape := ConvexPolygonShape3D.new()
-		shape.points = pts
-		cs.shape = shape
-		body.add_child(cs)
-		add_child(body)
-		# Issue #77: on the ball the box is in its landmark's own frame.
-		body.global_transform = WorldGround.box_xf(b)
-		if demo.use_look:
-			var mi := MeshInstance3D.new()
-			mi.name = "Ramp"
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			# Sloped top, two sides, the high end (the low end is flush with the sand).
-			var tris := [[0, 4, 1], [1, 4, 5], [0, 2, 4], [1, 5, 3], [2, 3, 4], [3, 5, 4]]
-			for t in tris:
-				for k in t:
-					st.add_vertex(pts[k])
-			st.generate_normals()
-			mi.mesh = st.commit()
-			var sand := StandardMaterial3D.new()
-			sand.albedo_color = Color("#c9955a")
-			sand.roughness = 1.0
-			sand.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mi.material_override = sand
-			add_child(mi)
-			mi.global_transform = body.global_transform
+		add_ramp(self, b, ramp_material(demo._flat_mats(), ground.sphere()) if demo.use_look else null)
+
+
+static var _ramp_rock: ShaderMaterial
+static var _ramp_rock_ball: PlanetSphere
+
+## The ramps' look: a boulder, not a sand pile (the desert boulders' own rock:
+## strata, pitted grain, dust on the slope), set to the ball's "up" as the
+## landforms are. One material for every ramp on a ball (Skrugs's and the race
+## courses' copies of it).
+static func ramp_material(mats: LookMaterials, sp: PlanetSphere) -> ShaderMaterial:
+	if _ramp_rock == null or _ramp_rock_ball != sp:
+		_ramp_rock = mats.rock(0.0, 1.2).duplicate()
+		_ramp_rock_ball = sp
+		if sp != null:
+			_ramp_rock.set_shader_parameter("planet_center", sp.center)
+			_ramp_rock.set_shader_parameter("planet_radius", sp.radius)
+			_ramp_rock.set_shader_parameter("dusk_strength", 0.35)
+	return _ramp_rock
+
+
+## The ramp's look and walking collider for WorldGround ramp box `b` (any box
+## with a "rise": Skrugs's, and the race courses' copies of it), under `parent`:
+## a wedge StaticBody and, with a `look` material (ramp_material), its mesh.
+static func add_ramp(parent: Node3D, b: Dictionary, look: Material) -> void:
+	var mn: Vector3 = b.min
+	var mx: Vector3 = b.max
+	var pts := PackedVector3Array()
+	# Six corners: the low edge, the high edge up top, and the base.
+	match str(b.rise):
+		"-z":
+			pts = [Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
+				Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mx.y, mn.z), Vector3(mx.x, mx.y, mn.z)]
+		"+z":
+			pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z),
+				Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mx.y, mx.z), Vector3(mx.x, mx.y, mx.z)]
+		"-x":
+			pts = [Vector3(mx.x, mn.y, mn.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
+				Vector3(mn.x, mn.y, mx.z), Vector3(mn.x, mx.y, mn.z), Vector3(mn.x, mx.y, mx.z)]
+		_:
+			pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mn.z),
+				Vector3(mx.x, mn.y, mx.z), Vector3(mx.x, mx.y, mn.z), Vector3(mx.x, mx.y, mx.z)]
+	var body := StaticBody3D.new()
+	body.name = "RampCollider"
+	var cs := CollisionShape3D.new()
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = pts
+	cs.shape = shape
+	body.add_child(cs)
+	parent.add_child(body)
+	# Issue #77: on the ball the box is in its landmark's own frame.
+	body.global_transform = WorldGround.box_xf(b)
+	if look != null:
+		var mi := MeshInstance3D.new()
+		mi.name = "Ramp"
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_smooth_group(-1)      # flat faces: hard rock edges, and the rock's
+		                             # wall/top projection does not smear up the sides
+		# Sloped top, two sides, the high end (the low end is flush with the sand).
+		# The rock shader culls back faces, so each triangle is wound to face out
+		# (Godot's clockwise front, against the wedge's own middle: the box's
+		# middle sits on the slope); the corners, and so the shape, are unchanged.
+		var mid := Vector3.ZERO
+		for p in pts:
+			mid += p / 6.0
+		var tris := [[0, 4, 1], [1, 4, 5], [0, 2, 4], [1, 5, 3], [2, 3, 4], [3, 5, 4]]
+		for t in tris:
+			var a: Vector3 = pts[t[0]]
+			var bb: Vector3 = pts[t[1]]
+			var c: Vector3 = pts[t[2]]
+			if (a - c).cross(a - bb).dot((a + bb + c) / 3.0 - mid) < 0.0:
+				t = [t[0], t[2], t[1]]
+			for k in t:
+				st.add_vertex(pts[k])
+		st.generate_normals()
+		mi.mesh = st.commit()
+		mi.material_override = look
+		# Both sides in the shadow pass, as the old double-sided sand cast (the
+		# wedge has no bottom face, so front faces alone could leak light).
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+		parent.add_child(mi)
+		mi.global_transform = body.global_transform
 
 
 ## The house, the stall, the display pad, the garage and its bench, in the town's

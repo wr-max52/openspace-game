@@ -160,6 +160,15 @@ var _repath_clock := 0.0
 var _path_goal := Vector3.INF
 var _backoff_t := 0.0                 ## s left stepping back off whatever pinned us
 var _backoff_dir := Vector3.ZERO
+## Issue #701: free walk's own stuck check (no path to measure): where the body was
+## at the start of the window, the window's clock, and the way out once pinned:
+## step back, then by turn straight on, a side-step left, a side-step right.
+var _fw_from := Vector3.INF
+var _fw_clock := 0.0
+var _fw_tries := 0
+var _fw_side := Vector3.ZERO
+var _fw_side_t := 0.0
+var _side_step_s := 1.0
 var _last_pos := Vector3.INF
 var _los_clear := false
 var _was_noticed := false
@@ -216,6 +225,8 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	locomotion.reuse_out = true          # issue #540: one result dict, read at once
 	_repath_s = float(navc.get("repath_s", 1.5))
 	_repath_move = float(navc.get("repath_move", 1.5))
+	_side_step_s = float(navc.get("side_step_s", 1.0))
+	_fit_capsule(soldier)
 	if materials != null:
 		kit = CharacterKit.new(materials, -1000.0)
 		look_body = kit.build(str(soldier.get("archetype", "remnant_trooper")), "", soldier.get("outfit", {}))
@@ -271,6 +282,18 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	add_child(_speech)
 	_build_sounds()
 	_build_health_bar()
+
+
+## Issue #697: the capsule (the hitbox and what walks) takes the body's size: its
+## height with the look's height, its radius with the look's width, crouching
+## too. Set once, before the body is in the tree (CharacterBody._ready builds it);
+## the same with the look on or off.
+func _fit_capsule(soldier: Dictionary) -> void:
+	var size := CharacterKit.size_of(str(soldier.get("archetype", "remnant_trooper"))) * float(soldier.get("look_scale", 1.0))
+	capsule_height *= size.y
+	capsule_radius *= size.x
+	controller.stand_height *= size.y
+	controller.crouch_height *= size.y
 
 
 ## Issue #147: the look's size (a stall keeper's height and build).
@@ -679,7 +702,7 @@ func _walk(dt: float) -> Vector3:
 		return Vector3.ZERO
 	if nav == null or not nav.is_ready:
 		if free_walk:
-			return _free_walk(goal)
+			return _free_walk(goal, dt)
 		return Vector3.ZERO
 	_repath_clock -= dt
 	var goal_moved := _path_goal == Vector3.INF or goal.distance_to(_path_goal) > _repath_move
@@ -706,13 +729,41 @@ func _walk(dt: float) -> Vector3:
 
 ## Issue #96: straight at `goal` across open ground, in the body's own (tilted)
 ## frame, so it walks along the ball like the player does.
-func _free_walk(goal: Vector3) -> Vector3:
+## Issue #701: no path aboard to measure, so a body that has not moved stuck_move in
+## stuck_s is pinned on something (a stall, a bunk, the barricade): it steps back off
+## it as the barracks' bodies do (#545), then tries straight on again, then a side-step
+## left, then right, and round again until it gets there.
+func _free_walk(goal: Vector3, dt: float) -> Vector3:
 	var d := goal - global_position
 	var local := tilt.inverse() * d
 	local.y = 0.0
 	if local.length() < 0.8:
+		_fw_from = Vector3.INF
+		_fw_tries = 0
 		return Vector3.ZERO
-	return local.normalized() * clampf(local.length() / 2.0, 0.35, 1.0)
+	var ahead := local.normalized()
+	if _backoff_t > 0.0:
+		_backoff_t -= dt
+		return _backoff_dir * 0.5
+	if _fw_side_t > 0.0:
+		_fw_side_t -= dt
+		return _fw_side
+	_fw_clock += dt
+	if _fw_from == Vector3.INF or global_position.distance_to(_fw_from) >= locomotion.stuck_move:
+		_fw_from = global_position
+		_fw_clock = 0.0
+	elif _fw_clock >= locomotion.stuck_s:
+		stuck_events += 1
+		_fw_from = Vector3.INF                   # a fresh window once it walks on
+		_backoff_dir = -ahead
+		_backoff_t = 0.5
+		var turn := _fw_tries % 3                # 0 straight on, 1 left, 2 right
+		_fw_tries += 1
+		if turn > 0:
+			_fw_side = Vector3.UP.cross(ahead) * (1.0 if turn == 1 else -1.0)
+			_fw_side_t = _side_step_s                # counted down after the step back
+		return _backoff_dir * 0.5
+	return ahead * clampf(local.length() / 2.0, 0.35, 1.0)
 
 
 func _repath(goal: Vector3) -> void:
@@ -884,6 +935,25 @@ func _ray_clear(tpos: Vector3) -> bool:
 	var hull: Node = v.hull_body() if v != null else null
 	while n != null:
 		if n == target or (hull != null and n == hull):
+			return true
+		n = n.get_parent()
+	return false
+
+
+## Issue #699: eye to `to`, clear if nothing but `other` (or a part of it) is in the
+## way. SilentKill's body check; one ray.
+func sight_clear(to: Vector3, other: Node = null) -> bool:
+	if not is_inside_tree():
+		return false
+	var q := PhysicsRayQueryParameters3D.create(eye_position(), to)
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return true
+	var n: Node = hit.collider
+	while n != null:
+		if other != null and n == other:
 			return true
 		n = n.get_parent()
 	return false

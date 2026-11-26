@@ -83,6 +83,11 @@ var _curve_want := 0.0
 var _curve_left := 0.0
 var _unstick_left := 0.0
 var _unstick_dir := Vector3.ZERO
+var _look_left := 0.0                 ## issue #700: s to the next look ahead
+var _look_far := false                ## the looks take turns: half a body ahead, then a whole one
+var _avoid_left := 0.0                ## s more turning away from what is ahead
+var _avoid_dir := Vector3.ZERO
+var avoids := 0                       ## times it turned away from something ahead (tests)
 var _track: Array = []                ## [ground point, travelled] once a second, oldest first (stuck check)
 var _track_left := 0.0
 var segments: Array = []              ## { node, r, shape }: the body, head to tail
@@ -233,9 +238,17 @@ func _flat(v: Vector3, at: Vector3) -> Vector3:
 	return v - u * v.dot(u)
 
 
-## The ground point under (about) `at`.
+## The sand under (about) `at`: the terrain only, never a rock, a roof or a wreck
+## (issue #700: with them in it stepped up onto whatever it crawled into).
 func _ground_at(at: Vector3) -> Vector3:
-	return ground.surface_below(at + _up(at) * 6.0) if ground != null else Vector3(at.x, 0.0, at.z)
+	if ground == null:
+		return Vector3(at.x, 0.0, at.z)
+	var sp := ground.sphere()
+	if sp != null:
+		var q := at + _up(at) * 6.0
+		return q - _up(q) * sp.height_above_ground(q)
+	var hgt := ground.terrain.height_at(at.x, at.z) if ground.terrain != null else 0.0
+	return Vector3(at.x, hgt, at.z)
 
 
 # ------------------------------------------------------------------ look
@@ -577,6 +590,10 @@ func _wander(dt: float) -> void:
 		_chase(at)
 	else:
 		_roam(at, dt)
+	_look_ahead(at, dt)
+	if _avoid_left > 0.0:
+		_avoid_left -= dt
+		_curve = _toward(at, _avoid_dir)
 	heading = _flat(heading.rotated(_up(at), _curve * pace * dt), at).normalized()
 	var step := heading * pace * dt
 	var next := _ground_at(at + step)
@@ -666,11 +683,49 @@ func _chase(at: Vector3) -> void:
 		_calm()
 		return
 	var to := _flat(player.global_position - at, at)
-	if to.length() > float(cfg.get("chase_give_up_m", 1000.0)):
+	if to.length() > float(cfg.get("chase_give_up_m", 1000.0)) or _by_town(at):
 		_calm()
 		_toast(line("gave_up"))
 		return
 	_curve = _toward(at, to)
+
+
+## Issue #700: a few times a second (look_ahead_hz) one look down its way, half a
+## body length out and then a whole one by turns (WorldGround.hit: the ground's own
+## index, no physics). Something there (a box, a boulder, a column, the town) and it
+## turns away along its usual curve, to whichever side is clear, for avoid_s.
+func _look_ahead(at: Vector3, dt: float) -> void:
+	_look_left -= dt
+	if _look_left > 0.0 or ground == null:
+		return
+	_look_left = 1.0 / maxf(0.5, float(cfg.get("look_ahead_hz", 4.0)))
+	_look_far = not _look_far
+	var ahead := _body_len() * (1.0 if _look_far else 0.5)
+	if not _blocked(at, heading, ahead):
+		return
+	avoids += 1
+	var u := _up(at)
+	var left := heading.rotated(u, PI * 0.25)
+	var right := heading.rotated(u, -PI * 0.25)
+	var turn := left if (_curve >= 0.0) else right      # keep turning the way it was
+	if _blocked(at, turn, ahead):
+		var other := right if turn == left else left
+		turn = other if not _blocked(at, other, ahead) else -heading
+	_avoid_dir = turn
+	_avoid_left = float(cfg.get("avoid_s", 3.0))
+
+
+func _blocked(at: Vector3, dir: Vector3, dist: float) -> bool:
+	var p := _ground_at(at + dir * dist)
+	return ground.hit(p + _up(p) * radius, radius) != "" or _by_town(p)
+
+
+## Within town_keep_m of the town's walls (the ball's town site), where it never goes.
+func _by_town(at: Vector3) -> bool:
+	var sp := ground.sphere() if ground != null else null
+	if sp == null or not sp.under_rect.has_area():
+		return false
+	return sp.under_rect.grow(float(cfg.get("town_keep_m", 30.0))).has_point(sp.world_to_map(at))
 
 
 func _calm() -> void:

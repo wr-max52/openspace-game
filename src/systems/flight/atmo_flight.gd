@@ -421,11 +421,47 @@ func _step_adrift(dt: float) -> void:
 func _touch_down() -> void:
 	flight.position -= up() * agl()
 	flight.basis = _level(flight.basis, 1.0, up())
+	_sit_on_slope()
 	flight.speed = 0.0
 	flight.throttle = 0.0
 	_command.throttle = 0.0
 	state = State.PARKED
 	events.append({ "type": "landed", "at": flight.position })
+
+
+## Issue #708: once, as she touches down, tilt her to the ground: the plane through
+## the ground at her nose and either side (body_radius out), at most
+## land_tilt_max_deg off level, her belly on it. Flat ground (a pad, the pit, a
+## roof) leaves her level. Nothing runs per frame.
+func _sit_on_slope() -> void:
+	if ground == null:
+		return
+	var u := up()
+	var b: Basis = flight.basis
+	var belly: Vector3 = flight.position - u * clearance
+	var pts: Array[Vector3] = []
+	for off: Vector3 in [-b.z * body_radius, b.x * body_radius, -b.x * body_radius]:
+		var q: Vector3 = belly + off + u * body_radius      # from above: a rise ahead is found
+		pts.append(q - u * ground.height_above(q))
+	var plane := (pts[2] - pts[0]).cross(pts[1] - pts[0]).normalized()
+	if plane.dot(u) < 0.0:
+		plane = -plane
+	var tilt := u.angle_to(plane)
+	if not is_finite(tilt) or tilt < 0.001:
+		return
+	var n := plane
+	var cap := deg_to_rad(p("land_tilt_max_deg", 15.0))
+	if tilt > cap:
+		n = u.rotated(u.cross(plane).normalized(), cap)
+	flight.basis = (Basis(Quaternion(u, n)) * b).orthonormalized()
+	# Her belly's centre on the plane, straight down along up from where it was.
+	var down := (belly - pts[0]).dot(plane) / u.dot(plane)
+	flight.position = belly - u * down + n * clearance
+	# The plane misses her tail: on a dune crest it would sit in the sand. Lift her
+	# along up until no part of her footprint is under the ground.
+	var sunk := agl()
+	if sunk < 0.0:
+		flight.position -= u * sunk
 
 
 func _crash(at: Vector3, what: String) -> void:

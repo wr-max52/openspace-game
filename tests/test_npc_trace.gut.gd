@@ -66,6 +66,14 @@ func test_long_walks_do_not_get_stuck() -> void:
 	assert_true(_b("UNREACHABLE_FLAGGED"), "an unreachable goal is reported")
 
 
+## Issue #697: a trooper's capsule is his size and still walks the barracks hall
+## loop through the office door.
+func test_a_tall_trooper_walks_the_barracks_door_loop() -> void:
+	assert_gt(_f("HALL_CAPSULE_H"), 1.95, "the hall trooper's capsule is his height")
+	assert_gt(_f("HALL_LOOP_S"), 0.0, "walked the whole loop")
+	assert_eq(_f("HALL_STUCK"), 0.0, "no stuck events")
+
+
 func test_sees_what_is_in_front() -> void:
 	assert_true(_b("FRONT_VISIBLE"))
 	assert_between(_f("FRONT_NOTICE_S"), 0.2, 2.0, "noticed in about a second at 15 m")

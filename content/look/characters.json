@@ -113,6 +113,7 @@
       "model": {
         "scene": "res://assets/characters/kit/parts.glb", "pieces": true,
         "colors": "res://assets/characters/kit/colors/%s.png",
+        "maps": { "local_worn": { "orm": "res://assets/characters/kit/colors/local_worn_orm.png" } },
         "parts": {
           "head": ["local", "local:darker", "local:lighter", "local:blue", "local:red", "local:yellow"],
           "torso": ["local", "local:darker", "local:lighter", "local:blue", "local:red", "local:yellow"],

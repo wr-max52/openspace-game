@@ -115,6 +115,20 @@
     "sleep_m": 120.0,
     "locals_after_s": 8.0
   },
+  "map_note": "The F11 Map page's side view of the station and its floor plans (src/ui/station_map_view.gd, GlobeMap.orbital_pins). 'owners': who holds each room, by its use (StationHull.floor_rooms: the top deck's and the engine deck's fill 'rooms', the Remnant deck's 'remnant' rooms, a 'suite', a locked 'home'). 'remnant' rooms follow the Remnant deck: once you take it (Territory 'station_<landmark id>') they are the locals' too. The owners' names and colours: content/core/flow/map.json 'station_owners', content/look/map.json 'station_view'. 'floors': what an open floor is (the markets, the favela), named on the map in place of its rooms.",
+  "map": {
+    "owners": {
+      "bridge": "remnant", "barracks": "remnant", "cantina": "smugglers", "lounge": "locals", "garden": "locals",
+      "engine": "locals", "cargo": "smugglers", "pumps": "locals", "workshop": "locals",
+      "control": "remnant", "bunks": "remnant", "armoury": "remnant", "command": "remnant", "mess": "remnant",
+      "suite": "locals", "home": "locals"
+    },
+    "floors": {
+      "markets": { "owner": "locals", "what": "stalls" },
+      "markets_2": { "owner": "locals", "what": "stalls" },
+      "homes": { "owner": "locals", "what": "favela" }
+    }
+  },
   "droids_note": "Issue #607: the town's patrol droids (droids.json's 'remnant' or 'locals' units, whoever holds the town) walk rounds of the walkway on these floors, one floor each in turn, two on a floor half a round apart: 'points' corners round the middle of the walkway (the gap's railing out to 'walkway' metres), clear on every floor. No floors: no droids aboard. Not the home port's street points, which ran through the station's walls.",
   "droids": { "floors": ["markets", "markets_2"], "points": 16 },
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
@@ -173,7 +187,7 @@
     "settle": 3.0,
     "note": "Z within radius metres flies you in: round the towers (over_y above or under_y below them, in the station's frame) when you start behind the bay's mouth, out to approach metres off the mouth at hold_y over the deck, in through the shield and to a stop over the dock pad, then turned nose out and set down (ShipPilot's docking autopilot, the same flight as the cruiser's)."
   },
-  "outside": { "drop_below": 40.0, "note": "Where the planet's air is breathable (no harmful_surface, the ringed giant) the station is open to it (SpaceStation.open_air): the bay's shield lets you walk out of the mouth onto the apron, and you can roam outside on the jetpack. Over a gas ball's clouds, drop more than drop_below metres under the lowest floor and you are pulled back into the bay (lines.fell_clouds). Where you cannot breathe it is sealed as before: the shield holds you in and falling out pulls you straight back (lines.fell)." },
+  "outside": { "drop_below": 40.0, "warn_before": 15.0, "note": "Issue #702: warn_before metres short of drop_below you are warned once (lines.fell_clouds_warn). Where the planet's air is breathable (no harmful_surface, the ringed giant) the station is open to it (SpaceStation.open_air): the bay's shield lets you walk out of the mouth onto the apron, and you can roam outside on the jetpack. Over a gas ball's clouds, drop more than drop_below metres under the lowest floor and you are pulled back into the bay (lines.fell_clouds). Where you cannot breathe it is sealed as before: the shield holds you in and falling out pulls you straight back (lines.fell)." },
   "detail_altitude": 600.0,
   "aboard_shadow_distance": 150.0,
   "lights_within": 3000.0,
@@ -183,6 +197,7 @@
     "docking": "Bringing her into %s. Z to take back control.",
     "docked": "Down in the station's bay.",
     "fell": "You were pulled back into the station.",
-    "fell_clouds": "You dropped toward the clouds and the station's tractor pulled you back in."
+    "fell_clouds": "You dropped toward the clouds and the station's tractor pulled you back in.",
+    "fell_clouds_warn": "Too far below the station. Climb back or be pulled in."
   }
 }

@@ -75,8 +75,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    hitbox is adult-sized. A bigger trooper may poke through a seat, a speeder or
    a door frame (seated and riding NPCs were not looked at). *(NPC sizes,
    2026-11-25; fix: #697)*
-2. **Getting out of the ship in the round pit can put you on its wing**, 1.3 m up:
-   the exit spot only checks the town's boxes. *(#545, 2026-11-05; fix: #698)*
 3. **Guards find bodies through walls:** a body within 16 m in the sight cone is
    "seen". Bodies can't be hidden; they stay where they fall. *(#307,
    2026-10-31; fix: #699)*
@@ -85,14 +83,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    onto a rock. A speeder's touch is a centre-distance check, so a glancing pass
    at the nose or tail may miss. *(#220, #266, 2026-10-30 and 2026-11-01; fix:
    #700)*
-5. **No navmesh aboard the station:** troopers, guards and fighters walk straight
-   and snag on the barricade, bunks and stalls. The crowd's puppets follow paths,
-   not physics: an aisle's arc can graze a stall, and they pass through you and
-   each other. A puppet's outfit can change when its real body swaps in.
-   *(the station's crowd and Remnant deck, 2026-11-04; fix: #701)*
-6. **Pulled back with no warning:** walk off a floor's roof (no railing) and you
-   are put back in the bay; outside on the giant, the same once you drop 40 m
-   under the lowest floor. *(the station, 2026-11-03 and 2026-11-04; fix: #702)*
 7. **Seven small ones** *(2026-10-29 to 2026-11-05; fix: #703)*:
    - Selling the gun in your hand to the fence leaves it drawn until you switch.
    - A barge fighter's body hangs in the air if the barge drives off while it
@@ -174,18 +164,10 @@ each PR checked and measured, are in the archive under "The per-PR log".
 1. **Desert packs:** members out of the sand collider's reach slide frozen in
    their last pose; the gesture poses were never watched moving and may be wrong;
    spears and knives hang at a fixed angle. *(#96, 2026-10-29; fix: #704)*
-2. **A street lamp in the middle of the moon's club room** (from the old cantina
-   door). *(the moon rave, 2026-11-04; fix: #705)*
 3. **Far from the origin** (the cruiser, 11.5 km out) the pistol's iron sights and
    the arms wobble about a millimetre; scoped in, the barrel casts no shadow, and
    the scope's last frames of aiming in can wobble once. *(the cruiser pass,
    2026-10-31; fix: #706)*
-4. **The camera may clip a tent's roof** in third person. *(#96, 2026-10-29;
-   fix: #707)*
-5. **Ships rest level** wherever they land, so a slope leaves one side hanging.
-   *(M14, 2026-10-26; fix: #708)*
-6. **The ground can hop you a few cm** when the walkable desert re-centres under a
-   player standing still. Not rechecked. *(M14, 2026-10-26; fix: #709)*
 7. **Loading a save can make a coin sound.** *(#16, 2026-10-27; fix: #710)*
 8. **Bounty targets have no marker:** the pointer leads to the outpost, not the
    person. *(#65, 2026-10-27; fix: #711)*

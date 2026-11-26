@@ -257,11 +257,21 @@ func _load_model(path: String, spec: Dictionary) -> Node3D:
 ## Dark variant of a gun that keeps its own textures: neutral texels go dark, the
 ## saturated glow panels stay (weapon_dark.gdshader). Static: the guards' rifles
 ## use it too (CharacterKit._rifle).
-static func _darken(n: Node3D, d: Dictionary) -> void:
+## Issue #695: `shared` (an NPC's gun) takes one material per model material and
+## look, shared by every NPC gun; the player's own guns keep their own (the scope
+## sets near_clip on them).
+static var _dark_shared := {}
+
+
+static func _darken(n: Node3D, d: Dictionary, shared := false) -> void:
 	for mi in _meshes_under(n):
 		if mi.mesh == null or mi.mesh.get_surface_count() == 0:
 			continue
 		var src: Material = mi.mesh.surface_get_material(0)
+		var key := "%d_%s" % [src.get_instance_id() if src != null else 0, str(d)]
+		if shared and _dark_shared.has(key):
+			mi.material_override = _dark_shared[key]
+			continue
 		var mat := ShaderMaterial.new()
 		mat.shader = DARK
 		if src is BaseMaterial3D:
@@ -277,6 +287,8 @@ static func _darken(n: Node3D, d: Dictionary) -> void:
 			if d.has(k):
 				mat.set_shader_parameter(k, float(d[k]))
 		mi.material_override = mat
+		if shared:
+			_dark_shared[key] = mat
 
 
 ## Issue #229: the muzzle flash, three additive quads crossed along the barrel and
@@ -664,8 +676,11 @@ func _smooth_render() -> void:
 ## positions round to a millimetre, which at 2.5x and 11 cm from the eye shook the
 ## view by pixels a frame. Fully aimed that place is aimed_cam, exact; while the
 ## blend runs out it is read back from the world (a few frames, a millimetre at most).
+## Issue #706: the iron sights and the gun's own meshes too, and the gloves and
+## sleeves (_pin_arms, once they are posed) at the chest's place in the camera's space.
 func _pin_scope(w: Node3D, aimed_cam: Transform3D) -> void:
 	var on := ads_blend > 0.85 and first_person and ads_camera != null and is_inside_tree()
+	_pin_arms_on = on
 	if not on:
 		GunSights.pin(w, Transform3D(), false)
 		return
@@ -673,6 +688,47 @@ func _pin_scope(w: Node3D, aimed_cam: Transform3D) -> void:
 	if ads_blend < 1.0 or drawn < 1.0:
 		cam_from_weapon = ads_camera.global_transform.affine_inverse() * w.global_transform
 	GunSights.pin(w, cam_from_weapon, true)
+
+
+var _pin_arms_on := false              ## issue #706: aimed in this frame (_pin_scope)
+var _arms_pinned := false
+var _cam_from_chest := Transform3D()   ## _chest_in_camera(), this frame's
+
+
+## Issue #706: the chest's place in the camera's space, with no world position's
+## rounding far out: the camera and the player's origin sit on the same float
+## grid a metre or two apart, so their difference is exact, and the rest are the
+## small local transforms from the player down to the chest. (Read back from the
+## world, chest.global_transform is a millimetre off 11.5 km out, and the gun and
+## the arms aimed in moved with it.)
+func _chest_in_camera() -> Transform3D:
+	var cam := ads_camera.global_transform
+	var chain := Transform3D()
+	var n: Node = joints.chest
+	var player := get_parent() as Node3D
+	while n != null and n != player:
+		if n is Node3D:
+			chain = (n as Node3D).transform * chain
+		n = n.get_parent()
+	if player == null or n == null:
+		return cam.affine_inverse() * (joints.chest as Node3D).global_transform
+	var pg := player.global_transform
+	return Transform3D(cam.basis, Vector3.ZERO).affine_inverse() * Transform3D(pg.basis, pg.origin - cam.origin) * chain
+var _fpv_pin_meshes: Array = []
+var _fpv_pin_of: FpvArms
+
+
+## Issue #706: aimed in, the first person sleeves and gloves are drawn at their
+## place under the chest times the chest's in the camera's space, like the gun,
+## so far out they do not wobble against it. Run once the arms are posed.
+func _pin_arms() -> void:
+	if _fpv == null or (not _pin_arms_on and not _arms_pinned):
+		return
+	if _fpv_pin_of != _fpv:
+		_fpv_pin_meshes = _fpv.meshes()
+		_fpv_pin_of = _fpv
+	_arms_pinned = _pin_arms_on
+	GunSights.pin_meshes(_fpv_pin_meshes, joints.chest as Node3D, _cam_from_chest, _pin_arms_on)
 
 
 func _place_weapon(upper: String, pitch: float) -> void:
@@ -722,8 +778,8 @@ func _place_weapon(upper: String, pitch: float) -> void:
 			var k2 := _recoil * _recoil * 0.5
 			aimed_cam = aimed_cam * Transform3D(Basis(Vector3.RIGHT, -deg_to_rad(float(rc2.get("up_deg", 7.0))) * k2),
 				Vector3(0, 0.005, -float(rc2.get("back", 0.05))) * k2)
-		var aimed := ads_camera.global_transform * aimed_cam
-		var to_chest := (joints.chest as Node3D).global_transform.affine_inverse() * aimed
+		_cam_from_chest = _chest_in_camera()
+		var to_chest := _cam_from_chest.affine_inverse() * aimed_cam
 		ready = ready.interpolate_with(to_chest, ads_blend * ads_blend * (3.0 - 2.0 * ads_blend))
 	# Issue #229: first person draws a gun up from below the view, not the holster.
 	if first_person and not sword_held():
@@ -906,6 +962,7 @@ func _grip_frame(side: String) -> Transform3D:
 ## Copy the joints onto the skin, then close its fingers on the weapon in hand
 ## (issue #631: the bones the kit has no joint for go back to rest on every sync).
 func _sync_skin() -> void:
+	_pin_arms()           # issue #706: every pose of the arms ends here
 	if skin == null:
 		return
 	# Issue #324: the hands close round the weapon in hand (HandGrip), as it is drawn;

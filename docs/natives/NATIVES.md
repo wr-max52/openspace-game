@@ -67,9 +67,10 @@ scene when the planet has natives.
 - **Packs:**
   - Each member is an `NpcBody`, the guards' body, senses and health. It walks
     open ground without a navmesh (`free_walk`).
-  - Far from the player, or anywhere the sand's collider (which follows the
-    player) has not reached yet, members are slid along the ground with no
-    physics, so nobody falls through sand that has no collider under it.
+  - Far from the player, members are slid along the ground with no physics, so
+    a pack can cross sand that has no collider under it. Near the player but
+    where the sand's collider (which follows the player) has not reached yet,
+    they stand where they are until it comes (#704).
   - The leader walks the route and the rest follow in rows. The leader's pole
     shows where a pack is from far off.
   - They walk round the boulders and mesas the ground knows about

@@ -1,0 +1,106 @@
+{
+ "title": "T-89's ship upgrades and every speeder part with a look, stock and fitted (ShipKit.dress, SpeederNode._build_parts and _build_fit_looks)",
+ "out": "res://docs/lookdev/vehicles/27_upgrades.png",
+ "views": [
+  "front34",
+  "side",
+  "rear34"
+ ],
+ "cells": [
+  {
+   "name": "courier",
+   "ship_look": "courier"
+  },
+  {
+   "name": "courier_all",
+   "ship_look": "courier",
+   "fits": [
+    "shields",
+    "hull",
+    "boost"
+   ]
+  },
+  {
+   "name": "gunship_all",
+   "ship_look": "gunship",
+   "fits": [
+    "shields",
+    "hull",
+    "boost"
+   ]
+  },
+  {
+   "name": "interceptor_all",
+   "ship_look": "interceptor",
+   "fits": [
+    "shields",
+    "hull",
+    "boost"
+   ]
+  },
+  {
+   "name": "speeder",
+   "speeder": "speeder"
+  },
+  {
+   "name": "speeder_parts",
+   "speeder": "speeder",
+   "parts": [
+    "turbo_boosters",
+    "soft_top"
+   ]
+  },
+  {
+   "name": "speeder_tier1",
+   "speeder": "speeder",
+   "parts": [
+    "engine_1",
+    "thrusters_1",
+    "cannons_1",
+    "nitro_1"
+   ]
+  },
+  {
+   "name": "speeder_all",
+   "speeder": "speeder",
+   "parts": [
+    "engine_2",
+    "thrusters_2",
+    "cannons_2",
+    "grav_lifter",
+    "seekers",
+    "mines",
+    "deflector",
+    "nitro_3"
+   ]
+  },
+  {
+   "name": "racer_all",
+   "speeder": "racer",
+   "parts": [
+    "engine_2",
+    "thrusters_2",
+    "cannons_2",
+    "grav_lifter",
+    "seekers",
+    "mines",
+    "deflector",
+    "nitro_3"
+   ]
+  },
+  {
+   "name": "hauler_all",
+   "speeder": "hauler",
+   "parts": [
+    "engine_2",
+    "thrusters_2",
+    "cannons_2",
+    "grav_lifter",
+    "seekers",
+    "mines",
+    "deflector",
+    "nitro_3"
+   ]
+  }
+ ]
+}
