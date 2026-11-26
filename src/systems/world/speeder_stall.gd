@@ -173,12 +173,15 @@ func _dress(loc: Dictionary) -> void:
 		var p := WorldGround._v3(b.get("position", [0, 0, 0]))
 		match str(b.get("id", "")):
 			"counter":
-				kit.part(kit.box(s.x, s.y, s.z), steel, p + Vector3(0, s.y * 0.5, 0))
+				# Down to the sand under its lowest corner (the collider stays on the frame).
+				var cb := _sand_floor(p, s)
+				kit.part(kit.box(s.x, s.y - cb, s.z), steel, p + Vector3(0, (s.y + cb) * 0.5, 0))
 				kit.part(kit.box(s.x + 0.1, 0.06, s.z + 0.1), rust, p + Vector3(0, s.y + 0.03, 0))
 				kit.part(kit.box(0.4, 0.3, 0.35), hazard, p + Vector3(0, s.y + 0.21, -0.8))
 				kit.part(kit.box(0.5, 0.08, 0.3), dark, p + Vector3(0, s.y + 0.1, 0.7))
 			"rack":
-				kit.part(kit.box(s.x, 0.9, s.z), rust, p + Vector3(0, 0.45, 0))
+				var rb := _sand_floor(p, s)
+				kit.part(kit.box(s.x, 0.9 - rb, s.z), rust, p + Vector3(0, (0.9 + rb) * 0.5, 0))
 				kit.part(kit.box(0.08, s.y - 0.9, s.z), board, p + Vector3(-s.x * 0.5 + 0.04, 0.9 + (s.y - 0.9) * 0.5, 0))
 				var rng := RandomNumberGenerator.new()
 				rng.seed = 611
@@ -192,7 +195,8 @@ func _dress(loc: Dictionary) -> void:
 	var x1 := 2.0
 	for x in [x0 + 0.1, x1 - 0.1]:
 		for z in [-1.8, 1.8]:
-			kit.part(kit.cyl(0.06, 0.06, 3.0, 8), steel, Vector3(x, 1.5, z))
+			var foot := _sand_y(x, z) - 0.3     # planted in the sand, whatever the slope
+			kit.part(kit.cyl(0.06, 0.06, 3.0 - foot, 8), steel, Vector3(x, (3.0 + foot) * 0.5, z))
 	for k in 5:
 		kit.part(kit.box(x1 - x0 + 0.2, 0.05, 0.8), canvas if k % 2 == 0 else stripe,
 			Vector3((x0 + x1) * 0.5, 3.0, -1.6 + k * 0.8), Basis(Vector3.BACK, -0.1))
@@ -205,20 +209,65 @@ func _dress(loc: Dictionary) -> void:
 	for k in 8:
 		var z := -1.8 + k * (3.6 / 7.0)
 		kit.part(bulb, _bulbs[key], Vector3(x1 + 0.05, 2.62 - 0.1 * sin(float(k) / 7.0 * PI), z))
-	# Crates by the rack, canisters by the pad.
-	for at in [Vector3(-2.3, 0.4, 2.3), Vector3(-1.5, 0.4, 2.5), Vector3(-1.9, 1.2, 2.4)]:
-		kit.part(kit.box(0.8, 0.8, 0.8), crate, at, Basis(Vector3.UP, at.x * 0.7))
+	# Crates by the rack (the top one on the two below), canisters by the pad: each
+	# on the sand under it.
+	var c0 := _sand_y(-2.3, 2.3) - 0.05
+	var c1 := _sand_y(-1.5, 2.5) - 0.05
+	for cr in [[Vector3(-2.3, 0.4, 2.3), c0], [Vector3(-1.5, 0.4, 2.5), c1], [Vector3(-1.9, 1.2, 2.4), maxf(c0, c1)]]:
+		var at: Vector3 = cr[0]
+		kit.part(kit.box(0.8, 0.8, 0.8), crate, at + Vector3(0, float(cr[1]), 0), Basis(Vector3.UP, at.x * 0.7))
 	var bay: Vector3 = points.get("bay", Vector3.ZERO)
 	for k in 4:
 		var at := bay + Vector3(-4.4 + (k % 2) * 0.6, 0.4, -1.4 + k * 0.7)
-		kit.part(kit.cyl(0.28, 0.28, 0.8, 10), fuel if k % 2 == 0 else coolant, at)
-	# The lift pad: a steel plate with yellow and black edges.
-	kit.part(kit.box(7.0, 0.12, 4.0), steel, bay + Vector3(0, 0.06, 0))
+		kit.part(kit.cyl(0.28, 0.28, 0.8, 10), fuel if k % 2 == 0 else coolant, at + Vector3(0, _sand_y(at.x, at.z) - 0.06, 0))
+	# The lift pad: a steel plate with yellow and black edges, laid on the sand (the
+	# plane through the sand at its corners) and deep enough that a dune's curve
+	# under it never shows an edge in the air.
+	var pad := _sand_plane(bay, 3.5, 2.0)
+	var pb: Basis = pad.basis
+	var depth := 0.6
+	kit.part(kit.box(7.0, depth, 4.0), steel, pad.origin + pb.y * (0.08 - depth * 0.5), pb)
 	for dz in [-2.05, 2.05]:
-		kit.part(kit.box(7.0, 0.14, 0.12), hazard, bay + Vector3(0, 0.07, dz))
+		kit.part(kit.box(7.0, depth, 0.12), hazard, pad.origin + pb * Vector3(0, 0.1 - depth * 0.5, dz), pb)
 	var parts := Node3D.new()
 	parts.name = "StallLook"
 	add_child(parts)
 	kit.flush(parts)
 	# A real lamp over the counter, like Dorrin's and Skrugs's.
 	HangingLamp.build(self, xf, Vector3(0.2, 2.3, 0.0), mats, look, "CounterLamp", 3.2, 6.0, 0.7, 0.45)
+
+
+# ------------------------------------------------------------------ the sand
+
+## The sand's height under (x, z) of the stall's frame, in that frame: the frame
+## is flat at its origin, a dune is not, so what stands away from the counter
+## (the pad 7 m off, the canisters, the poles) is dropped onto it.
+func _sand_y(x: float, z: float) -> float:
+	if not _to_ground.is_valid():
+		return 0.0
+	return (xf.affine_inverse() * (_to_ground.call(xf * Vector3(x, 0.0, z)) as Vector3)).y
+
+
+## The lowest sand under a box's footprint (its centre `p`, size `s`), a little
+## below it, never above the frame: where a box's look starts so it never floats.
+func _sand_floor(p: Vector3, s: Vector3) -> float:
+	var lo := 0.0
+	for dx in [-0.5, 0.5]:
+		for dz in [-0.5, 0.5]:
+			lo = minf(lo, _sand_y(p.x + s.x * dx, p.z + s.z * dz))
+	return lo - 0.05
+
+
+## The plane through the sand under a rectangle (centre `c`, half sizes `hx`, `hz`)
+## in the stall's frame: its origin on the sand at the centre (the corners'
+## average), its basis tilted to the slope along x and along z.
+func _sand_plane(c: Vector3, hx: float, hz: float) -> Transform3D:
+	var h00 := _sand_y(c.x - hx, c.z - hz)
+	var h10 := _sand_y(c.x + hx, c.z - hz)
+	var h01 := _sand_y(c.x - hx, c.z + hz)
+	var h11 := _sand_y(c.x + hx, c.z + hz)
+	var sx := ((h10 + h11) - (h00 + h01)) / (4.0 * hx)
+	var sz := ((h01 + h11) - (h00 + h10)) / (4.0 * hz)
+	var n := Vector3(-sx, 1.0, -sz).normalized()
+	var mid := (h00 + h10 + h01 + h11) * 0.25
+	return Transform3D(Basis(Quaternion(Vector3.UP, n)), Vector3(c.x, mid, c.z))

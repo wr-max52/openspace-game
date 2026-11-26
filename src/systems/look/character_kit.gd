@@ -192,7 +192,7 @@ func _wear_outfit(root: Node3D, skin: SkinnedBody, cfg: Dictionary, outfit: Dict
 			continue
 		worn[part] = choice
 		keep[mi] = true
-		var mat := _outfit_material(mi.mesh.surface_get_material(0), str(cfg.get("colors", "")), color)
+		var mat := _outfit_material(mi.mesh.surface_get_material(0), str(cfg.get("colors", "")), color, cfg.get("maps", {}))
 		if mat != null:
 			mi.set_surface_override_material(0, mat)
 	if pieces:
@@ -212,7 +212,10 @@ func _wear_outfit(root: Node3D, skin: SkinnedBody, cfg: Dictionary, outfit: Dict
 
 ## The part's material with the colour's texture, shared by every body that wears it.
 ## null keeps the model's own material (the base colour, or a missing texture).
-func _outfit_material(base: Material, pattern: String, color: String) -> Material:
+## `maps` (characters.json model "maps"): { "<colour prefix>": { "orm": path } }:
+## a colour that begins with the prefix also wears that roughness/metal map (the
+## worn outfits: grease shines, buckles read as metal; tools/look/wear_outfit.gd).
+func _outfit_material(base: Material, pattern: String, color: String, maps: Dictionary = {}) -> Material:
 	var path := pattern % color if pattern.contains("%s") and color != "" else ""
 	if not base is BaseMaterial3D or path == "" or not ResourceLoader.exists(path):
 		return null
@@ -220,6 +223,16 @@ func _outfit_material(base: Material, pattern: String, color: String) -> Materia
 	if not _outfits.has(path):
 		var m := (base as BaseMaterial3D).duplicate() as BaseMaterial3D
 		m.albedo_texture = ModelCache.scene(path)
+		for prefix in maps:
+			var orm := str((maps[prefix] as Dictionary).get("orm", "")) if maps[prefix] is Dictionary else ""
+			if color.begins_with(str(prefix)) and orm != "" and ResourceLoader.exists(orm):
+				var t: Texture2D = ModelCache.scene(orm)
+				m.roughness_texture = t
+				m.metallic_texture = t
+				m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+				m.metallic_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_BLUE
+				m.roughness = 1.0
+				m.metallic = 1.0
 		_outfits[path] = m
 	return _outfits[path]
 

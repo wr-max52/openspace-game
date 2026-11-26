@@ -22,8 +22,8 @@
       "park": [-31.1, -11.2],
       "look": {
         "head": "guard:gunmetal",
-        "torso": "local:darker",
-        "legs": "local"
+        "torso": "local:worn_darker",
+        "legs": "local:worn_sand"
       },
       "paint": "steel",
       "parts": [
@@ -38,8 +38,8 @@
       "park": [-35.9, -14.7],
       "look": {
         "head": "guard:desert",
-        "torso": "local:lighter",
-        "legs": "local:darker"
+        "torso": "local:worn_lighter",
+        "legs": "local:worn_darker"
       },
       "model": "hauler",
       "paint": "",
@@ -54,8 +54,8 @@
       "park": [-26.2, -7.7],
       "look": {
         "head": "guard:gunmetal",
-        "torso": "local:blue",
-        "legs": "local:darker"
+        "torso": "local:worn_blue",
+        "legs": "local:worn_darker"
       },
       "paint": "tide",
       "parts": [
