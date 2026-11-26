@@ -277,7 +277,7 @@ func test_hold_stashes_one_or_the_whole_stack() -> void:
 	assert_eq(ids, ["stash:holocrystals", "stash_all:holocrystals"], "Stash one and Stash all buttons")
 	assert_false(_hold_row(ctl, "food").has("alt"), "a single item has no stash-all")
 	assert_eq((_hold_row(ctl, "food").get("buttons", []) as Array).size(), 1, "just a Stash button")
-	assert_true(ctl.menu.hint.text.contains("Shift+Enter"), "the key hint names Shift+Enter")
+	assert_true(ctl.menu.hint.text.contains("[A/D]"), "the key hint names the button keys")
 
 	ctl.menu.choose("stash:holocrystals")
 	assert_eq(inv.count("holocrystals"), 2, "Enter stashes one")
@@ -335,7 +335,10 @@ func test_hold_takes_one_or_the_whole_stack() -> void:
 
 	ctl.menu.selected = ctl.menu.options.find(row)
 	ctl.menu._show_cursor()
-	assert_true(ctl.menu.hint.text.contains("Take all"), "the key hint follows the cursor")
+	assert_eq(ctl.menu.picked_id(), "take:holocrystals", "the cursor starts on Take one")
+	ctl.menu.move_button(1)
+	assert_eq(ctl.menu.picked_id(), "take_all:holocrystals", "D moves it to Take all")
+	ctl.menu.move_button(-1)
 
 	ctl.menu.choose("take:holocrystals")
 	assert_eq(inv.count("holocrystals"), 1, "Enter takes one")
