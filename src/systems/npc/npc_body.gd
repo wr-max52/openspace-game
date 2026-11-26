@@ -216,6 +216,7 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	locomotion.reuse_out = true          # issue #540: one result dict, read at once
 	_repath_s = float(navc.get("repath_s", 1.5))
 	_repath_move = float(navc.get("repath_move", 1.5))
+	_fit_capsule(soldier)
 	if materials != null:
 		kit = CharacterKit.new(materials, -1000.0)
 		look_body = kit.build(str(soldier.get("archetype", "remnant_trooper")), "", soldier.get("outfit", {}))
@@ -271,6 +272,18 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	add_child(_speech)
 	_build_sounds()
 	_build_health_bar()
+
+
+## Issue #697: the capsule (the hitbox and what walks) takes the body's size: its
+## height with the look's height, its radius with the look's width, crouching
+## too. Set once, before the body is in the tree (CharacterBody._ready builds it);
+## the same with the look on or off.
+func _fit_capsule(soldier: Dictionary) -> void:
+	var size := CharacterKit.size_of(str(soldier.get("archetype", "remnant_trooper"))) * float(soldier.get("look_scale", 1.0))
+	capsule_height *= size.y
+	capsule_radius *= size.x
+	controller.stand_height *= size.y
+	controller.crouch_height *= size.y
 
 
 ## Issue #147: the look's size (a stall keeper's height and build).
