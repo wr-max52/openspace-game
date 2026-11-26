@@ -13,6 +13,8 @@
     "eye": "#7affd8"
   },
   "rebuild": { "price": 500, "comrade_price": 1 },
+  "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key 7. Hold E with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
+  "welder_gift_note": "Issue #722: what he says as he hands you the plasma welder, the first time you talk to him in a story save (or the next time, in a save from before the welder; the flag t89_welder_given). %d is the flasks a ship weld takes (the welder item's ship_flasks). Only he gives one: T-99 has no welder_gift.",
   "upgrades": {
     "shields": { "label": "Boosted shields", "short": "Shields+", "price": 1200, "mult": { "shield.max": 1.5, "shield.regen": 1.5 } },
     "hull": { "label": "Reinforced hull", "short": "Hull+", "price": 1200, "mult": { "hull": 1.5 } },
@@ -70,6 +72,9 @@
     "sided_remnant": "I see. Then we have nothing more to talk about, pilot. Buy a ship or leave me be.",
     "comrade_again": "We understand each other, comrade. The rebuild is still %d credit.",
     "rebuilt": "Good as new! Your %s is on the pit pad, and she is all yours.",
+    "welded": "You welded her yourself? Not bad, pilot. Your %s is on the pit pad, and she is all yours.",
+    "patched": "Patched up! Your %s is ready on the pit pad. %d credits, thank you.",
+    "repair_quote_shot": "Your %s came back in pieces, pilot. I can patch her up for %d credits.",
     "cant_afford_rebuild": "The rebuild is %d credits. You have %d. Oda at the cantina has work.",
     "fitted": "%s, fitted to your %s. Fly her gently for the first hour. Or do not!",
     "fit_card": "Fitted to your %s here in the pit, by T-89. It stays on that ship.",
@@ -101,6 +106,7 @@
     "tutorial": "Run me through the basics again",
     "event_bought": "Someone bought a %s from the droid in the pit.",
     "rebuild": "Rebuild your %s  (%d cr)",
+    "repair": "Patch up your %s  (%d cr)",
     "comrade": "Tell him what you think of the Remnant",
     "go_on": "Go on",
     "to_the_point": "Get to the point",

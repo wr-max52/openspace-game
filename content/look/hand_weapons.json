@@ -48,6 +48,24 @@
     },
     "slot": 2
   },
+  "plasma_welder": {
+    "note": "Issue #722: the plasma welder, held like the energy blade ('held_like': the blade's guard pose, its first person fist and its third person hold, copied below) with no swing. Simple shapes from WelderLook (src/systems/look/welder_look.gd), the nozzle up the blade's +Y; WelderFx (src/systems/look/welder_fx.gd) puts the sparks and the arc at the nozzle. 'tint': body, trim, tank, the nozzle's glow and the arc.",
+    "held_like": "energy_blade",
+    "model": "",
+    "scale": 1.0,
+    "holster": "l_hip",
+    "fpv_pose": { "r": "hilt", "l": "hilt" },
+    "aim_fpv": { "one_hand": true },
+    "hold_3p": {
+      "one_hand": true,
+      "grip": [0.0, -0.085, 0.0],
+      "passes": 2,
+      "hands": {
+        "r": { "radius": 0.029, "tilt_deg": 20, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "wrap", "thumb_radius": 0.032, "max_deg": [90, 105, 80] }
+      }
+    },
+    "tint": { "body": "#5a5650", "trim": "#c9a26a", "tank": "#8a3a22", "glow": "#7fd8ff", "arc": "#a8e4ff" }
+  },
   "rifle_blaster": {
     "model": "res://assets/gear/rifle.glb",
     "scale": 1.0,

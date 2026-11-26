@@ -79,7 +79,9 @@
     "call_here": "Your ship is right here.",
     "call_inbound": "%s is on her way to you.",
     "call_landed": "%s is down. She's waiting for you.",
-    "repaired": "T-89 patched up your %s: %d cr."
+    "repaired": "T-89 patched up your %s: %d cr.",
+    "back_wrecked": "Your %s is back on the pit pad, still a wreck. T-89 can patch her up (%d cr), or weld her yourself.",
+    "call_wrecked": "Your ship is a wreck on the pit pad. Get her fixed first."
   },
   "reentry_delay": 25.0,
   "bay_land_radius": 4000.0,

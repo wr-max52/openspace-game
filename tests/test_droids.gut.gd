@@ -310,7 +310,7 @@ func test_dead_droid_does_not_reset_its_chirp_timer() -> void:
 	assert_eq(u.chirp_cd, 0.0)
 
 
-func test_controller_make_room_then_fix_in_ten_seconds() -> void:
+func test_controller_make_room_then_weld_the_wreck() -> void:
 	var s := _scene()
 	var ctl: DroidController = s[0]
 	var p: FakePlayer = s[1]
@@ -321,14 +321,12 @@ func test_controller_make_room_then_fix_in_ten_seconds() -> void:
 	var wn: Node3D = ctl.wreck_nodes[wid]
 	p.global_position = wn.global_position + Vector3(1, 0, 0)
 	await wait_physics_frames(2)
-	assert_eq(ctl.focus.get("kind"), "wreck")
-	assert_eq(ctl.interact(), "menu", "full: asks which droid to sell")
+	# Issue #722: a wreck is welded (its WeldSpot), not fixed by waiting beside it.
+	assert_eq(ctl.weld_wreck(wid), "menu", "full: asks which droid to sell")
 	assert_true(ctl.menu.is_open())
 	var credits := WorldState.credits
 	ctl.menu.choose(str(WorldState.droids.owned[0].uid))
 	assert_eq(WorldState.credits, credits + 40, "sold at merchant price")
-	assert_false(ctl.fixing.is_empty(), "and the fix started")
-	ctl.fixing.left = 0.05
 	await wait_physics_frames(6)
 	assert_eq(WorldState.droids.owned.size(), 3)
 	assert_false(ctl.wreck_nodes.has(wid))

@@ -95,6 +95,10 @@
       "frame": "saber", "hilt": "#8c8478", "trim": "#d8b878", "blade": "#59b8ff", "length": 0.9,
       "note": "Issue #210: the energy blade on the cantina tower."
     },
+    "plasma_welder": {
+      "frame": "case", "width": 0.34, "height": 0.16, "depth": 0.2, "shell": "#5a5650", "trim": "#c9a26a", "glow": "#7fd8ff",
+      "note": "Issue #722: the plasma welder's carry case (a stall, the inventory's look). In the hand it is WelderLook's shapes."
+    },
     "rifle_case": {
       "frame": "case", "scene": "res://assets/gear/cargo_case.glb", "width": 1.1, "height": 0.18, "depth": 0.26,
       "shell": "#2f3236", "trim": "#8c8478", "glow": "#ff6a2a", "tint": 0.75,

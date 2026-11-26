@@ -1,8 +1,9 @@
 extends GutTest
 ## Issue #368: your ships. The ones you own (T-89's sale, the rebuilt wreck, stolen
 ## ones Skrugs cleaned up) are one saved list with a primary. The primary stands on
-## the pit pad when the town loads and whenever you wake in the pit, patched up for
-## T-89's fee if it was shot to pieces; the others stay where you left them. Call
+## the pit pad when the town loads and whenever you wake in the pit; shot to pieces,
+## it is back there still wrecked (issue #722) until T-89 patches it up for his fee
+## or you weld it for quantonium; the others stay where you left them. Call
 ## flies the primary to clear ground by where you called from, nobody chasing it.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
@@ -97,12 +98,19 @@ func test_a_primary_shot_to_pieces_is_back_for_t89s_fee() -> void:
 	WorldState.credits = 1000
 	pilot.woke_in_pit()
 	assert_false(bool(pilot.berths[0].destroyed), "back on the pad")
+	assert_true(pilot.berth_wrecked(0), "still a wreck (issue #722)")
+	assert_false(pilot.berth_flies(0), "she does not fly till she is fixed")
+	assert_eq(WorldState.credits, 1000, "no fee taken on waking")
+	assert_eq(t.salesman.repair(), Fleet.repair_fee("courier"), "T-89's fee, from his menu")
 	assert_eq(WorldState.credits, 1000 - Fleet.repair_fee("courier"), "T-89's fee paid")
+	assert_true(pilot.berth_flies(0))
 	pilot._wreck_berth(0, true)
 	WorldState.credits = 0
 	pilot.woke_in_pit()
 	assert_false(bool(pilot.berths[0].destroyed), "back even with no credits")
+	t.salesman.repair()
 	assert_eq(WorldState.credits, 0)
+	assert_false(WorldState.has_flag(Fleet.WRECKED), "patched up for what you had")
 
 
 func test_a_ship_that_is_not_the_primary_shot_to_pieces_is_gone() -> void:

@@ -74,6 +74,7 @@ var training_range: TrainingRange
 var cantina_owner: Node3D                 ## M12 (null in the CI greybox)
 var bar: Node
 var gear: GearController              ## M13
+var welder: PlayerWelder              ## issue #722
 var community: CommunityStalls        ## issue #147: player-made stall keepers and the NPC builder
 var pilot: ShipPilot                  ## M14
 var interceptor: AtmoFighter          ## issue #76: the Remnant's dark interceptor on the barracks pad
@@ -1771,6 +1772,9 @@ func _build_gear() -> void:
 		if player_kit != null and player_kit.weapons != null:
 			player_kit.weapons.refit()
 	add_child(gear)
+	welder = PlayerWelder.new()         # issue #722: hold E (or fire) by a WeldSpot to fix it
+	welder.setup(self)
+	add_child(welder)
 
 
 ## M14: the pit's ship becomes the one you fly, and the world opens up around the

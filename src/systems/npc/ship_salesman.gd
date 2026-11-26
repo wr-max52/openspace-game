@@ -42,6 +42,7 @@ const CFG_PATH := "res://content/core/npcs/t89.json"
 const CARD_PATH := "res://content/core/npcs/t89_card.json"
 const PIT_RIM_Y := -0.5              ## above this you are up out of the pit (the street is 0)
 const MET_FLAG := "met_t89"          ## saved: he has said his first hello to this player
+const WELDER_FLAG := "t89_welder_given"  ## issue #722: saved: he has handed you the plasma welder
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 static var greeted := false          ## the hello happens once per run of the game
@@ -293,9 +294,9 @@ func greet() -> void:
 	WorldState.set_flag(met_flag())
 	if (cfg.get("tutorial", []) as Array).is_empty():
 		# T-99 runs no tutorial (T-89 did, down in the pit): his hello and his shop.
-		_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line(), top_options(), _on_top)
+		_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + _welder_gift(), top_options(), _on_top)
 		return
-	_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + "\n\n" + str(cfg.get("offer_tutorial", "")),
+	_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + _welder_gift() + "\n\n" + str(cfg.get("offer_tutorial", "")),
 		[{ "id": "yes", "text": _l("yes_tutorial") }, { "id": "no", "text": _l("no_tutorial") }], _on_offer)
 
 
@@ -318,10 +319,11 @@ func talk() -> void:
 	if not greeted and not WorldState.has_flag(met_flag()):
 		greet()
 		return
-	if spot != null and chat():
+	var gift := _welder_gift()          # issue #722: a save from before the welder gets it now
+	if gift == "" and spot != null and chat():
 		return
 	_beep()
-	_open(_line("hello_again") + _repair_line() + _story_line(), top_options(), _on_top)
+	_open(_line("hello_again") + _repair_line() + _story_line() + gift, top_options(), _on_top)
 
 
 ## Issue #64: while the story starts with him, he sends you to Oda.
@@ -330,8 +332,24 @@ func _story_line() -> String:
 	return " " + str(b.say) if not b.is_empty() else ""
 
 
+## Issue #722: in a story save he hands you the plasma welder, once (his
+## "welder_gift" line, which also says what fixing your own ship costs). "" when
+## he has given it already, has none to give, or it is free roam (you start with one).
+func _welder_gift() -> String:
+	if not WorldState.story_mode() or not cfg.has("welder_gift") or WorldState.has_flag(WELDER_FLAG):
+		return ""
+	WorldState.set_flag(WELDER_FLAG)
+	if not Welder.owned():
+		WorldState.inventory.add(Welder.ITEM)
+	WorldState.log_event("T-89 gave the player a plasma welder.", "pit")
+	return "\n\n" + str(cfg.welder_gift) % Welder.ship_flasks()
+
+
 ## Issue #206: the rebuild's price, while your wreck waits (the quest goes in the log).
+## Issue #722: or the patch-up's, while your primary shot to pieces waits.
 func _repair_line() -> String:
+	if needs_repair():
+		return " " + _line("repair_quote_shot") % [ship_label(Fleet.ship_of(Fleet.primary())), repair_fee()]
 	if not needs_rebuild():
 		return ""
 	Story.event("repair_quoted")
@@ -490,6 +508,8 @@ func top_options() -> Array:
 	var out := []
 	if spot != null:
 		out.append({ "id": "chat", "text": _l("chat") })
+	if needs_repair():
+		out.append({ "id": "repair", "text": _l("repair") % [ship_label(Fleet.ship_of(Fleet.primary())), repair_fee()] })
 	if needs_rebuild():
 		out.append({ "id": "rebuild", "text": _l("rebuild") % [ship_label(wreck_id()), rebuild_price()] })
 		if not WorldState.has_flag(WorldState.COMRADE):
@@ -545,6 +565,9 @@ func _on_top(id: String) -> void:
 		_menu(_group_options(g), _on_group.bind(g))
 	elif id == "rebuild":
 		rebuild()
+		_menu(top_options(), _on_top, true)
+	elif id == "repair":
+		repair()
 		_menu(top_options(), _on_top, true)
 	elif id == "comrade":
 		start_remnant_talk()
@@ -654,6 +677,20 @@ func rebuild() -> String:
 		_say(_line("cant_afford_rebuild") % [cost, WorldState.credits])
 		return "cant_afford"
 	WorldState.credits -= cost
+	_rebuilt("rebuilt")
+	return "rebuilt"
+
+
+## Issue #722: you welded the wreck yourself: the flasks are used up, no fee, and
+## it counts as his rebuild. Returns "welded", or "" (nothing to do, too few flasks).
+func weld_rebuild() -> String:
+	if not needs_rebuild() or not Welder.pay_ship():
+		return ""
+	_rebuilt("welded")
+	return "welded"
+
+
+func _rebuilt(say: String) -> void:
 	WorldState.set_flag(WorldState.SHIP_REBUILT)
 	WorldState.wreck_ship = wreck_id()
 	WorldState.log_event(_l("event_rebuilt") % ship_label(wreck_id()), "pit")
@@ -662,8 +699,31 @@ func rebuild() -> String:
 		pilot.refresh_wreck_look()          # good as new
 	Story.event("ship_rebuilt")
 	_beep()
-	_say(_line("rebuilt") % ship_label(wreck_id()))
-	return "rebuilt"
+	_say(_line(say) % ship_label(wreck_id()))
+
+
+## Issue #722: your primary was shot to pieces and waits for a patch-up.
+static func needs_repair() -> bool:
+	return WorldState.has_flag(Fleet.WRECKED) and Fleet.primary() != ""
+
+
+func repair_fee() -> int:
+	return Fleet.repair_fee(Fleet.ship_of(Fleet.primary()))
+
+
+## His patch-up of your primary shot to pieces: his fee (all your credits, if you
+## have less). Returns what he took, -1 when nothing needed it.
+func repair() -> int:
+	if not needs_repair():
+		return -1
+	var label := ship_label(Fleet.ship_of(Fleet.primary()))
+	var fee := Fleet.repair()
+	var pilot = demo.pilot if demo != null and "pilot" in demo else null
+	if pilot != null:
+		pilot.refresh_wreck_look()
+	_beep()
+	_say(_line("patched") % [label, fee])
+	return fee
 
 
 ## The player can't stand the Remnant: neither can he. The comrade discount, once.

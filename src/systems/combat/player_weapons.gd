@@ -7,7 +7,9 @@ extends Node
 ##
 ## Controls (project.godot actions):
 ##   1 / 2 / 3 / 8 blaster / rifle / sniper rifle / energy sword (same key again holsters;
-##                 4 to 7 are free for guns to come)
+##                 4 to 6 are free for guns to come)
+##   7             issue #722: the plasma welder, a tool held like the sword. Fire
+##                 makes it spit sparks and arc; PlayerWelder does the welding.
 ##   Q             last weapon        mouse wheel   cycle        H   holster
 ##   Tab           tap: next weapon, and hands free after the last one
 ##                 hold: the weapon wheel (issue #410), see WeaponWheel. Point with
@@ -48,8 +50,9 @@ var player: CharacterBody3D
 var avatar: PlayerAvatar
 var rig_node: Node3D                ## camera_rig_node.gd
 var bolt_parent: Node3D
-## Slot n is number key n and wheel slot n. 4 to 7 are left free for guns to come.
-var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", "", "", "", "", "energy_blade"])
+## Slot n is number key n and wheel slot n. 4 to 6 are left free for guns to come;
+## 7 is the plasma welder (issue #722), a tool, not a gun.
+var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", "", "", "", Welder.ITEM, "energy_blade"])
 var guns: Dictionary = {}           ## id -> Weapon (ammo + timing)
 var combo: SwordCombo
 var wheel := WeaponWheel.new()      ## hold Tab (issue #410)
@@ -73,6 +76,7 @@ var _release_left := -1.0           ## seconds until the swinging hand lets go (
 var _release_aim: Array = []        ## [origin, velocity] as the key was let go
 
 var blade_extent := 0.0
+var welding := false                ## issue #722: PlayerWelder is welding with it (sparks whatever the trigger)
 var aiming := false
 var shots := 0
 var deflections := 0
@@ -115,7 +119,7 @@ func setup(p: CharacterBody3D, a: PlayerAvatar, rig: Node3D, bolts_into: Node3D)
 	look = CharacterKit._read_json(LOOK_PATH)
 	for id in holder.weapon_ids():
 		cfg[id] = GearUpgrades.apply(CharacterKit._read_json("res://content/core/weapons/%s.json" % id), id)
-		if id != "energy_blade":
+		if id != "energy_blade" and id != Welder.ITEM:
 			guns[id] = Weapon.new(cfg[id])
 	combo = SwordCombo.new(cfg.get("energy_blade", {}))
 	grenade_cfg = CharacterKit._read_json(Grenade.CFG_PATH)
@@ -516,6 +520,8 @@ func _physics_process(dt: float) -> void:
 	avatar.current = cur
 	avatar.drawn = holder.drawn()
 	avatar.reload = (guns[cur] as Weapon).reload_progress() if guns.has(cur) else -1.0
+	# Issue #722: the welder sparks while fire is held, or while PlayerWelder welds.
+	avatar.set_welder_fx(cur == Welder.ITEM and holder.is_ready() and (welding or (enabled and _fire_held and not sprinting)))
 	_update_hud(dt)
 
 
@@ -525,7 +531,7 @@ func upper_mode() -> String:
 			return BodyAnimator.UPPER_AIM
 		"rifle_blaster", "sniper_rifle":
 			return BodyAnimator.UPPER_RIFLE
-		"energy_blade":
+		"energy_blade", "plasma_welder":
 			return BodyAnimator.UPPER_SWORD
 	return BodyAnimator.UPPER_FREE
 

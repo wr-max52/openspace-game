@@ -246,7 +246,7 @@ func test_lose_your_hull_and_you_crash_out_get_patched_up_and_race_on() -> void:
 		await wait_physics_frames(1)
 	Engine.time_scale = 1.0
 	assert_eq(mine.repair_left, 0.0, "patched up")
-	assert_eq(mine.model.hp, mine.model.max_hp, "full hull")
+	assert_eq(mine.model.hp, int(round(mine.model.max_hp * Welder.unwelded_hull())), "no welder: back at half hull (issue #722)")
 	assert_eq(crew.player_out, "", "racing again")
 	mine.dismount()
 	for i in 30:
