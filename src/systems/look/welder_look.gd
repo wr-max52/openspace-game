@@ -3,14 +3,14 @@ extends RefCounted
 ## Issue #722: the plasma welder from simple shapes, shaped like a real welding
 ## gun, in the energy blade's own space so it sits in the same grip: the handle
 ## where the hilt is (along +Y, the top at y = 0), a head on top with the trigger
-## in front, then a long rod that rises from the fist to about face height and
-## hooks over to point straight ahead (+Z, the way you face in the guard pose), the
-## nozzle at its end some 0.45 m in front of the face, like a bow. A hose
+## in front, then a long rod that leans forward up to about face height and hooks
+## over to point straight ahead (+Z, the way you face in the guard pose), the
+## nozzle at its end about half a metre in front of the face, like a bow. A hose
 ## stub leaves the bottom of the handle. A "Nozzle" node at the tip (its +Y along
 ## the nozzle) is where WelderFx goes. Colours: hand_weapons.json "plasma_welder"
 ## "tint". Materials are shared between builds.
 
-const NECK_DEG := -40.0             ## the neck, degrees off the handle (back: in the guard grip it stands upright)
+const NECK_DEG := -15.0             ## the neck, degrees off the handle (in the grip it leans about 20 degrees forward)
 const TIP_DEG := 55.0               ## the bent end, degrees off the handle: level and straight ahead in the grip
 const NECK_LEN := 0.42              ## long enough to bring the tip up to the face...
 const TIP_LEN := 0.08               ## ...and about 0.45 m in front of it, where the sparks fly

@@ -51,6 +51,7 @@
   "plasma_welder": {
     "note": "Issue #722: the plasma welder, held like the energy blade ('held_like': the blade's guard pose, its first person fist and its third person hold, copied below) with no swing. Simple shapes from WelderLook (src/systems/look/welder_look.gd), the nozzle up the blade's +Y; WelderFx (src/systems/look/welder_fx.gd) puts the sparks and the arc at the nozzle. 'tint': body, trim, tank, the nozzle's glow and the arc.",
     "held_like": "energy_blade",
+    "guard": { "pos": [-0.1, -0.12, 0.2], "dir": [0.22, 0.86, 0.46], "note": "Its own rest pose (chest space, like SwordCombo.GUARD): the blade's, a little lower and nearer the chest, so the rod leans forward and the tip still sits about 0.5 m in front of the face." },
     "model": "",
     "scale": 1.0,
     "holster": "l_hip",

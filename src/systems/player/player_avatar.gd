@@ -1134,6 +1134,15 @@ func sword_held(id: String = current) -> bool:
 	return id == "energy_blade" or str((look.get(id, {}) as Dictionary).get("held_like", "")) == "energy_blade"
 
 
+## The guard pose a sword-held weapon rests in: SwordCombo.GUARD, or its look's own
+## "guard" { pos, dir } (issue #722: the welder sits closer to the chest).
+func _guard_of(id: String) -> Dictionary:
+	var g: Dictionary = (look.get(id, {}) as Dictionary).get("guard", {})
+	if g.is_empty():
+		return SwordCombo.GUARD
+	return { "pos": _v3(g.get("pos", [-0.1, -0.1, 0.32])), "dir": _v3(g.get("dir", [0.22, 0.86, 0.46])), "twist": 0.0 }
+
+
 ## Issue #722: the welder in your hand spits sparks and arcs (WelderFx), or stops.
 func set_welder_fx(on: bool) -> void:
 	var w := weapon_node(Welder.ITEM)
@@ -1143,7 +1152,7 @@ func set_welder_fx(on: bool) -> void:
 
 func _ready_xf(id: String, _pitch: float) -> Transform3D:
 	if sword_held(id):
-		var p: Dictionary = sword_pose if not sword_pose.is_empty() else SwordCombo.GUARD
+		var p: Dictionary = sword_pose if not sword_pose.is_empty() else _guard_of(id)
 		var xf := SwordCombo.pose_transform(p)
 		if first_person:
 			xf.origin += Vector3(0.0, 0.1, 0.06)
