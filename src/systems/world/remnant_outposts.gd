@@ -433,6 +433,7 @@ func adopt(g: NpcBody, outpost_id: String) -> void:
 func _physics_process(dt: float) -> void:
 	_sync_target()
 	var p: Node3D = demo._player if demo != null else null
+	_bounty_dist(p)
 	if p == null:
 		return
 	_tick_control(dt, p)
@@ -608,7 +609,19 @@ func _prepare_ground(id: String, at: Vector3) -> void:
 	_heights[id] = { "at": at, "task": task, "out": out }
 
 
+## Issue #711: how far the player is from the officer's outpost, for the pointer
+## (Objective.bounty_dist); INF while no officer is out.
+func _bounty_dist(p: Node3D) -> void:
+	Objective.bounty_dist = INF
+	if p == null or target == null or not is_instance_valid(target) or target.dead:
+		return
+	var o := outpost(str(target.get_meta("outpost", "")))
+	if not o.is_empty():
+		Objective.bounty_dist = p.global_position.distance_to(o.origin)
+
+
 func _exit_tree() -> void:
+	Objective.bounty_dist = INF
 	for id in _heights:
 		WorkerThreadPool.wait_for_task_completion(int(_heights[id].task))
 	_heights.clear()
