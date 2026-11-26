@@ -451,3 +451,24 @@ func test_it_loops_wide_at_the_same_speed() -> void:
 	var port: Dictionary = content.get_ship("interceptor").atmosphere
 	for k in ["max_speed", "boost_speed", "accel"]:
 		assert_eq(float(dark[k]), float(port[k]), "same %s as the port's interceptor" % k)
+
+
+## Issue #703: you above its ceiling, it stops circling under you and goes home
+## after ceiling_give_up_s, as when you land.
+func test_above_its_ceiling_it_goes_home() -> void:
+	var t = _town()
+	await wait_physics_frames(2)
+	_steal(t)
+	t.pilot.takeoff()
+	_fly(t, 8.0, { "throttle": 0.4 })
+	var f: AtmoFighter = t.interceptor
+	assert_eq(f.mode, AtmoFighter.Mode.HUNTING)
+	# Its ceiling put far under you (20 m up), as if you had climbed past it.
+	f.sc = f.sc.duplicate()
+	f.sc["ceiling_margin"] = f.atmo.space_altitude - 20.0
+	assert_gt(t.pilot.atmo.altitude(), f.ceiling(), "you are above its ceiling")
+	_fly(t, f.p("ceiling_give_up_s", 10.0) - 2.0, { "throttle": 0.4 })
+	assert_eq(f.mode, AtmoFighter.Mode.HUNTING, "still under you before ceiling_give_up_s")
+	assert_gt(t.pilot.atmo.altitude(), f.ceiling(), "and you stayed above it")
+	_fly(t, 3.0, { "throttle": 0.4 })
+	assert_eq(f.mode, AtmoFighter.Mode.RETURNING, "then it heads home, and stays on its way while you are up there")

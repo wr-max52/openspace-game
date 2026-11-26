@@ -173,6 +173,13 @@ func refit() -> void:
 		(guns[id] as Weapon).config = cfg[id]
 
 
+## Issue #703: a gun just sold goes back in its holster if it is out (or being
+## drawn); any other weapon in hand stays.
+func put_away(id: String) -> void:
+	if id != "" and (holder.current == id or holder.pending == id):
+		holder.request("")
+
+
 func _ready() -> void:
 	name = "Weapons"
 	_build_sfx()
