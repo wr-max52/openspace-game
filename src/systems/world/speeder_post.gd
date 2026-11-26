@@ -113,8 +113,7 @@ func setup(town_demo, world_ground: WorldGround) -> void:
 
 
 func _ready() -> void:
-	var cc := CoreContent.new()
-	cc.load_from()
+	var cc: CoreContent = CoreContent.shared()
 	var world: Dictionary = demo.world if "world" in demo and not demo.world.is_empty() else cc.world_for_town("port_town")
 	card = NpcBrain._read(CARD_PATH)
 	for lm in world.get("landmarks", []):

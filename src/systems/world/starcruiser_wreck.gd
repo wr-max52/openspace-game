@@ -109,7 +109,27 @@ class Pose:
 		return (v + shift.x) * cos(a) - (w + shift.y) * sin(a)
 
 
+static var _boxes_kept := {}           ## issue #693: landmark + ball -> the boxes it added (a session's)
+
+
 static func add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
+	# Issue #693: on a ball the boxes depend only on the landmark and the ball, so
+	# each wreck is worked out once a session (~23 ms each) and copied after that.
+	var sp0 := ground.sphere()
+	var key := ""
+	if sp0 != null:
+		key = "%d|%s|%s" % [hash(landmark), str(sp0.radius), str(sp0.center)]
+		if _boxes_kept.has(key):
+			for b in _boxes_kept[key]:
+				ground.boxes.append((b as Dictionary).duplicate())
+			return
+	var n0 := ground.boxes.size()
+	_add_to_ground(ground, landmark)
+	if key != "":
+		_boxes_kept[key] = ground.boxes.slice(n0).map(func(b): return (b as Dictionary).duplicate())
+
+
+static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 	var at := WorldGround._v3(landmark.get("at", [1350, 0, -120]))
 	var sp := ground.sphere()
 	var base := sp.surface_at(at.x, at.z) if sp != null else Vector3(at.x, ground.terrain.height_at(at.x, at.z), at.z)

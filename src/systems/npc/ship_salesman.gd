@@ -84,8 +84,7 @@ func _ready() -> void:
 	cfg = d if d is Dictionary else {}
 	labels = cfg.get("labels", {})
 	lines = cfg.get("lines", {})
-	content = CoreContent.new()
-	content.load_from()
+	content = CoreContent.shared()
 	menu = DroidMenu.new()
 	add_child(menu)
 	menu.option_selected.connect(_on_option_selected)

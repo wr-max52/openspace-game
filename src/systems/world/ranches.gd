@@ -75,8 +75,7 @@ func build() -> void:
 func build_step() -> bool:
 	if not _started:
 		_started = true
-		_cc = CoreContent.new()
-		_cc.load_from()
+		_cc = CoreContent.shared()
 		for lm in _cc.world_for_town("port_town").get("landmarks", []):
 			var loc := _cc.get_location(str(lm.get("location", "")))
 			if str(loc.get("kind", "")) == "ranch":

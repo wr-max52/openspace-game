@@ -384,9 +384,7 @@ static func _weapon_config(w: Dictionary) -> Dictionary:
 	var cfg: Dictionary = {}
 	var base := str(w.get("base", ""))
 	if base != "":
-		var cc := preload("res://src/systems/dataload/core_content.gd").new()
-		cc.load_from()
-		cfg = cc.get_weapon(base).duplicate()
+		cfg = preload("res://src/systems/dataload/core_content.gd").shared().get_weapon(base).duplicate()
 	for k in w:
 		cfg[k] = w[k]
 	return cfg

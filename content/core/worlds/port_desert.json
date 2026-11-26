@@ -266,6 +266,13 @@
   },
   "detail": {
     "note": "Issue #46: less to draw (and run) the higher you fly. Read by src/systems/world/altitude_detail.gd. Each tier holds once the viewer is 'above' that many metres over sea level and lets go 'hysteresis' metres lower. off: render features (sdfgi, ssil, ssao, volumetric, shadows). hide: node groups the town registers (people = bodies, the cantina owner and their brains; props = lamps, banners, boulders). SDFGI goes first: it rebuilds whenever a fast camera moves, which is what made flying laggy.",
+    "sight": {
+      "note": "Issue #693: build by sight. A no-fade handoff (flying in from open space) builds nothing the ship could not see yet. Read by src/systems/world/sight_gate.gd and scenes/town_demo.gd _build_by_sight. range_m: never built further from the camera than this; horizon_margin_m: built this far before it would crest the curve of the ball; release_m: kept this much further out once in (no flicker on the edge). hold: build steps that wait till the ship is under that many metres over the ground (they are only drawn from close by). Outposts come in one by one as they could be seen.",
+      "range_m": 6000.0,
+      "horizon_margin_m": 1500.0,
+      "release_m": 2500.0,
+      "hold": { "speeders": 2500.0, "mechanic": 2500.0, "race_courses": 2500.0, "barge": 2500.0, "beast": 2500.0, "natives": 2500.0, "native_bodies": 2500.0 }
+    },
     "ground_detail_below": 1500.0,
     "ground_detail_note": "The mid ring (the 1 km square of fine sand under the camera, src/systems/look/planet_terrain.gd) is built only below this many metres over the ground, with the props tier; higher up only the whole ball is drawn, so the square is not seen from kilometres out. 0 = always.",
     "hysteresis": 40.0,

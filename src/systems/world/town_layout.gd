@@ -13,10 +13,11 @@ var data: Dictionary = {}
 ## `layout` (issue #237): build the town to that saved layout (content/core/towns/)
 ## instead of the one its planet picks, e.g. load_town("port_town", "port_square").
 func load_town(town_id: String = "port_town", layout: String = "") -> bool:
-	var cc := CoreContent.new()
-	if not cc.load_from():
+	var cc: CoreContent = CoreContent.shared()
+	if cc.manifest.is_empty():
 		return false
-	data = cc.town_from_layout(layout, town_id) if layout != "" else cc.get_location(town_id)
+	# Issue #693: the shared content is read-only; stamp() changes the town, so a copy.
+	data = cc.town_from_layout(layout, town_id) if layout != "" else (cc.get_location(town_id) as Dictionary).duplicate(true)
 	BarracksHall.stamp(data)
 	return not data.is_empty()
 

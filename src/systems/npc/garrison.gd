@@ -142,8 +142,7 @@ func setup(town_demo, all: Array) -> void:
 	player = demo._player
 	members = all
 	_rng.seed = 7
-	content = CoreContent.new()
-	content.load_from()
+	content = CoreContent.shared()
 	guards = members.filter(func(g): return str(g.profile.get("role", "gate")) == "gate")
 	_had_gate = not guards.is_empty()
 	profile = guards[0].profile if guards.size() > 0 else (members[0].profile if members.size() > 0 else {})
