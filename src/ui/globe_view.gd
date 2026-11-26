@@ -7,7 +7,9 @@ extends Control
 ## desert, a marked spot), shows as its own marker. No people that move, but the
 ## other LAN players (`others`), on foot or in their ship (straight down on the
 ## ground under it, even out in space): a blue dot each, named; a click on one
-## makes them the waypoint.
+## makes them the waypoint. Vehicles are pins too (GlobeMap.vehicle_pins: yours
+## and the enemy's ships and speeders, a "ship" or "speeder" shape), put where
+## they are now each time the page moves them; one as the waypoint is followed.
 ##
 ## Drag turns it, the wheel or the + / - buttons in its top left zoom (zoomed in past the data's town_zoom the
 ## port's pin opens into its own stops). Hover names a pin; a click sets the
@@ -567,6 +569,21 @@ static func draw_shape(ci: CanvasItem, at: Vector2, shape: String, col: Color, r
 			return
 		"cruiser":
 			draw_cruiser_badge(ci, at, col, r)
+			return
+		"ship":
+			# a delta wing seen from above, nose up, a notch at the tail
+			pts = PackedVector2Array([at + Vector2(0, -r * 1.35), at + Vector2(r * 1.1, r * 0.85),
+				at + Vector2(r * 0.3, r * 0.45), at + Vector2(0, r * 0.75),
+				at + Vector2(-r * 0.3, r * 0.45), at + Vector2(-r * 1.1, r * 0.85)])
+		"speeder":
+			# a squat hull seen from above: a rounded nose, a flat back, a dark cockpit
+			var w := r * 0.75
+			var hl := r * 1.05
+			pts = PackedVector2Array([at + Vector2(-w * 0.55, -hl), at + Vector2(w * 0.55, -hl),
+				at + Vector2(w, -hl * 0.45), at + Vector2(w, hl), at + Vector2(-w, hl), at + Vector2(-w, -hl * 0.45)])
+			ci.draw_colored_polygon(pts, col)
+			ci.draw_polyline(pts + PackedVector2Array([pts[0]]), edge, 1.2, true)
+			ci.draw_rect(Rect2(at + Vector2(-w * 0.45, -hl * 0.35), Vector2(w * 0.9, hl * 0.6)), Color(0, 0, 0, 0.55))
 			return
 		_:
 			ci.draw_circle(at, r * 0.85 + 1.0, edge)
