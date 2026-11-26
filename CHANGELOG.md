@@ -2,6 +2,11 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.3 (2026-11-26)
+
+- Share builds are now **OpenSpace V1.7.3**. Everything below, down to "New
+  version is 1.7, rebuilt", is in it.
+
 ## Coming down, part 4: build by sight, in layers, smaller pieces (2026-11-26)
 
 - **Nothing is built before you could see it.** An outpost over the curve of
