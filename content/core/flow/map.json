@@ -62,7 +62,7 @@
     "port": { "label": "Port", "arrive": 60 },
     "remnant_outpost": { "label": "Remnant outpost", "legend": "Remnant outpost", "arrive": 35 },
     "village": { "label": "Village", "legend": "Village", "arrive": 50 },
-    "outpost": { "label": "Abandoned outpost", "legend": "Ruin", "arrive": 35 },
+    "outpost": { "label": "Racers' outpost", "legend": "Racers' outpost", "arrive": 35 },
     "droid_merchant_outpost": { "label": "Droid relay", "legend": "Droid station", "arrive": 25 },
     "race": { "label": "Speeder race", "legend": "Speeder race", "arrive": 40 },
     "speeders": { "label": "Your speeders", "legend": "Your speeders", "arrive": 15 },

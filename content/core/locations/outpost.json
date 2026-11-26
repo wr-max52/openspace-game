@@ -1,15 +1,32 @@
 {
   "id": "outpost",
   "kind": "outpost",
-  "note": "IP-neutral. 3 buildings and 1 crate objective, placed in the desert chunk.",
+  "label": "Racers' outpost",
+  "note": "The old abandoned outpost, taken over by the basin crew (content/core/racing/crews/basin.json hangs out here): a ranch-style walled yard (src/systems/world/ranches.gd dresses it as it does the ranch villages: walls, gate, houses by 'look' and 'face', the fire, the people at 'locals'), with its walls knocked through in two places, the old barracks, supply shed and watchtower patched up, crates of parts lying about, and the crew's hangers-on round a fire. It stands in the Basin Run's infield, its gate (+x) toward the start line, so the race starts and finishes in sight of it. The crew stand and park outside the gate (their file), with Torrin's speeder stall. Set in the world as a landmark (content/core/worlds/port_desert.json), so ships and speeders collide with every building ('visual': false; the ranch kit draws them). 'look': cap, the racers' paint along the tops of the walls and gate posts; banner, the gate's banner. 'pad_half' / 'pad_blend': the level ground under the yard and the parking out front (PlanetTerrain.outpost_flat_sites). The crate is the crate retrieval mission's objective.",
+  "pad_half": 38.0,
+  "pad_blend": 24.0,
+  "look": { "cap": "#d8571c", "banner": "#d99a2b" },
   "buildings": [
-    { "id": "barracks", "shape": "box", "size": [6, 4, 6], "position": [0, 0, 0] },
-    { "id": "watchtower", "shape": "box", "size": [3, 8, 3], "position": [12, 0, -8] },
-    { "id": "supply", "shape": "box", "size": [8, 3, 4], "position": [-10, 0, 10] }
+    { "id": "wall_n", "shape": "box", "size": [36.8, 2.8, 0.8], "position": [0, 0, -18.0], "visual": false, "look": "wall" },
+    { "id": "wall_s_w", "shape": "box", "size": [20.4, 2.8, 0.8], "position": [-8.2, 0, 18.0], "visual": false, "look": "wall" },
+    { "id": "wall_s_e", "shape": "box", "size": [9.4, 2.8, 0.8], "position": [13.7, 0, 18.0], "visual": false, "look": "wall" },
+    { "id": "wall_w_n", "shape": "box", "size": [0.8, 2.8, 14.4], "position": [-18.0, 0, -11.2], "visual": false, "look": "wall" },
+    { "id": "wall_w_s", "shape": "box", "size": [0.8, 2.8, 12.4], "position": [-18.0, 0, 12.2], "visual": false, "look": "wall" },
+    { "id": "wall_e_n", "shape": "box", "size": [0.8, 2.8, 12.6], "position": [18.0, 0, -12.1], "visual": false, "look": "wall" },
+    { "id": "wall_e_s", "shape": "box", "size": [0.8, 2.8, 12.6], "position": [18.0, 0, 12.1], "visual": false, "look": "wall" },
+    { "id": "gate_n", "shape": "box", "size": [1.6, 5.0, 1.6], "position": [18.0, 0, -5.0], "visual": false, "look": "gate" },
+    { "id": "gate_s", "shape": "box", "size": [1.6, 5.0, 1.6], "position": [18.0, 0, 5.0], "visual": false, "look": "gate" },
+    { "id": "barracks", "shape": "box", "size": [7, 4.0, 6], "position": [-9, 0, -12], "visual": false, "look": "hut_block", "face": "+z" },
+    { "id": "supply", "shape": "box", "size": [9, 3.6, 5], "position": [-8, 0, 12.5], "visual": false, "look": "hut_long", "face": "-z" },
+    { "id": "watchtower", "shape": "box", "size": [3.5, 9.0, 3.5], "position": [13, 0, -13], "visual": false, "look": "watchtower", "face": "+x" },
+    { "id": "parts_a", "shape": "box", "size": [2.2, 1.6, 1.4], "position": [-14.5, 0, -1.5], "visual": false, "look": "crates", "face": "+x" },
+    { "id": "parts_b", "shape": "box", "size": [1.6, 1.2, 1.2], "position": [3.0, 0, 14.5], "visual": false, "look": "crates", "face": "-z" },
+    { "id": "parts_c", "shape": "box", "size": [2.0, 1.8, 1.4], "position": [0.5, 0, -15.0], "visual": false, "look": "crates", "face": "+z" }
   ],
   "crate": { "id": "crate_objective", "position": [4, 0, 4] },
-  "guards": {
-    "troopers": 4,
-    "duelist": 1
-  }
+  "points": {
+    "fire": [3.0, 0, -3.0],
+    "locals": [[-0.1, 0, -2.2], [2.2, 0, -6.1], [6.1, 0, -3.7], [14.0, 0, 7.5]]
+  },
+  "local": "local_racer"
 }
