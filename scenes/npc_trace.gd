@@ -162,6 +162,25 @@ func _run() -> void:
 	log_kv("UNREACHABLE_FLAGGED", not south.last_path_ok)
 	south.stop()
 	await _walk(south, south.post_pos, false, 30.0)
+	# Issue #697: a trooper's capsule is his size (2.06 m, wider): a hall trooper
+	# walks his loop through the barracks office's door (2.24 m) without sticking.
+	var hall: NpcBody = demo.npc("trooper_hall_a")
+	var loop: Dictionary = demo.town.get_route("patrol_trooper_hall_a") if hall != null else {}
+	log_kv("HALL_CAPSULE_H", snappedf(hall.capsule_height, 0.01) if hall != null else -1.0)
+	if hall == null or loop.is_empty():
+		fail("the barracks hall trooper or his loop is missing")
+	else:
+		var hs0: int = hall.stuck_events
+		var hall_t := 0.0
+		for pt in loop.points:
+			var leg := await _walk(hall, Vector3(float(pt[0]), hall.global_position.y, float(pt[1])), false, 20.0)
+			if leg < 0.0:
+				hall_t = -1.0
+				fail("hall trooper never reached %s (at %s)" % [str(pt), str(hall.global_position)])
+				break
+			hall_t += leg
+		log_kv("HALL_LOOP_S", snappedf(hall_t, 0.01))
+		log_kv("HALL_STUCK", hall.stuck_events - hs0)
 
 	# ---- step 3: senses. The south guard looks west down the street.
 	var g := south
