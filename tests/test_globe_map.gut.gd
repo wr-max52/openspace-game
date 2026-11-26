@@ -136,7 +136,7 @@ func test_pins_say_who_holds_the_outposts_and_the_port() -> void:
 	var pins := _by_id(GlobeMap.pins(home.world, home))
 	assert_eq(str(pins.remnant_outpost_near.owner), Territory.REMNANT, "the Remnant's to start")
 	assert_eq(str(pins.port.owner), Territory.REMNANT)
-	assert_eq(GlobeView.pin_look(pins.remnant_outpost_near).color, GlobeMap.look().pins.remnant_outpost.color, "not recoloured")
+	assert_eq(GlobeView.pin_look(pins.remnant_outpost_near).color, GlobeMap.look().roles.hostile, "not recoloured: the Remnant's red")
 	assert_false(pins.droid_post_wash.has("owner"), "only what Territory holds")
 	Territory.take("remnant_outpost_near")
 	pins = _by_id(GlobeMap.pins(home.world, home))

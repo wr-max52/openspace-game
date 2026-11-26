@@ -31,6 +31,7 @@ extends CanvasLayer
 
 const MOODS := ["wary", "warm", "amused", "irritated"]
 const SPEEDS := [0.25, 0.5, 1.0, 2.0, 4.0]
+const TownLayoutScript := preload("res://src/systems/world/town_layout.gd")
 
 var demo                              ## town_demo.gd
 var _panel: PanelContainer
@@ -54,6 +55,9 @@ var cruiser_view: CruiserMapView       ## the Map page's side view of the cruise
 var station_view: StationMapView       ## the Map page's side view of a space station
 var system_view: SystemView            ## the Map page's chart of the star system
 var _map_view := ""                    ## what the Map page shows: "" here, a planet id, "cruiser:<planet>", "station:<planet>" or "system"
+var _details: Array = []               ## the globe's footprints (_map_details), kept while _details_key holds
+var _details_key := ""
+var _map_auto_zoomed := false          ## the page zoomed in on the town itself when it opened there
 var _map_title: Label
 var _map_back: Button
 var _map_you: Button
@@ -442,10 +446,14 @@ func _map_tab() -> Control:
 	_section(side, GlobeMap.line("legend"))
 	side.add_child(_legend_row(GlobeMap.look().get("player", {}), GlobeMap.line("you"), Color(str(GlobeMap.look().get("player", {}).get("color", "#4dff88")))))
 	side.add_child(_legend_row(GlobeMap.look().get("goal", {}), GlobeMap.line("goal"), Color(str(GlobeMap.look().get("goal", {}).get("color", "#ffd84a")))))
-	var pins_look: Dictionary = GlobeMap.look().get("pins", {})
-	for kind in ["port", "station", "remnant_outpost", "village", "droid_merchant_outpost", "post", "camp", "wreck", "outpost", "spot"]:
+	for kind in ["port", "station", "remnant_outpost", "village", "droid_merchant_outpost", "post", "camp", "wreck", "outpost",
+			"cantina", "cantina_owner", "barracks", "ship_dealer", "food", "gear", "fence", "droids", "free_stall", "keeper", "spot"]:
 		var legend := str(GlobeMap.kind_cfg(kind).get("legend", GlobeMap.kind_cfg(kind).get("label", kind)))
-		side.add_child(_legend_row(pins_look.get(kind, {}), legend))
+		side.add_child(_legend_row(GlobeView.pin_look({ "kind": kind }), legend))
+	var hostile := GlobeView.pin_look({ "kind": "camp", "hostile": true })
+	side.add_child(_legend_row(hostile, GlobeMap.line("legend_hostile")))
+	side.add_child(_legend_row(GlobeView.pin_look({ "kind": "mountain" }), GlobeMap.line("legend_terrain")))
+	var pins_look: Dictionary = GlobeMap.look().get("pins", {})
 	var owners: Dictionary = GlobeMap.look().get("owners", {})
 	for held in [["locals", "legend_held"], ["short", "legend_short"]]:
 		side.add_child(_legend_row(pins_look.get("remnant_outpost", {}), GlobeMap.line(held[1]), Color(str(owners.get(held[0], "#5fd35f")))))
@@ -468,7 +476,7 @@ func _map_tab() -> Control:
 		if _map_view == "system":
 			system_view.reset()
 			return
-		globe.zoom = 1.0
+		globe.set_zoom(1.0)
 		globe.focus(Vector2.ZERO))
 	side.add_child(_map_home)
 	var clear := Button.new()
@@ -521,7 +529,8 @@ func open_map(view: String) -> void:
 	if view in ["cruiser", "station"]:
 		view = view + ":" + GameFlow.current_planet_id()
 	_map_view = view
-	globe.zoom = 1.0
+	globe.set_zoom(1.0)
+	_map_auto_zoomed = false
 	_refresh_map()
 	if view == "system":
 		system_view.reset()
@@ -591,10 +600,20 @@ func _refresh_map(centre := false) -> void:
 		_map_title.text = GlobeMap.planet_name(shown)
 	if sphere != null and not flat:
 		globe.radius_m = sphere.radius
-		globe.town_zoom = float(GlobeMap.cfg().get("town_zoom", 14.0)) if live else INF
-		var town: Array = GlobeMap.town_pins(demo.town, WorldState.current_town_id(), sphere.world_to_map) if demo != null and live else []
+		globe.town_zoom = float(GlobeMap.cfg().get("town_zoom", 14.0))
+		# The town's stops and footprints: the built town here, another planet's
+		# from its data (no stamping: that town is shared).
+		var front := Territory.front_for_planet(shown)
+		var town_obj = demo.town if demo != null and live else null
+		if town_obj == null and not live and planet.get("town") is Dictionary and not (planet.town as Dictionary).is_empty():
+			town_obj = TownLayoutScript.new()
+			town_obj.data = planet.town
+		var town_id := WorldState.current_town_id() if live else (str(town_obj.data.get("id", "")) if town_obj != null else "")
+		var town: Array = GlobeMap.town_pins(town_obj, town_id, sphere.world_to_map, shown)
 		globe.pins = GlobeMap.pins(world, planet, town)
 		globe.shapes = GlobeMap.station_shapes(planet)
+		globe.details = _map_details(shown, town_obj, town_id, world, sphere, front)
+		globe.marks = GlobeMap.terrain_marks(planet, sphere, _live_boulders(sphere) if live else [])
 		var mesas: Array = DesertLandforms.mesa_spots if DesertLandforms.mesa_planet == shown else []
 		globe.ground = GlobeTerrain.for_sphere("%s/%d" % [shown, mesas.size()], sphere, mesas)
 		globe.terrain = GlobeMap.terrain_look(planet)
@@ -606,6 +625,7 @@ func _refresh_map(centre := false) -> void:
 	_map_marks(sphere if live else null)
 	if centre and globe.player != Vector2.INF:
 		globe.focus(globe.player)
+		_map_fit_town()
 	globe.queue_redraw()
 	# The star system's chart, then every planet in it (this one too: its own
 	# map, where you are), then every cruiser in the system.
@@ -653,6 +673,58 @@ func _refresh_map(centre := false) -> void:
 	var now := Objective.current()
 	_map_note.text = (GlobeMap.line("waypoint") % str(now.text) if now.get("key", "") != "map" else str(now.text)) \
 		if not now.is_empty() else GlobeMap.line("system_hint" if on_system else ("station_hint" if on_station else "none"))
+
+
+## What opens zoomed in (GlobeView.details): the town's footprints and every
+## location's, made once per planet, town and barracks holder (a few thousand
+## points: not on every refresh).
+func _map_details(shown: String, town_obj, town_id: String, world: Dictionary, sphere: PlanetSphere, front: String) -> Array:
+	var key := "%s/%s/%s/%d" % [shown, town_id, Territory.owner(Territory.barracks_of(front)), sphere.get_instance_id()]
+	if key == _details_key:
+		return _details
+	var out: Array = []
+	var t := GlobeMap.town_details(town_obj, sphere.world_to_map, front)
+	if not t.is_empty():
+		out.append(t)
+	out.append_array(GlobeMap.place_details(world))
+	_details_key = key
+	_details = out
+	return out
+
+
+## The boulders in the built scene, as map spots: the desert's (DesertLandforms)
+## and the rock round a station (AsteroidWorld).
+func _live_boulders(sphere: PlanetSphere) -> Array:
+	var out: Array = []
+	if demo == null:
+		return out
+	var lf = demo.get("landforms")
+	if lf != null and is_instance_valid(lf):
+		for b in lf.boulders:
+			out.append({ "map": sphere.world_to_map(b.center), "size": float(b.get("radius", 1.0)) * 2.0 })
+	var plat = demo.get("platform")
+	if plat is AsteroidWorld and is_instance_valid(plat):
+		var xf: Transform3D = (plat as Node3D).global_transform
+		for b in plat.boulders:
+			var sz: Vector3 = b.get("size", Vector3.ONE * 2.0)
+			out.append({ "map": sphere.world_to_map(xf * (b.xform as Transform3D).origin), "size": maxf(sz.x, sz.z) })
+	return out
+
+
+## Opening the page in the town (or a ranch): zoomed in on it so its insides
+## show. Anywhere else, back out to the whole ball if it was this that zoomed in.
+func _map_fit_town() -> void:
+	for place in globe.details:
+		var ext := float(place.extent)
+		if ext < 25.0 or globe.player.distance_to(place.center) > ext * 1.15:
+			continue
+		globe.fit(place.center, ext, 0.8, float(GlobeMap.look().get("details", {}).get("stops_px", 230.0)) + 8.0)
+		_map_auto_zoomed = true
+		return
+	if _map_auto_zoomed:
+		_map_auto_zoomed = false
+		globe.set_zoom(1.0)
+		globe.focus(globe.player)
 
 
 ## The star system's chart: its planets, every cruiser, you and the other LAN

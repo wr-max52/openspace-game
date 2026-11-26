@@ -9,10 +9,16 @@ extends Control
 ## ground under it, even out in space): a blue dot each, named; a click on one
 ## makes them the waypoint.
 ##
-## Drag turns it, the wheel or the + / - buttons in its top left zoom (zoomed in past the data's town_zoom the
-## port's pin opens into its own stops). Hover names a pin; a click sets the
+## Drag turns it, the wheel or the + / - buttons in its top left zoom. Zoomed in, a
+## place opens into what is in it (`details`): the town's and every location's
+## buildings as their footprints from above, and its stops as icons with their
+## names (the port's pin hides once the town shows, a ranch's stands show once the
+## ranch does). Mountains, spires and boulders (`marks`) show as rock icons, the
+## small ones only zoomed in. Hover names a pin; a click sets the
 ## waypoint there (`pin_clicked`), a click on bare ground drops a marked spot
-## (`spot_clicked`). Shapes and colours: content/look/map.json.
+## (`spot_clicked`). Every icon is a silhouette (MapIcons, content/look/map_icons.json)
+## in its role's colour (content/look/map.json), all drawn in one batch a paint.
+## `fit` zooms to a place (the page opens on the town that way when you are in it).
 ##
 ## Under the grid, faintly, the ground itself (`ground`, a GlobeTerrain bake of the
 ## ball's own heights): dunes, craters and mesas where they really are, lit from the
@@ -35,11 +41,21 @@ const PITCH_MAX := 1.45
 ## Turns the map's frame (the port at +Y) so the port faces the viewer and map -z is up.
 const FACE := Basis(Vector3.RIGHT, PI / 2.0)
 const GroundShader := preload("res://src/systems/look/shaders/globe_ground.gdshader")
+const MapIcons := preload("res://src/ui/map_icons.gd")
+const MAX_PX_PER_M := 6.0                ## the deepest zoom: a metre this many pixels
 
 var pins: Array = []                    ## GlobeMap.pins
 var shapes: Array = []                  ## GlobeMap.station_shapes: a sealed station's domes, pit and tunnels
 var radius_m := 5000.0                  ## the planet's radius (m)
-var town_zoom := 14.0                   ## zoom past which the town's stops show instead of the port
+var town_zoom := 14.0                   ## zoom past which the town's stops show instead of the port (no `details` town)
+var details: Array = []                 ## GlobeMap.town_details + place_details: footprints that show zoomed in
+var marks: Array = []:                  ## GlobeMap.terrain_marks: mountains, spires, boulders
+	set(v):
+		marks = v
+		_mark_dirs = PackedVector3Array()
+var _mark_dirs := PackedVector3Array()  ## each mark's direction from the centre (made on the first paint)
+var _fit_to := {}                       ## the last fit, kept until you zoom or drag: { map, extent, fill, min_px }
+var _fit_size := Vector2.ZERO           ## the size it was last fitted at (a resize fits again)
 var selected := ""                      ## the waypoint's pin id ("" = none)
 var yaw := 0.0
 var pitch := 0.0
@@ -144,14 +160,67 @@ func focus(map: Vector2) -> void:
 	queue_redraw()
 
 
-## Which pins show at this zoom: the port's stops only zoomed in, the port's own
-## pin only zoomed out.
+## Which pins show at this zoom: the port's stops only once the town shows (its
+## footprints big enough on screen, else past town_zoom), the port's own pin only
+## until then; a ranch's stands once that ranch shows.
 func shown(pin: Dictionary) -> bool:
 	if bool(pin.get("town", false)):
-		return zoom >= town_zoom
+		return town_open()
 	if str(pin.get("kind", "")) == "port":
-		return zoom < town_zoom
+		return not town_open()
+	if pin.has("detail"):
+		return place_open(_place_by_id(str(pin.detail)))
 	return true
+
+
+## Pixels per metre on the ground at this zoom.
+func px_per_m() -> float:
+	return scale_px() / maxf(radius_m, 1.0)
+
+
+## Whether the town's stops show: it is big enough on screen to tell them apart.
+func town_open() -> bool:
+	var t := _place_by_id("town")
+	return place_open(t) if not t.is_empty() else zoom >= town_zoom
+
+
+## Whether a place (a `details` entry) is big enough on screen for its stops
+## (map.json "details" stops_px; `key` "show_px" for its footprints).
+func place_open(place: Dictionary, key := "stops_px") -> bool:
+	if place.is_empty():
+		return false
+	var d: Dictionary = GlobeMap.look().get("details", {})
+	return float(place.extent) * 2.0 * px_per_m() >= float(d.get(key, 230.0 if key == "stops_px" else 60.0))
+
+
+func _place_by_id(id: String) -> Dictionary:
+	for p in details:
+		if str(p.get("id", "")) == id:
+			return p
+	return {}
+
+
+## The deepest zoom: a metre MAX_PX_PER_M pixels, and never shallower than ZOOM_MAX.
+func zoom_max() -> float:
+	var base := maxf(minf(size.x, size.y) * 0.5 - 10.0, 1.0)
+	return maxf(ZOOM_MAX, MAX_PX_PER_M * radius_m / base)
+
+
+## Zoom so a place `extent_m` either side of map (x, z) fills `fill` of the view
+## (and is at least `min_px` across, so its stops show), and turn to it. Before the
+## control has a size, done on its first paint; done again if it is resized before
+## you zoom or drag it yourself.
+func fit(map: Vector2, extent_m: float, fill := 0.75, min_px := 0.0) -> void:
+	_fit_to = { "map": map, "extent": extent_m, "fill": fill, "min_px": min_px }
+	if size.x < 2.0 or size.y < 2.0:
+		return
+	_fit_size = size
+	var base := maxf(minf(size.x, size.y) * 0.5 - 10.0, 1.0)
+	var ext := maxf(extent_m, 1.0)
+	var z := minf(size.x, size.y) * 0.5 * fill * radius_m / (ext * base)
+	z = maxf(z, min_px * radius_m / (2.0 * ext * base))
+	zoom = clampf(z, ZOOM_MIN, zoom_max())
+	focus(map)
 
 
 ## The pin index nearest screen point `p` (within HIT px), or -1.
@@ -192,6 +261,7 @@ func _gui_input(event: InputEvent) -> void:
 		if _press != Vector2.INF and (mm.button_mask & MOUSE_BUTTON_MASK_LEFT):
 			if _dragged or mm.position.distance_to(_press) > DRAG:
 				_dragged = true
+				_fit_to = {}
 				yaw += mm.relative.x / scale_px()
 				pitch = clampf(pitch + mm.relative.y / scale_px(), -PITCH_MAX, PITCH_MAX)
 		var h := pin_at(mm.position)
@@ -202,7 +272,8 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func set_zoom(z: float) -> void:
-	zoom = clampf(z, ZOOM_MIN, ZOOM_MAX)
+	_fit_to = {}
+	zoom = clampf(z, ZOOM_MIN, zoom_max())
 	queue_redraw()
 
 
@@ -239,6 +310,8 @@ static func ink_color() -> Color:
 
 
 func _draw() -> void:
+	if not _fit_to.is_empty() and _fit_size != size and size.x >= 2.0 and size.y >= 2.0:
+		fit(_fit_to.map, float(_fit_to.extent), float(_fit_to.fill), float(_fit_to.min_px))
 	var lk := GlobeMap.look()
 	var c := size * 0.5
 	var r := scale_px()
@@ -248,9 +321,18 @@ func _draw() -> void:
 	_draw_grid(Color(ink, float(lk.get("grid_alpha", 0.14))))
 	draw_arc(c, r, 0.0, TAU, 128, Color(ink, float(lk.get("rim_alpha", 0.85))), 1.5, true)
 	_draw_station(lk.get("station", {}), ink)
+	var batch := MapIcons.Batch.new()
+	_draw_details(batch, lk.get("details", {}))
+	_draw_marks(batch, lk.get("terrain_marks", {}))
+	batch.flush(self)
 	var font := get_theme_default_font()
 	var fs := 13
 	var flash := goal_pin_now()
+	var view_rect := Rect2(Vector2.ZERO, size).grow(10.0)
+	var pin_r := float(lk.get("pin_size", 6.0))
+	var sp: Array = lk.get("details", {}).get("stop_px", [3.5, 7.0])
+	var stop_r := clampf(px_per_m() * float(lk.get("details", {}).get("stop_scale", 3.5)), float(sp[0]), float(sp[1]))
+	var named_stops: Array = []         # [at, pin] of the town's and ranches' stops showing, for their names
 	for i in pins.size():
 		var pin: Dictionary = pins[i]
 		if not shown(pin):
@@ -259,13 +341,19 @@ func _draw() -> void:
 		if s.z <= 0.0:
 			continue
 		var at := Vector2(s.x, s.y)
-		if not Rect2(Vector2.ZERO, size).grow(10.0).has_point(at):
+		if not view_rect.has_point(at):
 			continue
 		_draw_hold(at, pin, font)
+		var stop := bool(pin.get("town", false)) or pin.has("detail")
+		var pr := stop_r if stop else pin_r
 		if i == flash:
-			_draw_flash(at, pin)
+			_draw_flash(batch, at, pin, pr)
 		else:
-			_draw_pin(at, pin, i == hover)
+			_draw_pin(batch, at, pin, i == hover, pr)
+		if (bool(pin.get("town", false)) or pin.has("detail")) and i != hover:
+			named_stops.append([at, pin])
+	batch.flush(self)
+	_draw_stop_names(named_stops, font, lk.get("details", {}))
 	var mark := goal if goal != Vector2.INF and flash < 0 else (spot if selected == "spot" else Vector2.INF)
 	if mark != Vector2.INF:
 		var s := project(mark)
@@ -287,7 +375,7 @@ func _draw() -> void:
 				named = i
 	if named >= 0 and font != null:
 		var s := project(pins[named].map)
-		if s.z > 0.0:
+		if s.z > 0.0 and Rect2(Vector2.ZERO, size).grow(16.0).has_point(Vector2(s.x, s.y)):
 			var text := str(pins[named].label)
 			if str(pins[named].get("status", "")) != "":
 				text += " - " + str(pins[named].status)
@@ -388,13 +476,138 @@ func _draw_grid(col: Color) -> void:
 			draw_polyline(run, col, 1.0, true)
 
 
-func _draw_pin(at: Vector2, pin: Dictionary, hot: bool) -> void:
+func _draw_pin(batch, at: Vector2, pin: Dictionary, hot: bool, r: float) -> void:
 	var lk := GlobeMap.look()
 	var p := pin_look(pin)
-	var size_px := float(lk.get("pin_size", 6.0)) * (1.35 if hot else 1.0)
+	var size_px := r * (1.3 if hot else 1.0)
 	if str(pin.get("kind", "")) == "station":
 		size_px *= 1.7                       # a badge you click into, not a dot
-	draw_shape(self, at, str(p.get("shape", "circle")), Color(str(p.get("color", "#f2e2b0"))), size_px)
+	var col := Color(str(p.get("color", "#f2e2b0")))
+	if hot:
+		col = col.lightened(0.25)
+	shape_into(batch, self, at, str(p.get("shape", "circle")), col, size_px)
+
+
+## Every place big enough on screen: its buildings' footprints, flat from above
+## (one affine map from the place's map metres to the screen, made from where its
+## middle lands: a place is small beside the ball), and its walls as lines.
+func _draw_details(batch, d: Dictionary) -> void:
+	if details.is_empty():
+		return
+	var ppm := px_per_m()
+	var show := float(d.get("show_px", 60.0))
+	var view_rect := Rect2(Vector2.ZERO, size)
+	var walls: Array = []
+	for place in details:
+		var ext := float(place.extent)
+		if ext * 2.0 * ppm < show:
+			continue
+		var c3 := project(place.center)
+		if c3.z <= 0.05:
+			continue
+		var c := Vector2(c3.x, c3.y)
+		if not view_rect.grow(ext * ppm * 1.5).has_point(c):
+			continue
+		var xf := _affine(place.center, ext, c)
+		batch.tris_colored(xf * (place.tris as PackedVector2Array), place.cols)
+		for w in place.walls:
+			walls.append(xf * (w as PackedVector2Array))
+	if walls.is_empty():
+		return
+	batch.flush(self)
+	var col := Color(str(d.get("wall", "#c8b48a")))
+	var wpx := float(d.get("wall_px", 2.0))
+	for w in walls:
+		draw_polyline(w, Color(0, 0, 0, 0.6), wpx + 2.0, true)
+		draw_polyline(w, col, wpx, true)
+
+
+## The screen transform for map points near `centre` (which lands at `c`): the
+## projection's own slope there, measured `step` metres either way.
+func _affine(centre: Vector2, step: float, c: Vector2) -> Transform2D:
+	var px := project(centre + Vector2(step, 0.0))
+	var pz := project(centre + Vector2(0.0, step))
+	var ax := (Vector2(px.x, px.y) - c) / step
+	var az := (Vector2(pz.x, pz.y) - c) / step
+	return Transform2D(ax, az, c - ax * centre.x - az * centre.y)
+
+
+## Mountains (always, sized by how wide they are on screen), spires and boulders
+## (only zoomed in), as rock icons.
+func _draw_marks(batch, t: Dictionary) -> void:
+	if marks.is_empty():
+		return
+	if _mark_dirs.size() != marks.size():
+		_mark_dirs = PackedVector3Array()
+		for m in marks:
+			_mark_dirs.append(GlobeMap.dir(m.map, radius_m))
+	var ppm := px_per_m()
+	var sc := scale_px()
+	var half := size * 0.5
+	var vb := view()
+	var view_rect := Rect2(Vector2.ZERO, size).grow(12.0)
+	var mpx: Array = t.get("mountain_px", [6.0, 16.0])
+	var show_spire := ppm >= float(t.get("spire_px_per_m", 0.12))
+	var show_boulder := ppm >= float(t.get("boulder_px_per_m", 0.35))
+	var looks: Dictionary = GlobeMap.look().get("pins", {})
+	var cols := {}
+	for k in ["mountain", "spire", "boulder"]:
+		cols[k] = Color(str(pin_look({ "kind": k }).get("color", "#a88a68")))
+	for i in marks.size():
+		var m: Dictionary = marks[i]
+		var kind := str(m.kind)
+		var r: float
+		match kind:
+			"mountain":
+				r = clampf(float(m.size) * ppm * 0.6, float(mpx[0]), float(mpx[1]))
+			"spire":
+				if not show_spire:
+					continue
+				r = float(t.get("spire_px", 5.0))
+			_:
+				if not show_boulder:
+					continue
+				r = float(t.get("boulder_px", 3.5)) * clampf(float(m.size) * 0.5, 1.0, 2.0)
+		var v := vb * _mark_dirs[i]
+		if v.z <= 0.0:
+			continue
+		var at := half + Vector2(v.x, -v.y) * sc
+		if not view_rect.has_point(at):
+			continue
+		MapIcons.add(batch, str(looks.get(kind, {}).get("shape", kind)), at, r, cols[kind])
+
+
+## The names of the town's (and a ranch's) stops under their icons, once a metre
+## is big enough on screen, skipping any that would overlap one already drawn
+## (the cantina, its owner and the barracks first).
+func _draw_stop_names(stops: Array, font: Font, d: Dictionary) -> void:
+	if stops.is_empty() or font == null or px_per_m() < float(d.get("label_px_per_m", 1.1)):
+		return
+	var first := ["cantina", "cantina_owner", "barracks", "ship_dealer", "droids", "food", "gear", "fence", "keeper", "free_stall"]
+	stops.sort_custom(func(a, b):
+		var ia := first.find(str(a[1].kind))
+		var ib := first.find(str(b[1].kind))
+		return (ia if ia >= 0 else 99) < (ib if ib >= 0 else 99))
+	var fs := 11
+	var taken: Array = []
+	var sp: Array = d.get("stop_px", [3.5, 7.0])
+	var gap := clampf(px_per_m() * float(d.get("stop_scale", 3.5)), float(sp[0]), float(sp[1])) * float(GlobeMap.look().get("icon_scale", 1.4)) + 1.0
+	for s in stops:
+		var at: Vector2 = s[0]
+		var text := str(s[1].label)
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var box := Rect2(at + Vector2(-w * 0.5 - 2.0, gap), Vector2(w + 4.0, fs + 3.0))
+		var clash := false
+		for r in taken:
+			if (r as Rect2).intersects(box):
+				clash = true
+				break
+		if clash or not Rect2(Vector2.ZERO, size).encloses(box):
+			continue
+		taken.append(box)
+		var p := Vector2(box.position.x + 2.0, box.position.y + fs)
+		draw_string_outline(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85))
+		draw_string(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.96, 0.92, 0.84))
 
 
 ## A held outpost's clock: a ring that drains clockwise from the top as the
@@ -428,13 +641,28 @@ static func pin_look(pin: Dictionary) -> Dictionary:
 	var key := str(pin.kind)
 	if key == "camp" and bool(pin.get("hostile", false)):
 		key = "camp_hostile"
-	var p: Dictionary = lk.get("pins", {}).get(key, {})
+	var p: Dictionary = _base_look(key)
 	if str(pin.get("owner", "")) == Territory.LOCALS:
 		p = p.duplicate()
 		p["color"] = lk.get("owners", {}).get("short" if bool(pin.get("short", false)) else "locals", p.get("color", "#f2e2b0"))
 	elif str(pin.get("owner", "")) == Territory.REMNANT and bool(pin.get("short", false)):
 		p = p.duplicate()
 		p["color"] = lk.get("owners", {}).get("remnant_short", p.get("color", "#f2e2b0"))
+	return p
+
+
+static var _looks := {}
+
+
+## A kind's look with its colour filled in from its role (map.json "roles"), once.
+static func _base_look(key: String) -> Dictionary:
+	if _looks.has(key):
+		return _looks[key]
+	var lk := GlobeMap.look()
+	var p: Dictionary = (lk.get("pins", {}).get(key, {}) as Dictionary).duplicate()
+	if not p.has("color"):
+		p["color"] = str(lk.get("roles", {}).get(str(p.get("role", "")), "#f2e2b0"))
+	_looks[key] = p
 	return p
 
 
@@ -464,15 +692,15 @@ func goal_pin_now() -> int:
 
 
 ## The waypoint's pin: flashing between its colour and white, a ring going out.
-func _draw_flash(at: Vector2, pin: Dictionary) -> void:
+func _draw_flash(batch, at: Vector2, pin: Dictionary, r: float) -> void:
 	var lk := GlobeMap.look()
 	var t := pulse()
 	var gl: Dictionary = lk.get("goal", {})
 	var col := Color(str(gl.get("color", "#ffd84a")))
-	draw_arc(at, 9.0 + 9.0 * (1.0 - t), 0.0, TAU, 32, Color(col, 0.25 + 0.6 * t), 2.0, true)
+	draw_arc(at, 11.0 + 9.0 * (1.0 - t), 0.0, TAU, 32, Color(col, 0.25 + 0.6 * t), 2.0, true)
 	var p := pin_look(pin)
 	var base := Color(str(p.get("color", "#f2e2b0")))
-	draw_shape(self, at, str(p.get("shape", "circle")), base.lerp(Color.WHITE, t), float(lk.get("pin_size", 6.0)) * (1.2 + 0.3 * t))
+	shape_into(batch, self, at, str(p.get("shape", "circle")), base.lerp(Color.WHITE, t * 0.7), r * (1.15 + 0.2 * t))
 
 
 ## The waypoint out where no pin is: its own marker (a pin standing on the spot)
@@ -504,20 +732,32 @@ func _draw_player(at: Vector2) -> void:
 	draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0, 0, 0, 0.9), 1.5, true)
 
 
-## Another LAN player: a blue dot with a soft pulsing ring, their name beside it.
+## Another LAN player: a person in their colour with a soft pulsing ring, their
+## name beside it.
 func _draw_other(at: Vector2, nm: String, font: Font) -> void:
 	var t := pulse()
 	var col := NetSession.mark_color()
-	draw_arc(at, 8.0 + 3.0 * t, 0.0, TAU, 32, Color(col, 0.4 + 0.4 * t), 1.5, true)
-	draw_circle(at, 5.0, col)
-	draw_arc(at, 5.0, 0.0, TAU, 24, Color(0, 0, 0, 0.9), 1.5, true)
+	draw_arc(at, 10.0 + 3.0 * t, 0.0, TAU, 32, Color(col, 0.4 + 0.4 * t), 1.5, true)
+	draw_shape(self, at, str(GlobeMap.look().get("pins", {}).get("other_player", {}).get("shape", "person")), col, 6.0)
 	if font != null:
 		draw_string_outline(font, at + Vector2(12, 5), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color.BLACK)
 		draw_string(font, at + Vector2(12, 5), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, col)
 
 
-## A pin's shape on any canvas item (the legend draws with it too).
+## A pin's icon into `batch` (sent with the rest), or, for the few drawn marks
+## that are not silhouettes (ring, goal, planet, cruiser...), straight onto `ci`.
+static func shape_into(batch, ci: CanvasItem, at: Vector2, shape: String, col: Color, r: float) -> void:
+	if MapIcons.has(shape):
+		MapIcons.add(batch, shape, at, r * float(GlobeMap.look().get("icon_scale", 1.3)), col)
+	else:
+		draw_shape(ci, at, shape, col, r)
+
+
+## A pin's shape on any canvas item (the legend draws with it too): its icon
+## (MapIcons) at `r` times map.json's icon_scale, or one of the drawn marks.
 static func draw_shape(ci: CanvasItem, at: Vector2, shape: String, col: Color, r: float) -> void:
+	if MapIcons.draw(ci, shape, at, r * float(GlobeMap.look().get("icon_scale", 1.3)), col):
+		return
 	var edge := Color(0, 0, 0, 0.85)
 	var pts := PackedVector2Array()
 	match shape:
