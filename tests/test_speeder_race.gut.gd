@@ -3,7 +3,8 @@ extends GutTest
 ## the leader's buy-in has a floor and needs a speeder of yours; accepting sends
 ## them one after another to their speeders and to the grid, and a crowd gathers;
 ## [Z] lines you up and the countdown holds you; win and Dorrin holds the pot (and
-## Skrugs's job is done); lose your speeder and you are out; from the shooting lap
+## Skrugs's job is done); lose your hull and you crash out, are patched up and race
+## on; get off and you are out; from the shooting lap
 ## a racer with you in its nose fires; the tuned racers out-drive a stock speeder;
 ## after the race they park again and the crowd goes.
 
@@ -221,16 +222,50 @@ func test_win_pays_the_pot_at_once_and_skrugs_job_is_done() -> void:
 	assert_eq(crew.crowd.size(), 0, "the crowd has gone")
 
 
-func test_lose_your_speeder_and_you_are_out_with_no_prize() -> void:
+func test_lose_your_hull_and_you_crash_out_get_patched_up_and_race_on() -> void:
 	var t = await _town()
 	var crew := _crew(t)
 	var mine := await _race_to_go(t, crew)
+	assert_gt(mine.crash_repair_s, 0.0, "crash-outs on while the race runs")
 	mine.apply_damage(1.0e6)
+	assert_true(is_instance_valid(mine) and mine.model.alive(), "no burst: still there")
+	assert_true(mine.riding, "still aboard")
+	assert_eq(mine.crash_outs, 1, "crashed out")
+	assert_gt(mine.repair_left, 0.0, "being patched up")
+	assert_eq(mine.model.speed, 0.0, "stopped dead")
+	var hp := mine.model.hp
+	mine.apply_damage(50.0)
+	assert_eq(mine.model.hp, hp, "no more hits while it is patched up")
+	await wait_physics_frames(3)
+	assert_eq(crew.player_out, "", "still in the race")
+	assert_eq(crew.phase, RaceCrew.Phase.RACING, "the race runs on")
+	Engine.time_scale = 4.0
+	for i in 600:
+		if mine.repair_left <= 0.0:
+			break
+		await wait_physics_frames(1)
+	Engine.time_scale = 1.0
+	assert_eq(mine.repair_left, 0.0, "patched up")
+	assert_eq(mine.model.hp, mine.model.max_hp, "full hull")
+	assert_eq(crew.player_out, "", "racing again")
+	mine.dismount()
 	for i in 30:
 		if crew.phase != RaceCrew.Phase.RACING:
 			break
 		await wait_physics_frames(1)
-	assert_eq(crew.player_out, "why_wrecked", "out: wrecked")
+	assert_eq(mine.crash_repair_s, 0.0, "crash-outs off once you are out")
+
+
+func test_get_off_and_you_are_out_with_no_prize() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	var mine := await _race_to_go(t, crew)
+	assert_true(mine.dismount(), "off it")
+	for i in 30:
+		if crew.phase != RaceCrew.Phase.RACING:
+			break
+		await wait_physics_frames(1)
+	assert_eq(crew.player_out, "why_off", "out: got off")
 	assert_ne(crew.winner, RaceCrew.YOU, "no win")
 	assert_eq(WorldState.count("race_winnings"), 0, "no prize")
 	assert_eq(WorldState.credits, 400, "no refund")

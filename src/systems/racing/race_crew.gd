@@ -26,7 +26,11 @@ extends Node3D
 ##                         shows your lap and place and the pointer the next gate.
 ##                         From the crew's shoot_from_lap a racer with you in its
 ##                         nose fires its lasers. Shoot them any time.
-##   out                -- your speeder bursts, you get off, or you leave the course.
+##   crash out          -- hull gone mid-race: a speeder does not burst, it
+##                         stops dead and smokes while it is patched up
+##                         (crash_repair_s for yours, npc_crash_repair_s, a bit
+##                         longer, for a racer's), then full hull and on it goes.
+##   out                -- you get off, or you leave the course.
 ##   the end            -- win and the pot is paid into your credits at once
 ##                         (WorldState.on_race_won); the racers cruise
 ##                         back to their spots, park, climb off and walk back to
@@ -957,6 +961,7 @@ func _eaten(rc: Dictionary) -> void:
 	var sp = rc.speeder
 	var b = rc.body
 	if sp != null and is_instance_valid(sp):
+		_racer_repair_off(rc)                    # no crash-out from this: it bursts
 		sp.step_off()
 		sp.apply_damage(1.0e6)
 	if b != null and is_instance_valid(b) and not b.dead:
@@ -1122,6 +1127,7 @@ func go() -> void:
 		_player_speeder.set_external_command({})
 		_last[YOU] = _player_speeder.model.position
 		_player_speeder.gear.refill()           # issue #616: a full load of race gear at the start
+		_crash_repair(true)
 	var start := _line_start()
 	var route: Array = []
 	for k in course.line.size():
@@ -1131,6 +1137,7 @@ func go() -> void:
 			continue
 		rc.brain.pace = 1.0                       # race pace now
 		rc.brain.may_boost = true
+		rc.speeder.crash_repair_s = rule("npc_crash_repair_s", 7.0)
 		rc.brain.follow(route, true)
 		_last[rc.key] = rc.speeder.model.position
 
@@ -1174,6 +1181,7 @@ func _tick_racing(dt: float) -> void:
 		var sp = rc.speeder
 		if sp == null or not is_instance_valid(sp) or not sp.model.alive() or not sp.npc_driven():
 			rc.out = true
+			_racer_repair_off(rc)
 			_hold(rc.body)
 			continue
 		var at: Vector3 = sp.model.position
@@ -1187,7 +1195,9 @@ func _tick_racing(dt: float) -> void:
 		_last[rc.key] = at
 		# Lap `shoot_lap` on: you in their nose, in range: lasers.
 		var lap_now := laps.lap(rc.key) + 1
-		var shoot := shoot_lap > 0 and lap_now >= shoot_lap and player_out == "" and you_pos != Vector3.INF and not bool(rc.finished)
+		var crashed: bool = sp.repair_left > 0.0          # crashed out: no guns, no gear till patched up
+		var shoot := shoot_lap > 0 and lap_now >= shoot_lap and player_out == "" and you_pos != Vector3.INF \
+			and not bool(rc.finished) and not crashed
 		rc.brain.shoot_at = you_pos if shoot else Vector3.INF
 		if shoot:
 			_use_gear(sp, dt)
@@ -1400,7 +1410,47 @@ func _why_out() -> String:
 
 func _out(why: String) -> void:
 	player_out = why
+	_crash_repair(false)
 	_toast(line("out", { "why": line(why) }), 4.0)
+
+
+## Crash-outs on (GO) or off (out, or the race over): with them on, losing your
+## hull mid-race crashes you out and patches you up (SpeederNode.crash_repair_s)
+## instead of bursting your speeder. Off, a repair under way is finished at once.
+func _crash_repair(on: bool) -> void:
+	var sp := _player_speeder
+	if sp == null or not is_instance_valid(sp):
+		return
+	if on:
+		sp.crash_repair_s = rule("crash_repair_s", 4.0)
+		if not sp.crashed_out.is_connected(_on_crashed_out):
+			sp.crashed_out.connect(_on_crashed_out)
+			sp.repaired.connect(_on_repaired)
+		return
+	sp.crash_repair_s = 0.0
+	sp.finish_repair()
+	if sp.crashed_out.is_connected(_on_crashed_out):
+		sp.crashed_out.disconnect(_on_crashed_out)
+		sp.repaired.disconnect(_on_repaired)
+
+
+## A racer's crash-outs off (out of it, or the race over): any repair under way
+## finished at once.
+func _racer_repair_off(rc: Dictionary) -> void:
+	var sp = rc.speeder
+	if sp != null and is_instance_valid(sp):
+		sp.crash_repair_s = 0.0
+		sp.finish_repair()
+
+
+func _on_crashed_out(_at: Vector3) -> void:
+	_toast(str(rules().get("hud", {}).get("repairing", "Patching it up...")), rule("crash_repair_s", 4.0))
+
+
+func _on_repaired() -> void:
+	if phase == Phase.RACING and player_out == "":
+		_big(str(rules().get("hud", {}).get("repaired", "GO!")), 1.0)
+		Sound.play(rule_text("go_sound"))
 
 
 func _end_race() -> void:
@@ -1444,6 +1494,9 @@ func _end_race() -> void:
 			rc.brain.park(_park_pos(rc), _park_yaw(rc))
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
+	_crash_repair(false)
+	for rc in racers:
+		_racer_repair_off(rc)
 	if track_beast != null and is_instance_valid(track_beast) and not track_beast.dead:
 		# It crawls off, away from the course, and is gone once the racers are home.
 		var away := track_beast.global_position - course.center
@@ -1732,6 +1785,9 @@ func _update_hud() -> void:
 	if _lap_t0 >= 0.0:
 		_hud_lap.text += "\n" + str(h.get("split", "%s  best %s")) % [clock(race_t - _lap_t0), clock(best_lap())]
 	_hud_lap.visible = true
+	# Crashed out: the countdown till you are patched up.
+	if _player_speeder != null and is_instance_valid(_player_speeder) and _player_speeder.repair_left > 0.0:
+		_big("%s\n%d" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left)], 0.2)
 
 
 func _show_results(order: Array) -> void:
