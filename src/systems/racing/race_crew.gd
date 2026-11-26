@@ -58,6 +58,7 @@ var crew: Dictionary = {}
 var id := ""
 var course: RaceCourse
 var xf := Transform3D()               ## the hangout landmark's frame (x toward the town)
+var stall: SpeederStall               ## the crew file's "shop": a speeder mechanic's stall by the hangout, or null
 var found := false
 ## { key, cfg, body: NpcBody, speeder: SpeederNode (parked at `park`), built (its
 ## speeder has been built this load: a wrecked one is not built again), fit (what
@@ -202,6 +203,21 @@ func _ready() -> void:
 	menu = DroidMenu.new()
 	add_child(menu)
 	_build_hud()
+	_build_stall()
+
+
+## The crew file's "shop" block: a speeder mechanic's stall (SpeederStall: one of
+## Dorrin's cousins, his shop) at `at` in the hangout's frame, turned `yaw_deg`.
+func _build_stall() -> void:
+	var sh: Dictionary = crew.get("shop", {})
+	if sh.is_empty() or str(sh.get("id", "")) == "":
+		return
+	var o := _ground(_v2(sh.get("at", [0, 0])))
+	var up := ground.up_at(o) if ground != null else Vector3.UP
+	var basis := Basis(Quaternion(xf.basis.y.normalized(), up)) * xf.basis * Basis(Vector3.UP, deg_to_rad(float(sh.get("yaw_deg", 0.0))))
+	stall = SpeederStall.new()
+	stall.setup(demo, ground, Transform3D(basis.orthonormalized(), o), str(sh.id), course.to_world_near)
+	add_child(stall)
 
 
 ## A body from a soldier profile, in no town list (the town's locals walk the

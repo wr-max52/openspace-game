@@ -110,11 +110,7 @@ func _physics_process(dt: float) -> void:
 	_drive_droids(dt)
 	if not found or player == null or mechanic == null:
 		return
-	var to := player.global_position - mechanic.global_position
-	if to.length() < 12.0:
-		var local := xf.basis.inverse() * to
-		mechanic.rotation.y = lerp_angle(mechanic.rotation.y, atan2(local.x, local.z), minf(1.0, dt * 4.0))
-	_tick_focus()
+	_tick_focus()                        # he turns to you himself (MerchantNPC.plant)
 
 
 func _tick_focus() -> void:
@@ -181,7 +177,12 @@ func _build_mechanic() -> void:
 		mechanic = MerchantNPC.new(null)
 	mechanic.name = "Mechanic"
 	add_child(mechanic)
-	mechanic.global_transform = Transform3D(xf.basis, world_point("mechanic"))
+	# Behind his counter, facing where you stand to talk; he turns to you in the
+	# yard's own frame (the old turn set a world yaw from a yard angle: he stood
+	# side-on to his counter and leaned).
+	mechanic.plant(xf.basis, world_point("mechanic"), 0.0, player)
+	mechanic.rest_yaw = mechanic.yaw_to(world_point("customer"))
+	mechanic.face_yaw = mechanic.rest_yaw
 	mechanic.look_at_target = player
 	shop.speaker = mechanic
 

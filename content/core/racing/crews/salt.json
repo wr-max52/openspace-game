@@ -10,6 +10,11 @@
     "near": "ranch_saltpan",
     "face": [25.7, 86.3]
   },
+  "shop": {
+    "id": "jorrin",
+    "at": [4.0, 42.0],
+    "yaw_deg": 0
+  },
   "racers": [
     {
       "leader": true,
