@@ -889,6 +889,25 @@ func _ray_clear(tpos: Vector3) -> bool:
 	return false
 
 
+## Issue #699: eye to `to`, clear if nothing but `other` (or a part of it) is in the
+## way. SilentKill's body check; one ray.
+func sight_clear(to: Vector3, other: Node = null) -> bool:
+	if not is_inside_tree():
+		return false
+	var q := PhysicsRayQueryParameters3D.create(eye_position(), to)
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return true
+	var n: Node = hit.collider
+	while n != null:
+		if other != null and n == other:
+			return true
+		n = n.get_parent()
+	return false
+
+
 func target_chest_height() -> float:
 	if hostile_vehicle() != null:
 		return 0.0                # aim at the hull, not a rider's chest above it
