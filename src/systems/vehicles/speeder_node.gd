@@ -95,8 +95,9 @@ var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
 var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
-## Speeder race crash-outs: a race sets this on your speeder while it runs. Above
-## 0, a hit that would burst it while you ride crashes you out instead: a bang,
+## Speeder race crash-outs: a race sets this on every speeder in it while it runs
+## (yours, and its racers' a little longer). Above 0, a hit that would burst it
+## while you or an NPC drive it crashes it out instead: a bang,
 ## it stops dead and sits smoking while it is patched up for this many seconds
 ## (no throttle, no guns, no hits), then it is back to full hull and you race on.
 var crash_repair_s := 0.0
@@ -273,7 +274,7 @@ func apply_damage(amount: float) -> void:
 	for e in model.events:
 		log_events.append(e)
 	if killed:
-		if crash_repair_s > 0.0 and riding:
+		if crash_repair_s > 0.0 and (riding or npc_driven()):
 			_crash_out()
 		else:
 			_burst()
@@ -295,6 +296,19 @@ func _crash_out() -> void:
 	if visual != null and demo != null and bool(demo.get("use_look")):
 		_repair_smoke = ExplosionFx.smoke_trail(visual, Vector3(0, 0.6, 0), 0.5, 10, 2.5)
 	crashed_out.emit(at)
+
+
+## Crashed out: a frame of patching up, the controls held at nothing. False when
+## it is not crashed out (drive as normal).
+func _tick_repair(dt: float) -> bool:
+	if repair_left <= 0.0:
+		return false
+	repair_left -= dt
+	model.set_command(0.0, 0.0)
+	if repair_left <= 0.0:
+		repair_left = 0.01
+		finish_repair()
+	return true
 
 
 ## Patched up: full hull, the smoke stops, the controls are yours again.
@@ -369,13 +383,8 @@ func _physics_process(dt: float) -> void:
 
 func _ride(dt: float) -> void:
 	var fire := false
-	if repair_left > 0.0:
-		# Crashed out: it sits where it stopped until it is patched up.
-		repair_left -= dt
-		model.set_command(0.0, 0.0)
-		if repair_left <= 0.0:
-			repair_left = 0.01
-			finish_repair()
+	if _tick_repair(dt):
+		pass                             # crashed out: it sits where it stopped till patched up
 	elif _external.is_empty():
 		if _just("interact") and not model.airborne and not _hijack_claims():
 			dismount()
@@ -710,7 +719,12 @@ func _throw_riders_clear() -> void:
 
 ## The NPC driver's frame: its brain's command (or a bot's) through the model.
 func _npc_drive(dt: float) -> void:
-	if brain != null:
+	if _tick_repair(dt):
+		# Crashed out: the driver sits it out, no throttle, no guns.
+		_npc_cmd = {}
+		if brain != null:
+			brain.command = { "throttle": 0.0, "steer": 0.0, "boost": false, "fire": false }
+	elif brain != null:
 		brain.model = model
 		_npc_cmd = brain.update(dt)
 	else:
