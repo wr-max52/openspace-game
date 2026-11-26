@@ -584,54 +584,45 @@ static func _turn(v: Vector2, deg: float) -> Vector2:
 # ------------------------------------------------------------------ vehicles
 
 ## The vehicle kinds, in the legend's order: your ships and speeders, then the
-## enemy's (the Remnant's).
-const VEHICLE_KINDS := ["ship_yours", "speeder_yours", "ship_enemy", "speeder_enemy"]
+## enemy's (the Remnant's), then the rival racers.
+const VEHICLE_KINDS := ["ship_yours", "speeder_yours", "ship_enemy", "speeder_enemy", "speeder_rival"]
 
 
 ## Every vehicle in this scene the map shows, wherever it is now: [{ id, kind,
-## label, pos (world) }]. Yours: the ships you own (Fleet, ShipPilot's berths with
-## a key: parked, flown, or flying itself to you on a call) and the speeders you
-## own (SpeederPost.speeders). The enemy's: the Remnant interceptor (AtmoFighter,
-## unless shot down), the ships parked at the Remnant's outposts (not the one you
-## stole), and, while the Remnant hold the town, the gate speeders and the chase
-## speeder (GateChase). Ids stay the same while the scene lives, so a waypoint on
-## one follows it (target "vehicle:<id>", vehicle_pos).
+## label, pos (world), icon }]. Yours: the ships you own (Fleet, ShipPilot's
+## berths with a key: parked, flown, or flying itself to you on a call) and the
+## speeders you own (SpeederPost.speeders). The enemy's ships only while they fly
+## (the Remnant interceptor in the air, AtmoFighter; the ships parked at their
+## outposts are not on it), and, while the Remnant hold the town, the gate
+## speeders and the chase speeder (GateChase). The rival racers' speeders only
+## while their race runs (RaceCrew, Phase.RACING). `icon` is the vehicle's own
+## silhouette (its ship or vehicle file's "icon"). Ids stay the same while the
+## scene lives, so a waypoint on one follows it (target "vehicle:<id>",
+## vehicle_pos).
 static func vehicles(demo) -> Array:
 	var out: Array = []
 	if demo == null or not is_instance_valid(demo):
 		return out
 	var pilot = demo.get("pilot")
-	var f = demo.get("interceptor")
-	var fighter: AtmoFighter = f if f is AtmoFighter and is_instance_valid(f) and f.atmo != null else null
-	var seen := {}
 	if pilot != null and is_instance_valid(pilot):
-		for i in pilot.berths.size():
-			var b: Dictionary = pilot.berths[i]
-			if fighter != null and i == fighter.berth:
-				continue             # the interceptor on its pad: listed below, under one id wherever it is
-			if bool(b.get("destroyed", false)) or b.has("hijacked_by") or not (b.get("visual") is Node3D) or not is_instance_valid(b.visual):
-				continue
-			var label := str(b.get("cfg", {}).get("label", str(b.get("ship_id", "")).capitalize()))
+		for b in pilot.berths:
 			var key := str(b.get("key", ""))
-			if key != "":
-				out.append({ "id": "ship_" + key, "kind": "ship_yours", "label": line("your_vehicle") % label, "pos": (b.visual as Node3D).global_position })
-			elif b.has("outpost") and not bool(b.get("stolen", false)) and not bool(b.get("borrowed", false)):
-				# a place with more than one (the cruiser's bay): the second is "<place>_2"
-				var id := "outship_" + str(b.outpost)
-				seen[id] = int(seen.get(id, 0)) + 1
-				if int(seen[id]) > 1:
-					id += "_%d" % int(seen[id])
-				out.append({ "id": id, "kind": "ship_enemy", "label": label, "pos": (b.visual as Node3D).global_position })
-	if fighter != null and fighter.mode != AtmoFighter.Mode.DOWN and not (fighter.berth >= 0 and bool(pilot.berths[fighter.berth].get("destroyed", false))):
-		out.append({ "id": "fighter", "kind": "ship_enemy", "label": str(fighter.cfg.get("label", "")), "pos": fighter.position() })
+			if key == "" or bool(b.get("destroyed", false)) or b.has("hijacked_by") or not (b.get("visual") is Node3D) or not is_instance_valid(b.visual):
+				continue
+			var cfg: Dictionary = b.get("cfg", {})
+			out.append({ "id": "ship_" + key, "kind": "ship_yours", "pos": (b.visual as Node3D).global_position,
+				"label": line("your_vehicle") % str(cfg.get("label", str(b.get("ship_id", "")).capitalize())), "icon": str(cfg.get("icon", "")) })
+	var f = demo.get("interceptor")
+	if f is AtmoFighter and is_instance_valid(f) and f.atmo != null and f.flying():
+		out.append({ "id": "fighter", "kind": "ship_enemy", "label": str(f.cfg.get("label", "")), "pos": f.position(),
+			"icon": str(f.cfg.get("icon", "")) })
 	var mine: Array = []
 	var post = demo.get("speeder_post")
 	if post != null and is_instance_valid(post):
 		for s in post.speeders:
-			if s is SpeederNode and is_instance_valid(s) and not s.is_queued_for_deletion():
+			if _speeder_ok(s):
 				mine.append(s)
-				out.append({ "id": "speeder_%d" % s.get_instance_id(), "kind": "speeder_yours",
-					"label": line("your_vehicle") % str(s.cfg.get("label", "")), "pos": s.global_position })
+				out.append(_speeder(s, "speeder_yours", line("your_vehicle")))
 	if GateChase.holder() == Territory.REMNANT:
 		var theirs: Array = []
 		var gate = demo.get("gate_speeders")
@@ -641,12 +632,28 @@ static func vehicles(demo) -> Array:
 		if gc != null and is_instance_valid(gc) and gc.chaser != null:
 			theirs.append(gc.chaser)
 		for s in theirs:
-			if not (s is SpeederNode) or not is_instance_valid(s) or s.is_queued_for_deletion() or s in mine or s.riding \
-					or (gc != null and is_instance_valid(gc) and s == gc.stolen):     # the one you took: not theirs any more
+			if not _speeder_ok(s) or s in mine or s.riding or (gc != null and is_instance_valid(gc) and s == gc.stolen):
+				continue             # the one you took is not theirs any more
+			out.append(_speeder(s, "speeder_enemy", line("enemy_vehicle")))
+	var crews = demo.get("race_crews")
+	if crews is Array:
+		for c in crews:
+			if not (c is RaceCrew) or not is_instance_valid(c) or c.phase != RaceCrew.Phase.RACING:
 				continue
-			out.append({ "id": "speeder_%d" % s.get_instance_id(), "kind": "speeder_enemy",
-				"label": line("enemy_vehicle") % str(s.cfg.get("label", "")), "pos": s.global_position })
+			for r in c.racers:
+				var s = r.get("speeder")
+				if _speeder_ok(s) and not s in mine and not s.riding:
+					out.append(_speeder(s, "speeder_rival", line("rival_vehicle")))
 	return out
+
+
+static func _speeder_ok(s) -> bool:
+	return s is SpeederNode and is_instance_valid(s) and not s.is_queued_for_deletion()
+
+
+static func _speeder(s: SpeederNode, kind: String, fmt: String) -> Dictionary:
+	return { "id": "speeder_%d" % s.get_instance_id(), "kind": kind, "pos": s.global_position,
+		"label": fmt % str(s.cfg.get("label", "")), "icon": str(s.cfg.get("icon", "")) }
 
 
 ## The vehicles as map pins (vehicles), at map (x, z) by `to_map`; each a waypoint
@@ -657,6 +664,8 @@ static func vehicle_pins(demo, to_map: Callable) -> Array:
 		var p := _pin("veh_" + str(v.id), str(v.kind), str(v.label), to_map.call(v.pos))
 		p["target"] = "vehicle:" + str(v.id)
 		p["vehicle"] = true
+		if str(v.get("icon", "")) != "":
+			p["icon"] = str(v.icon)
 		out.append(p)
 	return out
 

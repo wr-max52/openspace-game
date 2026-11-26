@@ -335,6 +335,7 @@ func _draw() -> void:
 	var sp: Array = lk.get("details", {}).get("stop_px", [3.5, 7.0])
 	var stop_r := clampf(px_per_m() * float(lk.get("details", {}).get("stop_scale", 3.5)), float(sp[0]), float(sp[1]))
 	var named_stops: Array = []         # [at, pin] of the town's and ranches' stops showing, for their names
+	var rides: Array = []               # [at, pin, flashing, hot] of the vehicles, drawn over the rest
 	for i in pins.size():
 		var pin: Dictionary = pins[i]
 		if not shown(pin):
@@ -344,6 +345,9 @@ func _draw() -> void:
 			continue
 		var at := Vector2(s.x, s.y)
 		if not view_rect.has_point(at):
+			continue
+		if vehicle_icon(pin) != "":
+			rides.append([at, pin, i == flash, i == hover])
 			continue
 		_draw_hold(at, pin, font)
 		var stop := bool(pin.get("town", false)) or pin.has("detail")
@@ -355,6 +359,8 @@ func _draw() -> void:
 		if (bool(pin.get("town", false)) or pin.has("detail")) and i != hover:
 			named_stops.append([at, pin])
 	batch.flush(self)
+	for v in rides:
+		_draw_vehicle(v[0], v[1], v[2], v[3])
 	_draw_stop_names(named_stops, font, lk.get("details", {}))
 	var mark := goal if goal != Vector2.INF and flash < 0 else (spot if selected == "spot" else Vector2.INF)
 	if mark != Vector2.INF:
@@ -703,6 +709,52 @@ func _draw_flash(batch, at: Vector2, pin: Dictionary, r: float) -> void:
 	var p := pin_look(pin)
 	var base := Color(str(p.get("color", "#f2e2b0")))
 	shape_into(batch, self, at, str(p.get("shape", "circle")), base.lerp(Color.WHITE, t * 0.7), r * (1.15 + 0.2 * t))
+
+
+## A vehicle's silhouette (vehicle_icon): in its kind's colour, brighter hovered,
+## flashing white with the waypoint's ring going out when it is the waypoint.
+func _draw_vehicle(at: Vector2, pin: Dictionary, flashing: bool, hot: bool) -> void:
+	var lk := GlobeMap.look()
+	var col := Color(str(pin_look(pin).get("color", "#7fe0d0")))
+	var w := float(lk.get("vehicle_px", 26.0)) * (1.2 if hot else 1.0)
+	if flashing:
+		var t := pulse()
+		var gc := Color(str(lk.get("goal", {}).get("color", "#ffd84a")))
+		draw_arc(at, w * 0.6 + 9.0 * (1.0 - t), 0.0, TAU, 32, Color(gc, 0.25 + 0.6 * t), 2.0, true)
+		col = col.lerp(Color.WHITE, t * 0.7)
+	elif hot:
+		col = col.lightened(0.25)
+	draw_icon(self, at, vehicle_icon(pin), col, w)
+
+
+## The silhouette a pin is drawn with, "" for none: a vehicle's own ship or vehicle
+## file "icon", else its kind's (map.json pins), only for the vehicles.
+static func vehicle_icon(pin: Dictionary) -> String:
+	if not bool(pin.get("vehicle", false)):
+		return ""
+	var path := str(pin.get("icon", ""))
+	return path if path != "" else str(pin_look(pin).get("icon", ""))
+
+
+static var _icon_tex := {}
+
+
+## A white silhouette (assets/ui/vehicle_icons) `w` px across at its widest,
+## centred on `at`, tinted `col` over a dark edge (four offset copies).
+static func draw_icon(ci: CanvasItem, at: Vector2, path: String, col: Color, w: float) -> void:
+	if not _icon_tex.has(path):
+		_icon_tex[path] = load(path) if path != "" and ResourceLoader.exists(path) else null
+	var tex: Texture2D = _icon_tex[path]
+	if tex == null:
+		draw_shape(ci, at, "circle", col, w * 0.3)
+		return
+	var ts := tex.get_size()
+	var sz := ts * (w / maxf(ts.x, ts.y))
+	var rect := Rect2(at - sz * 0.5, sz)
+	var edge := Color(0, 0, 0, 0.85)
+	for o in [Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(0, -1.5), Vector2(0, 1.5)]:
+		ci.draw_texture_rect(tex, Rect2(rect.position + o, sz), false, edge)
+	ci.draw_texture_rect(tex, rect, false, col)
 
 
 ## The waypoint out where no pin is: its own marker (a pin standing on the spot)

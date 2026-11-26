@@ -714,7 +714,10 @@ func _pin_icon(look: Dictionary, r := 5.0, glow := Callable()) -> Control:
 		var col := Color(str(look.get("color", "#f2e2b0")))
 		if glow.is_valid():
 			col = col.lerp(Color.WHITE, float(glow.call()))
-		GlobeView.draw_shape(icon, icon.size * 0.5, str(look.get("shape", "circle")), col, r))
+		if str(look.get("icon", "")) != "":
+			GlobeView.draw_icon(icon, icon.size * 0.5, str(look.icon), col, icon.size.x - 2.0)
+		else:
+			GlobeView.draw_shape(icon, icon.size * 0.5, str(look.get("shape", "circle")), col, r))
 	return icon
 
 
