@@ -43,7 +43,8 @@
     "repath_s": 1.5,
     "repath_move": 1.5,
     "stuck_s": 2.0,
-    "stuck_move": 0.3
+    "stuck_move": 0.3,
+    "side_step_s": 1.0
   },
   "weapon": {
     "base": "pistol_blaster",

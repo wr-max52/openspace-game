@@ -83,11 +83,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    onto a rock. A speeder's touch is a centre-distance check, so a glancing pass
    at the nose or tail may miss. *(#220, #266, 2026-10-30 and 2026-11-01; fix:
    #700)*
-5. **No navmesh aboard the station:** troopers, guards and fighters walk straight
-   and snag on the barricade, bunks and stalls. The crowd's puppets follow paths,
-   not physics: an aisle's arc can graze a stall, and they pass through you and
-   each other. A puppet's outfit can change when its real body swaps in.
-   *(the station's crowd and Remnant deck, 2026-11-04; fix: #701)*
 7. **Seven small ones** *(2026-10-29 to 2026-11-05; fix: #703)*:
    - Selling the gun in your hand to the fence leaves it drawn until you switch.
    - A barge fighter's body hangs in the air if the barge drives off while it
