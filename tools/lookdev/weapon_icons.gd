@@ -11,7 +11,7 @@ extends SceneTree
 ## droid's own model, standing, from the side.
 
 const OUT := "res://assets/ui/weapon_icons/"
-const IDS := ["pistol_blaster", "rifle_blaster", "energy_blade", "sniper_rifle"]
+const IDS := ["pistol_blaster", "rifle_blaster", "energy_blade", "sniper_rifle", "plasma_welder"]
 const W := 512
 const H := 256
 const MARGIN := 1.12
@@ -51,14 +51,14 @@ func _run() -> void:
 		await process_frame
 		var box := _bounds(w)
 		var along := Vector3.BACK              # guns point +Z; the sword stands up its Y
-		if id == "energy_blade":
+		if id == "energy_blade" or id == "plasma_welder":    # issue #722: the welder stands like the sword
 			along = Vector3.UP
 		# Camera on -X looking +X: screen right is +Z. A sword is tipped so the blade
 		# runs up and to the right at 45 degrees, hilt bottom left.
 		var centre := box.get_center()
 		cam.global_position = centre + Vector3(-5, 0, 0)
 		cam.look_at(centre, Vector3.UP)
-		if id == "energy_blade":
+		if id == "energy_blade" or id == "plasma_welder":
 			cam.rotate_object_local(Vector3.BACK, deg_to_rad(45))
 		var span := _extent(w, box, id)
 		var aspect := float(W) / H
@@ -142,7 +142,7 @@ func _bounds(n: Node3D) -> AABB:
 ## The box's size as the camera will see it: depth (Z) across, height (Y) up; the
 ## sword's 45 degree tilt swaps in its diagonal.
 func _extent(_n: Node3D, box: AABB, id: String) -> Vector2:
-	if id == "energy_blade":
+	if id == "energy_blade" or id == "plasma_welder":
 		var d := Vector2(box.size.z, box.size.y).length()
 		return Vector2(d, d)
 	return Vector2(box.size.z, box.size.y)

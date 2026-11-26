@@ -44,6 +44,7 @@ var blade_hilt := ""  ## the sword's hilt model when not the default ("" = defau
 var current := ""                  ## weapon in hand (or being drawn/holstered)
 var drawn := 0.0                   ## 0 = holstered, 1 = ready
 var sword_pose: Dictionary = {}    ## from SwordCombo.pose() while the sword is out
+var weld_raise := 0.0                ## issue #722: 0 the welder hangs low ("rest"), 1 held out in front ("guard"), set by PlayerWeapons
 var sword_trail_on := false        ## the swing is cutting: the blade leaves a SwordTrail
 var blade_pull := Vector3.ZERO     ## issue #631: chest space, how far the drawn sword was pulled in to the fist
 var hands_on: Dictionary = { "r": false, "l": false }   ## issue #324: which hands hold the weapon this frame (third person)
@@ -168,6 +169,13 @@ func build_weapons(ids: Array) -> void:
 			wrap.add_child(sword)
 			wrap.set_meta("grips", sword.get_meta("grips"))
 			wrap.set_meta("sword", sword)
+		elif id == Welder.ITEM:
+			var welder := WelderLook.build(spec.get("tint", {}), spec)
+			wrap.add_child(welder)
+			wrap.set_meta("grips", welder.get_meta("grips"))
+			var fx := WelderFx.make(Color(str((spec.get("tint", {}) as Dictionary).get("arc", "#a8e4ff"))))
+			welder.get_node("Nozzle").add_child(fx)
+			wrap.set_meta("fx", fx)
 		else:
 			var model := _load_model(str(spec.get("model", "")), spec)
 			var s := float(spec.get("scale", 1.0))
@@ -735,12 +743,12 @@ func _place_weapon(upper: String, pitch: float) -> void:
 	var w: Node3D = weapons[current]
 	var grips: Dictionary = w.get_meta("grips", {})
 	var ready := _ready_xf(current, pitch)
-	if not first_person and current != "energy_blade" and _blade_deg() != 0.0:
+	if not first_person and not sword_held() and _blade_deg() != 0.0:
 		ready = _turned_back(ready, current, grips)
-	if not first_person and current != "energy_blade" and aim_target != Vector3.INF:
+	if not first_person and not sword_held() and aim_target != Vector3.INF:
 		ready = _aimed_at_target(ready, current, grips)
 	var holster := _holster_xf(current)
-	var up := 1.0 if (first_person and not _sprint_raise) or current == "energy_blade" else carry.eased()
+	var up := 1.0 if (first_person and not _sprint_raise) or sword_held() else carry.eased()
 	if up < 1.0:
 		# Issue #229: sprinting carries a rifle at port arms; eased in and out.
 		var kind := carry_kind(current)
@@ -752,17 +760,17 @@ func _place_weapon(upper: String, pitch: float) -> void:
 		ready = WeaponCarry.blend(rest, ready, up)
 	var f := drawn * drawn * (3.0 - 2.0 * drawn)
 	var aimed_cam := Transform3D()      ## the weapon in the camera's space, fully aimed in
-	if _recoil > 0.0 and current != "energy_blade":
+	if _recoil > 0.0 and not sword_held():
 		var rc: Dictionary = look.get("recoil", {})
 		var k := _recoil * _recoil
 		ready = Transform3D(ready.basis * Basis(Vector3.RIGHT, -deg_to_rad(float(rc.get("up_deg", 7.0))) * k),
 			ready.origin + Vector3(0, 0.01, -float(rc.get("back", 0.05))) * k)
-	if first_person and current != "energy_blade":
+	if first_person and not sword_held():
 		var ae := ads_blend * ads_blend * (3.0 - 2.0 * ads_blend)
 		ready = motion.offset(ae) * ready * motion.wall_local(grips.get("r", Vector3.ZERO), ae)
-	if reload >= 0.0 and current != "energy_blade":
+	if reload >= 0.0 and not sword_held():
 		ready = ready * WeaponMotion.reload_local(reload, grips.get("r", Vector3.ZERO))
-	if ads_blend > 0.0 and first_person and ads_camera != null and is_inside_tree() and current != "energy_blade":
+	if ads_blend > 0.0 and first_person and ads_camera != null and is_inside_tree() and not sword_held():
 		var a := Ads.spec(look, current)
 		var sc := float((look.get(current, {}) as Dictionary).get("scale", 1.0))
 		aimed_cam = Ads.weapon_local(Ads.sight_point(look, current) * sc, float(a.relief) * ads_relief_scale)
@@ -775,7 +783,7 @@ func _place_weapon(upper: String, pitch: float) -> void:
 		var to_chest := _cam_from_chest.affine_inverse() * aimed_cam
 		ready = ready.interpolate_with(to_chest, ads_blend * ads_blend * (3.0 - 2.0 * ads_blend))
 	# Issue #229: first person draws a gun up from below the view, not the holster.
-	if first_person and current != "energy_blade":
+	if first_person and not sword_held():
 		holster = WeaponMotion.fpv_low(ready)
 	w.transform = holster.interpolate_with(ready, f)
 	_pin_scope(w, aimed_cam)
@@ -790,7 +798,7 @@ func _place_weapon(upper: String, pitch: float) -> void:
 	# through the view, reading as a second arm.
 	if grips.has("r"):
 		# Issue #229: from the eye the sword sits across the fist, square to the forearm.
-		var in_fist := first_person and current == "energy_blade"
+		var in_fist := first_person and sword_held()
 		var pole_r := POLE_R
 		if in_fist:
 			pole_r = SwordCombo.fpv_pole((joints.r_shoulder as Node3D).position, w.transform * (grips.r as Vector3),
@@ -822,7 +830,7 @@ func _place_weapon(upper: String, pitch: float) -> void:
 	# A pistol at rest hangs from the right hand alone; the left arm swings free.
 	if carry_kind(current) == "pistol" and up < 0.5:
 		one_hand = true
-	if reload >= 0.0 and drawn > 0.6 and current != "energy_blade":
+	if reload >= 0.0 and drawn > 0.6 and not sword_held():
 		# The left hand swaps the cell: grip, cell, out of view below and back.
 		var spec: Dictionary = look.get(current, {})
 		var sc := float(spec.get("scale", 1.0))
@@ -998,7 +1006,7 @@ func _swing_pistol(w: Node3D, swing: float, sh_anim: Basis, el_anim: Vector3) ->
 ## Issue #229: the energy cell in the left hand during a reload (from when it
 ## reaches the gun till it seats the new one). Built once on the left wrist.
 func _show_cell() -> void:
-	var on := reload >= 0.0 and current != "energy_blade" and WeaponMotion.reload_cell_in_hand(reload)
+	var on := reload >= 0.0 and not sword_held() and WeaponMotion.reload_cell_in_hand(reload)
 	if _cell == null or not is_instance_valid(_cell) or _cell.get_parent() != joints.l_wrist:
 		if not on:
 			return
@@ -1063,7 +1071,7 @@ func _step_motion(dt: float, look: Vector2, speed: float, grounded: bool, vy: fl
 		lv = Vector2(wrapf(look.x - _look_prev.x, -PI, PI), look.y - _look_prev.y) / dt
 	_look_prev = look
 	var wall := INF
-	if ads_camera != null and is_inside_tree() and current != "" and current != "energy_blade":
+	if ads_camera != null and is_inside_tree() and current != "" and not sword_held():
 		var eye := ads_camera.global_position
 		var q := PhysicsRayQueryParameters3D.create(eye, eye - ads_camera.global_basis.z * WeaponMotion.WALL_REACH)
 		var host := get_parent() as CollisionObject3D
@@ -1096,7 +1104,7 @@ func _fpv_grips(upper: String, dt: float) -> void:
 	var relaxed := float(_fpv._hand().get("relaxed", 0.3))
 	var armed := upper != BodyAnimator.UPPER_FREE and current != "" and weapons.has(current)
 	var left: bool = armed and (weapons[current] as Node3D).get_meta("grips", {}).has("l") and drawn > 0.6
-	var swapping := armed and reload >= 0.0 and current != "energy_blade"
+	var swapping := armed and reload >= 0.0 and not sword_held()
 	if left and first_person and ads_blend < 0.4 \
 			and bool((look.get(current, {}) as Dictionary).get("aim_fpv", {}).get("one_hand", false)):
 		left = false
@@ -1167,9 +1175,9 @@ func _apply_throw() -> void:
 func gun_up() -> bool:
 	if sprint_lowered:
 		return false
-	if first_person and current != "energy_blade" and motion.blocked():
+	if first_person and not sword_held() and motion.blocked():
 		return false              # pulled back from a wall
-	return (first_person and not _sprint_raise) or current == "energy_blade" or carry.on_target()
+	return (first_person and not _sprint_raise) or sword_held() or carry.on_target()
 
 
 ## "pistol" or "rifle": how the weapon rests (hand_weapons.json "carry", else by name).
@@ -1177,9 +1185,46 @@ func carry_kind(id: String) -> String:
 	return str((look.get(id, {}) as Dictionary).get("carry", "pistol" if id.contains("pistol") else "rifle"))
 
 
+## Held like the energy blade: the blade itself, or a tool whose hand_weapons look
+## says "held_like": "energy_blade" (issue #722: the plasma welder). Its guard pose,
+## its fist, its third person hold; no swing (that is the sword's own).
+func sword_held(id: String = current) -> bool:
+	return id == "energy_blade" or str((look.get(id, {}) as Dictionary).get("held_like", "")) == "energy_blade"
+
+
+## The guard pose a sword-held weapon rests in: SwordCombo.GUARD, or its look's own
+## "guard" { pos, dir }. Issue #722: a look with a "rest" pose too (the welder) hangs
+## low in it and comes up to its guard, held out in front, as weld_raise goes to 1
+## (first person keeps the guard, a little lower at rest, so it stays in view).
+func _guard_of(id: String) -> Dictionary:
+	var spec: Dictionary = look.get(id, {})
+	var g: Dictionary = spec.get("guard", {})
+	if g.is_empty():
+		return SwordCombo.GUARD
+	var work := _pose_of(g)
+	if not spec.has("rest"):
+		return work
+	var f := weld_raise * weld_raise * (3.0 - 2.0 * weld_raise)
+	if first_person:
+		work.pos += Vector3(0.0, -0.08, -0.04) * (1.0 - f)
+		return work
+	return SwordCombo.mix(_pose_of(spec.rest), work, f)
+
+
+func _pose_of(g: Dictionary) -> Dictionary:
+	return { "pos": _v3(g.get("pos", [-0.1, -0.1, 0.32])), "dir": _v3(g.get("dir", [0.22, 0.86, 0.46])), "twist": 0.0 }
+
+
+## Issue #722: the welder in your hand spits sparks and arcs (WelderFx), or stops.
+func set_welder_fx(on: bool) -> void:
+	var w := weapon_node(Welder.ITEM)
+	if w != null and w.has_meta("fx"):
+		(w.get_meta("fx") as WelderFx).set_on(on and w.visible)
+
+
 func _ready_xf(id: String, _pitch: float) -> Transform3D:
-	if id == "energy_blade":
-		var p: Dictionary = sword_pose if not sword_pose.is_empty() else SwordCombo.GUARD
+	if sword_held(id):
+		var p: Dictionary = sword_pose if not sword_pose.is_empty() else _guard_of(id)
 		var xf := SwordCombo.pose_transform(p)
 		if first_person:
 			xf.origin += Vector3(0.0, 0.1, 0.06)

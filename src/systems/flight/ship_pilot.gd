@@ -115,6 +115,7 @@ var ship_id := ""
 var ship_cfg: Dictionary = {}
 var pad: Dictionary = {}         ## the resolved home pad
 var berths: Array = []           ## issue #43: { ship_id, cfg, visual, hull, home, home_yaw, clearance } per parked ship
+var held_wreck := -1             ## issue #722: the berth T-89 is still welding (paid for, still looks wrecked, will not fly yet)
 var berth := 0                   ## the berth you fly (or last flew)
 var home := Vector3.ZERO
 var home_yaw := 0.0
@@ -378,19 +379,73 @@ static func berth_label(b: Dictionary) -> String:
 
 
 ## Issue #206: the pit pad's ship looks wrecked (WreckLook) while a story save's
-## ship waits for T-89, and like new once he has rebuilt it.
+## ship waits for T-89, and like new once he has rebuilt it. Issue #722: so does a
+## primary shot to pieces and back on the pad, until T-89 patches it up or you weld
+## it; a wrecked one carries a WeldSpot (10 flasks of quantonium, no fee).
 func refresh_wreck_look() -> void:
-	if berths.is_empty() or not is_instance_valid(berths[0].visual):
-		return
-	if ShipSalesman.needs_rebuild() and GameFlow.flown_ship == "":
-		WreckLook.apply(berths[0].visual)
-	else:
-		WreckLook.remove(berths[0].visual)
+	for i in berths.size():
+		var v = berths[i].visual
+		if not is_instance_valid(v):
+			continue
+		if berth_wrecked(i):
+			WreckLook.apply(v)
+			if not (v as Node3D).has_node("WeldSpot"):
+				_add_weld_spot(v)
+		elif i == held_wreck:
+			WreckLook.apply(v)               # paid for: T-89 is on his way with his welder
+		else:
+			WreckLook.remove(v)
+
+
+## Issue #722: berth `i` stands wrecked: the story's ship T-89 has not rebuilt, or
+## your primary shot to pieces, back on the pad, not yet patched up.
+func berth_wrecked(i: int) -> bool:
+	if i < 0 or i >= berths.size() or bool(berths[i].get("destroyed", false)):
+		return false
+	if i == 0 and ShipSalesman.needs_rebuild() and GameFlow.flown_ship == "":
+		return true
+	return berth_key(i) != "" and berth_key(i) == Fleet.primary() and WorldState.has_flag(Fleet.WRECKED)
+
+
+func _berth_of_visual(v: Node) -> int:
+	for i in berths.size():
+		if berths[i].visual == v:
+			return i
+	return -1
+
+
+## Issue #722: a wrecked ship can be welded for Welder.ship_flasks flasks.
+func _add_weld_spot(v: Node3D) -> void:
+	var spot := WeldSpot.make(
+		func(): return berth_wrecked(_berth_of_visual(v)),
+		func():
+			var i := _berth_of_visual(v)
+			return Story.line("weld_ship") % ShipUpgrades.ship_label(str(berths[i].ship_id)) if i >= 0 else "",
+		func(): weld_berth(_berth_of_visual(v)),
+		func(): return "" if Welder.can_pay_ship() else Story.line("weld_ship_flasks") % [Welder.ship_flasks(), Welder.flasks()])
+	spot.reach = 7.0                  # stand anywhere along her side
+	spot.spark_height = 1.2
+	v.add_child(spot)
+
+
+## Issue #722: wrecked berth `i` welded: the flasks are used up and she flies. The
+## story's wreck counts as T-89's rebuild (without his fee); a primary shot to
+## pieces is patched up (without his). Returns false when nothing was done.
+func weld_berth(i: int) -> bool:
+	if not berth_wrecked(i) or not Welder.can_pay_ship():
+		return false
+	if i == 0 and ShipSalesman.needs_rebuild() and GameFlow.flown_ship == "":
+		if demo.salesman == null or demo.salesman.weld_rebuild() == "":
+			return false
+	elif not Fleet.weld_repair():
+		return false
+	refresh_wreck_look()
+	return true
 
 
 ## May the player board berth `i`? (berth_open: the rule.)
 func berth_flies(i: int) -> bool:
-	return berth_open(berths[i], i)
+	return i != held_wreck and berth_open(berths[i], i)
 
 
 ## Issue #64: the port's ships fly once Oda tells you about the fleet. Issue #206:
@@ -398,6 +453,8 @@ func berth_flies(i: int) -> bool:
 ## the pit pad's, once T-89 rebuilt your wreck or when you flew in on it; one he
 ## sold you, "owned"). An outpost's ship is still there to steal once ships fly.
 static func berth_open(b: Dictionary, i: int) -> bool:
+	if WorldState.has_flag(Fleet.WRECKED) and str(b.get("key", "")) != "" and str(b.get("key", "")) == Fleet.primary():
+		return false                   # issue #722: shot to pieces and not yet patched up or welded
 	if bool(b.get("owned", false)) or bool(b.get("free", false)):
 		return true
 	if not WorldState.story_mode() or b.has("outpost"):
@@ -407,6 +464,10 @@ static func berth_open(b: Dictionary, i: int) -> bool:
 
 ## Why berth `i` will not fly, as a Story line key.
 func locked_line(i: int) -> String:
+	if i == held_wreck:
+		return "ship_being_welded"          # issue #722: T-89 is still at her with his welder
+	if WorldState.has_flag(Fleet.WRECKED) and berth_key(i) != "" and berth_key(i) == Fleet.primary():
+		return "ship_shot_down"
 	if not WorldState.story_mode() or berths[i].has("outpost"):
 		return "ship_locked"
 	return "ship_wreck" if i == 0 else "ship_not_yours"
@@ -1339,7 +1400,7 @@ func _on_foot() -> void:
 		if not berth_flies(i):
 			_foot_prompt.text = "%s  ·  %s" % [vname, Story.line(locked_line(i))]
 	_foot_prompt.visible = near
-	if near and _just("interact"):
+	if near and _just("interact") and not Welder.claims_e:
 		board()
 
 
@@ -2356,6 +2417,8 @@ func call_ship() -> String:
 		return "call_busy"            # a ship still coming down (or waiting for her tow) first
 	if i >= 0 and berths[i].has("hijacked_by"):
 		return "call_hijacked"        # another player flies her: back when they get out
+	if WorldState.has_flag(Fleet.WRECKED):
+		return "call_wrecked"         # issue #722: T-89 or the welder first
 	var at := p.global_position
 	var foot := clear_spot(at, 0.0, -1.0, i)
 	if foot == Vector3.INF:
@@ -2398,6 +2461,8 @@ func call_state() -> Dictionary:
 		return { "ok": false, "text": GameFlow.label("call_busy") }
 	if piloting:
 		return { "ok": false, "text": GameFlow.label("call_seated") }
+	if WorldState.has_flag(Fleet.WRECKED):
+		return { "ok": false, "text": GameFlow.label("call_wrecked") }
 	return { "ok": true, "text": GameFlow.label("call") }
 
 
@@ -2616,7 +2681,8 @@ func _spawn_owned(key: String, xf: Transform3D) -> int:
 	return add_berth(v, sid, "", key)
 
 
-## Shot to pieces and back: whole again, its fee paid (a toast says how much).
+## Shot to pieces and back on the pad: whole again but still wrecked (issue #722)
+## until T-89 patches her up or you weld her (a toast says so).
 func _patch_up(i: int) -> void:
 	var b: Dictionary = berths[i]
 	b.destroyed = false
@@ -2631,9 +2697,11 @@ func _patch_up(i: int) -> void:
 		b.hull.collision_mask = int(b.get("hull_mask", 1))
 	if i == berth:
 		defense = ShipDefense.new(ship_cfg)
-	var fee := Fleet.repair()
-	if fee >= 0:
-		_foot_toast(GameFlow.label("repaired") % [ShipUpgrades.ship_label(str(b.ship_id)), fee])
+	# Issue #722: back on the pad but still wrecked: T-89 patches her up for his
+	# fee (his menu), or you weld her for quantonium. She does not fly till then.
+	if WorldState.has_flag(Fleet.WRECKED):
+		_foot_toast(GameFlow.label("back_wrecked") % [ShipUpgrades.ship_label(str(b.ship_id)), Fleet.repair_fee(str(b.ship_id))])
+	refresh_wreck_look()
 
 
 ## Where berth `i` stands now is where it stays (one of yours; Fleet.remember).

@@ -11,8 +11,10 @@ extends Node3D
 ##     as yours (by_player),
 ##   - a cargo droid holds items the gate never searches ([E] near it),
 ##   - the droid merchant in the market buys and sells all three kinds,
-##   - broken droids turn up in the desert now and then; [E] and ten seconds
-##     beside one fixes it, and it follows you,
+##   - broken droids turn up in the desert now and then; weld one with the plasma
+##     welder (issue #722: its WeldSpot, hold E) and it follows you. With no
+##     welder it stays broken. A knocked-out droid of yours can be welded back up
+##     at once the same way,
 ##   - the range remote follows you once you block its bolts five times in a row,
 ##   - the Remnant's own two droids patrol the main street, call the alarm and
 ##     fight when the garrison would,
@@ -78,7 +80,6 @@ var vendor_face := Vector3.ZERO     ## issue #80: the way the droid merchant fac
 var vendor_sites: Array = []        ## town stall plus independent planet relays
 var focus: Dictionary = {}          ## what E would act on: { kind: "vendor"|"wreck"|"cargo"|"lasers", uid }
 var site_i := -1                    ## issue #392: the stall whose menu is open (vendor_sites index)
-var fixing: Dictionary = {}         ## { uid, left }
 var rng := RandomNumberGenerator.new()
 var shots_fired := 0
 var stranded := 0                   ## issue #76: outpost cargo droids that ran off and broke down
@@ -217,14 +218,12 @@ func _physics_process(dt: float) -> void:
 	if player.piloting:
 		_despawn_companions()          # they wait while you fly
 		_trail.clear()
-		fixing = {}
 		focus = {}
 	else:
 		_sync_companions()
 		_tick_knocked_out(dt)
 		_follow(dt)
 		_companion_guns(dt)
-		_tick_fix(dt)
 		_tick_focus()
 	if not net_copy:
 		_remnant_step(dt)
@@ -233,28 +232,13 @@ func _physics_process(dt: float) -> void:
 	_chirps(dt)
 
 
-## Ten seconds beside a wreck fixes it; walking off cancels.
-func _tick_fix(dt: float) -> void:
-	if fixing.is_empty():
-		return
-	var n: DroidUnit = wreck_nodes.get(int(fixing.uid))
-	if n == null or _flat_dist(n.global_position, player.global_position) > float(cfg.get("fix_reach", 2.6)) + 1.0:
-		if n != null and gear != null and gear.hud != null:
-			gear.hud.toast(_l("fix_cancelled") % DroidRoster.label(n.kind).to_lower())
-		fixing = {}
-		return
-	fixing.left = float(fixing.left) - dt
-	if float(fixing.left) <= 0.0:
-		_finish_fix(int(fixing.uid))
-
-
 func _tick_focus() -> void:
 	if menu.is_open():
 		return
 	if _was_locked:
 		player.locked = false
 		_was_locked = false
-	focus = {} if (gear != null and not gear.focus.is_empty()) else _find_focus()
+	focus = {} if (gear != null and not gear.focus.is_empty()) or Welder.claims_e else _find_focus()
 	var text := prompt_text()
 	if text != "" and gear != null and gear.hud != null:
 		gear.hud.set_prompt(text)
@@ -277,9 +261,6 @@ func _find_focus() -> Dictionary:
 			distance = d
 	if closest >= 0:
 		return { "kind": "vendor", "site": closest }
-	for uid in wreck_nodes:
-		if _flat_dist(p, wreck_nodes[uid].global_position) <= float(cfg.get("wrecks", {}).get("reach", 3.0)):
-			return { "kind": "wreck", "uid": uid }
 	for uid in companions:
 		var d := roster().find(uid)
 		if bool(DroidRoster.kind_cfg(str(d.get("kind", ""))).get("carries", false)) \
@@ -314,17 +295,9 @@ func _vendor_site_open(site: int) -> bool:
 
 
 func prompt_text() -> String:
-	if not fixing.is_empty():
-		var n: DroidUnit = wreck_nodes.get(int(fixing.uid))
-		var total := float(cfg.get("fix_seconds", 10.0))
-		if n != null:
-			return _l("fixing") % [DroidRoster.label(n.kind).to_lower(), int(100.0 * (1.0 - float(fixing.left) / total))]
 	match str(focus.get("kind", "")):
 		"vendor":
 			return _l("trade") % _vendor_label(int(focus.get("site", -1))).to_lower()
-		"wreck":
-			var w := roster().find_wreck(int(focus.uid))
-			return _l("fix") % [DroidRoster.label(str(w.get("kind", ""))).to_lower(), int(cfg.get("fix_seconds", 10.0))]
 		"cargo":
 			return _l("hold")
 		"lasers":
@@ -338,7 +311,8 @@ func prompt_text() -> String:
 
 # ------------------------------------------------------------------ actions
 
-## Act on whatever is in reach. Returns "menu", "fixing", or "".
+## Act on whatever is in reach. Returns "menu" or "" (or what a toggle did).
+## Issue #722: wrecks are not here any more: they are welded (weld_wreck).
 func interact() -> String:
 	if focus.is_empty():
 		focus = _find_focus()
@@ -347,12 +321,6 @@ func interact() -> String:
 			_select_vendor(int(focus.get("site", -1)))
 			_open_trade(int(focus.get("site", -1)))
 			return "menu"
-		"wreck":
-			var uid := int(focus.uid)
-			if roster().is_full():
-				_ask_make_room(func(): start_fix(uid))
-				return "menu"
-			return "fixing" if start_fix(uid) else ""
 		"cargo":
 			var opts := hold_options(int(focus.uid))
 			if opts.is_empty():
@@ -693,16 +661,29 @@ func _on_hold(id: String, uid: int) -> void:
 
 # ------------------------------------------------------------------ wrecks
 
-func start_fix(uid: int) -> bool:
-	if not wreck_nodes.has(uid) or roster().is_full():
-		return false
-	fixing = { "uid": uid, "left": float(cfg.get("fix_seconds", 10.0)) }
-	Sound.play("droid_fix", wreck_nodes[uid].global_position)
-	return true
+## Issue #722: wreck `uid` welded (PlayerWelder, through its WeldSpot): it wakes
+## and follows you. With max_owned droids already it asks which to sell first.
+## Returns "fixed", "menu" or "".
+func weld_wreck(uid: int) -> String:
+	if not wreck_nodes.has(uid):
+		return ""
+	if roster().is_full():
+		_ask_make_room(func(): _finish_fix(uid))
+		return "menu"
+	_finish_fix(uid)
+	return "fixed"
+
+
+## Issue #722: knocked-out droid `uid` of yours welded: it reboots now.
+func weld_companion(uid: int) -> void:
+	var u: DroidUnit = companions.get(uid)
+	if u == null or not u.dead:
+		return
+	u.down_left = 0.0
+	_tick_knocked_out(0.0)
 
 
 func _finish_fix(uid: int) -> void:
-	fixing = {}
 	var n: DroidUnit = wreck_nodes.get(uid)
 	var d := roster().fix_wreck(uid)
 	if d.is_empty() or n == null:
@@ -785,6 +766,13 @@ func _build_wreck(w: Dictionary) -> void:
 	_orient(u)
 	_lay_down(u)
 	wreck_nodes[int(w.uid)] = u
+	var wuid := int(w.uid)
+	var spot := WeldSpot.make(func(): return wreck_nodes.has(wuid),
+		func(): return _l("weld_wreck") % DroidRoster.label(str(w.kind)).to_lower(),
+		func(): weld_wreck(wuid))
+	spot.reach = float(cfg.get("wrecks", {}).get("reach", 3.0))
+	spot.spark_height = 0.35
+	u.add_child(spot)
 
 
 ## Broken or dead: eyes dark, and down on the sand (the assassin flat on its back).
@@ -794,6 +782,8 @@ func _lay_down(u: DroidUnit) -> void:
 	match u.kind:
 		"assassin":
 			# A rigged assassin plays its fall and stays down; the old look tips over.
+			u.arm_up = 0.0
+			DroidKit.raise_arm(u.look, 0.0)             # issue #722: it drops its aim as it falls
 			if DroidKit.play_anim(u.look, "die"):
 				if u.broken:
 					DroidKit.finish_anim(u.look)
@@ -833,6 +823,8 @@ func _bat(u: DroidUnit, sweep: Vector3) -> void:
 		u.hum.stop()
 	u.falling = true
 	if u.kind == "assassin":
+		u.arm_up = 0.0
+		DroidKit.raise_arm(u.look, 0.0)
 		DroidKit.play_anim(u.look, "die")
 	var rc := Ragdoll.load_config()
 	var up := _up(u.global_position)
@@ -946,6 +938,12 @@ func _spawn_companion(d: Dictionary, at: Vector3, from_y := INF) -> DroidUnit:
 	u.hp = u.max_hp
 	if int(d.uid) == LENT_UID:
 		u.set_meta("lent", true)
+	else:
+		# Issue #722: knocked out, it can be welded back up at once.
+		var cuid := int(d.uid)
+		u.add_child(WeldSpot.make(func(): return Welder.owned() and u.dead and companions.get(cuid) == u,
+			func(): return _l("weld_droid") % droid_name(roster().find(cuid)).to_lower(),
+			func(): weld_companion(cuid)))
 	companions[int(d.uid)] = u
 	return u
 
@@ -2391,6 +2389,8 @@ class DroidUnit extends StaticBody3D:
 			return m.global_position
 		return center() + (-global_basis.z) * 0.35
 
+	var arm_up := 0.0                  ## issue #722: 0 the gun arm as the clip has it, 1 raised out to aim
+
 	## Bob (floating), roll the wheels (cargo), walk or run (assassin: its rigged
 	## clips, timed to `speed` in m/s; without a rig, a sway).
 	## `fighting`: standing still in a fight, it holds its ready stance (the idle's
@@ -2420,6 +2420,11 @@ class DroidUnit extends StaticBody3D:
 					played = DroidKit.play_anim(look, "walk", clampf(maxf(speed, 1.0) / float(a.get("walk_speed", 1.6)), 0.6, 1.8))
 				if not played:
 					model.rotation.x = sin(_t * 7.0) * 0.03 if moving else 0.0
+				# Issue #722: standing to fight, the gun arm comes up and out to aim.
+				var aim_to := 1.0 if (played and fighting and not moving and not dead and not broken) else 0.0
+				if aim_to != arm_up:
+					arm_up = move_toward(arm_up, aim_to, dt / 0.25)
+					DroidKit.raise_arm(look, arm_up)
 
 	func apply_damage_from(amount: float, shooter: Node) -> void:
 		if ctl != null:

@@ -18,7 +18,8 @@ extends RefCounted
 ## planet and spot (WorldState.ship_spots), across saves.
 ##
 ## A primary shot to pieces is not lost: it is back on the pad the next time you
-## wake (or load), and T-89's repair fee comes out of your credits (repair()).
+## wake (or load), still wrecked (issue #722) until T-89 patches it up for his fee
+## (repair(), his menu) or you weld it for quantonium (weld_repair()).
 
 const WRECK := "wreck"
 const T89 := "t89"
@@ -190,6 +191,17 @@ static func repair() -> int:
 	WorldState.credits -= fee
 	WorldState.log_event("T-89 patched up a ship that was shot to pieces.", "pit")
 	return fee
+
+
+## Issue #722: the primary shot to pieces, welded back by you: Welder.ship_flasks
+## flasks of quantonium used up and no fee. False (nothing taken) when it was not
+## wrecked or you carry too few.
+static func weld_repair() -> bool:
+	if not WorldState.has_flag(WRECKED) or not Welder.pay_ship():
+		return false
+	WorldState.set_flag(WRECKED, false)
+	WorldState.log_event("Welded a ship that was shot to pieces back together.", "pit")
+	return true
 
 
 # ------------------------------------------------------------------ the ledger

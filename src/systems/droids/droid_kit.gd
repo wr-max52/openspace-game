@@ -129,7 +129,41 @@ static func _from_model(model: Node3D, look: Dictionary, body: Color, eye: Color
 			w.position = Vector3(float(bp[0]), float(bp[1]), float(bp[2]))
 			w.rotation_degrees = Vector3(float(br[0]), float(br[1]), float(br[2]))
 			w.scale = Vector3.ONE * float(bl.get("scale", 1.0))
+		# Issue #722: carry.bone_local_raised { pos, rot_deg, scale }: where it sits
+		# in the hand with the arm raised out in front (DroidArmRaise; raise_arm()),
+		# the arm's own directions from carry.raise { upper, fore } if given.
+		var br2: Dictionary = carry.get("bone_local_raised", {})
+		if w != null and not br2.is_empty():
+			w.set_meta("rest_xf", w.transform)
+			w.set_meta("raised_xf", _bone_xf(br2))
+			var raise := DroidArmRaise.make(n as Node3D, model, carry.get("raise", {}))
+			if raise != null:
+				model.set_meta("arm_raise", raise)
 	return true
+
+
+static func _bone_xf(d: Dictionary) -> Transform3D:
+	var p: Array = d.get("pos", [0, 0, 0])
+	var r: Array = d.get("rot_deg", [0, 0, 0])
+	var b := Basis.from_euler(Vector3(float(r[0]), float(r[1]), float(r[2])) * PI / 180.0, EULER_ORDER_YXZ)
+	return Transform3D(b.scaled(Vector3.ONE * float(d.get("scale", 1.0))), Vector3(float(p[0]), float(p[1]), float(p[2])))
+
+
+## Issue #722: a rigged droid's arm raised out in front (0 the clip's own arm, 1
+## fully out), its carried weapon or tool moving from carry.bone_local to
+## bone_local_raised as it comes up. Nothing for a look without a raised carry.
+static func raise_arm(look: Node3D, up: float) -> void:
+	var holder := look.get_node_or_null("Model")
+	if holder == null or not holder.has_meta("arm_raise"):
+		return
+	var f := clampf(up, 0.0, 1.0)
+	f = f * f * (3.0 - 2.0 * f)
+	var r := holder.get_meta("arm_raise") as DroidArmRaise
+	r.influence = f
+	r.active = f > 0.0                       # down: no per-frame pass at all (render rules)
+	var w := holder.find_child("Carry", true, false) as Node3D
+	if w != null and w.has_meta("raised_xf"):
+		w.transform = (w.get_meta("rest_xf") as Transform3D).interpolate_with(w.get_meta("raised_xf"), f)
 
 
 ## Move `node` (a child of `model`) under a BoneAttachment3D on `bone`, keeping

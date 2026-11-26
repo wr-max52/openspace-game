@@ -7,6 +7,15 @@
     "full": "Your backpack is full (%d of %d slots).",
     "note": "The player's backpack (Inventory.slots_used). The pistol always holds the first slot; each other kind of item you own takes one (a stack is one slot): the rifle, a saber, food, quartz, every contraband good. The jetpack and the armour take one too, but not while they are activated (worn: listed as '(activated)'). Picking up, buying, trading, unloading a cargo droid and taking gear off all need a free slot."
   },
+  "welder": {
+    "note": "Issue #722: the plasma welder's prompts (src/systems/items/player_welder.gd). %s is what is being welded, %.0f the seconds to hold.",
+    "hold_e": "[Hold E]  Weld %s  (%.0f s)",
+    "hold_fire": "Welder out [7], hold fire: weld %s  (%.0f s)",
+    "welding": "Welding %s...",
+    "welded": "Welded: %s",
+    "need_welder": "You need a plasma welder to fix %s",
+    "blocked": "Weld %s: %s"
+  },
   "labels": {
     "move_hint": "WASD or arrow keys to move",
     "pick_up": "[E]  Pick up %s",

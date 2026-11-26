@@ -1,0 +1,19 @@
+{
+  "id": "plasma_welder",
+  "label": "Plasma welder",
+  "kind": "tool",
+  "value": 150,
+  "look": "plasma_welder",
+  "icon": "res://assets/ui/item_icons/plasma_welder.svg",
+  "must_own": true,
+  "naming": { "kind": "equipment", "class": "tool" },
+  "weld": {
+    "weld_s": 2.0,
+    "raise_s": 0.25,
+    "reach": 3.0,
+    "unwelded_hull": 0.5,
+    "ship_flasks": 10,
+    "flask_item": "refined_quantonium"
+  },
+  "note": "Issue #722: the plasma welder, a tool on weapon wheel slot 7 (key 7). 'must_own': drawn only while you carry it. T-89 gives you one the first time you talk to him in a story save (t89.json 'welder_gift'); free roam starts with one (story main.json free_roam_kit). With it drawn, fire makes it spit sparks and arc (no damage). 'weld': weld_s, seconds of holding E (or fire, with it drawn) beside something it can fix (a WeldSpot within reach m): a damaged speeder (fire only: E mounts it), a desert droid wreck (now needs the welder), a knocked-out droid of yours, your wrecked ship on the pit pad (ship_flasks of flask_item, used up, instead of T-89's fee). Mid-race, crashed out (#720), hold E in the seat for weld_s and you are back at full hull; without the welder the race's patch-up puts you back at unwelded_hull (share of full). Why 10 flasks: T-89's rebuild is 500 cr, about 300 of it parts; at 45 cr a flask that is about 7 flasks, and 10 are worth 900 to the fence: nearly twice his price, a big tax for doing it yourself. Read by src/systems/items/welder.gd."
+}

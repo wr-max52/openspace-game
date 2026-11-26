@@ -48,6 +48,29 @@
     },
     "slot": 2
   },
+  "plasma_welder": {
+    "note": "Issue #722: the plasma welder, the Hyper3D torch (assets/gear/plasma_welder.glb, content/look/gear_models.json) placed by model_xf, its tip at nozzle; held like the energy blade ('held_like': the blade's guard pose, its first person fist and its third person hold, copied below) with no swing. Simple shapes from WelderLook (src/systems/look/welder_look.gd), the nozzle up the blade's +Y; WelderFx (src/systems/look/welder_fx.gd) puts the sparks and the arc at the nozzle. 'tint': body, trim, tank, the nozzle's glow and the arc.",
+    "held_like": "energy_blade",
+    "rest": { "pos": [-0.21, -0.52, 0.1], "dir": [0.02, 0.22, 0.97], "note": "Issue #722: how it hangs when not in use (chest space): the arm down by the side, the torch held low, the rod pointing ahead and down." },
+    "guard": { "pos": [-0.1, -0.06, 0.28], "dir": [0.18, 0.84, 0.51], "note": "Held out in front while welding (fire held, or a hold-E weld): the blade's guard, away from the body, the rod leaning forward to the work. Comes up from rest over the item's raise_s." },
+    "model": "res://assets/gear/plasma_welder.glb",
+    "model_xf": { "pos": [-0.0506, 0.1052, 0.0567], "rot": [-12, 0, 0], "scale": 0.92, "note": "Puts the torch's grip on the hilt's: its handle top (model 0.055, -0.099, -0.084) at the origin, tipped back 12 degrees about it and at 0.92, so the tip sits about half a metre in front of the face." },
+    "nozzle": [0.011, 0.4885, 0.1567],
+    "nozzle_dir": [0, 0.208, 0.978],
+    "scale": 1.0,
+    "holster": "l_hip",
+    "fpv_pose": { "r": "hilt", "l": "hilt" },
+    "aim_fpv": { "one_hand": true },
+    "hold_3p": {
+      "one_hand": true,
+      "grip": [0.0, -0.085, 0.0],
+      "passes": 2,
+      "hands": {
+        "r": { "radius": 0.029, "tilt_deg": 20, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "wrap", "thumb_radius": 0.032, "max_deg": [90, 105, 80] }
+      }
+    },
+    "tint": { "body": "#5a5650", "trim": "#c9a26a", "tank": "#8a3a22", "glow": "#7fd8ff", "arc": "#a8e4ff" }
+  },
   "rifle_blaster": {
     "model": "res://assets/gear/rifle.glb",
     "scale": 1.0,

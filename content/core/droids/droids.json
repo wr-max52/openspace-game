@@ -1,9 +1,7 @@
 {
   "id": "droids",
-  "note": "IP-neutral (issue #51). Companion droids: three kinds, each with look variants. Not LLM characters; they only beep. The player runs up to max_owned at once. They show in the inventory as droids; what a cargo droid carries does not show, and the Remnant never searches it. Prices: the merchant sells at price and buys back at resale. Looks: each kind's 'look' names its Hyper3D model (issue #25, content/look/gear_models.json), tinted by the variant's body colour ('tint' 0..1), with glowing 'eyes' and a 'muzzle' in model space (metres, facing -Z, standing on y = 0). No model = the droid_kit.gd primitives. Following (issue #25 follow-up): a droid stays put until the player is 'leash' metres away, then walks to its slot and stops within 'settle'.",
+  "note": "IP-neutral (issue #51). Issue #722: a broken droid in the desert is fixed with the plasma welder (hold E for its weld_s), no longer by waiting beside it; lines weld_wreck / weld_droid name what is welded. Companion droids: three kinds, each with look variants. Not LLM characters; they only beep. The player runs up to max_owned at once. They show in the inventory as droids; what a cargo droid carries does not show, and the Remnant never searches it. Prices: the merchant sells at price and buys back at resale. Looks: each kind's 'look' names its Hyper3D model (issue #25, content/look/gear_models.json), tinted by the variant's body colour ('tint' 0..1), with glowing 'eyes' and a 'muzzle' in model space (metres, facing -Z, standing on y = 0). No model = the droid_kit.gd primitives. Following (issue #25 follow-up): a droid stays put until the player is 'leash' metres away, then walks to its slot and stops within 'settle'.",
   "max_owned": 3,
-  "fix_seconds": 10.0,
-  "fix_reach": 2.6,
   "kinds": {
     "floating": {
       "label": "Floating droid",
@@ -266,7 +264,9 @@
               -168.0
             ],
             "scale": 1.03
-          }
+          },
+          "raise": { "upper": [0.06, -0.12, -0.99], "fore": [0.0, 0.0, -1.0], "note": "Issue #722: aiming, the arm raised straight out from the shoulder (DroidArmRaise directions in the droid's space, facing -Z)." },
+          "bone_local_raised": { "pos": [0.081, 0.096, -0.057], "rot_deg": [-76.4, -106.4, 63.7], "scale": 1.03, "note": "Issue #722: the pistol with the arm raised out in front (DroidArmRaise, while it stands and fights): level, the barrel straight ahead. Solved about its own origin in the same bone frame." }
         }
       }
     }
@@ -492,9 +492,8 @@
     "sold": "Sold your %s for %d cr.",
     "full": "You already run %d droids. Sell one first.",
     "cant_afford": "A %s costs %d cr. You have %d.",
-    "fix": "[E] Fix the broken %s (%d s)",
-    "fixing": "Fixing the %s...  %d%%  (stay close)",
-    "fix_cancelled": "You walked away. The %s is still broken.",
+    "weld_wreck": "the broken %s",
+    "weld_droid": "your %s",
     "fixed": "The %s reboots, resets, and follows you.",
     "make_room": "You already run %d droids. Sell one to make room?",
     "hold": "[E] Open the cargo droid's hold",

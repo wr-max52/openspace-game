@@ -1,0 +1,6 @@
+{
+  "id": "plasma_welder",
+  "class": "tool",
+  "label": "Plasma Welder",
+  "note": "Issue #722: not a weapon; it sits on the wheel (slot 7) so you can draw it. No damage, no ammo: fire makes sparks and an arc at the nozzle (WelderFx). The welding itself is PlayerWelder's (src/systems/items/player_welder.gd); its numbers are the item's 'weld' block (content/core/items/plasma_welder.json)."
+}

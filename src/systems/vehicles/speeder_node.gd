@@ -108,6 +108,14 @@ var crash_repair_s := 0.0
 var repair_left := 0.0               ## seconds of patching up still to go (0 = not crashed out)
 var crash_outs := 0                  ## times crashed out (tests)
 var _repair_smoke: CPUParticles3D
+## Issue #722: crashed out with a plasma welder, hold E in the seat for
+## Welder.weld_s and it is back at full hull; the patch-up without welding puts it
+## back at Welder.unwelded_hull. Off the track a damaged speeder nobody rides is
+## welded on foot (its WeldSpot: welder drawn, hold fire; E mounts it).
+var weld_t := 0.0                    ## seconds of the seat weld held so far
+var welded_outs := 0                 ## crash-outs welded (tests)
+var weld_spot: WeldSpot
+var _weld_fx: WelderFx
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -129,6 +137,7 @@ func _ready() -> void:
 	_build_yoke()               # after the hull: not part of its shape
 	_engine = Sound.loop("speeder_engine", self)
 	if rideable:
+		_build_weld_spot()
 		gun = WeaponActor.new()
 		var laser: Dictionary = cfg.get("laser", {})
 		gun.set_weapon(laser)
@@ -303,24 +312,41 @@ func _crash_out() -> void:
 
 
 ## Crashed out: a frame of patching up, the controls held at nothing. False when
-## it is not crashed out (drive as normal).
+## it is not crashed out (drive as normal). Issue #722: a rider with a welder holds
+## E and is back at full hull in Welder.weld_s; left to the patch-up the player
+## comes back at Welder.unwelded_hull (a crew's racer has no welder and comes back
+## whole, as before).
 func _tick_repair(dt: float) -> bool:
 	if repair_left <= 0.0:
 		return false
 	repair_left -= dt
 	model.set_command(0.0, 0.0)
+	if riding and Welder.owned() and Welder.e_held():
+		weld_t += dt
+		_set_weld_fx(true)
+		if weld_t >= Welder.weld_s():
+			welded_outs += 1
+			repair_left = maxf(repair_left, 0.01)
+			finish_repair(1.0)
+			return true
+	elif weld_t > 0.0:
+		weld_t = 0.0
+		_set_weld_fx(false)
 	if repair_left <= 0.0:
 		repair_left = 0.01
-		finish_repair()
+		finish_repair(Welder.unwelded_hull() if riding else 1.0)
 	return true
 
 
-## Patched up: full hull, the smoke stops, the controls are yours again.
-func finish_repair() -> void:
+## Patched up: `share` of full hull (issue #722: full when welded, less when the
+## race's patch-up did it), the smoke stops, the controls are yours again.
+func finish_repair(share := 1.0) -> void:
 	if repair_left <= 0.0:
 		return
 	repair_left = 0.0
-	model.hp = model.max_hp
+	weld_t = 0.0
+	_set_weld_fx(false)
+	model.hp = maxi(1, int(round(model.max_hp * clampf(share, 0.0, 1.0))))
 	repaired.emit()
 	var smoke := _repair_smoke
 	_repair_smoke = null
@@ -330,6 +356,29 @@ func finish_repair() -> void:
 			smoke.queue_free()
 			return
 		get_tree().create_timer(3.0).timeout.connect(func(): if is_instance_valid(smoke): smoke.queue_free())
+
+
+## Issue #722: a damaged speeder nobody rides can be welded back to full hull on
+## foot. E mounts it, so only fire with the welder drawn welds it (use_e false).
+func _build_weld_spot() -> void:
+	weld_spot = WeldSpot.make(
+		func(): return not riding and npc_seats.is_empty() and model.alive() and model.hp < model.max_hp and repair_left <= 0.0,
+		func(): return "the " + str(cfg.get("label", "speeder")),
+		func(): model.hp = model.max_hp,
+		Callable(), false)
+	weld_spot.reach = float(cfg.get("board_reach", 3.2)) + 0.8
+	weld_spot.spark_height = 0.5
+	add_child(weld_spot)
+
+
+## The seat weld's sparks, on the hull by your knees.
+func _set_weld_fx(on: bool) -> void:
+	if on and _weld_fx == null and visual != null:
+		_weld_fx = WelderFx.make(Color("#a8e4ff"), 2.0)
+		_weld_fx.position = Vector3(0.0, 0.45, -0.6)
+		visual.add_child(_weld_fx)
+	if _weld_fx != null and is_instance_valid(_weld_fx):
+		_weld_fx.set_on(on)
 
 
 # ------------------------------------------------------------------ frame
@@ -1569,6 +1618,10 @@ func _update_hud() -> void:
 		"\nAIRBORNE" if model.airborne else ""]
 	if repair_left > 0.0:
 		_readout.text += "\nCRASHED  REPAIRING %.1fs" % repair_left
+		if weld_t > 0.0:
+			_readout.text += "  WELDING %d%%" % int(100.0 * weld_t / maxf(Welder.weld_s(), 0.01))
+		elif Welder.owned():
+			_readout.text += "  [HOLD E] WELD"
 	if model.has_lifter():
 		_readout.text += "\nLIFTER %s" % ("READY [SPACE]" if model.lift_ready() else "%.1fs" % model.lift_cooldown)
 	if gear != null and gear.has_any():

@@ -1787,7 +1787,9 @@ func _update_hud() -> void:
 	_hud_lap.visible = true
 	# Crashed out: the countdown till you are patched up.
 	if _player_speeder != null and is_instance_valid(_player_speeder) and _player_speeder.repair_left > 0.0:
-		_big("%s\n%d" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left)], 0.2)
+		# Issue #722: hold E with a welder for full hull; without one it is half.
+		var hint := str(h.get("weld_hint" if Welder.owned() else "no_welder", ""))
+		_big("%s\n%d%s" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left), "\n" + hint if hint != "" else ""], 0.2)
 
 
 func _show_results(order: Array) -> void:

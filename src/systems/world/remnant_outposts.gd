@@ -40,7 +40,8 @@ extends Node3D
 ## Issue #309: each building is a control room you can walk into (OutpostRoom):
 ## walls, a roof and a doorway toward the town, consoles, a holo table and red and
 ## blue light like the cruiser's bridge, and one trooper (guard_c) inside at the
-## consoles with his back to the door. Hold [E] at the hack console for
+## consoles with his back to the door. Issue #722: the hack console is the vault:
+## with the plasma welder drawn, hold [E] at it for
 ## Heist.hack_seconds() while a heist names the outpost and the hack starts: stay
 ## within Heist.stay_m() of the console for Heist.run_seconds() and it drops the
 ## stash. When it starts the outpost sends a wave (Heist.wave_cfg()) from out in
@@ -977,6 +978,12 @@ func console_point(o: Dictionary) -> Vector3:
 	return (o.xf as Transform3D) * (o.room.stand as Vector3)
 
 
+## Issue #722: the vault door's face, where the welder's sparks land: the console
+## in front of where you stand, about chest height.
+func vault_point(o: Dictionary) -> Vector3:
+	return (o.xf as Transform3D) * ((o.room.stand as Vector3) + Vector3(-OutpostRoom.STAND, 1.0, 0.0))
+
+
 ## One frame at a console: what the player at `p` holding [E] (`held`) gets. ""
 ## (no console in reach), "locked" (no heist here), "wiped" (this heist's console,
 ## hacked already), "ready", "hacking" (holding [E] to start it), "started" (held
@@ -984,8 +991,9 @@ func console_point(o: Dictionary) -> Vector3:
 ## within Heist.stay_m() of the console, anywhere), "broken" (you went further:
 ## it dropped, start it again) or "done" (it ran its time: the stash is out).
 ## Letting go or stepping away while starting starts that over. Being seen
-## changes nothing.
-func hack_step(dt: float, held: bool, p: Vector3) -> String:
+## changes nothing. Issue #722: the console is the vault, breached with the plasma
+## welder: without it drawn (`welder_out`) it says "no_welder" and nothing starts.
+func hack_step(dt: float, held: bool, p: Vector3, welder_out := true) -> String:
 	if running_at != "":
 		var ro := outpost(running_at)
 		if not Heist.armed(running_at) or ro.is_empty():
@@ -1006,6 +1014,9 @@ func hack_step(dt: float, held: bool, p: Vector3) -> String:
 	if not Heist.armed(hack_at):
 		hacking = 0.0
 		return "wiped" if Heist.target() == hack_at else "locked"
+	if not welder_out:
+		hacking = 0.0
+		return "no_welder"
 	if not held:
 		hacking = 0.0
 		return "ready"
@@ -1043,14 +1054,26 @@ func _tick_hack(dt: float, p: Node3D) -> void:
 	var busy: bool = p.get("locked") == true or p.get("piloting") == true \
 		or (gear != null and (not gear.focus.is_empty() or gear.menu.is_open()))
 	var held := not busy and InputMap.has_action("interact") and Input.is_action_pressed("interact")
+	# Issue #722: the vault is breached with the plasma welder in your hand.
+	var kit = demo.get("player_kit")
+	var weapons: PlayerWeapons = kit.weapons if kit != null and is_instance_valid(kit) else null
+	var welder_out := weapons != null and weapons.holder.current == Welder.ITEM and weapons.holder.is_ready()
 	# A started hack keeps running whatever you are doing, as long as you stay close.
-	var state := "" if busy and running_at == "" else hack_step(dt, held, p.global_position)
+	var state := "" if busy and running_at == "" else hack_step(dt, held, p.global_position, welder_out)
+	if weapons != null and (state == "hacking" or _bar_up):
+		weapons.welding = state == "hacking"       # sparks off the tip while you burn it open...
+		var w = demo.get("welder")
+		var o := outpost(hack_at) if hack_at != "" else {}
+		if w != null and is_instance_valid(w):     # ...and off the vault door
+			w.spark_target(vault_point(o) if not o.is_empty() else Vector3.ZERO, state == "hacking" and not o.is_empty())
 	if gear == null or gear.hud == null:
 		return
 	var talking: bool = not gear.focus.is_empty() or gear.menu.is_open()
 	match state:
 		"locked", "wiped":
 			gear.hud.set_prompt(Heist.line(state))
+		"no_welder":
+			gear.hud.set_prompt(Heist.line("draw_welder" if Welder.owned() else "need_welder"))
 		"ready":
 			gear.hud.set_prompt(Heist.line("ready") % roundi(Heist.hack_seconds()))
 		"hacking":

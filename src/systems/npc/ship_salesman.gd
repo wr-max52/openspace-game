@@ -42,6 +42,7 @@ const CFG_PATH := "res://content/core/npcs/t89.json"
 const CARD_PATH := "res://content/core/npcs/t89_card.json"
 const PIT_RIM_Y := -0.5              ## above this you are up out of the pit (the street is 0)
 const MET_FLAG := "met_t89"          ## saved: he has said his first hello to this player
+const WELDER_FLAG := "t89_welder_given"  ## issue #722: saved: he has handed you the plasma welder
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 static var greeted := false          ## the hello happens once per run of the game
@@ -69,6 +70,11 @@ var spot: TalkSpot                   ## him, as one of them
 var _offered: Dictionary = {}        ## the ship on the chat box's price card
 var _greet_left := -1.0
 var _was_locked := false
+var look: Node3D                     ## his droid look (DroidKit), for clips and his welder
+var _job: Dictionary = {}            ## issue #722: { berth, phase out|weld|back, t, stand, work } while he welds your ship
+var _arm := 0.0                      ## issue #722: his welder, 0 down in his hand, 1 held out to the work
+var _fx: WelderFx                    ## sparks off his nozzle
+var _hull_fx: WelderFx               ## sparks off the hull he is welding
 
 
 func setup(p_demo, p_player: CharacterBody3D, p_gear: GearController) -> void:
@@ -151,7 +157,7 @@ func _build_body() -> void:
 	body.add_child(cs)
 	var look_cfg: Dictionary = cfg.get("look", {})
 	var mats: LookMaterials = demo._flat_mats() if demo.has_method("_flat_mats") else LookMaterials.new()
-	var look := DroidKit.build(str(look_cfg.get("kind", "assassin")), look_cfg, mats, model_look(look_cfg))
+	look = DroidKit.build(str(look_cfg.get("kind", "assassin")), look_cfg, mats, model_look(look_cfg))
 	_disarm(look)
 	body.add_child(look)
 	DroidKit.set_awake(look, true)
@@ -187,10 +193,13 @@ func height() -> float:
 
 
 ## Issue #25: his kind's model (the rigged assassin), with nothing in his hand and
-## the relaxed idle ("calm") instead of the ready stance.
+## the relaxed idle ("calm") instead of the ready stance. Issue #722: or what his
+## look's own "carry" names (T-89 holds a plasma welder) in its place.
 static func model_look(look_cfg: Dictionary) -> Dictionary:
 	var m: Dictionary = DroidRoster.kind_cfg(str(look_cfg.get("kind", "assassin"))).get("look", {}).duplicate(true)
 	m.erase("carry")
+	if look_cfg.has("carry"):
+		m["carry"] = look_cfg.carry
 	var anims: Dictionary = m.get("anims", {})
 	if anims.has("calm"):
 		anims["idle"] = anims["calm"]
@@ -231,7 +240,8 @@ func _physics_process(dt: float) -> void:
 				_greet_left = 0.25        # wait until nothing else has the player
 			else:
 				greet()
-	if _flat_dist(player.global_position, pos) < 10.0:
+	_tick_job(dt)
+	if _job.is_empty() and _flat_dist(player.global_position, pos) < 10.0:
 		var to := player.global_position - pos
 		var want := atan2(-to.x, -to.z)
 		body.rotation.y = lerp_angle(body.rotation.y, want, minf(1.0, dt * 4.0))
@@ -268,8 +278,9 @@ func _tick_focus() -> void:
 		player.locked = false
 		_was_locked = false
 	var p := player.global_position
-	in_reach = not player.piloting and _flat_dist(p, pos) <= float(cfg.get("reach", 3.2)) \
-		and absf(p.y - pos.y) <= 2.0 and (gear == null or gear.focus.is_empty())
+	var at := body.global_position          # issue #722: where he is (he walks off to weld your ship)
+	in_reach = not player.piloting and _flat_dist(p, at) <= float(cfg.get("reach", 3.2)) \
+		and absf(p.y - at.y) <= 2.0 and (gear == null or gear.focus.is_empty())
 	if not in_reach:
 		return
 	if gear != null and gear.hud != null:
@@ -293,9 +304,9 @@ func greet() -> void:
 	WorldState.set_flag(met_flag())
 	if (cfg.get("tutorial", []) as Array).is_empty():
 		# T-99 runs no tutorial (T-89 did, down in the pit): his hello and his shop.
-		_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line(), top_options(), _on_top)
+		_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + _welder_gift(), top_options(), _on_top)
 		return
-	_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + "\n\n" + str(cfg.get("offer_tutorial", "")),
+	_open(str(cfg.get("greeting", "")) + _repair_line() + _story_line() + _welder_gift() + "\n\n" + str(cfg.get("offer_tutorial", "")),
 		[{ "id": "yes", "text": _l("yes_tutorial") }, { "id": "no", "text": _l("no_tutorial") }], _on_offer)
 
 
@@ -318,10 +329,11 @@ func talk() -> void:
 	if not greeted and not WorldState.has_flag(met_flag()):
 		greet()
 		return
-	if spot != null and chat():
+	var gift := _welder_gift()          # issue #722: a save from before the welder gets it now
+	if gift == "" and spot != null and chat():
 		return
 	_beep()
-	_open(_line("hello_again") + _repair_line() + _story_line(), top_options(), _on_top)
+	_open(_line("hello_again") + _repair_line() + _story_line() + gift, top_options(), _on_top)
 
 
 ## Issue #64: while the story starts with him, he sends you to Oda.
@@ -330,8 +342,24 @@ func _story_line() -> String:
 	return " " + str(b.say) if not b.is_empty() else ""
 
 
+## Issue #722: in a story save he hands you the plasma welder, once (his
+## "welder_gift" line, which also says what fixing your own ship costs). "" when
+## he has given it already, has none to give, or it is free roam (you start with one).
+func _welder_gift() -> String:
+	if not WorldState.story_mode() or not cfg.has("welder_gift") or WorldState.has_flag(WELDER_FLAG):
+		return ""
+	WorldState.set_flag(WELDER_FLAG)
+	if not Welder.owned():
+		WorldState.inventory.add(Welder.ITEM)
+	WorldState.log_event("T-89 gave the player a plasma welder.", "pit")
+	return "\n\n" + str(cfg.welder_gift) % Welder.ship_flasks()
+
+
 ## Issue #206: the rebuild's price, while your wreck waits (the quest goes in the log).
+## Issue #722: or the patch-up's, while your primary shot to pieces waits.
 func _repair_line() -> String:
+	if needs_repair():
+		return " " + _line("repair_quote_shot") % [ship_label(Fleet.ship_of(Fleet.primary())), repair_fee()]
 	if not needs_rebuild():
 		return ""
 	Story.event("repair_quoted")
@@ -490,6 +518,8 @@ func top_options() -> Array:
 	var out := []
 	if spot != null:
 		out.append({ "id": "chat", "text": _l("chat") })
+	if needs_repair():
+		out.append({ "id": "repair", "text": _l("repair") % [ship_label(Fleet.ship_of(Fleet.primary())), repair_fee()] })
 	if needs_rebuild():
 		out.append({ "id": "rebuild", "text": _l("rebuild") % [ship_label(wreck_id()), rebuild_price()] })
 		if not WorldState.has_flag(WorldState.COMRADE):
@@ -545,6 +575,9 @@ func _on_top(id: String) -> void:
 		_menu(_group_options(g), _on_group.bind(g))
 	elif id == "rebuild":
 		rebuild()
+		_menu(top_options(), _on_top, true)
+	elif id == "repair":
+		repair()
 		_menu(top_options(), _on_top, true)
 	elif id == "comrade":
 		start_remnant_talk()
@@ -654,16 +687,201 @@ func rebuild() -> String:
 		_say(_line("cant_afford_rebuild") % [cost, WorldState.credits])
 		return "cant_afford"
 	WorldState.credits -= cost
+	_rebuilt("rebuilt")
+	return "rebuilt"
+
+
+## Issue #722: you welded the wreck yourself: the flasks are used up, no fee, and
+## it counts as his rebuild. Returns "welded", or "" (nothing to do, too few flasks).
+func weld_rebuild() -> String:
+	if not needs_rebuild() or not Welder.pay_ship():
+		return ""
+	_rebuilt("welded")
+	return "welded"
+
+
+func _rebuilt(say: String) -> void:
 	WorldState.set_flag(WorldState.SHIP_REBUILT)
 	WorldState.wreck_ship = wreck_id()
 	WorldState.log_event(_l("event_rebuilt") % ship_label(wreck_id()), "pit")
 	var pilot = demo.pilot if demo != null and "pilot" in demo else null
 	if pilot != null:
-		pilot.refresh_wreck_look()          # good as new
+		if say != "welded":
+			start_weld_job(0)               # issue #722: he walks over and welds her himself
+		pilot.refresh_wreck_look()          # good as new (or still a wreck while he works)
 	Story.event("ship_rebuilt")
 	_beep()
-	_say(_line("rebuilt") % ship_label(wreck_id()))
-	return "rebuilt"
+	_say(_line(say) % ship_label(wreck_id()))
+
+
+## Issue #722: your primary was shot to pieces and waits for a patch-up.
+static func needs_repair() -> bool:
+	return WorldState.has_flag(Fleet.WRECKED) and Fleet.primary() != ""
+
+
+func repair_fee() -> int:
+	return Fleet.repair_fee(Fleet.ship_of(Fleet.primary()))
+
+
+## His patch-up of your primary shot to pieces: his fee (all your credits, if you
+## have less). Returns what he took, -1 when nothing needed it.
+func repair() -> int:
+	if not needs_repair():
+		return -1
+	var label := ship_label(Fleet.ship_of(Fleet.primary()))
+	var was := _primary_berth()
+	var fee := Fleet.repair()
+	var pilot = demo.pilot if demo != null and "pilot" in demo else null
+	if pilot != null:
+		start_weld_job(was)                 # issue #722: he walks over and welds her
+		pilot.refresh_wreck_look()
+	_beep()
+	_say(_line("patched") % [label, fee])
+	return fee
+
+
+## The berth your primary stands on, or -1.
+func _primary_berth() -> int:
+	var pilot = demo.pilot if demo != null and "pilot" in demo else null
+	if pilot == null:
+		return -1
+	for i in pilot.berths.size():
+		if pilot.berth_key(i) != "" and pilot.berth_key(i) == Fleet.primary():
+			return i
+	return -1
+
+
+# ------------------------------------------------------------------ the weld job (issue #722)
+
+## Paid for: he walks over to berth `i`, welds her for "weld_job_s", and walks back
+## to his marker. Until he is done she still looks wrecked and will not fly
+## (ShipPilot.held_wreck). Nothing is saved: the fix is already paid and set, so a
+## reload mid-job just finds her fixed.
+func start_weld_job(i: int) -> void:
+	var pilot = demo.pilot if demo != null and "pilot" in demo else null
+	if pilot == null or body == null or i < 0 or i >= pilot.berths.size() or not is_instance_valid(pilot.berths[i].visual):
+		return
+	var v := pilot.berths[i].visual as Node3D
+	var home = pilot.berths[i].get("home")
+	var at := _weld_spot_on(v, Transform3D(v.global_basis, home if home is Vector3 else v.global_position))
+	pilot.held_wreck = i
+	_job = { "berth": i, "phase": "out", "t": 0.0, "stand": at[0], "work": at[1] }
+
+
+func working() -> bool:
+	return not _job.is_empty()
+
+
+## Done welding (or skipped: tests): she is fixed and flies; he heads back.
+func finish_weld_job() -> void:
+	if _job.is_empty() or str(_job.phase) == "back":
+		return
+	var pilot = demo.pilot if demo != null and "pilot" in demo else null
+	if pilot != null:
+		pilot.held_wreck = -1
+		pilot.refresh_wreck_look()
+	_sparks(false)
+	_job.phase = "back"
+	_beep()
+	_say(_line("weld_done"))
+
+
+func _tick_job(dt: float) -> void:
+	if _job.is_empty():
+		if _arm > 0.0:
+			_arm = move_toward(_arm, 0.0, dt / 0.4)
+			DroidKit.raise_arm(look, _arm)
+		return
+	match str(_job.phase):
+		"out":
+			if _walk_to(dt, _job.stand):
+				_job.phase = "weld"
+				_job.t = 0.0
+		"weld":
+			_face(_job.work - body.global_position)
+			_arm = move_toward(_arm, 1.0, dt / 0.4)
+			DroidKit.raise_arm(look, _arm)
+			_sparks(_arm > 0.85)
+			if _arm >= 1.0:
+				_job.t += dt
+				if _job.t >= float(cfg.get("weld_job_s", 4.0)):
+					finish_weld_job()
+		"back":
+			_arm = move_toward(_arm, 0.0, dt / 0.4)
+			DroidKit.raise_arm(look, _arm)
+			if _arm <= 0.0 and _walk_to(dt, pos):
+				_job = {}
+				var m: Dictionary = demo.town.get_marker(str(cfg.get("marker", "t89"))) if demo != null and "town" in demo and demo.town != null else {}
+				if m.has("face"):
+					_face(Vector3(float(m.face[0]), float(m.face[1]), float(m.face[2])) - pos)
+
+
+## A step toward `to` at his walk speed, his walk clip playing; true (and his idle
+## back on) once he is there.
+func _walk_to(dt: float, to: Vector3) -> bool:
+	var at := body.global_position
+	var d := Vector3(to.x - at.x, 0.0, to.z - at.z)
+	if d.length() < 0.08:
+		body.global_position = Vector3(to.x, to.y, to.z)
+		if look != null:
+			DroidKit.play_anim(look, "idle")
+		return true
+	var a: Dictionary = DroidRoster.kind_cfg(str(cfg.get("look", {}).get("kind", "assassin"))).get("look", {})
+	var clip_v := float(a.get("walk_speed", 1.6))
+	var v := float(cfg.get("weld_walk_speed", clip_v))
+	var step := minf(d.length(), v * dt)
+	body.global_position = at + d.normalized() * step
+	body.global_position.y = lerpf(at.y, to.y, minf(1.0, dt * 4.0))
+	_face(d)
+	if look != null:
+		DroidKit.play_anim(look, "walk", v / maxf(clip_v, 0.1))
+	return false
+
+
+## Where he stands to weld ship `v`, and the point on her hull he welds: the edge of
+## her bounds nearest his marker, "weld_stand_m" out from it (his arm and torch
+## reach about that far), the hull point at his nozzle's height.
+## `xf`: where she is parked (her berth's home, her look's turn).
+func _weld_spot_on(v: Node3D, xf: Transform3D) -> Array:
+	var vinv := v.global_transform.affine_inverse()
+	var box := AABB()
+	var first := true
+	for mi: MeshInstance3D in v.find_children("*", "MeshInstance3D", true, false):
+		var b := (vinv * mi.global_transform) * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	var inv := xf.affine_inverse()
+	var home := inv * pos
+	var edge := Vector3(clampf(home.x, box.position.x, box.end.x), 0.0, clampf(home.z, box.position.z, box.end.z))
+	var out := Vector3(home.x - edge.x, 0.0, home.z - edge.z)
+	if out.length() < 0.01:
+		out = Vector3(0, 0, 1)
+	var stand_off := float(cfg.get("weld_stand_m", 1.3))
+	var stand := xf * (edge + out.normalized() * stand_off)
+	var work := xf * edge
+	stand.y = pos.y
+	work.y = pos.y + float(cfg.get("weld_height_m", 1.9))
+	return [stand, work]
+
+
+## His nozzle and the hull both spit sparks while he welds.
+func _sparks(on: bool) -> void:
+	if on and _fx == null and look != null:
+		var mz := look.find_child("Muzzle", true, false) as Node3D
+		if mz != null:
+			_fx = WelderFx.make(Color("#a8e4ff"))
+			_fx.basis = WelderLook._along(Vector3(0, 0, 1))   # the torch's nozzle points down its +Z
+			mz.add_child(_fx)
+	if on and _hull_fx == null and not _job.is_empty():
+		_hull_fx = WelderFx.make(Color("#a8e4ff"), 1.5)
+		add_child(_hull_fx)
+		_hull_fx.global_position = _job.work
+	if _fx != null and is_instance_valid(_fx):
+		_fx.set_on(on)
+	if _hull_fx != null and is_instance_valid(_hull_fx):
+		_hull_fx.set_on(on)
+		if on and not _job.is_empty():
+			_hull_fx.global_position = _job.work
 
 
 ## The player can't stand the Remnant: neither can he. The comrade discount, once.
