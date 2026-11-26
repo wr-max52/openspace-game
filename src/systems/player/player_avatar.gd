@@ -169,7 +169,7 @@ func build_weapons(ids: Array) -> void:
 			wrap.set_meta("grips", sword.get_meta("grips"))
 			wrap.set_meta("sword", sword)
 		elif id == Welder.ITEM:
-			var welder := WelderLook.build(spec.get("tint", {}))
+			var welder := WelderLook.build(spec.get("tint", {}), spec)
 			wrap.add_child(welder)
 			wrap.set_meta("grips", welder.get_meta("grips"))
 			var fx := WelderFx.make(Color(str((spec.get("tint", {}) as Dictionary).get("arc", "#a8e4ff"))))

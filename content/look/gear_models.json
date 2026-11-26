@@ -114,6 +114,17 @@
     "jetpack": "9113a77e-7590-4635-8dc5-bf64f8179301 (second try, the owner's pick)",
     "pistol": "c9c7c1ec-8f32-451b-8844-367c6f3f8f73 (second try)"
   },
+  "plasma_welder": {
+    "note": "Issue #722: the plasma welder, a Hyper3D welding torch (prompt only; generation cff2a4d2). Rodin's handle stands up +Y with the nozzle hooked over to +Z. size: the raw model's 1.9 m height at 0.44, so the grip is about 0.24 m, the blade hilt's. cut: the braided hose out of the handle's foot (everything below the brass end cap; keep_near keeps the cap). WelderLook places it in the hand (hand_weapons plasma_welder 'model_xf').",
+    "source": "res://assets/gear/source/plasma_welder_raw.glb",
+    "out": "res://assets/gear/plasma_welder.glb",
+    "rot_deg": [0, 0, 0],
+    "axis": "y",
+    "size": 0.836,
+    "origin": "center",
+    "max_texture": 512,
+    "cut": { "boxes": [[-1.0, -1.0, -1.0, 1.0, -0.339, 1.0]], "keep_near": [0.055, -0.345, -0.084, 0.045] }
+  },
   "saber_hilt": {
     "source": "res://assets/gear/source/saber_hilt_a.glb",
     "out": "res://assets/gear/saber_hilt.glb",

@@ -18,7 +18,15 @@ const TIP_LEN := 0.08               ## ...and about 0.45 m in front of it, where
 static var _mats: Dictionary = {}
 
 
-static func build(tint: Dictionary = {}) -> Node3D:
+## The Hyper3D torch (`spec` "model", placed by "model_xf" { pos, rot, scale } so
+## its grip is the hilt's, the "nozzle" point and "nozzle_dir" its tip) when it is
+## there; otherwise the simple shapes below.
+static func build(tint: Dictionary = {}, spec: Dictionary = {}) -> Node3D:
+	var path := str(spec.get("model", ""))
+	if path != "" and ResourceLoader.exists(path):
+		var packed = ModelCache.scene(path)
+		if packed is PackedScene:
+			return _from_model((packed as PackedScene).instantiate() as Node3D, spec)
 	var root := Node3D.new()
 	root.name = "PlasmaWelder"
 	var body := _mat(str(tint.get("body", "#5a5650")), 0.5, 0.55)
@@ -63,6 +71,28 @@ static func build(tint: Dictionary = {}) -> Node3D:
 	root.add_child(nozzle)
 	root.set_meta("grips", { "r": Vector3(0, -0.05, 0), "l": Vector3(0, -0.18, 0) })
 	return root
+
+
+static func _from_model(model: Node3D, spec: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	root.name = "PlasmaWelder"
+	var xf: Dictionary = spec.get("model_xf", {})
+	model.position = _v3(xf.get("pos", [0, 0, 0]))
+	model.rotation_degrees = _v3(xf.get("rot", [0, 0, 0]))
+	model.scale = Vector3.ONE * float(xf.get("scale", 1.0))
+	root.add_child(model)
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var nozzle := Node3D.new()
+	nozzle.name = "Nozzle"
+	nozzle.transform = Transform3D(_along(_v3(spec.get("nozzle_dir", [0, 0, 1]))), _v3(spec.get("nozzle", [0, 0.48, 0.28])))
+	root.add_child(nozzle)
+	root.set_meta("grips", { "r": Vector3(0, -0.05, 0), "l": Vector3(0, -0.18, 0) })
+	return root
+
+
+static func _v3(a) -> Vector3:
+	return Vector3(float(a[0]), float(a[1]), float(a[2])) if a is Array and (a as Array).size() >= 3 else Vector3.ZERO
 
 
 ## A cylinder from `from` to `to` (radii at each end).

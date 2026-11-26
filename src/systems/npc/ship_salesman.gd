@@ -188,10 +188,13 @@ func height() -> float:
 
 
 ## Issue #25: his kind's model (the rigged assassin), with nothing in his hand and
-## the relaxed idle ("calm") instead of the ready stance.
+## the relaxed idle ("calm") instead of the ready stance. Issue #722: or what his
+## look's own "carry" names (T-89 holds a plasma welder) in its place.
 static func model_look(look_cfg: Dictionary) -> Dictionary:
 	var m: Dictionary = DroidRoster.kind_cfg(str(look_cfg.get("kind", "assassin"))).get("look", {}).duplicate(true)
 	m.erase("carry")
+	if look_cfg.has("carry"):
+		m["carry"] = look_cfg.carry
 	var anims: Dictionary = m.get("anims", {})
 	if anims.has("calm"):
 		anims["idle"] = anims["calm"]

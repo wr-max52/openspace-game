@@ -7,6 +7,16 @@
   "reach": 3.2,
   "greet_delay": 1.5,
   "look": {
+    "carry": {
+      "scene": "res://assets/gear/plasma_welder.glb",
+      "bone": "RightHand",
+      "pos": [0.5, 1.08, -0.19],
+      "rot_deg": [0, 180, 0],
+      "scale": 1.1,
+      "muzzle": [0.067, 0.385, 0.193],
+      "bone_local": { "pos": [0.1448, -0.0535, -0.1742], "rot_deg": [-26.0, 103.7, -168.0], "scale": 1.1 },
+      "note": "Issue #722: he always has a plasma welder in his right hand, in the assassin frame's pistol slot (droids.json kinds.assassin.look.carry): the same bone frame, moved so the torch's grip sits where the pistol's does."
+    },
     "kind": "assassin",
     "body": "#b8a37a",
     "trim": "#3b3530",
