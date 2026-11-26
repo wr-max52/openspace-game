@@ -33,7 +33,10 @@ var site_rect := Rect2()
 var under_rect := Rect2()
 var sinks: Array = []                ## [{ rect: Rect2, y: float }]
 ## Small level pads round remote landmarks ({ rect, y, blend }, map metres).
-## Setting it bins them by map cell (_index_flat_sites).
+## Setting it bins them by map cell (_index_flat_sites). Far round the ball the
+## map stretches across (up to 8 times on the far side), so a pad there may carry
+## a `frame` instead (framed_site): a box in metres on the ground, measured in its
+## own tangent frame; its `rect` is then only the map box that holds it.
 var flat_sites: Array = []:
 	set(v):
 		flat_sites = v
@@ -47,6 +50,7 @@ const FLAT_CELL := 128.0
 var _flat_grid := {}                 ## cell key -> PackedInt32Array of pad indices, ascending
 var _flat_rects: Array[Rect2] = []
 var _flat_blends := PackedFloat64Array()
+var _flat_frames: Array = []          ## per pad: its frame (framed_site) or null
 var _flat_indexed := -1              ## flat_sites.size() when binned; -1 = not binned
 var pad_y := 0.0
 var under_y := -0.12
@@ -242,12 +246,14 @@ func _index_flat_sites() -> void:
 	_flat_grid = {}
 	_flat_rects = []
 	_flat_blends = PackedFloat64Array()
+	_flat_frames = []
 	for i in flat_sites.size():
 		var site: Dictionary = flat_sites[i]
 		var rect: Rect2 = site.get("rect", Rect2())
 		var b := maxf(0.1, float(site.get("blend", 8.0)))
 		_flat_rects.append(rect)
 		_flat_blends.append(b)
+		_flat_frames.append(site.get("frame"))
 		var reach := rect.grow(b)
 		for cz in range(floori(reach.position.y / FLAT_CELL), floori(reach.end.y / FLAT_CELL) + 1):
 			for cx in range(floori(reach.position.x / FLAT_CELL), floori(reach.end.x / FLAT_CELL) + 1):
@@ -270,7 +276,7 @@ func _apply_flat_sites(x: float, z: float, base_height: float) -> float:
 	var h := base_height
 	var p := Vector2(x, z)
 	for i in list:
-		var distance := _rect_dist(_flat_rects[i], p)
+		var distance := _rect_dist(_flat_rects[i], p) if _flat_frames[i] == null else _frame_dist(_flat_frames[i], x, z)
 		var blend_distance := _flat_blends[i]
 		if distance >= blend_distance:
 			continue
@@ -287,7 +293,7 @@ func _apply_flat_sites_all(x: float, z: float, base_height: float) -> float:
 	var p := Vector2(x, z)
 	for site in flat_sites:
 		var rect: Rect2 = site.get("rect", Rect2())
-		var distance := _rect_dist(rect, p)
+		var distance := _rect_dist(rect, p) if site.get("frame") == null else _frame_dist(site.frame, x, z)
 		var blend_distance := maxf(0.1, float(site.get("blend", 8.0)))
 		if distance >= blend_distance:
 			continue
@@ -371,6 +377,50 @@ func _dunes(p: Vector3, soft: float = 0.0) -> float:
 	h += _swell.get_noise_3d(p.x * 0.0006, p.y * 0.0006, p.z * 0.0006) * 24.0 + 10.0
 	h += _small.get_noise_3d(p.x * 0.004, p.y * 0.004, p.z * 0.004) * 0.65
 	return h
+
+
+## How far map (x, z) is from a framed pad's box (metres on the ground, 0 inside).
+func _frame_dist(f: Dictionary, x: float, z: float) -> float:
+	var d := map_dir(x, z)
+	if d.dot(f.c) <= 0.0:
+		return INF
+	var h: Vector2 = f.half
+	var dx := maxf(absf(d.dot(f.x) * radius) - h.x, 0.0)
+	var dz := maxf(absf(d.dot(f.z) * radius) - h.y, 0.0)
+	return sqrt(dx * dx + dz * dz)
+
+
+## How much the map is stretched across (round the port) at map point `m`: 1 near
+## the port, about 8 on the far side.
+func map_stretch(m: Vector2) -> float:
+	var th := m.length() / radius
+	return th / sin(th) if th > 0.01 and th < PI - 0.01 else 1.0
+
+
+## A level pad as a box on the ground: centred on world point `at`, its sides
+## along `x_axis` (flat to the ground there) and up x it, `half` metres either
+## way, easing back over `blend` metres. `extra` (y, plane_c, plane_u) is laid
+## over it. Its `rect` is the map box holding it and its blend, for the binning.
+func framed_site(at: Vector3, x_axis: Vector3, half: Vector2, blend: float, extra: Dictionary) -> Dictionary:
+	var c := (at - center).normalized()
+	var fx := (x_axis - c * x_axis.dot(c)).normalized()
+	var fz := fx.cross(c)
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	var gx := half.x + blend
+	var gz := half.y + blend
+	for i in 9:
+		for j in 9:
+			if i != 0 and i != 8 and j != 0 and j != 8:
+				continue
+			var off := fx * lerpf(-gx, gx, i / 8.0) + fz * lerpf(-gz, gz, j / 8.0)
+			var q := dir_map((c * radius + off).normalized())
+			lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+			hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+	var site := { "rect": Rect2(lo, hi - lo), "blend": blend,
+		"frame": { "c": c, "x": fx, "z": fz, "half": half } }
+	site.merge(extra, true)
+	return site
 
 
 static func _rect_dist(r: Rect2, p: Vector2) -> float:

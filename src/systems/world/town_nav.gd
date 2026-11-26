@@ -10,7 +10,11 @@ extends Node3D
 ## `is_ready`. Traces and tests can bake synchronously.
 ##
 ## Desert locations can add small, local terrain regions through
-## `add_terrain_region`; the planet is never baked as one enormous mesh.
+## `add_terrain_region`; the planet is never baked as one enormous mesh. A region
+## more than FAR_UP_DOT round the ball from the port (the far side's ranch
+## villages) gets a navigation map of its own whose up is its own: Godot will not
+## put a region turned 90 degrees or more from a map's up on that map. path() and
+## closest() ask the map of the region a point is in.
 
 const TownLayout := preload("res://src/systems/world/town_layout.gd")
 const PitBowl := preload("res://src/systems/world/pit_bowl.gd")
@@ -41,6 +45,9 @@ var bake_ms := 0.0
 var settings: Dictionary = DEFAULTS.duplicate()
 var _bake_start := 0
 var desert_regions: Array[NavigationRegion3D] = []
+## Regions round the far side of the ball, each on its own map: { map: RID, center, reach, tile }.
+var far_maps: Array = []
+const FAR_UP_DOT := 0.05             ## a region whose up is this close to square to the port's (or past it)
 
 
 ## Triangles for every box in the town, ramps tilted the way the scene builds them.
@@ -272,10 +279,27 @@ func add_terrain_region(terrain: DesertTerrain, center: Vector3, half_extent: fl
 	var tile := NavigationRegion3D.new()
 	tile.name = "DesertNavRegion"
 	tile.navigation_mesh = nm
+	var up := frame.basis.y.normalized()
+	if up.dot(Vector3.UP) < FAR_UP_DOT:
+		var m := NavigationServer3D.map_create()
+		NavigationServer3D.map_set_up(m, up)
+		NavigationServer3D.map_set_cell_size(m, float(settings.cell_size))
+		NavigationServer3D.map_set_cell_height(m, float(settings.cell_height))
+		NavigationServer3D.map_set_active(m, true)
+		tile.set_navigation_map(m)
+		far_maps.append({ "map": m, "center": frame.origin, "reach": half_extent * 1.5, "tile": tile })
 	tile.transform = frame
 	add_child(tile)
 	desert_regions.append(tile)
 	return tile
+
+
+## The navigation map point `p` walks on: a far region's own, else the world's.
+func map_at(p: Vector3) -> RID:
+	for fm in far_maps:
+		if p.distance_to(fm.center) < float(fm.reach):
+			return fm.map
+	return get_world_3d().navigation_map
 
 
 ## Issue #193: a region baked from triangles in a frame of their own (the Remnant
@@ -373,6 +397,11 @@ func _process(_dt: float) -> void:
 
 
 func _exit_tree() -> void:
+	for fm in far_maps:
+		if is_instance_valid(fm.tile):
+			NavigationServer3D.region_set_map((fm.tile as NavigationRegion3D).get_rid(), RID())
+		NavigationServer3D.free_rid(fm.map)
+	far_maps.clear()
 	if _src_task >= 0:
 		WorkerThreadPool.wait_for_task_completion(_src_task)
 		_src_task = -1
@@ -421,11 +450,11 @@ func polygon_count() -> int:
 func path(from: Vector3, to: Vector3) -> PackedVector3Array:
 	if navmesh == null or region == null or not region.is_inside_tree():
 		return PackedVector3Array()
-	return NavigationServer3D.map_get_path(get_world_3d().navigation_map, from, to, true)
+	return NavigationServer3D.map_get_path(map_at(from), from, to, true)
 
 
 ## The nearest point on the mesh (Vector3.INF before the bake is in).
 func closest(p: Vector3) -> Vector3:
 	if not is_ready:
 		return Vector3.INF
-	return NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map, p)
+	return NavigationServer3D.map_get_closest_point(map_at(p), p)

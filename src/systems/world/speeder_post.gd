@@ -1008,52 +1008,63 @@ func _build_ramp_collider() -> void:
 	for b in ground.boxes:
 		if not (str(b.id).begins_with(RAMP + "/") or str(b.id).begins_with(LANDMARK + "/")) or str(b.get("rise", "")) == "":
 			continue
-		var mn: Vector3 = b.min
-		var mx: Vector3 = b.max
-		var pts := PackedVector3Array()
-		# Six corners: the low edge, the high edge up top, and the base.
-		match str(b.rise):
-			"-z":
-				pts = [Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
-					Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mx.y, mn.z), Vector3(mx.x, mx.y, mn.z)]
-			"+z":
-				pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z),
-					Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mx.y, mx.z), Vector3(mx.x, mx.y, mx.z)]
-			"-x":
-				pts = [Vector3(mx.x, mn.y, mn.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
-					Vector3(mn.x, mn.y, mx.z), Vector3(mn.x, mx.y, mn.z), Vector3(mn.x, mx.y, mx.z)]
-			_:
-				pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mn.z),
-					Vector3(mx.x, mn.y, mx.z), Vector3(mx.x, mx.y, mn.z), Vector3(mx.x, mx.y, mx.z)]
-		var body := StaticBody3D.new()
-		body.name = "RampCollider"
-		var cs := CollisionShape3D.new()
-		var shape := ConvexPolygonShape3D.new()
-		shape.points = pts
-		cs.shape = shape
-		body.add_child(cs)
-		add_child(body)
-		# Issue #77: on the ball the box is in its landmark's own frame.
-		body.global_transform = WorldGround.box_xf(b)
-		if demo.use_look:
-			var mi := MeshInstance3D.new()
-			mi.name = "Ramp"
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			# Sloped top, two sides, the high end (the low end is flush with the sand).
-			var tris := [[0, 4, 1], [1, 4, 5], [0, 2, 4], [1, 5, 3], [2, 3, 4], [3, 5, 4]]
-			for t in tris:
-				for k in t:
-					st.add_vertex(pts[k])
-			st.generate_normals()
-			mi.mesh = st.commit()
-			var sand := StandardMaterial3D.new()
-			sand.albedo_color = Color("#c9955a")
-			sand.roughness = 1.0
-			sand.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mi.material_override = sand
-			add_child(mi)
-			mi.global_transform = body.global_transform
+		add_ramp(self, b, demo.use_look)
+
+
+static var _ramp_sand: StandardMaterial3D
+
+## The ramp's look and walking collider for WorldGround ramp box `b` (any box
+## with a "rise": Skrugs's, and the race courses' copies of it), under `parent`:
+## a wedge StaticBody and, with `with_look`, its sand-coloured mesh. One shared
+## material for every ramp.
+static func add_ramp(parent: Node3D, b: Dictionary, with_look: bool) -> void:
+	var mn: Vector3 = b.min
+	var mx: Vector3 = b.max
+	var pts := PackedVector3Array()
+	# Six corners: the low edge, the high edge up top, and the base.
+	match str(b.rise):
+		"-z":
+			pts = [Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
+				Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mx.y, mn.z), Vector3(mx.x, mx.y, mn.z)]
+		"+z":
+			pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mx.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z),
+				Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mx.y, mx.z), Vector3(mx.x, mx.y, mx.z)]
+		"-x":
+			pts = [Vector3(mx.x, mn.y, mn.z), Vector3(mx.x, mn.y, mx.z), Vector3(mn.x, mn.y, mn.z),
+				Vector3(mn.x, mn.y, mx.z), Vector3(mn.x, mx.y, mn.z), Vector3(mn.x, mx.y, mx.z)]
+		_:
+			pts = [Vector3(mn.x, mn.y, mn.z), Vector3(mn.x, mn.y, mx.z), Vector3(mx.x, mn.y, mn.z),
+				Vector3(mx.x, mn.y, mx.z), Vector3(mx.x, mx.y, mn.z), Vector3(mx.x, mx.y, mx.z)]
+	var body := StaticBody3D.new()
+	body.name = "RampCollider"
+	var cs := CollisionShape3D.new()
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = pts
+	cs.shape = shape
+	body.add_child(cs)
+	parent.add_child(body)
+	# Issue #77: on the ball the box is in its landmark's own frame.
+	body.global_transform = WorldGround.box_xf(b)
+	if with_look:
+		var mi := MeshInstance3D.new()
+		mi.name = "Ramp"
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		# Sloped top, two sides, the high end (the low end is flush with the sand).
+		var tris := [[0, 4, 1], [1, 4, 5], [0, 2, 4], [1, 5, 3], [2, 3, 4], [3, 5, 4]]
+		for t in tris:
+			for k in t:
+				st.add_vertex(pts[k])
+		st.generate_normals()
+		mi.mesh = st.commit()
+		if _ramp_sand == null:
+			_ramp_sand = StandardMaterial3D.new()
+			_ramp_sand.albedo_color = Color("#c9955a")
+			_ramp_sand.roughness = 1.0
+			_ramp_sand.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mi.material_override = _ramp_sand
+		parent.add_child(mi)
+		mi.global_transform = body.global_transform
 
 
 ## The house, the stall, the display pad, the garage and its bench, in the town's

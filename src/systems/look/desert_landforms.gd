@@ -54,6 +54,8 @@ static func load_data(path: String = DATA_PATH) -> Dictionary:
 ## Issue #64: more places to keep clear, [Vector2 centre, radius] each (the
 ## Remnant's desert outposts: the world's landmarks with a "clear" radius).
 var clear_circles: Array = []
+var _sp: PlanetSphere                ## the ball (null on a flat world), for the far circles
+var _circle_dirs: Array = []         ## per clear circle: its direction when it is measured on the ground, else null
 
 
 ## `keep_out` = the town's floor area (xz); nothing is placed on or near it.
@@ -70,6 +72,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	var noise := FastNoiseLite.new()
 	noise.seed = 31
 	noise.fractal_octaves = 3
+	_prep_circles((terrain as PlanetTerrain).sphere if terrain is PlanetTerrain else null)
 
 	# On the home ball, climbable mountains by latitude/longitude; flat worlds keep
 	# the original nearby beauty-corner mesas.
@@ -150,6 +153,11 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 			anchors.append([hd.map, float(hd.radius)])
 	var near_share := float(b.get("near_rocks", 0.0))
 	var reach := float(b.get("near_reach", 2.5))
+	# Some of the count are moved onto race courses (`courses`), the rest go round
+	# the planet as before.
+	var on_courses: Array = b.get("courses", []) if planet_wide else []
+	for cb in on_courses:
+		want -= int(cb.get("count", 0))
 	for i in want:
 		var x: float
 		var z: float
@@ -171,6 +179,8 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 			continue
 		var g := _ground(terrain, x, z)
 		xforms.append(Transform3D(g.basis * basis, g.origin + g.basis.y * (-s * 0.25)))
+	for cb in on_courses:
+		xforms.append_array(_course_boulders(terrain as PlanetTerrain, cb, anchors))
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = _cached("boulder", func(): return LookMeshKit.rock(boulder_src, noise, 0.4, 0.0, 3.0))
@@ -189,6 +199,88 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	add_child(mmi)
 	if terrain is PlanetTerrain:
 		_on_ball((terrain as PlanetTerrain).sphere)
+
+
+## Boulders moved onto a race course (a `boulders.courses` entry): { course, count,
+## seed, on_line (the share dropped on the track, out to line_m either side of the
+## racing line but clear of a lane lane_m wide down it, so the line itself stays
+## open), band ([min, max] m either side of it for the rest), size ([min, max]
+## scale: bigger than the planet's, most of them taller than a speeder can ride
+## over), keep_gates_m (none this near a gate, the grid or a ramp) }. They skip
+## the course's clear circles on purpose (they are there to be in the way) but
+## keep off the rocks' feet and out of the tunnels. Measured on the ground, so
+## they lie right on the far side of the ball too.
+func _course_boulders(terrain: PlanetTerrain, cb: Dictionary, anchors: Array) -> Array[Transform3D]:
+	var out: Array[Transform3D] = []
+	var c := RaceCourse.load_course(str(cb.get("course", "")))
+	if c.is_empty() or terrain == null:
+		return out
+	var sp := terrain.sphere
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(cb.get("seed", 77))
+	# The line on the ground, and what to keep clear of.
+	var pts: Array = []
+	for q in c.get("line", []):
+		pts.append(sp.center + sp.map_dir(float(q[0]), float(q[1])) * sp.radius)
+	if pts.size() < 3:
+		return out
+	var keep: Array = []
+	for g in c.get("gates", []):
+		keep.append(sp.center + sp.map_dir(float(g.at[0]), float(g.at[1])) * sp.radius)
+	for rp in c.get("ramps", []):
+		keep.append(sp.center + sp.map_dir(float(rp.at[0]), float(rp.at[1])) * sp.radius)
+	var keep_m := float(cb.get("keep_gates_m", 30.0))
+	var grid_m := keep_m + 40.0           # the start's grid reaches back behind the line
+	var total := 0.0
+	var lens: Array = []
+	for i in pts.size():
+		var l := (pts[i] as Vector3).distance_to(pts[(i + 1) % pts.size()])
+		lens.append(l)
+		total += l
+	var on_line := float(cb.get("on_line", 0.3))
+	var line_m := float(cb.get("line_m", 10.0))
+	var lane_m := float(cb.get("lane_m", 3.0))
+	var band: Array = cb.get("band", [16.0, 60.0])
+	var size: Array = cb.get("size", [1.2, 3.0])
+	var want := int(cb.get("count", 0))
+	var tries := 0
+	while out.size() < want and tries < want * 20:
+		tries += 1
+		var s_at := rng.randf() * total
+		var k := 0
+		while k < lens.size() - 1 and s_at > float(lens[k]):
+			s_at -= float(lens[k])
+			k += 1
+		var a: Vector3 = pts[k]
+		var bb: Vector3 = pts[(k + 1) % pts.size()]
+		var at := a.lerp(bb, clampf(s_at / maxf(float(lens[k]), 0.001), 0.0, 1.0))
+		var up := (at - sp.center).normalized()
+		var fwd := bb - a
+		fwd = (fwd - up * fwd.dot(up)).normalized()
+		var side := up.cross(fwd).normalized()
+		var s := rng.randf_range(float(size[0]), float(size[1]))
+		# On the line: either side of a lane lane_m wide (a speeder's way through
+		# stays open, the racing line itself clear), out to line_m.
+		var lane := lane_m + s * 1.4
+		var off := rng.randf_range(lane, maxf(line_m, lane + 0.5)) if rng.randf() < on_line \
+			else rng.randf_range(float(band[0]), float(band[1]))
+		off *= 1.0 if rng.randf() < 0.5 else -1.0
+		var p := at + side * off
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.2), s * rng.randf_range(0.8, 1.3)))
+		basis = basis * Basis(Vector3.RIGHT, rng.randf_range(-0.4, 0.4))
+		var bad := false
+		for gi in keep.size():
+			if p.distance_to(keep[gi]) < (grid_m if gi == 0 else keep_m) + s * 2.0:
+				bad = true
+				break
+		if bad:
+			continue
+		var m := sp.world_to_map(p)
+		if _in_rock(sp, anchors, m.x, m.y, s * 2.0):
+			continue
+		var g := _ground(terrain, m.x, m.y)
+		out.append(Transform3D(g.basis * basis, g.origin + g.basis.y * (-s * 0.25)))
+	return out
 
 
 ## Every spire this world stands up, { id, map, variant, yaw, radius (the skirt's
@@ -382,7 +474,14 @@ static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 ## path's middle, on the ball's own level there (directions only, so it is the
 ## same with or without the flat sites made): every peak and the path in it.
 static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: PlanetSphere) -> Dictionary:
-	var mpath := smooth_path(e.path, 20.0)
+	# A point every 20 m of ground: far round the ball the map is stretched
+	# across, so the step on the map grows with it (else a far tunnel's path
+	# would carry several times the points every ground query walks).
+	var step := 20.0
+	var p0 := Vector2(float(e.path[0][0]), float(e.path[0][1])) if not (e.path as Array).is_empty() else Vector2.ZERO
+	if sp.map_stretch(p0) > RaceCourse.FAR_STRETCH:
+		step *= sp.map_stretch(p0)
+	var mpath := smooth_path(e.path, step)
 	var total := 0.0
 	for i in mpath.size() - 1:
 		total += mpath[i].distance_to(mpath[i + 1])
@@ -410,7 +509,7 @@ static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: P
 			"end":
 				peak["cliff_toward"] = (path[-1] - at).angle()
 		peaks.append(peak)
-	return { "id": "mesa_%s" % str(e.get("course", "course")), "map": mid, "variant": k,
+	return { "id": "mesa_%s" % str(e.get("id", e.get("course", "course"))), "map": mid, "variant": k,
 		"plan": RockMountain.range_plan(peaks, path, cfg), "course": str(e.get("course", "")),
 		"lights": e.get("lights", {}), "map_path": mpath }
 
@@ -486,6 +585,19 @@ static func mountain_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		var th := map.length() / sp.radius
 		var stretch := clampf(th / sin(th), 1.0, 6.0) if th > 0.01 and th < PI - 0.01 else 1.0
 		var mid := sp.center + sp.map_dir(map.x, map.y) * (sp.radius + mean)
+		if m.has("course") and sp.map_stretch(map) > RaceCourse.FAR_STRETCH:
+			# A course range far round the ball: its playa is a box on the ground
+			# round its peaks, in the range's own frame (the map is stretched there).
+			var llo := Vector2(INF, INF)
+			var lhi := -llo
+			for rd in rounds:
+				var c2: Vector2 = rd[0]
+				llo = Vector2(minf(llo.x, c2.x - float(rd[1])), minf(llo.y, c2.y - float(rd[1])))
+				lhi = Vector2(maxf(lhi.x, c2.x + float(rd[1])), maxf(lhi.y, c2.y + float(rd[1])))
+			var centre := g * Vector3((llo.x + lhi.x) * 0.5, 0.0, (llo.y + lhi.y) * 0.5)
+			sites.append(sp.framed_site(centre, g.basis.x, (lhi - llo) * 0.5, blend,
+				{ "y": mean, "plane_c": mid, "plane_u": sp.up_at(mid) }))
+			continue
 		sites.append({ "rect": Rect2(lo, hi - lo), "y": mean, "plane_c": mid,
 			"plane_u": sp.up_at(mid), "blend": blend * stretch })
 	return sites
@@ -544,9 +656,34 @@ static func _hits(r: Rect2, x: float, z: float, radius: float) -> bool:
 	return r.grow(radius).has_point(Vector2(x, z))
 
 
-func _in_circles(x: float, z: float, radius: float) -> bool:
+## Far round the ball (the far side's race courses and ranches) the map stretches
+## across several times over, so a clear circle there is measured on the ground;
+## near the port (stretch under RaceCourse.FAR_STRETCH) on the map, as always.
+func _prep_circles(sp: PlanetSphere) -> void:
+	_sp = sp
+	_circle_dirs = []
 	for c in clear_circles:
-		if (c[0] as Vector2).distance_to(Vector2(x, z)) < float(c[1]) + radius:
+		var m: Vector2 = c[0]
+		_circle_dirs.append(sp.map_dir(m.x, m.y) if sp != null and sp.map_stretch(m) > RaceCourse.FAR_STRETCH else null)
+
+
+func _in_circles(x: float, z: float, radius: float) -> bool:
+	var p := Vector2(x, z)
+	var d := Vector3.ZERO
+	var have := false
+	for i in clear_circles.size():
+		var c: Array = clear_circles[i]
+		var reach := float(c[1]) + radius
+		var md := (c[0] as Vector2).distance_to(p)
+		if md < reach:
+			return true                   # the map never shrinks a distance
+		var cd = _circle_dirs[i] if i < _circle_dirs.size() else null
+		if cd == null or md > reach * 12.0:
+			continue
+		if not have:
+			d = _sp.map_dir(x, z)
+			have = true
+		if d.angle_to(cd) * _sp.radius < reach:
 			return true
 	return false
 

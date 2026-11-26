@@ -17,10 +17,24 @@ extends Node3D
 ##
 ## The race (#611) gives each racer a key and calls step_racer() with where they
 ## were and are; the gates flash for it and RaceLaps says what they crossed.
+##
+## Optional `ramps`: jumps on the line, each Skrugs's sand ramp itself (the
+## location `ramp_location`, skrugs_ramp: its box and slope, and SpeederPost's
+## look for it), so a change to that ramp changes every course's. Each entry is
+## { at: [x, z] on the line, across: [m either side of the line, one ramp each] };
+## a ramp rises the way the line runs. Its box is ground for speeders from the
+## start (WorldGround); its look and walking collider are drawn with the gates.
+## The planet levels a pad under each row of them like a gate's.
+##
+## Far round the ball (the far side of the home planet) the map stretches across
+## several times over, so a gate's or ramp's pad there is a box measured on the
+## ground (PlanetSphere.framed_site), not on the map.
 
 const DIR := "res://content/core/racing/courses/"
 const LOOK_PATH := "res://content/look/race_gates.json"
 const CHECK_S := 0.5                  ## how often the draw distance is looked at
+const RAMP_LOCATION := "skrugs_ramp"  ## the ramp every course's `ramps` are (unless the course names another)
+const FAR_STRETCH := 1.2              ## the map stretched more than this: pads measured on the ground
 
 var demo                              ## town_demo.gd (the player), may be null (tests)
 var ground: WorldGround
@@ -37,6 +51,8 @@ var _gate_roots: Array = []           ## one Node3D per gate (while built)
 var _gate_parts: Array = []           ## per gate: { lamps: Array, strip: MeshInstance3D }
 var _flash: Dictionary = {}           ## gate index -> { t, you }
 var record_label: Label3D             ## issue #618: your best lap here, on the start line's antenna
+var ramps: Array = []                 ## WorldGround boxes of the course's ramps (Skrugs's ramp, placed on the line)
+var _ramp_root: Node3D                ## their look and walking colliders (while built)
 var _check := 0.0
 static var _look: Dictionary = {}
 static var _mats: Dictionary = {}
@@ -98,7 +114,7 @@ static func clear_circles(world_id: String) -> Array:
 ## cuts a notch through a dune. `pad`: { margin_m round the antennas, blend_m
 ## out to the open sand }. Call before the sphere has flat sites of its own.
 static func flat_sites(world_id: String, sp: PlanetSphere) -> Array:
-	var sites: Array = []
+	var sites: Array = floor_sites(world_id, sp)
 	if sp == null:
 		return sites
 	for c in courses_for(world_id):
@@ -115,6 +131,11 @@ static func flat_sites(world_id: String, sp: PlanetSphere) -> Array:
 		var gi := 0
 		for g in c.get("gates", []):
 			var at := Vector2(float(g.at[0]), float(g.at[1]))
+			if sp.map_stretch(at) > FAR_STRETCH:
+				var back_f := margin + (grid_back if gi == 0 else 6.0)
+				sites.append(_framed_pad(sp, line2, at, half, back_f, margin + 6.0, blend))
+				gi += 1
+				continue
 			var fwd := _line_dir2(line2, at)
 			var right := Vector2(-fwd.y, fwd.x)
 			var back := margin + (grid_back if gi == 0 else 6.0)   # the start pad reaches back over the grid
@@ -135,7 +156,94 @@ static func flat_sites(world_id: String, sp: PlanetSphere) -> Array:
 			var mid := sp.center + sp.map_dir(at.x, at.y) * (sp.radius + y)
 			sites.append({ "rect": Rect2(lo, hi - lo), "y": y, "plane_c": mid, "plane_u": sp.up_at(mid), "blend": blend })
 			gi += 1
+		# A row of ramps: level sand under it and its run-up, like a gate's.
+		var rs := ramp_size(c)
+		for rp in c.get("ramps", []):
+			var at := Vector2(float(rp.at[0]), float(rp.at[1]))
+			var wide := 0.0
+			for a in rp.get("across", [0.0]):
+				wide = maxf(wide, absf(float(a)))
+			var ahead := rs.z * 0.5 + margin + 4.0
+			sites.append(_framed_pad(sp, line2, at, wide + rs.x * 0.5 + margin, ahead + 12.0, ahead, blend))
 	return sites
+
+
+## Optional `floors`: wide level ground a course is laid out on (a dry wash, a
+## start straight), each { at: [x, z] map, toward: [x, z] map (its long side
+## points that way), half: [across, along] m, blend_m }, measured on the ground,
+## at the mean height of the sand across it. Out on the ball "up" is the ball's
+## own, so a floor keeps one height above the ball (a plane hundreds of metres
+## across would tilt against the curve at its ends). Its gates and ramps stand on it.
+static func floor_sites(world_id: String, sp: PlanetSphere) -> Array:
+	var sites: Array = []
+	if sp == null:
+		return sites
+	for c in courses_for(world_id):
+		for fl in c.get("floors", []):
+			var at := sp.center + sp.map_dir(float(fl.at[0]), float(fl.at[1])) * sp.radius
+			var to := sp.center + sp.map_dir(float(fl.toward[0]), float(fl.toward[1])) * sp.radius
+			var up := (at - sp.center).normalized()
+			var along := to - at
+			along = (along - up * along.dot(up)).normalized()
+			var across := along.cross(up).normalized()
+			var half := Vector2(float(fl.half[0]), float(fl.half[1]))
+			var sum := 0.0
+			for i in 7:
+				for j in 7:
+					var q := at + across * lerpf(-half.x, half.x, i / 6.0) + along * lerpf(-half.y, half.y, j / 6.0)
+					sum += sp.elevation((q - sp.center).normalized())
+			sites.append(sp.framed_site(at, across, half, float(fl.get("blend_m", 40.0)), { "y": sum / 49.0 }))
+	return sites
+
+
+## The way the line runs past map `at`, on the ground (world, unit), and its world point.
+static func _ground_dir(sp: PlanetSphere, line2: Array, at: Vector2) -> Array:
+	var best := 0
+	for i in line2.size():
+		if (line2[i] as Vector2).distance_squared_to(at) < (line2[best] as Vector2).distance_squared_to(at):
+			best = i
+	var a: Vector2 = line2[(best - 1 + line2.size()) % line2.size()]
+	var b: Vector2 = line2[(best + 1) % line2.size()]
+	var c := sp.map_dir(at.x, at.y)
+	var f := sp.map_dir(b.x, b.y) - sp.map_dir(a.x, a.y)
+	return [(f - c * f.dot(c)).normalized(), sp.center + c * sp.radius]
+
+
+## A pad measured on the ground across the line at map `at`: `half` either side,
+## `back` behind and `ahead` past, the plane through the mean sand across it.
+static func _framed_pad(sp: PlanetSphere, line2: Array, at: Vector2, half: float, back: float, ahead: float, blend: float) -> Dictionary:
+	var gd := _ground_dir(sp, line2, at)
+	var fwd: Vector3 = gd[0]
+	var base: Vector3 = gd[1]
+	var up := (base - sp.center).normalized()
+	var right := fwd.cross(up).normalized()
+	var mid_off := (ahead - back) * 0.5
+	var sum := 0.0
+	for i in 5:
+		for j in 5:
+			var q := base + right * lerpf(-half, half, i / 4.0) + fwd * lerpf(-back, ahead, j / 4.0)
+			sum += sp.elevation((q - sp.center).normalized())
+	var y := sum / 25.0
+	var centre := base + fwd * mid_off
+	var mid := sp.center + (centre - sp.center).normalized() * (sp.radius + y)
+	return sp.framed_site(centre, right, Vector2(half, (ahead + back) * 0.5), blend,
+		{ "y": y, "plane_c": mid, "plane_u": sp.up_at(mid) })
+
+
+## The ramp's box (the location's "ramp" building): its size, x across, z along.
+static func ramp_size(c: Dictionary) -> Vector3:
+	var loc := _ramp_loc(c)
+	for b in loc.get("buildings", []):
+		if str(b.get("rise", "")) != "":
+			return WorldGround._v3(b.get("size", [6, 2.4, 10]))
+	return Vector3(6, 2.4, 10)
+
+
+static func _ramp_loc(c: Dictionary) -> Dictionary:
+	var lid := str(c.get("ramp_location", RAMP_LOCATION))
+	var f := FileAccess.open("res://content/core/locations/%s.json" % lid, FileAccess.READ)
+	var d = JSON.parse_string(f.get_as_text()) if f != null else null
+	return d if d is Dictionary else {}
 
 
 ## The way a plateau racing line runs past `at` (unit; see _line_dir).
@@ -192,6 +300,37 @@ func _place() -> void:
 		var right := fwd.cross(up).normalized()
 		gates.append({ "id": str(g.get("id", "")), "pos": pos, "fwd": fwd, "right": right, "up": up, "half": half })
 	_add_masts()
+	_add_ramps()
+
+
+## Each of the course's ramps: Skrugs's ramp location's sloped box, in a frame on
+## the sand at its spot, rising the way the line runs (ground to WorldGround, like
+## any ramp landmark's: speeders ride up it and fly off the top).
+func _add_ramps() -> void:
+	ramps.clear()
+	if ground == null or course.get("ramps", []).is_empty():
+		return
+	var loc := _ramp_loc(course)
+	var k := 0
+	for rp in course.get("ramps", []):
+		var at := to_world(float(rp.at[0]), float(rp.at[1]))
+		var up := _up(at)
+		var fwd := _flat(_line_dir(at), up).normalized()
+		var right := fwd.cross(up).normalized()
+		for a in rp.get("across", [0.0]):
+			var base := to_world_near(at + right * float(a))
+			# The location's -z is the way up: the line's way here.
+			var xf := Transform3D(Basis(right, up, -fwd), base)
+			for b in WorldGround.pieces(loc):
+				var s := WorldGround._v3(b.get("size", [4, 4, 4]))
+				var c := WorldGround._v3(b.get("position", [0, 0, 0]))
+				var box_id := "race_%s_ramp_%d/%s" % [id, k, str(b.get("id", ""))]
+				ground.add_box(box_id, "solid", Vector3(c.x - s.x * 0.5, c.y, c.z - s.z * 0.5),
+					Vector3(c.x + s.x * 0.5, c.y + s.y, c.z + s.z * 0.5), str(b.get("rise", "")), false, xf)
+				ramps.append(ground.boxes[-1])
+			k += 1
+	if ground.has_method("invalidate_index"):
+		ground.invalidate_index()
 
 
 ## A plateau x,z on the ground (on the ball, the sphere's surface there).
@@ -445,6 +584,19 @@ func build_gates() -> void:
 	for i in _flash:
 		_paint(i, "you" if bool(_flash[i].you) else "pass", "flash_energy")
 	_build_record()
+	_build_ramps()
+
+
+## The ramps' look and walking colliders: SpeederPost's, for the very boxes.
+func _build_ramps() -> void:
+	if ramps.is_empty():
+		return
+	_ramp_root = Node3D.new()
+	_ramp_root.name = "Ramps"
+	add_child(_ramp_root)
+	var with_look: bool = demo == null or not ("use_look" in demo) or bool(demo.use_look)
+	for b in ramps:
+		SpeederPost.add_ramp(_ramp_root, b, with_look)
 
 
 ## Issue #618: a small panel on the start line's left antenna: your best lap.
@@ -535,4 +687,7 @@ func drop_gates() -> void:
 	_gate_roots.clear()
 	_gate_parts.clear()
 	record_label = null
+	if _ramp_root != null and is_instance_valid(_ramp_root):
+		_ramp_root.queue_free()
+	_ramp_root = null
 	built = false

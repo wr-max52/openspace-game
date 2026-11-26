@@ -227,22 +227,29 @@ func test_gates_are_drawn_only_when_asked_and_flash_back_to_rest() -> void:
 
 ## The highest and lowest sand (m above the ball) across a footprint round gate
 ## `g` of course `c`: `back` metres behind the line to 8 m past it, 15 m either side.
+## Measured on the ground (the far side's map is stretched across).
 func _relief(sp: PlanetSphere, c: Dictionary, gi: int, back: float) -> float:
-	var line2: Array = []
-	for p in c.line:
-		line2.append(Vector2(float(p[0]), float(p[1])))
-	var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
-	var fwd := RaceCourse._line_dir2(line2, at)
-	var right := Vector2(-fwd.y, fwd.x)
+	var fr := _gate_frame(sp, c, gi)
 	var lo := INF
 	var hi := -INF
 	for i in 13:
 		for j in 9:
-			var q := at + right * lerpf(-15.0, 15.0, i / 12.0) + fwd * lerpf(-back, 8.0, j / 8.0)
-			var h := sp.elevation(sp.map_dir(q.x, q.y))
+			var q: Vector3 = fr[0] + fr[2] * lerpf(-15.0, 15.0, i / 12.0) + fr[1] * lerpf(-back, 8.0, j / 8.0)
+			var h := sp.elevation((q - sp.center).normalized())
 			lo = minf(lo, h)
 			hi = maxf(hi, h)
 	return hi - lo
+
+
+## Gate `gi` of course `c` on the bare ball: [point, the way the line runs, across it].
+func _gate_frame(sp: PlanetSphere, c: Dictionary, gi: int) -> Array:
+	var line2: Array = []
+	for p in c.line:
+		line2.append(Vector2(float(p[0]), float(p[1])))
+	var gd := RaceCourse._ground_dir(sp, line2, Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1])))
+	var at: Vector3 = gd[1]
+	var fwd: Vector3 = gd[0]
+	return [at, fwd, fwd.cross((at - sp.center).normalized()).normalized()]
 
 
 ## Gates (and the start's grid) sit where the dunes are nearly level already, so the
@@ -252,8 +259,9 @@ func test_every_gate_is_on_nearly_flat_sand() -> void:
 	var sp := PlanetTerrain.for_planet(planet).sphere
 	sp.flat_sites = []
 	# The sand as the dunes make it, but for the level sand round a mountain a
-	# course runs through (the gates at a tunnel's mouths stand on it).
-	sp.flat_sites = DesertLandforms.mountain_flat_sites(planet, sp)
+	# course runs through (the gates at a tunnel's mouths stand on it) and a
+	# course's own level floors (the far side's wash and straights).
+	sp.flat_sites = DesertLandforms.mountain_flat_sites(planet, sp) + RaceCourse.floor_sites("port_desert", sp)
 	for c in RaceCourse.courses_for("port_desert"):
 		assert_lt(_relief(sp, c, 0, 40.0), 2.5, "%s: the start line and its grid are on flat sand" % c.id)
 		for gi in range(1, c.gates.size()):
@@ -262,13 +270,9 @@ func test_every_gate_is_on_nearly_flat_sand() -> void:
 
 ## How far apart (m, up the ball) the sand under gate `gi`'s two antennas is.
 func _across(sp: PlanetSphere, c: Dictionary, gi: int) -> float:
-	var line2: Array = []
-	for p in c.line:
-		line2.append(Vector2(float(p[0]), float(p[1])))
-	var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
-	var fwd := RaceCourse._line_dir2(line2, at)
-	var right := Vector2(-fwd.y, fwd.x) * float(c.get("gate_width", 26.0)) * 0.5
-	return absf(sp.elevation(sp.map_dir(at.x + right.x, at.y + right.y)) - sp.elevation(sp.map_dir(at.x - right.x, at.y - right.y)))
+	var fr := _gate_frame(sp, c, gi)
+	var right: Vector3 = fr[2] * float(c.get("gate_width", 26.0)) * 0.5
+	return absf(sp.elevation((fr[0] + right - sp.center).normalized()) - sp.elevation((fr[0] - right - sp.center).normalized()))
 
 
 ## And the planet levels a pad under each, so both antennas stand at one height.
@@ -283,7 +287,8 @@ func test_the_planet_levels_a_pad_under_every_gate() -> void:
 		assert_lt(_relief(sp, c, 0, 25.0), 0.3, "%s: the start line and grid are level" % c.id)
 		for gi in range(1, c.gates.size()):
 			var at := Vector2(float(c.gates[gi].at[0]), float(c.gates[gi].at[1]))
-			if ranges.any(func(site): return (site.rect as Rect2).has_point(at)):
+			if ranges.any(func(site): return (site.rect as Rect2).has_point(at) if site.get("frame") == null \
+					else sp._frame_dist(site.frame, at.x, at.y) <= 0.0):
 				assert_lt(_across(sp, c, gi), 0.3, "%s %s: both antennas level on the range's floor" % [c.id, c.gates[gi].id])
 			else:
 				assert_lt(_relief(sp, c, gi, 4.0), 0.3, "%s %s: level" % [c.id, c.gates[gi].id])

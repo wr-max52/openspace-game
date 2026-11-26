@@ -32,11 +32,12 @@ extends RefCounted
 const PATH := "res://content/core/story/main.json"
 ## The Remnant's desert outposts, nearest the front gate first (issue #187: and
 ## four more round the other sides of the town), then the outposts in the three
-## ranch villages far out (Ranches; taken only once the cruiser has fallen,
-## Territory.locked).
+## ranch villages far out and the two on the far side of the planet by the last
+## race crews (Ranches; taken only once the cruiser has fallen, Territory.locked).
 const OUTPOSTS := ["remnant_outpost_near", "remnant_outpost_mid", "remnant_outpost_far",
 	"remnant_outpost_north", "remnant_outpost_south", "remnant_outpost_west", "remnant_outpost_southwest",
-	"remnant_outpost_saltpan", "remnant_outpost_windbreak", "remnant_outpost_hullside"]
+	"remnant_outpost_saltpan", "remnant_outpost_windbreak", "remnant_outpost_hullside",
+	"remnant_outpost_cragfall", "remnant_outpost_farleap"]
 const JETPACK := "jetpack"
 
 static var _data: Dictionary = {}
