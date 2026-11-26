@@ -27,7 +27,9 @@ var palettes: Dictionary = {}
 var blade_cfg: Dictionary = {}
 var floor_y := 8.0
 var rng := RandomNumberGenerator.new()   ## picks the colours of a split model's parts
-var _cache := {}
+## Issue #695: the gear materials, shared by every kit on the same LookMaterials
+## and floor (each NPC has its own kit; a per-kit cache gave every body its own).
+static var _cache := {}
 static var _outfits := {}   ## issue #162: texture path -> outfit material, shared by every kit
 
 
@@ -284,15 +286,22 @@ static func _list_outfit_textures() -> Array:
 
 
 ## Issue #64: a palette's "tint" multiplies every piece's colour (the red Remnant
-## officer). Each body gets its own copies, so the shared outfit materials stay as they are.
+## officer). Tinted copies, so the shared outfit materials stay as they are; issue
+## #695: one copy per material and tint, shared by every body of the look.
+static var _tinted := {}
+
+
 func _tint(model: Node, tint: Color) -> void:
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		for i in (mi as MeshInstance3D).mesh.get_surface_count():
 			var m := (mi as MeshInstance3D).get_active_material(i)
 			if m is BaseMaterial3D:
-				var t := (m as BaseMaterial3D).duplicate() as BaseMaterial3D
-				t.albedo_color = t.albedo_color * tint
-				(mi as MeshInstance3D).set_surface_override_material(i, t)
+				var key := "%d_%s" % [m.get_instance_id(), tint.to_html()]
+				if not _tinted.has(key):
+					var t := (m as BaseMaterial3D).duplicate() as BaseMaterial3D
+					t.albedo_color = t.albedo_color * tint
+					_tinted[key] = t
+				(mi as MeshInstance3D).set_surface_override_material(i, _tinted[key])
 
 
 # ------------------------------------------------------------------ materials
@@ -303,7 +312,7 @@ func _c(p: Dictionary, key: String, fallback: String = "#808080") -> Color:
 
 ## kind: "metal", "leather", "cloth", "dark"
 func _m(color: Color, kind: String = "cloth", wear: float = 0.5) -> ShaderMaterial:
-	var key := "%s_%s_%s" % [color.to_html(), kind, wear]
+	var key := "%d_%s_%s_%s_%s" % [mats.get_instance_id(), floor_y, color.to_html(), kind, wear]
 	if _cache.has(key):
 		return _cache[key]
 	var m := ShaderMaterial.new()
@@ -326,6 +335,15 @@ func _m(color: Color, kind: String = "cloth", wear: float = 0.5) -> ShaderMateri
 			m.set_shader_parameter("sheen", 0.2)
 	_cache[key] = m
 	return m
+
+
+## Issue #695: a body's glow (visor, lens, prosthetic), one per colour shared by
+## every kit on the same LookMaterials (the kit's glows are not driven by the lamps).
+func _glow(color: Color) -> StandardMaterial3D:
+	var key := "%d_glow_%s" % [mats.get_instance_id(), color.to_html()]
+	if not _cache.has(key):
+		_cache[key] = mats.glow(color)
+	return _cache[key]
 
 
 # ------------------------------------------------------------------ mesh helpers
@@ -547,7 +565,7 @@ func _dress_trooper(body: Node3D, p: Dictionary, commander: bool) -> void:
 	var trim := _m(_c(p, "trim"), "metal", 0.3)
 	var cloth := _m(_c(p, "cloth"), "cloth", 0.6)
 	var dark := _m(Color("#24201e"), "leather", 0.5)
-	var visor := mats.glow(_c(p, "visor"))
+	var visor := _glow(_c(p, "visor"))
 	visor.emission_energy_multiplier = 4.0
 	var chest := _j(body, "chest")
 	var pelvis := _j(body, "pelvis")
@@ -641,8 +659,8 @@ func _rifle(body: Node3D, p: Dictionary) -> void:
 		model.scale = Vector3.ONE * k
 		model.position = grips.r - gr
 		if spec.get("dark") is Dictionary:
-			PlayerAvatar._darken(model, spec.dark)
-		GunSights.add_to(model, spec)
+			PlayerAvatar._darken(model, spec.dark, true)
+		GunSights.add_to(model, spec, true)
 		r.add_child(model)
 		r.set_meta("grips", { "r": grips.r, "l": model.position + gl })
 		r.set_meta("model_at", model.position)    # issue #324: the model's own space, for hold_3p's grips
@@ -679,7 +697,7 @@ func pistol(body: Node3D, dark := true) -> void:
 	var k := float(spec.get("scale", 1.0))
 	model.scale = Vector3.ONE * k
 	if dark and spec.get("dark") is Dictionary:
-		PlayerAvatar._darken(model, spec.dark)
+		PlayerAvatar._darken(model, spec.dark, true)
 	r.add_child(model)
 	var g: Array = spec.get("grips", {}).get("r", [0, 0, 0])
 	r.set_meta("grips", { "r": Vector3(float(g[0]), float(g[1]), float(g[2])) * k })
@@ -743,7 +761,7 @@ func _dress_smuggler(body: Node3D, p: Dictionary) -> void:
 	var tail := _mi(head, LookMeshKit.cloth(0.1, 0.42, 0.04, 1, 4), wrap, Vector3(0.05, -0.12, -0.11))
 	tail.rotation_degrees = Vector3(25, 160, -20)
 	var g := _m(_c(p, "goggles"), "metal", 0.5)
-	var lens := mats.glow(_c(p, "lens"))
+	var lens := _glow(_c(p, "lens"))
 	lens.emission_energy_multiplier = 0.8
 	for sx in [-1.0, 1.0]:
 		_mi(head, _cyl(0.034, 0.034, 0.03, 10), g, Vector3(0.045 * sx, 0.02, 0.098), Vector3(90, 0, 0))
@@ -790,7 +808,7 @@ func _dress_duelist(body: Node3D, p: Dictionary) -> void:
 	_mi(head, LookMeshKit.shell(0.12, 0.135, 0.12, -0.12, PI * 0.5 + 1.2, PI * 0.5 + TAU - 1.2, 0.02, 16, 3), wraps, Vector3(0, 0, -0.025))
 	_mi(head, _sphere(0.108, 0.26, 16), mask, Vector3.ZERO, Vector3.ZERO, Vector3(0.95, 1.0, 1.05))
 	_mi(head, _box(Vector3(0.012, 0.12, 0.02)), _m(Color("#120f0e"), "dark", 0.0), Vector3(0, 0.0, 0.108))
-	var seam := mats.glow(_c(p, "mask_line"))
+	var seam := _glow(_c(p, "mask_line"))
 	seam.emission_energy_multiplier = 0.5
 	_mi(head, _box(Vector3(0.006, 0.09, 0.01)), seam, Vector3(-0.05, 0.03, 0.102), Vector3(0, 25, 18))
 	_energy_sword(body)
@@ -946,7 +964,7 @@ func _dress_cantina_owner(body: Node3D, p: Dictionary) -> void:
 	_mi(le, _cyl(0.042, 0.05, 0.25, 8), metal, Vector3(0, -0.13, 0))
 	_mi(le, _cyl(0.008, 0.008, 0.22, 6), brass, Vector3(0.04, -0.13, 0.02))
 	_mi(le, _sphere(0.05, 0.08, 10), metal, Vector3(0, 0.0, 0))
-	var core := mats.glow(_c(p, "prosthetic_glow", "#7fd0c8"))
+	var core := _glow(_c(p, "prosthetic_glow", "#7fd0c8"))
 	core.emission_energy_multiplier = 1.4
 	_mi(le, _cyl(0.02, 0.02, 0.02, 8), core, Vector3(0, -0.02, 0.045), Vector3(90, 0, 0))
 	# Bar towel over the right shoulder.
@@ -960,7 +978,7 @@ func _dress_cantina_owner(body: Node3D, p: Dictionary) -> void:
 	var tail := _mi(head, LookMeshKit.cloth(0.08, 0.3, 0.03, 1, 3), wrap, Vector3(0.04, 0.06, -0.11))
 	tail.rotation_degrees = Vector3(14, 165, 10)
 	var g := _m(Color("#2a2a2a"), "metal", 0.5)
-	var lens := mats.glow(_c(p, "lens", "#e0a050"))
+	var lens := _glow(_c(p, "lens", "#e0a050"))
 	lens.emission_energy_multiplier = 0.6
 	for sx in [-1.0, 1.0]:
 		_mi(head, _cyl(0.03, 0.03, 0.03, 10), g, Vector3(0.042 * sx, 0.1, 0.085), Vector3(60, 0, 0))
