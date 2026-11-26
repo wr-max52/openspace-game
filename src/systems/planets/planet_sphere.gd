@@ -275,8 +275,18 @@ func _apply_flat_sites(x: float, z: float, base_height: float) -> float:
 	var list: PackedInt32Array = found
 	var h := base_height
 	var p := Vector2(x, z)
+	var dir := Vector3.ZERO                 # map_dir(x, z), worked out once for the framed pads
 	for i in list:
-		var distance := _rect_dist(_flat_rects[i], p) if _flat_frames[i] == null else _frame_dist(_flat_frames[i], x, z)
+		var distance := 0.0
+		var fr = _flat_frames[i]
+		if fr == null:
+			distance = _rect_dist(_flat_rects[i], p)
+		else:
+			if not _flat_rects[i].has_point(p):
+				continue                     # its map box holds it and its blend
+			if dir == Vector3.ZERO:
+				dir = map_dir(x, z)
+			distance = _frame_dist_dir(fr, dir)
 		var blend_distance := _flat_blends[i]
 		if distance >= blend_distance:
 			continue
@@ -381,7 +391,10 @@ func _dunes(p: Vector3, soft: float = 0.0) -> float:
 
 ## How far map (x, z) is from a framed pad's box (metres on the ground, 0 inside).
 func _frame_dist(f: Dictionary, x: float, z: float) -> float:
-	var d := map_dir(x, z)
+	return _frame_dist_dir(f, map_dir(x, z))
+
+
+func _frame_dist_dir(f: Dictionary, d: Vector3) -> float:
 	if d.dot(f.c) <= 0.0:
 		return INF
 	var h: Vector2 = f.half
@@ -417,7 +430,8 @@ func framed_site(at: Vector3, x_axis: Vector3, half: Vector2, blend: float, extr
 			var q := dir_map((c * radius + off).normalized())
 			lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
 			hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
-	var site := { "rect": Rect2(lo, hi - lo), "blend": blend,
+	var box := Rect2(lo, hi - lo)
+	var site := { "rect": box.grow(maxf(box.size.x, box.size.y) * 0.02), "blend": blend,
 		"frame": { "c": c, "x": fx, "z": fz, "half": half } }
 	site.merge(extra, true)
 	return site

@@ -205,7 +205,8 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 ## seed, on_line (the share dropped on the track, out to line_m either side of the
 ## racing line but clear of a lane lane_m wide down it, so the line itself stays
 ## open), band ([min, max] m either side of it for the rest), size ([min, max]
-## scale: bigger than the planet's, most of them taller than a speeder can ride
+## scale: bigger than the planet's), tall ([min, max] stretch up: the planet's
+## rock is a low slab; stood up, most of them are taller than a speeder can ride
 ## over), keep_gates_m (none this near a gate, the grid or a ramp) }. They skip
 ## the course's clear circles on purpose (they are there to be in the way) but
 ## keep off the rocks' feet and out of the tunnels. Measured on the ground, so
@@ -242,6 +243,7 @@ func _course_boulders(terrain: PlanetTerrain, cb: Dictionary, anchors: Array) ->
 	var lane_m := float(cb.get("lane_m", 3.0))
 	var band: Array = cb.get("band", [16.0, 60.0])
 	var size: Array = cb.get("size", [1.2, 3.0])
+	var tall: Array = cb.get("tall", [0.8, 1.2])
 	var want := int(cb.get("count", 0))
 	var tries := 0
 	while out.size() < want and tries < want * 20:
@@ -266,8 +268,8 @@ func _course_boulders(terrain: PlanetTerrain, cb: Dictionary, anchors: Array) ->
 			else rng.randf_range(float(band[0]), float(band[1]))
 		off *= 1.0 if rng.randf() < 0.5 else -1.0
 		var p := at + side * off
-		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.2), s * rng.randf_range(0.8, 1.3)))
-		basis = basis * Basis(Vector3.RIGHT, rng.randf_range(-0.4, 0.4))
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(float(tall[0]), float(tall[1])), s * rng.randf_range(0.8, 1.3)))
+		basis = basis * Basis(Vector3.RIGHT, rng.randf_range(-0.25, 0.25))
 		var bad := false
 		for gi in keep.size():
 			if p.distance_to(keep[gi]) < (grid_m if gi == 0 else keep_m) + s * 2.0:

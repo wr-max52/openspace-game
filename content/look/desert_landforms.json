@@ -260,7 +260,7 @@
     "near_rocks": 0.55,
     "near_reach": 2.5,
     "courses": [
-      { "course": "crooked_mile", "count": 150, "seed": 610, "on_line": 0.4, "lane_m": 3.0, "line_m": 11.0, "band": [14.0, 30.0], "size": [1.1, 3.0], "keep_gates_m": 30.0 }
+      { "course": "crooked_mile", "count": 220, "seed": 610, "on_line": 0.45, "lane_m": 3.0, "line_m": 13.0, "band": [14.0, 30.0], "size": [1.6, 3.6], "tall": [1.8, 3.0], "keep_gates_m": 30.0 }
     ]
   },
   "keep_out_margin": 25.0,
