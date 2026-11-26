@@ -20,13 +20,21 @@ extends RefCounted
 ## `status` joins the name on hover. Read when the pins are built, which the page
 ## does each time it opens.
 ##
-## Off planet: every planet you can fly to from here (SpaceTravel's bodies) and
-## every Remnant cruiser in the system, as { id, kind, label, target }.
+## Off planet: every planet you can fly to from here (SpaceTravel's bodies),
+## every Remnant cruiser in the system and every space station, as { id, kind,
+## label, target }.
+##
+## A space station (StationHull) shows as its own pin on its planet's globe
+## (kind "station", in place of the port where the planet's town is the station's
+## bay) and as a badge on the system chart; either opens its side view
+## (StationMapView: orbital_pins), where a floor or the bay is a waypoint
+## ("station:<place>").
 ##
 ## The waypoint lives in WorldState.map_waypoint (saved): { id, label, target,
 ## planet, arrive }. One pointer at a time: setting it turns any quest's waypoint
 ## off, and switching a quest's on clears it (Quests.toggle_waypoint). Its target
-## is a word ObjectiveHud.where understands: map:<x>,<z>, planet:<id>, cruiser.
+## is a word ObjectiveHud.where understands: map:<x>,<z>, planet:<id>, cruiser,
+## station:<place>.
 ##
 ## The page can also show somewhere you are not (GlobeMap.other_planet: another
 ## planet's ball, from its data; CruiserMapView: the Remnant cruiser's side view,
@@ -39,6 +47,8 @@ const PATH := "res://content/core/flow/map.json"
 const LOOK_PATH := "res://content/look/map.json"
 const LOCATION_DIR := "res://content/core/locations"
 const VENDOR_DIR := "res://content/core/vendors"
+const ITEMS_LOOK_PATH := "res://content/look/items.json"
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 static var _cfg: Dictionary = {}
 static var _look: Dictionary = {}
@@ -71,9 +81,23 @@ static func kind_cfg(kind: String) -> Dictionary:
 ## `town` the port's own stops (town_pins).
 static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Array:
 	var front := Territory.front_for_planet(str(planet.get("id", world.get("planet", ""))))
-	var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
-	_stamp_owner(port, Territory.barracks_of(front))
-	var out: Array = [port]
+	var out: Array = []
+	# A space station's pin where it hangs (orbital_pins: click it to open its side
+	# view). Where the planet's town is the station's bay (the ringed giant's
+	# "station_town"), the station stands in for the port.
+	var station_town := str(planet.get("town", {}).get("station_town", ""))
+	for lm in StationHull.landmarks(world):
+		if not lm.has("at"):
+			continue
+		var at: Array = lm.at
+		var sp := _pin("station_" + str(lm.get("id", "")), "station", station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }),
+			Vector2(float(at[0]), float(at[2])))
+		sp["view"] = "station:" + str(planet.get("id", world.get("planet", "")))
+		out.append(sp)
+	if station_town == "" or out.is_empty():
+		var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
+		_stamp_owner(port, Territory.barracks_of(front))
+		out.push_front(port)
 	out.append_array(station_pins(planet, front))
 	var skip: Array = cfg().get("skip", [])
 	for lm in world.get("landmarks", []):
@@ -86,8 +110,8 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			var loc := _location(str(lm.get("location", id)))
 			kind = str(loc.get("kind", "post"))
 			label = str(loc.get("label", ""))
-		if kind_cfg(kind).is_empty() or kind in ["cruiser", "planet", "port"]:
-			continue             # the cruiser is off planet; anything unnamed is not a place
+		if kind_cfg(kind).is_empty() or kind in ["cruiser", "planet", "port", "station"]:
+			continue             # the cruiser is off planet, the station has its own pin; anything unnamed is not a place
 		label = str(cfg().get("labels", {}).get(id, label if label != "" else _kind_label(kind)))
 		var at: Array = lm.at
 		var pin := _pin(id, kind, _cap(label), Vector2(float(at[0]), float(at[2])))
@@ -104,6 +128,7 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 		p["hostile"] = str(pack.get("attitude", "")) == "hostile"
 		out.append(p)
 	out.append_array(race_pins(str(world.get("id", "")), world))
+	out.append_array(place_pins(world))
 	for t in town:
 		out.append(t)
 	return out
@@ -200,25 +225,48 @@ static func station_shapes(planet: Dictionary) -> Array:
 	return out
 
 
-## The port's own stops in a built town: the data's markers and this town's
-## vendors, each at its marker. `to_map` turns a world position into map (x, z).
-static func town_pins(town, town_id: String, to_map: Callable) -> Array:
+## The port's own stops in a built town: the data's markers (the cantina, its
+## owner, the ship dealer, the droid merchant), the barracks, this town's vendors
+## (each an icon for what it sells: content/look/items.json "stalls"), and every
+## free market stall a player can make a keeper for: "Build an NPC", or the name of
+## the keeper made for it (merged, else your draft's). `to_map` turns a world
+## position into map (x, z).
+static func town_pins(town, town_id: String, to_map: Callable, planet_id: String = "") -> Array:
 	var out: Array = []
 	if town == null:
 		return out
+	if planet_id == "":
+		planet_id = GameFlow.current_planet_id()
+	var front := Territory.front_for_planet(planet_id)
 	var stops: Array = cfg().get("town", []).duplicate()
 	for v in _vendors():
 		if str(v.get("location", "")) == town_id:
-			stops.append({ "marker": str(v.get("marker", "")), "kind": "vendor", "label": str(v.get("label", "")) })
+			stops.append({ "marker": str(v.get("marker", "")), "kind": vendor_kind(str(v.get("id", ""))), "label": str(v.get("label", "")) })
 	var seen := {}
 	for s in stops:
+		if s.has("zone"):
+			var c = _zone_middle(town, str(s.zone), to_map)
+			if c == null:
+				continue
+			var zp := _pin("town_" + str(s.zone), str(s.get("kind", "barracks")), str(s.get("label", s.zone)), c)
+			zp["town"] = true
+			if zp.kind == "barracks":
+				_stamp_owner(zp, Territory.barracks_of(front))
+			out.append(zp)
+			continue
 		var m := str(s.get("marker", ""))
 		if m == "" or seen.has(m) or town.get_marker(m).is_empty():
 			continue
 		seen[m] = true
-		var p := _pin("town_" + m, str(s.get("kind", "vendor")), str(s.get("label", m)), to_map.call(town.marker_pos(m)))
+		var label := str(s.get("label", m))
+		if str(s.get("kind", "")) == "cantina_owner":
+			label = cantina_owner_label(planet_id)
+		var p := _pin("town_" + m, str(s.get("kind", "vendor")), label, to_map.call(town.marker_pos(m)))
 		p["town"] = true
 		out.append(p)
+	for fs in free_stall_pins(town, town_id, to_map):
+		if not seen.has(str(fs.id).trim_prefix("town_")):
+			out.append(fs)
 	# Issue #617: the row outside the back gate where your speeders wait, once you own one.
 	if WorldState.count("speeders_owned") > 0 and not kind_cfg("speeders").is_empty() and town.has_method("markers_with_role"):
 		var row: Array = town.markers_with_role("speeder_spot")
@@ -228,6 +276,309 @@ static func town_pins(town, town_id: String, to_map: Callable) -> Array:
 			sp["town"] = true
 			out.append(sp)
 	return out
+
+
+## Issue #147's free market stalls (CommunityNpc.free_stalls) as pins: "Build an
+## NPC" where nobody keeps it yet, else the keeper's name (a merged keeper's, or
+## the one you gave the draft you are making for that stall).
+static func free_stall_pins(town, town_id: String, to_map: Callable) -> Array:
+	var out: Array = []
+	if town == null or not town.has_method("markers") or kind_cfg("free_stall").is_empty():
+		return out
+	var stalls := CommunityNpc.free_stalls(town, town_id, CoreContent.shared())
+	var keepers := CommunityNpc.assign(CommunityNpc.in_town(town_id), stalls)
+	for m in stalls:
+		var label := line("build_npc")
+		var kind := "free_stall"
+		if keepers.has(m):
+			label = CommunityNpc.display_name(keepers[m])
+			kind = "keeper"
+		else:
+			var d := CommunityNpc.load_draft(town_id, str(m))
+			if str(d.get("name", "")).strip_edges() != "":
+				label = str(d.name).strip_edges()
+				kind = "keeper"
+		var p := _pin("town_" + str(m), kind, label, to_map.call(town.marker_pos(str(m))))
+		p["town"] = true
+		out.append(p)
+	return out
+
+
+## The pin kind for a vendor: what its stall shows (content/look/items.json
+## "stalls": food, gear, contraband, droids), as map.json "wares_kinds" names it.
+static func vendor_kind(vendor_id: String) -> String:
+	var named: Dictionary = cfg().get("vendor_kinds", {})
+	if named.has(vendor_id):
+		return str(named[vendor_id])
+	var wares := str(_stall_looks().get(vendor_id, {}).get("wares", ""))
+	return str(cfg().get("wares_kinds", {}).get(wares, "vendor"))
+
+
+## The cantina owner's pin name: their name once this save has given them one
+## (the port's Oda, or a planet's own owner: PlanetOwner).
+static func cantina_owner_label(planet_id: String) -> String:
+	var key := "npc:cantina_owner" if planet_id == PlanetGen.home_id() else "npc:" + PlanetOwner.card_id(planet_id)
+	var n := str(WorldState.names.by_key.get(key, "")) if WorldState.names != null else ""
+	return line("owner_named") % n if n != "" else _kind_label("cantina_owner")
+
+
+## The middle of the biggest solid block in a town zone (the barracks' hall), as
+## map (x, z); null when the town has no such zone.
+static func _zone_middle(town, zone: String, to_map: Callable):
+	var best := {}
+	var best_a := -1.0
+	for b in town.boxes():
+		if str(b.get("zone", "")) != zone or str(b.get("kind", "")) != "solid":
+			continue
+		var a := absf((float(b.max[0]) - float(b.min[0])) * (float(b.max[2]) - float(b.min[2])))
+		if a > best_a:
+			best_a = a
+			best = b
+	if best.is_empty():
+		for z in town.zones():
+			if str(z.get("id", "")) == zone:
+				return to_map.call(Vector3((float(z.min[0]) + float(z.max[0])) * 0.5, 0.0, (float(z.min[1]) + float(z.max[1])) * 0.5))
+		return null
+	return to_map.call(Vector3((float(best.min[0]) + float(best.max[0])) * 0.5, 0.0, (float(best.min[2]) + float(best.max[2])) * 0.5))
+
+
+# ------------------------------------------------------------------ details
+
+## A place's insides for the map zoomed in: { id, center (map), extent (m, its
+## half width), tris (map-space triangles of its buildings' footprints), cols,
+## walls: [PackedVector2Array] (map-space lines) }. The globe fills the tris flat
+## once the place is big enough on screen (map.json "details").
+static func _place(id: String, center: Vector2, extent: float) -> Dictionary:
+	return { "id": id, "center": center, "extent": extent, "tris": PackedVector2Array(), "cols": PackedColorArray(), "walls": [] }
+
+
+## The town's buildings, seen from above: every box but floors and lamps as its
+## real footprint (turned boxes turned, round ones round), the barracks tinted by
+## who holds them, and the town wall as a line with its gates open. `to_map` as
+## town_pins.
+static func town_details(town, to_map: Callable, front: String = Territory.HOME) -> Dictionary:
+	if town == null or not town.has_method("boxes"):
+		return {}
+	var d: Dictionary = look().get("details", {})
+	var bounds: Dictionary = town.data.get("bounds", {}) if town.get("data") is Dictionary else {}
+	var lo := Vector2(-150, -150)
+	var hi := Vector2(150, 150)
+	if bounds.has("min"):
+		lo = Vector2(float(bounds.min[0]), float(bounds.min[1]))
+		hi = Vector2(float(bounds.max[0]), float(bounds.max[1]))
+	var mid := (lo + hi) * 0.5
+	var c: Vector2 = to_map.call(Vector3(mid.x, 0.0, mid.y))
+	var out := _place("town", c, maxf(hi.x - lo.x, hi.y - lo.y) * 0.5)
+	var barracks := Color(str(d.get("barracks", "#8a3a2a")))
+	if Territory.owner(Territory.barracks_of(front)) == Territory.LOCALS:
+		barracks = Color(str(look().get("owners", {}).get("locals", "#5fd35f"))).darkened(0.35)
+	var skip_k: Array = d.get("skip_kinds", [])
+	var skip_l: Array = d.get("skip_looks", [])
+	var boxes: Array = town.boxes().duplicate()
+	boxes.sort_custom(func(a, b): return _layer(a) < _layer(b))
+	for b in boxes:
+		var kind := str(b.get("kind", ""))
+		var lk := str(b.get("look", ""))
+		if kind in skip_k or lk in skip_l:
+			continue
+		var mn := Vector2(float(b.min[0]), float(b.min[2]))
+		var mx := Vector2(float(b.max[0]), float(b.max[2]))
+		if kind == "ring" and bool(b.get("hollow", false)):
+			_ring_wall(out, b, mn, mx, to_map)
+			continue
+		var col := _box_color(b, d, barracks)
+		var ring: PackedVector2Array
+		var ctr := (mn + mx) * 0.5
+		if str(b.get("shape", "")) == "round" or kind in ["ring", "bowl"]:
+			ring = _ellipse(ctr, (mx - mn) * 0.5, 16)
+		elif b.has("turn_deg") and b.has("fit"):
+			ring = _turned_rect(ctr, Vector2(float(b.fit[0]), float(b.fit[1])) * 0.5, float(b.turn_deg))
+		else:
+			ring = PackedVector2Array([mn, Vector2(mx.x, mn.y), mx, Vector2(mn.x, mx.y)])
+		var on_map := PackedVector2Array()
+		for q in ring:
+			on_map.append(to_map.call(Vector3(q.x, 0.0, q.y)))
+		_fill(out, on_map, col)
+	return out
+
+
+## Every location's buildings (the ranches' houses, walls and stands, the
+## outposts' blocks, the droid relays' huts, Skrugs's yard) round each landmark,
+## turned by its yaw: [place]. Landmark coordinates are map coordinates.
+static func place_details(world: Dictionary) -> Array:
+	var out: Array = []
+	var d: Dictionary = look().get("details", {})
+	for lm in world.get("landmarks", []):
+		if str(lm.get("kind", "")) != "location" or not lm.has("at"):
+			continue
+		var loc := _location(str(lm.get("location", lm.get("id", ""))))
+		var blds: Array = loc.get("buildings", [])
+		if blds.is_empty():
+			continue
+		var at := Vector2(float(lm.at[0]), float(lm.at[2]))
+		var yaw := float(lm.get("yaw_deg", 0.0))
+		var p := _place(str(lm.get("id", "")), at, 10.0)
+		var reach := 6.0
+		for b in blds:
+			if str(b.get("shape", "box")) != "box" or not b.has("size") or not b.has("position"):
+				continue
+			var sz := Vector2(float(b.size[0]), float(b.size[2]))
+			var pos := Vector2(float(b.position[0]), float(b.position[2]))
+			var ring := _turned_rect(pos, sz * 0.5, float(b.get("yaw_deg", 0.0)))
+			var on_map := PackedVector2Array()
+			for q in ring:
+				reach = maxf(reach, q.length())
+				on_map.append(at + _turn(q, yaw))
+			_fill(p, on_map, _box_color({ "look": str(b.get("look", "")), "kind": "solid" }, d, Color(str(d.get("barracks", "#8a3a2a")))))
+		p.extent = reach
+		out.append(p)
+	return out
+
+
+## The stands in every ranch (location "stalls"), each where its stand is built,
+## named and drawn for what it sells: pins that show once the ranch is zoomed
+## into (`detail`: the landmark id).
+static func place_pins(world: Dictionary) -> Array:
+	var out: Array = []
+	for lm in world.get("landmarks", []):
+		if str(lm.get("kind", "")) != "location" or not lm.has("at"):
+			continue
+		var loc := _location(str(lm.get("location", lm.get("id", ""))))
+		var stalls: Dictionary = loc.get("stalls", {})
+		if stalls.is_empty():
+			continue
+		var at := Vector2(float(lm.at[0]), float(lm.at[2]))
+		var yaw := float(lm.get("yaw_deg", 0.0))
+		var where := {}
+		for b in loc.get("buildings", []):
+			where[str(b.get("id", ""))] = Vector2(float(b.position[0]), float(b.position[2])) if b.has("position") else Vector2.ZERO
+		for sid in stalls:
+			var s: Dictionary = stalls[sid]
+			var kind := "droids" if bool(s.get("droid", false)) else vendor_kind(str(s.get("vendor", "")))
+			var label := str(s.get("label", ""))
+			if label == "":
+				label = str(_vendor(str(s.get("vendor", ""))).get("label", _kind_label(kind)))
+			var p := _pin(str(lm.id) + "_" + str(sid), kind, label, at + _turn(where.get(str(sid), Vector2.ZERO), yaw))
+			p["detail"] = str(lm.id)
+			out.append(p)
+	return out
+
+
+## Mountains, spires and boulders where DesertLandforms puts them on this planet
+## (its own spots, so each mark is the rock you can walk to): [{ kind, map, size
+## (m) }]. Boulders only on the planet you are on (`boulders`: map positions and
+## sizes, from the built scene).
+static func terrain_marks(planet: Dictionary, sphere: PlanetSphere, boulders: Array = []) -> Array:
+	var out: Array = []
+	if sphere == null:
+		return out
+	var id := str(planet.get("id", ""))
+	if "landforms" in planet.get("features", []):
+		var data := DesertLandforms.load_data()
+		if DesertLandforms.mesa_planet == id and not DesertLandforms.mesa_spots.is_empty():
+			for m in DesertLandforms.mesa_spots:
+				out.append({ "kind": "mountain", "map": m.map, "size": float(m.radius) })
+		else:
+			for m in DesertLandforms.mountain_spots(data, sphere):
+				out.append({ "kind": "mountain", "map": m.map, "size": float(m.get("plan", {}).get("radius", 60.0)) })
+		for s in DesertLandforms.spire_spots(data, sphere):
+			out.append({ "kind": "spire", "map": s.map, "size": float(s.radius) })
+		for s in DesertLandforms.short_spots(data, sphere):
+			out.append({ "kind": "spire", "map": s.map, "size": float(s.radius) })
+	for b in boulders:
+		out.append({ "kind": "boulder", "map": b.map, "size": float(b.get("size", 2.0)) })
+	return out
+
+
+static func _layer(b: Dictionary) -> int:
+	match str(b.get("kind", "")):
+		"bowl":
+			return 0
+		"pad", "ring", "ramp":
+			return 1
+		"ship":
+			return 3
+	return 2
+
+
+static func _box_color(b: Dictionary, d: Dictionary, barracks: Color) -> Color:
+	var lk := str(b.get("look", ""))
+	var kind := str(b.get("kind", ""))
+	var zone := str(b.get("zone", ""))
+	var c: Color
+	if zone == "barracks" and kind == "solid" or lk == "watchtower":
+		c = barracks
+	elif zone == "cantina" and kind != "counter":
+		c = Color(str(d.get("cantina", "#b8a070")))
+	elif d.get("by_look", {}).has(lk):
+		c = Color(str(d.by_look[lk]))
+	elif d.get("by_kind", {}).has(kind):
+		c = Color(str(d.by_kind[kind]))
+	else:
+		c = Color(str(d.get("default", "#7a6a52")))
+	c.a = float(d.get("alpha", 0.92))
+	return c
+
+
+## A hollow ring (the round town's wall) as lines round its middle, open at its
+## gaps (ring_wall.gd: 0 deg is +X, +deg toward +Z, "half" metres either side).
+static func _ring_wall(out: Dictionary, b: Dictionary, mn: Vector2, mx: Vector2, to_map: Callable) -> void:
+	var ctr := (mn + mx) * 0.5
+	var rm := (mx.x - mn.x) * 0.5 - float(b.get("thickness", 2.0)) * 0.5
+	var gaps: Array = []
+	for g in b.get("gaps", []):
+		gaps.append([deg_to_rad(float(g.get("deg", 0.0))), asin(clampf(float(g.get("half", 1.0)) / rm, 0.0, 1.0))])
+	var run := PackedVector2Array()
+	var n := 96
+	for k in n + 1:
+		var a := TAU * k / n
+		var open := false
+		for g in gaps:
+			if absf(wrapf(a - float(g[0]), -PI, PI)) < float(g[1]):
+				open = true
+		if open:
+			if run.size() > 1:
+				out.walls.append(run)
+			run = PackedVector2Array()
+			continue
+		run.append(to_map.call(Vector3(ctr.x + cos(a) * rm, 0.0, ctr.y + sin(a) * rm)))
+	if run.size() > 1:
+		out.walls.append(run)
+
+
+static func _fill(out: Dictionary, ring: PackedVector2Array, col: Color) -> void:
+	var idx := Geometry2D.triangulate_polygon(ring)
+	if idx.is_empty():
+		return
+	var t: PackedVector2Array = out.tris
+	var c: PackedColorArray = out.cols
+	for i in idx:
+		t.append(ring[i])
+		c.append(col)
+	out.tris = t
+	out.cols = c
+
+
+static func _ellipse(c: Vector2, half: Vector2, segs: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for k in segs:
+		var a := TAU * k / segs
+		out.append(c + Vector2(cos(a) * half.x, sin(a) * half.y))
+	return out
+
+
+## A box `half` wide either way round `c`, turned like Basis(UP, deg) turns it.
+static func _turned_rect(c: Vector2, half: Vector2, deg: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for q in [Vector2(-half.x, -half.y), Vector2(half.x, -half.y), Vector2(half.x, half.y), Vector2(-half.x, half.y)]:
+		out.append(c + _turn(q, deg))
+	return out
+
+
+## (x, z) turned by Basis(Vector3.UP, deg), as a landmark's yaw_deg turns its pieces.
+static func _turn(v: Vector2, deg: float) -> Vector2:
+	var w := Basis(Vector3.UP, deg_to_rad(deg)) * Vector3(v.x, 0.0, v.y)
+	return Vector2(w.x, w.z)
 
 
 # ------------------------------------------------------------------ vehicles
@@ -321,7 +672,7 @@ static func spot_pin(map: Vector2) -> Dictionary:
 ## SpaceTravel's ({ id, name }). Then every cruiser in the system (`cruisers`,
 ## system_cruisers), each with the planet it hangs over and who holds it (issue
 ## #497: coloured by that, the locals' green once they do).
-static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Array:
+static func off_planet(bodies: Array, cruisers: Array = system_cruisers(), stations: Array = system_stations()) -> Array:
 	var out: Array = []
 	for b in bodies:
 		var label := str(b.get("name", ""))
@@ -330,6 +681,9 @@ static func off_planet(bodies: Array, cruisers: Array = system_cruisers()) -> Ar
 	for c in cruisers:
 		out.append({ "id": str(c.id), "kind": "cruiser", "label": line("cruiser_over") % planet_name(str(c.planet)),
 			"target": "cruiser", "planet": str(c.planet), "cfg": str(c.cfg), "owner": cruiser_owner(c) })
+	for s in stations:
+		out.append({ "id": str(s.id), "kind": "station", "label": line("station_over") % planet_name(str(s.planet)),
+			"target": "station", "planet": str(s.planet), "station": str(s.station) })
 	return out
 
 
@@ -591,6 +945,138 @@ static func cruiser_color(c: Dictionary) -> Color:
 	return Color(str(ow.get("empty", "#a89a80")))
 
 
+static var _stations: Array = []
+
+
+## Every space station in the system (each planet's "station" landmarks:
+## StationHull, today the ringed giant's over its top): [{ id (its landmark),
+## station (content/core/stations/<station>.json), planet, pos (system frame) }].
+## Once a session. Like the cruisers, one a planet: the Map page names a station by
+## the planet it hangs over ("station:<planet>").
+static func system_stations() -> Array:
+	if not _stations.is_empty():
+		return _stations
+	for b in system():
+		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
+		for lm in StationHull.landmarks(world):
+			if not lm.has("at"):
+				continue
+			var at: Array = lm.at
+			var r := float(b.radius)
+			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
+			_stations.append({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")), "planet": str(b.id), "pos": pos })
+			break                                # one a planet
+	return _stations
+
+
+## The station over planet `planet` (system_stations), or {}.
+static func station_on(planet: String) -> Dictionary:
+	for s in system_stations():
+		if str(s.planet) == planet:
+			return s
+	return {}
+
+
+## A station's name, as SpaceStation.label gives it: the name this save gave it in
+## its config's name_fmt, or its config's label.
+static func station_label(s: Dictionary) -> String:
+	var hull := StationHull.for_id(str(s.get("station", "")))
+	var cfg: Dictionary = hull.cfg if hull != null else {}
+	var n := NameHooks.vessel(cfg, "station:" + str(s.get("id", "")))
+	var l := str(cfg.get("label", _kind_label("station")))
+	return _cap(str(cfg.get("name_fmt", "%s")) % n if n != "" else l)
+
+
+## The station's places for its side view (StationHull.map_places), as pins:
+## { id, kind, label, target, rect, tower, arrive }, and on each floor what is on
+## it for its plan: `floor` (its index in its tower), `rooms` (room_pins), `owner`
+## (an open floor's, from the station's "map" floors), `what` and `summary` (one
+## line: who holds how many rooms, or what the open floor is). `s` is a
+## system_stations entry.
+static func orbital_pins(s: Dictionary) -> Array:
+	var out: Array = []
+	var hull := StationHull.for_id(str(s.get("station", "")))
+	if hull == null:
+		return out
+	var names: Dictionary = cfg().get("station_places", {})
+	var floors: Dictionary = hull.cfg.get("map", {}).get("floors", {})
+	for p in hull.map_places():
+		var pin := { "id": "station_" + str(p.id), "kind": "station_place", "label": str(names.get(str(p.id), str(p.id).capitalize())),
+			"target": "station:" + str(p.id), "rect": p.rect, "tower": str(p.tower),
+			"arrive": float(kind_cfg("station_place").get("arrive", 12.0)), "rooms": [], "owner": "", "what": "", "summary": "" }
+		var t := hull.tower(str(p.tower))
+		if not t.is_empty():
+			for i in (t.floors as Array).size():
+				if str(t.floors[i].id) == str(p.id):
+					pin["floor"] = i
+					pin["rooms"] = room_pins(s, hull, t, i)
+			var fc: Dictionary = floors.get(str(p.id), {})
+			pin["owner"] = station_owner(s, str(fc.get("owner", "")))
+			pin["what"] = str(fc.get("what", ""))
+			pin["summary"] = _floor_summary(pin)
+		out.append(pin)
+	return out
+
+
+## The rooms of floor `i` of tower `t` (StationHull.floor_rooms) as pins you can set
+## a waypoint on ("station:<floor>.<k>"): { id, kind, label, use, owner, owner_label,
+## target, arrive, a, half, r0, r1, open }.
+static func room_pins(s: Dictionary, hull: StationHull, t: Dictionary, i: int) -> Array:
+	var out: Array = []
+	var fid := str(t.floors[i].id)
+	var names: Dictionary = cfg().get("station_rooms", {})
+	var owners: Dictionary = hull.cfg.get("map", {}).get("owners", {})
+	for rm in hull.floor_rooms(t, i):
+		var use := str(rm.use)
+		var who := station_owner(s, str(owners.get(use, "")))
+		out.append({ "id": "station_%s.%d" % [fid, int(rm.k)], "kind": "station_place", "label": str(names.get(use, use.capitalize())),
+			"use": use, "owner": who, "owner_label": owner_label(who), "target": "station:%s.%d" % [fid, int(rm.k)],
+			"arrive": float(kind_cfg("station_place").get("arrive", 12.0)) * 0.5,
+			"a": float(rm.a), "half": float(rm.half), "r0": float(rm.r0), "r1": float(rm.r1), "open": bool(rm.open) })
+	return out
+
+
+## Who holds a part of station `s` now: its data's owner, except that the Remnant's
+## parts are the locals' once you have taken the station's Remnant deck (Territory
+## "station_<landmark id>").
+static func station_owner(s: Dictionary, data_owner: String) -> String:
+	if data_owner == Territory.REMNANT and Territory.owner(Territory.STATION + str(s.get("id", ""))) == Territory.LOCALS:
+		return Territory.LOCALS
+	return data_owner
+
+
+## An owner's name on the map ("" for nobody's).
+static func owner_label(who: String) -> String:
+	return str(cfg().get("station_owners", {}).get(who, who.capitalize())) if who != "" else ""
+
+
+## An owner's colour on the station's map (content/look/map.json "station_view").
+static func owner_color(who: String) -> Color:
+	return Color(str(look().get("station_view", {}).get("owners", {}).get(who, "#a89a80")))
+
+
+## A floor's line under its name: each owner and how many rooms they hold (the
+## most first), or what an open floor is and who runs it.
+static func _floor_summary(pin: Dictionary) -> String:
+	var rooms: Array = pin.get("rooms", [])
+	if rooms.is_empty():
+		var what := str(cfg().get("station_floor_kinds", {}).get(str(pin.get("what", "")), ""))
+		var who := owner_label(str(pin.get("owner", "")))
+		if what != "" and who != "":
+			return line("station_floor_open") % [what, who]
+		return what
+	var count := {}
+	for r in rooms:
+		var who := str(r.owner)
+		count[who] = int(count.get(who, 0)) + 1
+	var keys := count.keys()
+	keys.sort_custom(func(a, b): return int(count[a]) > int(count[b]))
+	var parts: Array = []
+	for k in keys:
+		parts.append("%s %d" % [owner_label(str(k)) if str(k) != "" else line("station_nobody"), int(count[k])])
+	return "  \u00b7  ".join(parts)
+
+
 ## A planet's name for the map's title and its lines.
 static func planet_name(id: String) -> String:
 	var n := PlanetGen.display_name(PlanetGen.build(id))
@@ -664,6 +1150,25 @@ static func _vendors() -> Array:
 					if not d.is_empty():
 						_vendor_list.append(d)
 	return _vendor_list
+
+
+static func _vendor(id: String) -> Dictionary:
+	for v in _vendors():
+		if str(v.get("id", "")) == id:
+			return v
+	return {}
+
+
+static var _stalls_look: Dictionary = {}
+
+
+## content/look/items.json "stalls" "vendors": what each trader's stall shows.
+static func _stall_looks() -> Dictionary:
+	if _stalls_look.is_empty():
+		_stalls_look = _read(ITEMS_LOOK_PATH).get("stalls", {}).get("vendors", {})
+		if _stalls_look.is_empty():
+			_stalls_look = { "_": {} }
+	return _stalls_look
 
 
 static func _read(path: String) -> Dictionary:

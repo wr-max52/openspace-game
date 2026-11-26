@@ -16,6 +16,8 @@ extends Control
 ## Hover names a planet (its kind, and how far it is from you); a click opens its
 ## own map (`body_clicked`); a cruiser's hover names the ship, the planet it is
 ## over and who holds it, and a click opens its side view ("cruiser:<planet>").
+## Every space station the same way (its own badge: GlobeView.draw_station_badge),
+## a click opening its side view ("station:<planet>").
 ## The planet or cruiser the waypoint leads to has the waypoint's ring. Drag moves the chart, the wheel or the + / -
 ## buttons zoom. Colours: content/look/map.json "system".
 
@@ -33,6 +35,7 @@ const CRUISER_GAP := 6.0                 ## px between a planet's disc (and ring
 
 var bodies: Array = []                  ## GlobeMap.system
 var cruisers: Array = []                ## [{ id: "cruiser:<planet>", planet, pos (system frame), label, status, color }]
+var stations: Array = []                ## [{ id: "station:<planet>", planet, pos (system frame), label, status, color }]
 var sun := Vector3.INF                  ## issue #576: the sun (system frame), INF = none
 var player := Vector3.INF               ## you (system frame), INF = not known
 var heading := Vector2.ZERO             ## the way you look, (x, z) in the system frame (ZERO = none)
@@ -92,7 +95,7 @@ func extents() -> Rect2:
 		var bb := Rect2(c - Vector2.ONE * r, Vector2.ONE * r * 2.0)
 		box = bb if first else box.merge(bb)
 		first = false
-	for c in cruisers:
+	for c in cruisers + stations:
 		box = box.expand(Vector2((c.pos as Vector3).x, (c.pos as Vector3).z))
 	if sun.is_finite():
 		# Issue #576: the same either side of the sun, so the sun is the chart's centre.
@@ -154,8 +157,8 @@ func set_zoom(z: float, about := Vector2.INF) -> void:
 ## "cruiser:<planet>"), or "". A cruiser's badge is drawn over the planets, so
 ## it wins where they overlap.
 func body_at(s: Vector2) -> String:
-	var half := GlobeView.cruiser_badge_half(CRUISER_R) + Vector2.ONE * 3.0
-	for c in cruisers:
+	for c in cruisers + stations:
+		var half := badge_half(c) + Vector2.ONE * 3.0
 		if Rect2(cruiser_at(c) - half, half * 2.0).has_point(s):
 			return str(c.id)
 	var best := ""
@@ -168,9 +171,16 @@ func body_at(s: Vector2) -> String:
 	return best
 
 
-## Where a cruiser's badge is drawn: where it really is, or pushed straight out
-## from its planet's centre till it clears the disc (and ring) when the chart is
-## too small to part them.
+## Half a cruiser's or a station's badge, px.
+func badge_half(c: Dictionary) -> Vector2:
+	if str(c.get("id", "")).begins_with("station:"):
+		return GlobeView.station_badge_half(CRUISER_R)
+	return GlobeView.cruiser_badge_half(CRUISER_R)
+
+
+## Where a cruiser's (or a station's) badge is drawn: where it really is, or
+## pushed straight out from its planet's centre till it clears the disc (and ring)
+## when the chart is too small to part them.
 func cruiser_at(c: Dictionary) -> Vector2:
 	var real := project(c.pos)
 	for b in bodies:
@@ -178,7 +188,7 @@ func cruiser_at(c: Dictionary) -> Vector2:
 			continue
 		var centre := project(b.centre)
 		var clear := disc_px(b) * maxf(1.0, float((b.ring as Dictionary).get("outer", 1.0))) \
-			+ GlobeView.cruiser_badge_half(CRUISER_R).x + CRUISER_GAP
+			+ badge_half(c).x + CRUISER_GAP
 		var off := real - centre
 		if off.length() >= clear:
 			return real
@@ -259,7 +269,7 @@ func _draw() -> void:
 		if str(b.id) == hover:
 			draw_arc(at, r + 4.0, 0.0, TAU, 48, Color(ink, 0.9), 1.5, true)
 		_draw_name(at + Vector2(0, r + 15.0), b, font, str(b.id) == hover)
-	for c in cruisers:
+	for c in cruisers + stations:
 		_draw_cruiser(c, t, goal_col, ink, font)
 	for o in others:
 		var at := project(o.pos)
@@ -273,7 +283,7 @@ func _draw() -> void:
 		_draw_player(project(player), t)
 
 
-## A cruiser's badge (lit while hovered), the waypoint's ring when it leads
+## A cruiser's or a station's badge (lit while hovered), the waypoint's ring when it leads
 ## there, a fine line to where it really is when pushed clear of its planet, and,
 ## hovered, its name and a line saying where it is and who holds it.
 func _draw_cruiser(c: Dictionary, t: float, goal_col: Color, ink: Color, font: Font) -> void:
@@ -283,13 +293,16 @@ func _draw_cruiser(c: Dictionary, t: float, goal_col: Color, ink: Color, font: F
 		return
 	var col: Color = c.get("color", Color("#e0573a"))
 	var hot := str(c.id) == hover
-	var half := GlobeView.cruiser_badge_half(CRUISER_R)
+	var half := badge_half(c)
 	if at.distance_to(real) > 1.0:
 		draw_line(real, at - (at - real).normalized() * half.x, Color(col, 0.55), 1.0, true)
 		draw_circle(real, 1.5, Color(col, 0.8))
 	if str(c.id) == goal:
 		draw_arc(at, half.x + 5.0 + 8.0 * (1.0 - t), 0.0, TAU, 40, Color(goal_col, 0.3 + 0.6 * t), 2.0, true)
-	GlobeView.draw_cruiser_badge(self, at, col.lightened(0.3) if hot else col, CRUISER_R)
+	if str(c.id).begins_with("station:"):
+		GlobeView.draw_station_badge(self, at, col.lightened(0.3) if hot else col, CRUISER_R)
+	else:
+		GlobeView.draw_cruiser_badge(self, at, col.lightened(0.3) if hot else col, CRUISER_R)
 	if hot:
 		draw_rect(Rect2(at - half, half * 2.0).grow(3.0), Color(ink, 0.9), false, 1.0)
 		if font != null:

@@ -381,6 +381,102 @@ func spawn_point() -> Vector3:
 	return (bay.xf as Transform3D) * Vector3((p.local as Vector2).x - 18.0, 0.2, (p.local as Vector2).y)
 
 
+## The F11 map's side view of the station (StationMapView): each place you can set
+## a waypoint on, { id, tower, rect: Rect2 in (x, y) of the station's frame (seen
+## from the side, +z toward you), at: Vector3 (where the pointer goes, on its
+## floor) }: the landing bay (its deck beside the dock pad), then every floor of
+## every tower (on its walkway where a bridge from the elevator lands).
+func map_places() -> Array:
+	var out: Array = []
+	if not bay.is_empty():
+		var bc: Vector2 = bay.c
+		var br := float(bay.r)
+		out.append({ "id": "bay", "tower": "", "rect": Rect2(bc.x - br, 0.0, br * 2.0, float(bay.height)), "at": spawn_point() })
+	for t in towers:
+		var c: Vector2 = t.c
+		for i in (t.floors as Array).size():
+			var f: Dictionary = t.floors[i]
+			var a := float(bridge_angles(i)[0])
+			var w := c + Vector2(cos(a), sin(a)) * (gap_r + walk * 0.5)
+			out.append({ "id": str(f.id), "tower": str(t.id), "rect": Rect2(c.x - float(f.r), float(f.y) - plate, float(f.r) * 2.0, floor_h + plate * 2.0),
+				"at": Vector3(w.x, float(f.y) + 1.0, w.y) })
+	return out
+
+
+## A map place's point (station frame), or INF. "<floor>.<k>" is room k of that
+## floor (floor_rooms), in its middle.
+func map_place(place_id: String) -> Vector3:
+	if place_id.contains("."):
+		var fid := place_id.get_slice(".", 0)
+		var k := int(place_id.get_slice(".", 1))
+		for t in towers:
+			for i in (t.floors as Array).size():
+				if str(t.floors[i].id) != fid:
+					continue
+				for rm in floor_rooms(t, i):
+					if int(rm.k) == k:
+						var a := float(rm.a)
+						var m := (float(rm.r0) + float(rm.r1)) * 0.5
+						var c: Vector2 = t.c
+						return Vector3(c.x + cos(a) * m, float(t.floors[i].y) + 1.0, c.y + sin(a) * m)
+		return Vector3.INF
+	for p in map_places():
+		if str(p.id) == place_id:
+			return p.at
+	return Vector3.INF
+
+
+## The rooms round floor `i` of tower `t`, with what each one is, as the fill
+## dresses them (StationFill, StationRemnant): [{ k, a, half, r0 (its door),
+## r1 (its window), open, use }]. The Remnant's deck takes its uses from the
+## config's "remnant" rooms, in turn; a floor whose fill block lists "rooms" gives
+## them to its open rooms in turn; an open room with neither is a "suite", a shut
+## one someone's locked "home". [] for an open floor (the markets, the favela).
+func floor_rooms(t: Dictionary, i: int) -> Array:
+	var f: Dictionary = t.floors[i]
+	var list: Array = rooms_of(str(t.id), str(f.id))
+	var out: Array = []
+	if list.is_empty():
+		return out
+	var rc: Dictionary = cfg.get("remnant", {})
+	var remnant := str(rc.get("tower", "")) == str(t.id) and str(rc.get("floor", "")) == str(f.id)
+	var uses: Array = rc.get("rooms", []) if remnant else cfg.get("fill", {}).get("floors", {}).get(str(f.id), {}).get("rooms", [])
+	var r0 := gap_r + walk + 0.4
+	var r1 := float(f.r) - WALL
+	var n := 0
+	for k in list.size():
+		var room: Dictionary = list[k]
+		var open := bool(room.open)
+		var use := "home"
+		if remnant and not uses.is_empty():
+			use = str(uses[k % uses.size()])
+		elif open:
+			use = str(uses[n % uses.size()]) if not uses.is_empty() else "suite"
+			n += 1
+		out.append({ "k": k, "a": float(room.a), "half": float(room.half), "r0": r0, "r1": r1, "open": open, "use": use })
+	return out
+
+
+## Where the tunnels leave floor `i` of tower `t`: [{ a (round its middle), to (the
+## tower or "bay" at the far end) }].
+func floor_exits(t: Dictionary, i: int) -> Array:
+	var out: Array = []
+	var y := float(t.floors[i].y)
+	var c: Vector2 = t.c
+	for tn in tunnels:
+		if absf(float(tn.y) - y) > 1.0:
+			continue
+		var xf: Transform3D = tn.xf
+		var s := Vector2(xf.origin.x, xf.origin.z)
+		var e3 := xf * Vector3(float(tn.length), 0, 0)
+		var e := Vector2(e3.x, e3.z)
+		if str(tn.from) == str(t.id):
+			out.append({ "a": (s - c).angle(), "to": str(tn.to) })
+		elif str(tn.to) == str(t.id):
+			out.append({ "a": (e - c).angle(), "to": str(tn.from) })
+	return out
+
+
 ## The elevator's stops in each tower: { tower, c: Vector2, stops: [y, ...] }.
 func elevators() -> Array:
 	var out: Array = []
