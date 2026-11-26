@@ -336,6 +336,27 @@ func test_a_fallen_wreck_droid_is_back_after_three_minutes() -> void:
 	assert_eq(back.size(), ctl.remnant.filter(func(x): return str(x.spec.get("site", "")) == IDS[2]).size(), "back on its route")
 
 
+func test_wreck_droids_are_zombies_that_cost_no_standing() -> void:
+	var s := _droids()
+	await wait_physics_frames(2)
+	var ctl: DroidController = s[0]
+	var p: FakePlayer = s[1]
+	WorldState.standing["imperial_remnant"] = 50       # friends with the Remnant
+	var before := WorldState.standing.duplicate()
+	var events := WorldState.events.size()
+	var crew: Array = ctl.remnant.filter(func(x): return x.spec.has("site"))
+	assert_true(crew.size() > 0, "the wrecks are manned")
+	for u in crew:
+		assert_true(ctl.is_zombie(u), "a wreck droid is a zombie")
+		assert_true(ctl.remnant_hostile(u), "it shoots you even in good Remnant standing")
+	var u = crew[0]
+	p.global_position = u.global_position + g.up_at(u.global_position) * 30.0
+	ctl.on_unit_hit(u, 9999.0, p)
+	assert_true(u.dead)
+	assert_eq(WorldState.standing, before, "scrapping a zombie moves no one's standing")
+	assert_eq(WorldState.events.size(), events, "and nobody gossips about it")
+
+
 func test_a_fallen_wreck_droid_is_back_once_you_walk_500_feet_away() -> void:
 	var s := _droids()
 	await wait_physics_frames(2)

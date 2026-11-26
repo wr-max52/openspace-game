@@ -475,6 +475,8 @@
         "gun": { "range": 18.0, "interval": 2.4, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } }
     ],
     "respawn_s": 180.0,
+    "zombie": true,
+    "zombie_note": "Zombie droids: nobody deactivated the wreck crews and the sand has fried their circuits. They shoot anyone on sight whatever your standing, and scrapping one moves no faction's standing and starts no gossip. false puts them back under the Remnant (-6 Remnant standing per kill, like a town patrol droid).",
     "hauler": { "variant": "olive", "carries": "wreck_red_saber", "route": "deep_hold", "walk_speed": 1.1, "pause_s": 5.0, "load_lift": 1.05 },
     "note": "Issue #148: what is left of the Remnant aboard the crashed starcruiser (src/systems/world/starcruiser_wreck.gd). routes: patrol points in one of the wreck's frames ('level': x, height v, stern-ward w, unpitched; 'hull': the pitched ship's own parts() frame), turned into world points by StarcruiserWreck.site_point. units walk their route and shoot on sight; they answer to no garrison, so nothing out there sounds the town's alarm. A destroyed one comes back on its route after respawn_s. Wreck cleanup: four assassins hold the bridge platform (its landing pad), floating droids drift on every tier, along the gallery and over the hold floor. hauler: an old cargo droid on the starboard deck with the pickup named by 'carries' (pickups/port_town.json, wreck_red_saber) on its back, like the pit hauler."
   },

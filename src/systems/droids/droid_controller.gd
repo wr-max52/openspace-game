@@ -1797,6 +1797,13 @@ func _tick_remnant_respawns(dt: float) -> void:
 
 ## Wreck field: a wreck's droid is back once you are respawn_away_m (500 ft) from
 ## where it fell, without waiting out its timer.
+## A droid aboard one of the crashed cruisers (droids.json "wreck"/"zombie"):
+## never deactivated, its circuits fried by the sand. Hostile to everyone, and
+## destroying one costs no standing with anyone.
+func is_zombie(u: DroidUnit) -> bool:
+	return bool(u.spec.get("wreck", false)) and bool(cfg.get("wreck", {}).get("zombie", true))
+
+
 func _left_behind(u: DroidUnit) -> bool:
 	if not bool(u.spec.get("wreck", false)) or player == null:
 		return false
@@ -2007,6 +2014,8 @@ func on_unit_hit(u: DroidUnit, amount: float, shooter: Node, sweep := Vector3.ZE
 			u.respawn_left = float(cfg.get("wreck", {}).get("respawn_s", 180.0))
 		if not bool(u.spec.get("respawn", true)):
 			u.respawn_left = -1.0          # issue #193: the cruiser's crew never come back
+		if is_zombie(u):
+			return                         # the wrecks' fried crews belong to nobody now
 		if u.faction == "locals":
 			WorldState.change_standing(u.faction, int(cfg.get("remnant", {}).get("kill_standing", -6)), "A locals' droid was destroyed.")
 		else:
