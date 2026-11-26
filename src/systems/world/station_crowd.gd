@@ -27,6 +27,7 @@ extends Node3D
 ## Pure paths: every point is in the station's frame (StationHull's), y the floor's.
 
 const BodyAnimatorT := preload("res://src/systems/anim/body_animator.gd")
+const CoreContentScript := preload("res://src/systems/dataload/core_content.gd")
 const LAYER_ENEMIES := 1 << 3
 const CYCLE := 24
 const UP := Vector3.UP
@@ -708,11 +709,21 @@ func _provoke() -> void:
 		_rouse(_rousing.pop_front())
 
 
+## The fighter profile in the puppet's look and its pieces (issue #701: the kit
+## deals pieces round, so an unnamed outfit came out in other colours).
+func fighter_soldier(p: Dictionary) -> Dictionary:
+	var soldier: Dictionary = CoreContentScript.shared().get_soldier(str(cfg.get("fighter", "local_resident"))).duplicate(true)
+	if soldier.is_empty():
+		return soldier
+	soldier["archetype"] = p.look
+	soldier["outfit"] = (p.body as Node).get_meta("outfit", {})
+	return soldier
+
+
 func _rouse(p: Dictionary) -> void:
-	var soldier: Dictionary = demo._content().get_soldier(str(cfg.get("fighter", "local_resident"))).duplicate(true)
+	var soldier := fighter_soldier(p)
 	if soldier.is_empty():
 		return
-	soldier["archetype"] = p.look
 	var here: Vector3 = station.frame * (p.pos as Vector3)
 	var f: Vector3 = station.frame.basis * (Basis(UP, float(p.yaw)) * Vector3.BACK)
 	var g: NpcBody = demo.make_npc(soldier, here + Vector3(0, 0.05, 0), atan2(-f.x, -f.z), "",

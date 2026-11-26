@@ -85,11 +85,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    onto a rock. A speeder's touch is a centre-distance check, so a glancing pass
    at the nose or tail may miss. *(#220, #266, 2026-10-30 and 2026-11-01; fix:
    #700)*
-5. **No navmesh aboard the station:** troopers, guards and fighters walk straight
-   and snag on the barricade, bunks and stalls. The crowd's puppets follow paths,
-   not physics: an aisle's arc can graze a stall, and they pass through you and
-   each other. A puppet's outfit can change when its real body swaps in.
-   *(the station's crowd and Remnant deck, 2026-11-04; fix: #701)*
 6. **Pulled back with no warning:** walk off a floor's roof (no railing) and you
    are put back in the bay; outside on the giant, the same once you drop 40 m
    under the lowest floor. *(the station, 2026-11-03 and 2026-11-04; fix: #702)*

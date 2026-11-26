@@ -1000,7 +1000,10 @@ func _pack_ring(t: Dictionary, y: float, ring: Dictionary, lanes: Array, ri: int
 		var xf := radial(t, y, mid) * Transform3D(Basis.IDENTITY, Vector3(r, 0, 0))
 		if not out:
 			xf = xf * Transform3D(Basis(UP, PI), Vector3.ZERO)       # +X, its door, back toward the middle
-		_stop(net, mid, r, d, out)
+		# Issue #701: the aisle in front of the ring's deepest piece, one line for
+		# the whole ring; in front of each its own depth, the crowd walking it
+		# brushed the corner of every deeper neighbour.
+		_stop(net, mid, r, snappedf(float(depth[1]), 0.25), out)
 		if roll < booth:
 			if _fv.is_empty():
 				_q.append(_booth.bind(xf, d, w, seed))
