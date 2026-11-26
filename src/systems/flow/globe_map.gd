@@ -603,6 +603,7 @@ static func vehicles(demo) -> Array:
 	var pilot = demo.get("pilot")
 	var f = demo.get("interceptor")
 	var fighter: AtmoFighter = f if f is AtmoFighter and is_instance_valid(f) and f.atmo != null else null
+	var seen := {}
 	if pilot != null and is_instance_valid(pilot):
 		for i in pilot.berths.size():
 			var b: Dictionary = pilot.berths[i]
@@ -615,7 +616,12 @@ static func vehicles(demo) -> Array:
 			if key != "":
 				out.append({ "id": "ship_" + key, "kind": "ship_yours", "label": line("your_vehicle") % label, "pos": (b.visual as Node3D).global_position })
 			elif b.has("outpost") and not bool(b.get("stolen", false)) and not bool(b.get("borrowed", false)):
-				out.append({ "id": "outship_" + str(b.outpost), "kind": "ship_enemy", "label": label, "pos": (b.visual as Node3D).global_position })
+				# a place with more than one (the cruiser's bay): the second is "<place>_2"
+				var id := "outship_" + str(b.outpost)
+				seen[id] = int(seen.get(id, 0)) + 1
+				if int(seen[id]) > 1:
+					id += "_%d" % int(seen[id])
+				out.append({ "id": id, "kind": "ship_enemy", "label": label, "pos": (b.visual as Node3D).global_position })
 	if fighter != null and fighter.mode != AtmoFighter.Mode.DOWN and not (fighter.berth >= 0 and bool(pilot.berths[fighter.berth].get("destroyed", false))):
 		out.append({ "id": "fighter", "kind": "ship_enemy", "label": str(fighter.cfg.get("label", "")), "pos": fighter.position() })
 	var mine: Array = []
