@@ -86,7 +86,7 @@ func build(look_id: String) -> Node3D:
 			var parts := Node3D.new()     # always on, unlike the upgrades (dress)
 			parts.name = "Parts"
 			root.add_child(parts)
-			_bolt_on(parts, p.parts)
+			_bolt_on(parts, p.parts, p)
 		throttle_flames(root, 0.0)
 		root.set_meta("source", "scene")
 		_scale_look(root, p)
@@ -155,50 +155,174 @@ func repaint(root: Node3D, look_id: String) -> void:
 ## the look's "upgrades" is a list of parts bolted onto the model, so they stack.
 ## Re-dressing replaces the last set; a ship whose look has none stays as built.
 ## A part: { mesh: "box" (size) | "cyl" (top, bottom, h, open) | "torus" (r, t) |
-## "sphere" (r), pos, rot (degrees), mat: "glow" (energy) | "metal" | "plate",
-## color, mirror (a copy at -x) }.
+## "sphere" (r), pos, rot (degrees), mat, color, mirror (a copy at -x) }.
+## mat: "skin" (clean ship plate: panel seams, rivet rows and a faint mottle,
+## triplanar so it reads at any size; plate_material), "glow" (energy), "metal"
+## or "plate" (flat).
+## color: a hex, or one of the look's own colours ("hull", "trim", "dark") so a
+## part wears the ship's paint; "shade" darkens it a little (0..1).
+## Upgrades are meant to read on a second look, not shout: skin-coloured armour,
+## slim emitters and a nozzle collar, the glows dim. The parts end as one mesh per
+## material (docs/RENDER_RULES.md 1), each a "hull_pool" for ShipHull, so the two
+## wingtips' pieces are never wrapped in one convex hull across the ship.
 func dress(ship: Node3D, fits: Array) -> void:
 	var old := ship.get_node_or_null("Upgrades")
 	if old != null:
 		ship.remove_child(old)
 		old.free()
-	var ups: Dictionary = looks.get(str(ship.get_meta("look_id", "")), {}).get("upgrades", {})
+	var look: Dictionary = looks.get(str(ship.get_meta("look_id", "")), {})
+	var ups: Dictionary = look.get("upgrades", {})
 	var parts: Array = []
+	var on: Array = []
 	for id in ups:
 		if fits.has(id):
 			parts.append_array(ups[id])
+			on.append(id)
+	ship.set_meta("dressed", on)
 	if parts.is_empty():
 		return
 	var root := Node3D.new()
 	root.name = "Upgrades"
 	root.scale = Vector3.ONE * float(ship.get_meta("look_scale", 1.0))
 	ship.add_child(root)
-	_bolt_on(root, parts)
+	_bolt_on(root, parts, look, true)
 
 
-## Builds each part (see dress) under `root`.
-func _bolt_on(root: Node3D, parts: Array) -> void:
+## What a built ship shows: its look and the upgrades dress() bolted on, as one
+## string (ShipPilot.refit rebuilds the hull when this changes).
+static func shown(ship: Node3D) -> String:
+	return "%s|%s" % [ship.get_meta("look_id", ""), ship.get_meta("dressed", [])]
+
+
+## Builds each part (see dress) under `root`: a node each, or with `batch` one
+## mesh per material.
+func _bolt_on(root: Node3D, parts: Array, look: Dictionary = {}, batch: bool = false) -> void:
+	var batches := {}                    # material -> PrimBatch
 	for part: Dictionary in parts:
 		var mesh := _part_mesh(part)
-		var col := Color(str(part.get("color", "#8a9099")))
-		var mat: Material
-		match str(part.get("mat", "metal")):
-			"glow":
-				mat = _glow(col, float(part.get("energy", 4.0)))
-			"plate":
-				mat = _plate(col)
-			_:
-				mat = mats.flat(col, 0.45, 0.55)
-		if bool(part.get("open", false)):
-			mat = (mat as BaseMaterial3D).duplicate()
-			(mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+		var mat := _part_mat(part, look)
 		var pos := _v(part.get("pos", [0, 0, 0]))
 		var rot := _v(part.get("rot", [0, 0, 0])) * (PI / 180.0)
-		var mi := _mi(root, mesh, mat, pos, rot)
-		if str(part.get("mat", "")) == "glow":
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var xfs: Array = [Transform3D(Basis.from_euler(rot), pos)]
 		if bool(part.get("mirror", false)):
-			_mi(root, mesh, mat, Vector3(-pos.x, pos.y, pos.z), Vector3(rot.x, -rot.y, -rot.z)).cast_shadow = mi.cast_shadow
+			xfs.append(Transform3D(Basis.from_euler(Vector3(rot.x, -rot.y, -rot.z)), Vector3(-pos.x, pos.y, pos.z)))
+		for xf: Transform3D in xfs:
+			if batch:
+				if not batches.has(mat):
+					batches[mat] = PrimBatch.new()
+				(batches[mat] as PrimBatch).add(mesh, xf)
+				continue
+			var mi := _mi(root, mesh, mat, xf.origin, xf.basis.get_euler())
+			if str(part.get("mat", "")) == "glow":
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for mat: Material in batches:
+		var mi := MeshInstance3D.new()
+		mi.mesh = (batches[mat] as PrimBatch).commit()
+		mi.material_override = mat
+		mi.set_meta("hull_pool", true)
+		if (mat as BaseMaterial3D).shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
+
+
+## A part's material (see dress), shared by every part and ship that asks for the
+## same one.
+func _part_mat(part: Dictionary, look: Dictionary) -> Material:
+	var c := str(part.get("color", "#8a9099"))
+	var col := Color(str(look.get(c, "#8a9099"))) if look.has(c) and not c.begins_with("#") else Color(c)
+	col = col.darkened(float(part.get("shade", 0.0)))
+	var mat: BaseMaterial3D
+	match str(part.get("mat", "metal")):
+		"glow":
+			mat = _glow_cached(col, float(part.get("energy", 4.0)))
+		"skin":
+			mat = plate_material(col)
+		"plate":
+			mat = _plate(col)
+		_:
+			mat = mats.flat(col, 0.45, 0.55)
+	if bool(part.get("open", false)):
+		var key := "open_%d" % mat.get_instance_id()
+		if not _open_mats.has(key):
+			var two := mat.duplicate() as BaseMaterial3D
+			two.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_open_mats[key] = two
+		mat = _open_mats[key]
+	return mat
+
+
+static var _open_mats := {}
+static var _glows := {}
+static var _plates := {}
+static var _plate_tex: Array = []      ## [albedo, normal], drawn once a run
+
+
+## Ship plate in `color`, for bolted-on parts: the same clean, lightly worn metal as
+## the Hyper3D hulls (not the market's chipped paint), panels about 0.3 m. One
+## material per colour.
+static func plate_material(color: Color) -> StandardMaterial3D:
+	var key := color.to_html()
+	if _plates.has(key):
+		return _plates[key]
+	if _plate_tex.is_empty():
+		_plate_tex = _draw_plate()
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.albedo_texture = _plate_tex[0]
+	m.normal_enabled = true
+	m.normal_texture = _plate_tex[1]
+	m.normal_scale = 0.6
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = false
+	m.uv1_scale = Vector3.ONE * 1.6
+	m.roughness = 0.42
+	m.metallic = 0.45
+	_plates[key] = m
+	return m
+
+
+## A 128 px tile of plating, grey round white (the material's colour tints it):
+## four panels, two of them split again, a recessed seam with a lit lip, a rivet
+## row beside each seam, and a faint mottle so a plate is never one flat colour.
+static func _draw_plate() -> Array:
+	const N := 128
+	var mottle := StallTextures._noise_img(71, 0.025, 3)
+	var fine := StallTextures._noise_img(72, 0.35, 1)
+	var img := Image.create(N, N, false, Image.FORMAT_RGB8)
+	var hgt := Image.create(N, N, false, Image.FORMAT_RGB8)
+	for y in N:
+		for x in N:
+			var v := 0.84 + (mottle.get_pixel(x, y).r - 0.5) * 0.1 + (fine.get_pixel(x, y).r - 0.5) * 0.04
+			var h := 0.6
+			# distance to the nearest seam: the 64 px grid, plus a split in two panels
+			var dx := mini(x % 64, 64 - x % 64)
+			var dy := mini(y % 64, 64 - y % 64)
+			if x < 64 and y < 64:
+				dy = mini(dy, absi(y - 40))
+			if x >= 64 and y >= 64:
+				dx = mini(dx, absi(x - 100))
+			var d := mini(dx, dy)
+			if d == 0:
+				v *= 0.5
+				h = 0.0
+			elif d == 1:
+				v *= 1.06
+				h = 0.45
+			elif d == 4 and ((x if dy == 4 else y) % 8 == 4):
+				v *= 0.9
+				h = 0.95
+			v = clampf(v, 0.0, 1.0)
+			img.set_pixel(x, y, Color(v, v, v))
+			hgt.set_pixel(x, y, Color(h, h, h))
+	return [StallTextures._tex_from(img), StallTextures._normal_from(hgt, 1.6)]
+
+
+## A glow for the upgrades, one per colour and energy (render rule 2).
+func _glow_cached(color: Color, energy: float) -> StandardMaterial3D:
+	var key := "%s_%s" % [color.to_html(), energy]
+	if not _glows.has(key):
+		_glows[key] = _glow(color, energy)
+	return _glows[key]
 
 
 func _part_mesh(part: Dictionary) -> Mesh:

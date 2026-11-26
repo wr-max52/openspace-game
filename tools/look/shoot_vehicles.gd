@@ -15,7 +15,8 @@ extends SceneTree
 ##                         "fits" lists the ShipUpgrades ids to show on it,
 ##                         "throttle" 0..1 lights its engine flames),
 ##              speeder:   a vehicle id in content/core/vehicles (built by SpeederNode;
-##                         "paint" picks one of its look.paints),
+##                         "paint" picks one of its look.paints, "parts" lists the
+##                         SpeederUpgrades part ids to show on it),
 ##              model:     a .glb path (loaded as-is),
 ##              item:      a look id in content/look/items.json (built by ItemKit),
 ##              droid:     a droid kind (with "variant"), built by DroidKit as in game (issue #25) } ]
@@ -101,8 +102,10 @@ func _build(cell: Dictionary) -> Node3D:
 		# Just its look: the node itself wants a town to ride in.
 		var s := SpeederNode.new()
 		s.cfg = HoverModel.load_config(str(cell.speeder))
+		s.cfg = SpeederUpgrades.apply(s.cfg, { "parts": cell.get("parts", []) })
 		s.paint = str(cell.get("paint", ""))
 		s._build_visual()
+		s._build_parts()
 		v = s.visual
 		s.remove_child(v)
 		s.free()
