@@ -9,6 +9,7 @@
   "naming": { "kind": "equipment", "class": "tool" },
   "weld": {
     "weld_s": 2.0,
+    "raise_s": 0.25,
     "reach": 3.0,
     "unwelded_hull": 0.5,
     "ship_flasks": 10,

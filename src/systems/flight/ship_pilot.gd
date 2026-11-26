@@ -115,6 +115,7 @@ var ship_id := ""
 var ship_cfg: Dictionary = {}
 var pad: Dictionary = {}         ## the resolved home pad
 var berths: Array = []           ## issue #43: { ship_id, cfg, visual, hull, home, home_yaw, clearance } per parked ship
+var held_wreck := -1             ## issue #722: the berth T-89 is still welding (paid for, still looks wrecked, will not fly yet)
 var berth := 0                   ## the berth you fly (or last flew)
 var home := Vector3.ZERO
 var home_yaw := 0.0
@@ -390,6 +391,8 @@ func refresh_wreck_look() -> void:
 			WreckLook.apply(v)
 			if not (v as Node3D).has_node("WeldSpot"):
 				_add_weld_spot(v)
+		elif i == held_wreck:
+			WreckLook.apply(v)               # paid for: T-89 is on his way with his welder
 		else:
 			WreckLook.remove(v)
 
@@ -442,7 +445,7 @@ func weld_berth(i: int) -> bool:
 
 ## May the player board berth `i`? (berth_open: the rule.)
 func berth_flies(i: int) -> bool:
-	return berth_open(berths[i], i)
+	return i != held_wreck and berth_open(berths[i], i)
 
 
 ## Issue #64: the port's ships fly once Oda tells you about the fleet. Issue #206:
@@ -461,6 +464,8 @@ static func berth_open(b: Dictionary, i: int) -> bool:
 
 ## Why berth `i` will not fly, as a Story line key.
 func locked_line(i: int) -> String:
+	if i == held_wreck:
+		return "ship_being_welded"          # issue #722: T-89 is still at her with his welder
 	if WorldState.has_flag(Fleet.WRECKED) and berth_key(i) != "" and berth_key(i) == Fleet.primary():
 		return "ship_shot_down"
 	if not WorldState.story_mode() or berths[i].has("outpost"):

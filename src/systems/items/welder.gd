@@ -36,6 +36,11 @@ static func weld_s() -> float:
 	return float(cfg().get("weld_s", 2.0))
 
 
+## Seconds to bring the welder up from hanging low to held out in front (and back).
+static func raise_s() -> float:
+	return maxf(0.01, float(cfg().get("raise_s", 0.25)))
+
+
 static func reach() -> float:
 	return float(cfg().get("reach", 3.0))
 

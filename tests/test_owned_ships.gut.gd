@@ -103,6 +103,9 @@ func test_a_primary_shot_to_pieces_is_back_for_t89s_fee() -> void:
 	assert_eq(WorldState.credits, 1000, "no fee taken on waking")
 	assert_eq(t.salesman.repair(), Fleet.repair_fee("courier"), "T-89's fee, from his menu")
 	assert_eq(WorldState.credits, 1000 - Fleet.repair_fee("courier"), "T-89's fee paid")
+	assert_true(t.salesman.working(), "he walks over to weld her (issue #722)")
+	assert_false(pilot.berth_flies(0), "not till he has welded her")
+	t.salesman.finish_weld_job()
 	assert_true(pilot.berth_flies(0))
 	pilot._wreck_berth(0, true)
 	WorldState.credits = 0

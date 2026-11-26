@@ -77,6 +77,7 @@ var _release_aim: Array = []        ## [origin, velocity] as the key was let go
 
 var blade_extent := 0.0
 var welding := false                ## issue #722: PlayerWelder is welding with it (sparks whatever the trigger)
+var _weld_raise := 0.0              ## issue #722: 0 the welder hangs low, 1 held out in front
 var aiming := false
 var shots := 0
 var deflections := 0
@@ -527,8 +528,12 @@ func _physics_process(dt: float) -> void:
 	avatar.current = cur
 	avatar.drawn = holder.drawn()
 	avatar.reload = (guns[cur] as Weapon).reload_progress() if guns.has(cur) else -1.0
-	# Issue #722: the welder sparks while fire is held, or while PlayerWelder welds.
-	avatar.set_welder_fx(cur == Welder.ITEM and holder.is_ready() and (welding or (enabled and _fire_held and not sprinting)))
+	# Issue #722: the welder hangs low; fire held (or PlayerWelder welding) brings it
+	# up and out in front over Welder.raise_s, and it sparks once it is up.
+	var weld_on := cur == Welder.ITEM and holder.is_ready() and (welding or (enabled and _fire_held and not sprinting))
+	_weld_raise = move_toward(_weld_raise, 1.0 if weld_on else 0.0, dt / Welder.raise_s())
+	avatar.weld_raise = _weld_raise
+	avatar.set_welder_fx(weld_on and _weld_raise > 0.75)
 	_update_hud(dt)
 
 

@@ -257,6 +257,7 @@
   "free_roam_ship_note": "The ship a free roam game starts with, on the pit pad and yours (Fleet.FREE): Call (the inventory's ships ledger) brings it to you, T-89 fits it, and it flies home when you eject. Sold or lost for good, it is gone (WorldState.FREE_SHIP_GONE).",
   "ship_wreck": "Your ship. A wreck: T-89 in the pit can rebuild it, or you can weld it.",
   "ship_shot_down": "Your ship, shot to pieces. T-89 can patch her up, or you can weld her.",
+  "ship_being_welded": "T-89 is still welding her. Give him a moment.",
   "weld_ship": "your %s",
   "weld_ship_flasks": "needs %d flasks of refined quantonium (you have %d)",
   "ship_not_yours": "Not yours. No keys, no flight.",

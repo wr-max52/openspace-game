@@ -14,8 +14,9 @@
       "rot_deg": [0, 180, 0],
       "scale": 1.1,
       "muzzle": [0.067, 0.385, 0.193],
-      "bone_local": { "pos": [0.1448, -0.0535, -0.1742], "rot_deg": [-26.0, 103.7, -168.0], "scale": 1.1 },
-      "note": "Issue #722: he always has a plasma welder in his right hand, in the assassin frame's pistol slot (droids.json kinds.assassin.look.carry): the same bone frame, moved so the torch's grip sits where the pistol's does."
+      "bone_local": { "pos": [0.0801, 0.2252, -0.0916], "rot_deg": [-54.1, -59.6, -18.1], "scale": 1.1 },
+      "bone_local_raised": { "pos": [-0.0377, 0.2081, -0.1481], "rot_deg": [-27.0, -79.6, 18.4], "scale": 1.1 },
+      "note": "Issue #722: he always has a plasma welder in his right hand (the assassin frame's pistol slot, the RightHand bone). bone_local: held down in his relaxed hand, the handle pointing ahead and the nozzle at the floor. bone_local_raised: his arm out in front (DroidArmRaise) to weld your ship, the handle up and forward, the nozzle ahead and down at the hull. Both solved so the grip stays in his palm."
     },
     "kind": "assassin",
     "body": "#b8a37a",
@@ -23,6 +24,11 @@
     "eye": "#7affd8"
   },
   "rebuild": { "price": 500, "comrade_price": 1 },
+  "weld_job_s": 4.0,
+  "weld_walk_speed": 2.2,
+  "weld_stand_m": 1.3,
+  "weld_height_m": 1.9,
+  "weld_job_note": "Issue #722: paid to rebuild or patch up your ship, he walks over at weld_walk_speed m/s (his walk clip, sped up to match), stands weld_stand_m out from her nearest side, raises his arm and welds her for weld_job_s (sparks off his torch and the hull at weld_height_m), then walks back to his marker. She looks wrecked and will not fly until he is done.",
   "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key 7. Hold E with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
   "welder_gift_note": "Issue #722: what he says as he hands you the plasma welder, the first time you talk to him in a story save (or the next time, in a save from before the welder; the flag t89_welder_given). %d is the flasks a ship weld takes (the welder item's ship_flasks). Only he gives one: T-99 has no welder_gift.",
   "upgrades": {
@@ -81,9 +87,10 @@
     "remnant_question": "So tell me, pilot. What do you make of the Remnant?",
     "sided_remnant": "I see. Then we have nothing more to talk about, pilot. Buy a ship or leave me be.",
     "comrade_again": "We understand each other, comrade. The rebuild is still %d credit.",
-    "rebuilt": "Good as new! Your %s is on the pit pad, and she is all yours.",
+    "rebuilt": "A deal! I will weld your %s back together myself. Give me a moment, pilot.",
     "welded": "You welded her yourself? Not bad, pilot. Your %s is on the pit pad, and she is all yours.",
-    "patched": "Patched up! Your %s is ready on the pit pad. %d credits, thank you.",
+    "patched": "I will patch up your %s now. %d credits, thank you. Give me a moment.",
+    "weld_done": "There! Good as new, and she is all yours. Fly safe, pilot.",
     "repair_quote_shot": "Your %s came back in pieces, pilot. I can patch her up for %d credits.",
     "cant_afford_rebuild": "The rebuild is %d credits. You have %d. Oda at the cantina has work.",
     "fitted": "%s, fitted to your %s. Fly her gently for the first hour. Or do not!",

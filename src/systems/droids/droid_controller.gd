@@ -782,6 +782,8 @@ func _lay_down(u: DroidUnit) -> void:
 	match u.kind:
 		"assassin":
 			# A rigged assassin plays its fall and stays down; the old look tips over.
+			u.arm_up = 0.0
+			DroidKit.raise_arm(u.look, 0.0)             # issue #722: it drops its aim as it falls
 			if DroidKit.play_anim(u.look, "die"):
 				if u.broken:
 					DroidKit.finish_anim(u.look)
@@ -821,6 +823,8 @@ func _bat(u: DroidUnit, sweep: Vector3) -> void:
 		u.hum.stop()
 	u.falling = true
 	if u.kind == "assassin":
+		u.arm_up = 0.0
+		DroidKit.raise_arm(u.look, 0.0)
 		DroidKit.play_anim(u.look, "die")
 	var rc := Ragdoll.load_config()
 	var up := _up(u.global_position)
@@ -2385,6 +2389,8 @@ class DroidUnit extends StaticBody3D:
 			return m.global_position
 		return center() + (-global_basis.z) * 0.35
 
+	var arm_up := 0.0                  ## issue #722: 0 the gun arm as the clip has it, 1 raised out to aim
+
 	## Bob (floating), roll the wheels (cargo), walk or run (assassin: its rigged
 	## clips, timed to `speed` in m/s; without a rig, a sway).
 	## `fighting`: standing still in a fight, it holds its ready stance (the idle's
@@ -2414,6 +2420,11 @@ class DroidUnit extends StaticBody3D:
 					played = DroidKit.play_anim(look, "walk", clampf(maxf(speed, 1.0) / float(a.get("walk_speed", 1.6)), 0.6, 1.8))
 				if not played:
 					model.rotation.x = sin(_t * 7.0) * 0.03 if moving else 0.0
+				# Issue #722: standing to fight, the gun arm comes up and out to aim.
+				var aim_to := 1.0 if (played and fighting and not moving and not dead and not broken) else 0.0
+				if aim_to != arm_up:
+					arm_up = move_toward(arm_up, aim_to, dt / 0.25)
+					DroidKit.raise_arm(look, arm_up)
 
 	func apply_damage_from(amount: float, shooter: Node) -> void:
 		if ctl != null:

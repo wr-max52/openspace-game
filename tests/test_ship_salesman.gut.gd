@@ -187,7 +187,9 @@ func test_nothing_hurts_him() -> void:
 		assert_false(n.has_method("apply_damage") or n.has_method("apply_damage_from"),
 			"%s takes no damage" % n.name)
 		n = n.get_parent()
-	assert_null(s.body.find_child("Muzzle", true, false), "and he carries no gun")
+	var held := s.body.find_child("Carry", true, false)
+	assert_true(held == null or str(held.scene_file_path).ends_with("plasma_welder.glb"),
+		"and he carries no gun: only his plasma welder (issue #722)")
 	var to_spawn := Vector2(t.town.spawn_pos().x - s.pos.x, t.town.spawn_pos().z - s.pos.z).length()
 	assert_lt(to_spawn, 12.0, "he stands near where you start")
 

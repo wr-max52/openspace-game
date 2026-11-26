@@ -44,6 +44,7 @@ var blade_hilt := ""  ## the sword's hilt model when not the default ("" = defau
 var current := ""                  ## weapon in hand (or being drawn/holstered)
 var drawn := 0.0                   ## 0 = holstered, 1 = ready
 var sword_pose: Dictionary = {}    ## from SwordCombo.pose() while the sword is out
+var weld_raise := 0.0                ## issue #722: 0 the welder hangs low ("rest"), 1 held out in front ("guard"), set by PlayerWeapons
 var sword_trail_on := false        ## the swing is cutting: the blade leaves a SwordTrail
 var blade_pull := Vector3.ZERO     ## issue #631: chest space, how far the drawn sword was pulled in to the fist
 var hands_on: Dictionary = { "r": false, "l": false }   ## issue #324: which hands hold the weapon this frame (third person)
@@ -1192,11 +1193,25 @@ func sword_held(id: String = current) -> bool:
 
 
 ## The guard pose a sword-held weapon rests in: SwordCombo.GUARD, or its look's own
-## "guard" { pos, dir } (issue #722: the welder sits closer to the chest).
+## "guard" { pos, dir }. Issue #722: a look with a "rest" pose too (the welder) hangs
+## low in it and comes up to its guard, held out in front, as weld_raise goes to 1
+## (first person keeps the guard, a little lower at rest, so it stays in view).
 func _guard_of(id: String) -> Dictionary:
-	var g: Dictionary = (look.get(id, {}) as Dictionary).get("guard", {})
+	var spec: Dictionary = look.get(id, {})
+	var g: Dictionary = spec.get("guard", {})
 	if g.is_empty():
 		return SwordCombo.GUARD
+	var work := _pose_of(g)
+	if not spec.has("rest"):
+		return work
+	var f := weld_raise * weld_raise * (3.0 - 2.0 * weld_raise)
+	if first_person:
+		work.pos += Vector3(0.0, -0.08, -0.04) * (1.0 - f)
+		return work
+	return SwordCombo.mix(_pose_of(spec.rest), work, f)
+
+
+func _pose_of(g: Dictionary) -> Dictionary:
 	return { "pos": _v3(g.get("pos", [-0.1, -0.1, 0.32])), "dir": _v3(g.get("dir", [0.22, 0.86, 0.46])), "twist": 0.0 }
 
 
