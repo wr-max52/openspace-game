@@ -173,8 +173,8 @@
           ]
         }
       },
-      "say": "go and look at the crashed cruiser on the horizon. Get nostalgic: how beautiful the Hegemony is, how magnificent the cruiser is even in the sand, how you sometimes walk around in it to remember being a private.",
-      "line": "That cruiser on the horizon, wrecked in the sand. Go and look at her. Even broken, she is magnificent. I walk her decks sometimes, to remember."
+      "say": "go and look at the crashed cruiser on the horizon. Get nostalgic: how beautiful the Hegemony is, how magnificent the cruiser is even in the sand. Then warn them, in these words: be careful of the droids out there, they were never deactivated and the sand may have fried those circuits.",
+      "line": "That cruiser on the horizon, wrecked in the sand. Go and look at her. Even broken, she is magnificent. Be careful of the droids out there, they were never deactivated and the sand may have fried those circuits."
     }
   ]
 }
