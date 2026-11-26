@@ -1040,18 +1040,38 @@ func _build_ramp_collider() -> void:
 			mi.name = "Ramp"
 			var st := SurfaceTool.new()
 			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			st.set_smooth_group(-1)      # flat faces: hard rock edges, and the rock's
+			                             # wall/top projection does not smear up the sides
 			# Sloped top, two sides, the high end (the low end is flush with the sand).
+			# The rock shader culls back faces, so each triangle is wound to face out
+			# (Godot's clockwise front, against the wedge's own middle: the box's
+			# middle sits on the slope); the corners, and so the shape, are unchanged.
+			var mid := Vector3.ZERO
+			for p in pts:
+				mid += p / 6.0
 			var tris := [[0, 4, 1], [1, 4, 5], [0, 2, 4], [1, 5, 3], [2, 3, 4], [3, 5, 4]]
 			for t in tris:
+				var a: Vector3 = pts[t[0]]
+				var bb: Vector3 = pts[t[1]]
+				var c: Vector3 = pts[t[2]]
+				if (a - c).cross(a - bb).dot((a + bb + c) / 3.0 - mid) < 0.0:
+					t = [t[0], t[2], t[1]]
 				for k in t:
 					st.add_vertex(pts[k])
 			st.generate_normals()
 			mi.mesh = st.commit()
-			var sand := StandardMaterial3D.new()
-			sand.albedo_color = Color("#c9955a")
-			sand.roughness = 1.0
-			sand.cull_mode = BaseMaterial3D.CULL_DISABLED
-			mi.material_override = sand
+			# A boulder, not a sand pile: the desert boulders' own rock (strata, pitted
+			# grain, dust on the slope), set to the ball's "up" as the landforms are.
+			var rock: ShaderMaterial = demo._flat_mats().rock(0.0, 1.2).duplicate()
+			var sp := ground.sphere()
+			if sp != null:
+				rock.set_shader_parameter("planet_center", sp.center)
+				rock.set_shader_parameter("planet_radius", sp.radius)
+				rock.set_shader_parameter("dusk_strength", 0.35)
+			mi.material_override = rock
+			# Both sides in the shadow pass, as the old double-sided sand cast (the
+			# wedge has no bottom face, so front faces alone could leak light).
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 			add_child(mi)
 			mi.global_transform = body.global_transform
 
