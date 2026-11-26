@@ -1561,7 +1561,7 @@ func _register_detail() -> void:
 		return
 	detail.add_group("people", [get_node_or_null("Markers"), get_node_or_null("Npcs"), cantina_owner, garrison, townsfolk,
 		speeder_post.skrugs if speeder_post != null else null, mechanic.mechanic if mechanic != null else null, natives,
-		droid_merchant_outposts])
+		droid_merchant_outposts] + race_stalls().map(func(st): return st.mechanic))
 	if decor != null:
 		var small_props := [decor.get_node_or_null("Lamps"), decor.get_node_or_null("Banners")]
 		detail.add_group("props", small_props)
@@ -1585,7 +1585,16 @@ func _register_draw_distance() -> void:
 	draw_distance.watch("interior", by_name.call(["CantinaDressing"]) + [club_look])
 	draw_distance.watch("orbit", [cruiser])
 	draw_distance.watch("outdoor", by_name.call(["Markers", "Npcs", "TownDecor", "Gear", "Droids", "TrainingRange"])
-		+ [natives, outposts, droid_merchant_outposts, mechanic, speeder_post, salesman, beast])
+		+ [natives, outposts, droid_merchant_outposts, mechanic, speeder_post, salesman, beast] + race_stalls())
+
+
+## The speeder mechanics' stalls at the race crews' hangouts (Torrin's, Jorrin's).
+func race_stalls() -> Array:
+	var out: Array = []
+	for rc in race_crews:
+		if is_instance_valid(rc) and rc.stall != null and is_instance_valid(rc.stall):
+			out.append(rc.stall)
+	return out
 
 
 func npc(post_id: String) -> NpcBody:

@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Speeder stalls at the race hangouts, and Dorrin faces his counter (2026-11-25)
+
+- **Dorrin's cousins run a stall at each race hangout.** Torrin Vask by the
+  basin crew at the droid post south of the port, Jorrin Vask by the salt crew
+  outside the salt-pan village. Same shop as Dorrin's: paint, looks,
+  performance, race gear, the Grav Lifter, scrap, and every speeder model
+  for sale (it waits outside the town's back gate). Park on the lift pad beside
+  the stall and press E by the counter.
+- **Dorrin stands behind his counter and faces you.** He used to stand on
+  your side of it, turned side-on, and lean off at an angle when you walked
+  up. Now he faces where you stand and turns to you squarely.
+
 ## New version is 1.7, rebuilt (2026-11-25)
 
 - **OpenSpace V1.7 is rebuilt** with everything merged since the first V1.7

@@ -23,6 +23,42 @@ var cower_left := 0.0                 ## issue #605: seconds he stays down behin
 var _noise_id := -1
 var _talk_energy := 0.0
 var _t := 0.0
+## A shopkeeper planted at a counter (plant()): he faces `rest_yaw` in his
+## ground frame and turns his whole body to `turn_to` while it is within turn_m.
+## The turn stays in that frame, so on the ball he never leans.
+var turn_to: Node3D
+var turn_m := 12.0
+var rest_yaw := 0.0
+var face_yaw := 0.0
+var _frame := Basis()
+var _planted := false
+
+
+## Stand him at `at`, upright in `frame` (the place's basis: its up is the
+## ground's), facing `yaw` there (0 = the frame's +Z) when nobody is near.
+func plant(frame: Basis, at: Vector3, yaw: float, target: Node3D = null) -> void:
+	_frame = frame.orthonormalized()
+	rest_yaw = yaw
+	face_yaw = yaw
+	turn_to = target
+	_planted = true
+	global_transform = Transform3D(_frame * Basis(Vector3.UP, face_yaw), at)
+
+
+## The yaw (in his frame) from him to `p`, `p` seen from where he stands.
+func yaw_to(p: Vector3) -> float:
+	var local := _frame.inverse() * (p - global_position)
+	return atan2(local.x, local.z)
+
+
+func _turn(dt: float) -> void:
+	var want := rest_yaw
+	if turn_to != null and is_instance_valid(turn_to):
+		var to := turn_to.global_position - global_position
+		if to.length() < turn_m:
+			want = yaw_to(turn_to.global_position)
+	face_yaw = lerp_angle(face_yaw, want, minf(1.0, dt * 4.0))
+	global_basis = _frame * Basis(Vector3.UP, face_yaw)
 
 
 func _init(character_kit: CharacterKit = null, archetype: String = "local", outfit: Dictionary = {}) -> void:
@@ -83,6 +119,8 @@ func _hear(dt: float) -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	_hear(dt)
+	if _planted and is_inside_tree():
+		_turn(dt)
 	if _act_left > 0.0:
 		_act_left -= dt
 		if _act_left <= 0.0 and mood_act != "thinking":

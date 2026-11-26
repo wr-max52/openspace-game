@@ -1,9 +1,9 @@
 {
-  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #627: a part with a 'model' fits only that vehicle (content/core/vehicles/<model>.json; none = the Sand-boxer), and a vehicle's 'shop_groups' limit the menu (the racer and the box truck: paint only); a vehicle's 'scrap_base' replaces 'base'. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale. Issue #616: race gear (group \"race\"): seekers, mines and a deflector carry a `gear` block (SpeederGear: load, refill, damage, lock cone and range; a mine's blast is the grenade's keys); nitro tiers are plain mods on boost_time and boost_recharge. Speeder classes: `shared_groups` are the groups whose parts (with no 'model') fit every vehicle, so the racer and the box truck take the same engines, thrusters, cannons, race gear and Grav Lifter as the Sand-boxer; looks stay the Sand-boxer's, and each model's paint parts carry its 'model' (issue #628: the racer's and the box truck's are recolours of their own Hyper3D bodies, look.paints in their vehicle files). A mod on a number the vehicle does not have (an engine's boost_speed on the box truck, which drifts) does nothing. Balance: a laser bolt is 15% of a Sand-boxer, a seeker (hit and splash) or a mine a third, so three of either wreck one; the racer has half its health and the box truck three times.",
+  "note": "Issue #95: what the mechanic in the desert sells for a speeder. Read by src/systems/vehicles/speeder_upgrades.gd (prices, rules, stats) and src/systems/world/speeder_shop.gd (the shop, its words). Issue #295: 'mechanic' is Dorrin's shop; 'shops' holds the others (Skrugs's garage bench, free roam only; Torrin and Jorrin, Dorrin's cousins, at the basin and salt crews' stalls: content/core/locations/speeder_stall.json, placed by a crew file's 'shop' block, each with an 'outfit' for the shopkeeper), each laid over Dorrin's block (SpeederUpgrades.shop), so the menu, parts and prices are the same and only the name, bay and words change. A part has a slot; a speeder holds one part per slot, except 'paint', which can be bought again. 'requires' is the part before it in its line (tier 2 needs tier 1, and replaces it). 'mods' multiply the speeder's numbers in content/core/vehicles/speeder.json ('laser.damage' reaches into the laser). 'hover' turns on the Grav Lifter in hover_model.gd. Looks-only parts change nothing but the look. Scrap pays 'base' plus 'parts_back' of what was spent on parts. Issue #627: a part with a 'model' fits only that vehicle (content/core/vehicles/<model>.json; none = the Sand-boxer), and a vehicle's 'shop_groups' limit the menu (the racer and the box truck: paint only); a vehicle's 'scrap_base' replaces 'base'. Issue #615: a part's `unlocked_by` names a race crew (content/core/racing/crews/): in story mode it is for sale only once you have beaten them, and the menu says whose leader to beat; in free roam everything is for sale. Issue #616: race gear (group \"race\"): seekers, mines and a deflector carry a `gear` block (SpeederGear: load, refill, damage, lock cone and range; a mine's blast is the grenade's keys); nitro tiers are plain mods on boost_time and boost_recharge. Speeder classes: `shared_groups` are the groups whose parts (with no 'model') fit every vehicle, so the racer and the box truck take the same engines, thrusters, cannons, race gear and Grav Lifter as the Sand-boxer; looks stay the Sand-boxer's, and each model's paint parts carry its 'model' (issue #628: the racer's and the box truck's are recolours of their own Hyper3D bodies, look.paints in their vehicle files). A mod on a number the vehicle does not have (an engine's boost_speed on the box truck, which drifts) does nothing. Balance: a laser bolt is 15% of a Sand-boxer, a seeker (hit and splash) or a mine a third, so three of either wreck one; the racer has half its health and the box truck three times.",
   "mechanic": {
     "name": "Dorrin Vask",
     "location": "mechanic_yard",
-    "reach": 3.4,
+    "reach": 3.8,
     "bay_radius": 16.0,
     "voice": "mechanic",
     "sells_speeders": true,
@@ -40,7 +40,7 @@
       "crew_locked": "%s  (%d cr)  - beat %s of %s to unlock",
       "crew_locked_say": "Can't sell you that yet. Beat %s of %s first; then we'll talk.",
       "crew_leader_unknown": "the leader",
-      "unlocked_toast": "%s now at Dorrin's.",
+      "unlocked_toast": "%s now at Dorrin's and his cousins' stalls.",
       "event_bought": "Someone had a %s fitted at the mechanic's yard.",
       "event_scrapped": "Someone sold a speeder for scrap at the mechanic's yard."
     }
@@ -63,6 +63,54 @@
         "talk": "[E] %s's bench (speeder parts)",
         "event_bought": "Someone had a %s fitted in Skrugs's garage.",
         "event_scrapped": "Someone sold a speeder to Skrugs for scrap."
+      }
+    },
+    "torrin": {
+      "name": "Torrin Vask",
+      "bay_radius": 9.0,
+      "outfit": {
+        "head": "local:darker",
+        "torso": "local:yellow",
+        "legs": "local:darker"
+      },
+      "lines": {
+        "hello": "Racing the basin crew? Then she needs it. Park her on the pad and pick.",
+        "no_speeder": "Nothing on my pad. Park her on the lift for parts, or buy one off me.",
+        "speeders_hello": "Every model Skrugs sells, same price. Cousin Dorrin taught me to tune them. Which one?",
+        "sold_speeder": "She's yours. I'll have her run over to the row outside the town's back gate.",
+        "have_one": "You've got one of those already. One of each, same as everyone.",
+        "bought": "Done. She'll feel it on the next lap.",
+        "too_poor": "Come back when your credits can pay for it.",
+        "scrapped": "Pleasure doing business. She'll keep the crew in spares."
+      },
+      "labels": {
+        "event_sold_speeder": "Someone bought a %s at Torrin's stall by the basin crew.",
+        "event_bought": "Someone had a %s fitted at Torrin's stall by the basin crew.",
+        "event_scrapped": "Someone sold a speeder for scrap at Torrin's stall by the basin crew."
+      }
+    },
+    "jorrin": {
+      "name": "Jorrin Vask",
+      "bay_radius": 9.0,
+      "outfit": {
+        "head": "local:lighter",
+        "torso": "local:red",
+        "legs": "local:lighter"
+      },
+      "lines": {
+        "hello": "The flats eat slow speeders. Park her on the pad and let's fix that.",
+        "no_speeder": "Nothing on my pad. Park her on the lift for parts, or buy one off me.",
+        "speeders_hello": "Every model Skrugs sells, same price. Cousin Dorrin taught me to tune them. Which one?",
+        "sold_speeder": "She's yours. I'll have her run to the row outside the town's back gate. Long drive from here.",
+        "have_one": "You've got one of those already. One of each, same as everyone.",
+        "bought": "Done. She'll feel it on the next lap.",
+        "too_poor": "Come back when your credits can pay for it.",
+        "scrapped": "Pleasure doing business. She'll keep the crew in spares."
+      },
+      "labels": {
+        "event_sold_speeder": "Someone bought a %s at Jorrin's stall by the salt crew.",
+        "event_bought": "Someone had a %s fitted at Jorrin's stall by the salt crew.",
+        "event_scrapped": "Someone sold a speeder for scrap at Jorrin's stall by the salt crew."
       }
     }
   },
