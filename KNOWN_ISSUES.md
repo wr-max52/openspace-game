@@ -8,6 +8,43 @@ desert) moved to [`docs/KNOWN_ISSUES_ARCHIVE.md`](docs/KNOWN_ISSUES_ARCHIVE.md).
 When a section here stops being true, move it there rather than marking it;
 `tests/test_docs.gut.gd` fails if this file marks a section as replaced.
 
+## After coming down, part 4: build by sight (issue #693, 2026-11-25)
+
+**Checked:** `test_smoke` (2), `test_staged_build` (14, five new: a held step,
+run_all and release, a trickle, the sight maths, a handoff over the far side of
+the home ball), a headless town boot, and the rendered `scenes/descent_trace.tscn`
+(`DESCENT_ROUTES=port_desert`, scratch HOME) on `main` and on the branch, one
+after the other on this Mac.
+
+| Home route | `main` | branch |
+|---|---|---|
+| Switch frame | 325 ms | 79 ms |
+| Worst frame coming down | 252 ms | 91 ms |
+| Coming down p99 | 39.0 ms | 25.8 ms |
+| Low pass worst | 20.0 ms | 18.2 ms |
+| Frames over budget | 76 | 36 |
+
+**Still over the 50 ms switch / 33 ms frame budget, honestly:**
+- **Single pieces still too big.** The frames left over are one piece each of:
+  the party barge's build (50-80 ms, ~2.9 km), a race course (40-60 ms each,
+  ~1.8 km), a native pack member (35-50 ms each, ~1.2 km), the speeder post
+  (~74 ms, one piece: `SpeederPost._ready`), the club room (50-90 ms, with shader
+  compiles), the cruiser (~40 ms pieces) and an outpost piece (20-30 ms: room,
+  nav, look). Each needs its own split, the way #622 cut the first round.
+- **Shader compiles when the town first shows** (~7.8 km, `pipelines:4-10`):
+  three frames of 50-90 ms. Not warmed ahead yet.
+- **The switch is 79 ms**, not 50: the town's visible greybox boxes are gone
+  from it, but the desert (~11), its dressing (~24, the dust), the ship's
+  pilot (~26) and the far ball's 96 mesh uploads are still on it.
+- **Nothing is let go again** once built: a place you fly away from stays. The
+  sight check has `keep()` for it, but outposts hold people and state.
+- **Only the home planet builds by sight.** The moon and the generated planets
+  have no `detail.sight` block, so they build as before. The ranches (3) are not
+  gated yet (their droid stands are read once by the droids).
+- **Thread safety:** an outpost's ground heights and the town's nav source
+  geometry are worked out on a worker, reading the terrain and the town data
+  while the main thread may also read them (never writes them).
+
 ## After the speeder boost lag fix (2026-11-25)
 
 **Checked:** `test_smoke`, a headless town boot, and a rendered probe (Vulkan,

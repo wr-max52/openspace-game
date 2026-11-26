@@ -53,6 +53,17 @@ a frame, with headroom left for the local LLM.
    per place. Colliders and people are built before the `use_look` branch; the
    branch only dresses them ("What can not change" 5). The station fill does
    not do this yet (#543).
+9b. **Build by sight** (issue #693). Nothing is built before the player could
+    see it: not over the horizon of a round planet, not past the world's sight
+    range. Ask `SightGate` (`town.could_see(at)`), with the numbers in the
+    world's `detail.sight` block, and put a place that comes into view later
+    on a `StagedBuild` trickle (`RemnantOutposts.late_step`). A whole step that
+    only matters close to the ground waits in `detail.sight.hold` (barge,
+    packs, race courses), layered so no two land on the same frames. Get
+    ready before showing: data, meshes and source geometry on a worker
+    (`WorkerThreadPool`), read-only content from `CoreContent.shared()`,
+    never a full content read per body. Graphics may come in late; a frame may
+    never wait for them.
 10. **Tick by distance.** People sleep past the draw distance and think less
     often further out (puppets, not NPCs, until a fight); at most a set number
     of bodies are posed a frame, nearest first. Per-tick code allocates nothing

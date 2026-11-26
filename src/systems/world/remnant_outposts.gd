@@ -133,6 +133,8 @@ func _take_in_sight() -> void:
 		if _whole or demo == null or not demo.has_method("could_see") or demo.could_see(p.at):
 			_pending.erase(p)
 			_queue.append(p.call)
+			if not _whole:
+				_prepare_ground(str(p.id), p.at)      # ready before it is needed
 
 
 ## Issue #693: after the town's first build (StagedBuild's trickle): the next
@@ -199,10 +201,11 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 			o.origin = sp.surface_at(at.x, at.z)
 		o.xf = Transform3D(PlanetSphere.tilt_to(ground.up_at(o.origin)) * Basis(Vector3.UP, yaw), o.origin)
 		outposts.append(o)
-		var parts: Array = [_build_ground.bind(o), _build_room.bind(o), _build_nav.bind(o), _build_props.bind(o)]
+		var parts: Array = [_build_room.bind(o), _build_nav.bind(o), _build_props.bind(o)]
 		if demo.use_look:
 			parts.append(_dress.bind(o))
 		parts.append(_park_ship.bind(o))
+		parts.append(_build_ground.bind(o))   # issue #693: its heights come from a worker, so after the rest; before the people
 		if o.side == Territory.LOCALS:
 			var posts: Dictionary = Territory.cfg().get("outposts", {}).get("posts", {})
 			for p in posts:
@@ -559,14 +562,15 @@ func _build_ground(o: Dictionary) -> void:
 	var hm := HeightMapShape3D.new()
 	hm.map_width = n
 	hm.map_depth = n
-	var heights := PackedFloat32Array()
-	heights.resize(n * n)
 	var c: Vector3 = o.origin
-	for j in n:
-		for i in n:
-			var x := c.x - GROUND_HALF + i * GROUND_STEP
-			var z := c.z - GROUND_HALF + j * GROUND_STEP
-			heights[j * n + i] = ground.terrain.height_at(x, z)
+	var job: Dictionary = _heights.get(str(o.id), {})
+	_heights.erase(str(o.id))
+	var heights: PackedFloat32Array
+	if not job.is_empty() and (job.at as Vector3).is_equal_approx(c):
+		WorkerThreadPool.wait_for_task_completion(int(job.task))      # issue #693: worked out since it came into sight
+		heights = job.out[0]
+	else:
+		heights = _ground_heights(ground.terrain, c)
 	hm.map_data = heights
 	var body := StaticBody3D.new()
 	body.name = "Ground_" + str(o.id)
@@ -576,6 +580,38 @@ func _build_ground(o: Dictionary) -> void:
 	body.add_child(cs)
 	add_child(body)
 	body.global_position = Vector3(c.x, 0.0, c.z)
+
+
+var _heights := {}                  ## issue #693: outpost id -> { at, task, out }: its ground's heights on a worker
+
+
+## The sand round an outpost's anchor, GROUND_STEP apart (~1,700 samples: work
+## for a worker thread, started when the outpost comes into sight).
+static func _ground_heights(terrain: WorldTerrain, c: Vector3) -> PackedFloat32Array:
+	var n := int(GROUND_HALF * 2.0 / GROUND_STEP) + 1
+	var heights := PackedFloat32Array()
+	heights.resize(n * n)
+	for j in n:
+		for i in n:
+			var x := c.x - GROUND_HALF + i * GROUND_STEP
+			var z := c.z - GROUND_HALF + j * GROUND_STEP
+			heights[j * n + i] = terrain.height_at(x, z)
+	return heights
+
+
+func _prepare_ground(id: String, at: Vector3) -> void:
+	if _heights.has(id) or ground == null or ground.terrain == null:
+		return
+	var out := [PackedFloat32Array()]
+	var terrain := ground.terrain
+	var task := WorkerThreadPool.add_task(func(): out[0] = _ground_heights(terrain, at), false, "outpost ground")
+	_heights[id] = { "at": at, "task": task, "out": out }
+
+
+func _exit_tree() -> void:
+	for id in _heights:
+		WorkerThreadPool.wait_for_task_completion(int(_heights[id].task))
+	_heights.clear()
 
 
 # ------------------------------------------------------------------ the look

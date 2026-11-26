@@ -381,11 +381,12 @@ func build_plan(staged_build: bool) -> Array:
 				and (ranches == null or ranches.build_step()), true)
 		add.call("npc_brains", LATER, func(st: StagedBuild) -> void: await _npc_brains(st), "sliced")
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
-	add.call("speeders", LATER, func():
+	var speeders_step := func(st: StagedBuild) -> void:     # issue #693: the post, then a speeder a piece
 		if with_speeders and pilot != null and has_feature("speeders"):
 			_build_speeder_post()
-			_park_gate_speeders()
-		return true)
+			await StagedBuild.slice_of(st)
+			await _park_gate_speeders(st)
+	add.call("speeders", LATER, speeders_step, "sliced")
 	var droids_step := func(st: StagedBuild) -> void:
 		if use_look and with_droids and gear != null:
 			await _build_droids(st)
@@ -431,10 +432,10 @@ func build_plan(staged_build: bool) -> Array:
 		if speeder_post != null and gear != null:
 			_build_mechanic()
 		return true)
-	add.call("race_courses", LATER, func():
+	var races_step := func(st: StagedBuild) -> void:        # issue #693: a course or a crew a piece
 		if pilot != null and terrain != null:
-			_build_race_courses()
-		return true)
+			await _build_race_courses(st)
+	add.call("race_courses", LATER, races_step, "sliced")
 	# Issue #574: built in pieces over frames (a ~330 ms build in one go before);
 	# `barge` is set once it is whole.
 	var barge_step := func(st: StagedBuild) -> void:
@@ -1429,7 +1430,7 @@ func _build_speeder_post() -> void:
 ## Issue #82: the Remnant's black and red Sand-boxers (the town's "vehicle"
 ## markers), parked outside the front gate while the garrison holds it. Not
 ## rideable: they are the Remnant's.
-func _park_gate_speeders() -> void:
+func _park_gate_speeders(st: StagedBuild = null) -> void:
 	# Issue #613: whoever holds the town parks it (the locals in their paint), and
 	# it can be ridden: stealing it is GateChase's business.
 	var holder := GateChase.holder()
@@ -1441,6 +1442,7 @@ func _park_gate_speeders() -> void:
 		s.place(town.marker_pos(str(m.id)), deg_to_rad(float(m.get("yaw_deg", 0.0))))
 		s.set_meta("gate_speeder", holder)
 		gate_speeders.append(s)
+		await StagedBuild.slice_of(st)
 	if not town.markers_with_role("vehicle_chase").is_empty() and gate_chase == null:
 		gate_chase = GateChase.new()
 		gate_chase.setup(self, pilot.ground)
@@ -1529,12 +1531,13 @@ func _build_mechanic() -> void:
 
 ## Issue #610: this world's race courses (content/core/racing/courses/*.json with
 ## its world id). Each draws its gates only while you are near it.
-func _build_race_courses() -> void:
+func _build_race_courses(st: StagedBuild = null) -> void:
 	for c in RaceCourse.courses_for(str(world.get("id", ""))):
 		var rc := RaceCourse.new()
 		rc.setup(self, pilot.ground, c)
 		add_child(rc)
 		race_courses.append(rc)
+		await StagedBuild.slice_of(st)
 	# Issue #611: the crews who race them, by their hangouts (people, so after the
 	# gear and the nav: the "race_courses" step comes late).
 	for c in RaceCrew.crews_for(str(world.get("id", ""))):
@@ -1545,6 +1548,7 @@ func _build_race_courses() -> void:
 		rcw.setup(self, pilot.ground, c, course)
 		add_child(rcw)
 		race_crews.append(rcw)
+		await StagedBuild.slice_of(st)
 
 
 ## The race course with this id, or null.
