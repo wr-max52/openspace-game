@@ -495,6 +495,8 @@ func _physics_process(dt: float) -> void:
 	_clock += dt
 	WorldState.game_hours += dt * float(_camp_cfg().get("game_hours_per_real_min", 0.5)) / 60.0
 	var ppos := _player_pos()
+	if demo != null and demo.get("_rig") != null:
+		demo._rig.distance_cap = camera_cap(ppos)      # issue #707: under a tent's roof
 	if net_copy():
 		_net_tick(dt, ppos)
 		return
@@ -1294,6 +1296,23 @@ func _check_camps(ppos: Vector3) -> void:
 				st.wrecked_h = -1.0
 				camp.rebuild()
 		_refresh_lids(p)
+
+
+## Issue #707: how far the third person camera may sit from your head at `ppos`:
+## the camp's camera_m inside a standing tent (under its roof), INF elsewhere.
+func camera_cap(ppos: Vector3) -> float:
+	if ppos == Vector3.INF:
+		return INF
+	for c in camps:
+		if not is_instance_valid(c):
+			continue
+		var camp := c as NativeCamp
+		if ppos.distance_squared_to(camp.center) > 900.0:      # 30 m: past the ring of tents
+			continue
+		var i := camp.tent_at(ppos, 0.0)
+		if i >= 0 and not bool(camp.tents[i].down):
+			return float(camp.cfg.get("camera_m", 1.2))
+	return INF
 
 
 ## The friendly pack's standing tent the player is inside: { pack, tent } or {}.

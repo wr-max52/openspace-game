@@ -49,6 +49,10 @@ var _override_blend := 0.0
 var _last_xf := Transform3D()
 var _slide_roll := 0.0                ## current camera roll from a slide (rad)
 var _aim_xf := Transform3D()          ## the third person view the guns aim along, in cinematic
+## Issue #707: the third person camera comes no further than this from your head
+## (INF: tpv_distance). The natives director sets it while you stand in a pack's
+## tent, so the camera stays under the roof.
+var distance_cap := INF
 
 
 func _ready() -> void:
@@ -180,6 +184,7 @@ func _process(delta: float) -> void:
 		eye_to = 0.85
 	rig.fpv_offset.y = move_toward(rig.fpv_offset.y, eye_to, delta * (6.0 if sliding else 4.0))
 	rig.tpv_height = move_toward(rig.tpv_height, (1.25 if crouched else 1.8), delta * 4.0)
+	rig.tpv_distance = move_toward(rig.tpv_distance, minf(tpv_distance, distance_cap), delta * 8.0)
 	_slide_roll = lerpf(_slide_roll, deg_to_rad(3.5) if sliding else 0.0, 1.0 - exp(-10.0 * delta))
 	# Follow the player's render-smoothed origin (between the last two physics ticks),
 	# not the 60 Hz stepped global_position. Plain Node3D players have no such method.

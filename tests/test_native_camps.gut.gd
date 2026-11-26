@@ -248,3 +248,36 @@ func test_no_physics_where_the_sand_has_no_collider() -> void:
 	assert_true(nat._has_floor(npc.global_position), "the collider has come")
 	nat._tick_pack(p, DT, ppos)
 	assert_ne(npc.process_mode, Node.PROCESS_MODE_DISABLED, "then it walks with physics")
+
+
+## Issue #707: standing in a tent, the third person camera comes no further than
+## the camp's camera_m (under the roof); outside, it is back to normal.
+func test_the_camera_stays_under_a_tent_roof() -> void:
+	var t = _town()
+	await wait_physics_frames(3)
+	var nat = t.natives
+	var p: Dictionary = _pack(nat, true)
+	var camp: NativeCamp = p.camp
+	var cap := float(camp.cfg.get("camera_m", -1.0))
+	assert_between(cap, 0.3, 2.0, "a short camera in data")
+	assert_eq(nat.camera_cap(camp.tents[0].inside), cap, "inside a tent: capped")
+	assert_eq(nat.camera_cap(camp.center), INF, "by the fire: not")
+	var rig = t._rig
+	rig.set_view(1)          # third person
+	_stand(t, camp.tents[0].inside)
+	await wait_physics_frames(2)
+	assert_eq(rig.distance_cap, cap, "the director caps the camera")
+	for i in 30:
+		rig._process(DT)
+	assert_lte(rig.rig.tpv_distance, cap + 0.001, "the camera is within the cap")
+	# The highest it can sit: straight down from the head, still under the apex.
+	var roof := float(camp.cfg.wall_h) + float(camp.cfg.roof_h)
+	assert_lt(rig.rig.tpv_height + cap, roof, "under the roof's peak")
+	_stand(t, camp.center)
+	await wait_physics_frames(2)
+	assert_eq(rig.distance_cap, INF)
+	for i in 30:
+		rig._process(DT)
+	assert_almost_eq(rig.rig.tpv_distance, rig.tpv_distance, 0.001, "outside: back to normal")
+	camp.tents[0].down = true
+	assert_eq(nat.camera_cap(camp.tents[0].inside), INF, "a fallen tent has no roof")

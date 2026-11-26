@@ -48,7 +48,7 @@
   "pack": { "spacing": 2.6, "travel_speed": 1.6, "charge_speed": 4.5, "notice_range": 45.0, "greet_range": 30.0, "trade_reach": 4.5, "far_lod_m": 90.0,
             "offer_every_s": 7.0 },
   "camp": {
-    "tents": 3, "ring_m": 9.0, "tent_radius": 3.0, "wall_h": 1.95, "roof_h": 1.5, "door_deg": 34.0, "tent_hp": 90.0, "skirt_m": 0.8,
+    "tents": 3, "ring_m": 9.0, "tent_radius": 3.0, "wall_h": 1.95, "roof_h": 1.5, "door_deg": 34.0, "tent_hp": 90.0, "skirt_m": 0.8, "camera_m": 1.2,
     "site_search_m": 45.0,
     "hide": "#a88a64", "rug": "#8c3a26", "rock": "#6e6258", "fire_energy": 1.8, "fire_range": 10.0,
     "keepers": 3, "spots": 20, "stop_s": 45.0, "guard_m": 60.0,
@@ -63,7 +63,7 @@
       { "item": "unmarked_cells", "weight": 2, "count": [1, 2] },
       { "item": "space_whale_teeth", "weight": 1, "count": [1, 1] }
     ],
-    "note": "A pack's camp (NativeCamp): 'tents' hide tents in a ring 'ring_m' out from an always-lit firepit, each a room (rug, rock table and seats, bedroll, a chest). The pack starts there, stops 'stop_s' seconds on every loop of its route, and comes in for the night (the hour from 'night_from' to 'night_to'). 'keepers' of them never leave it and fight only within 'guard_m' of it. Shoot a tent 'tent_hp' and it falls in; all of them down and the camp is back 'return_hours' in-game hours later (in-game time runs 'game_hours_per_real_min' hours a real minute, and a night's rest skips to morning). A chest holds 'loot_rolls' draws from 'loot' (what the town's traders and fences buy) and fills again 'restock_hours' after it is emptied. Take from it while one of the pack sees you and a friendly pack turns on you. The camp goes on the flattest ground within 'site_search_m' of where it is put. A pack's own 'camp' (the planet's data) gives where ('at', a map point) and after which route point it stops ('stop_after'), and may change any of these."
+    "note": "A pack's camp (NativeCamp): 'tents' hide tents in a ring 'ring_m' out from an always-lit firepit, each a room (rug, rock table and seats, bedroll, a chest). The pack starts there, stops 'stop_s' seconds on every loop of its route, and comes in for the night (the hour from 'night_from' to 'night_to'). 'keepers' of them never leave it and fight only within 'guard_m' of it. Shoot a tent 'tent_hp' and it falls in; all of them down and the camp is back 'return_hours' in-game hours later (in-game time runs 'game_hours_per_real_min' hours a real minute, and a night's rest skips to morning). A chest holds 'loot_rolls' draws from 'loot' (what the town's traders and fences buy) and fills again 'restock_hours' after it is emptied. Take from it while one of the pack sees you and a friendly pack turns on you. The camp goes on the flattest ground within 'site_search_m' of where it is put. Issue #707: standing in a tent, the third person camera comes no further than 'camera_m' from your head, so it stays under the roof. A pack's own 'camp' (the planet's data) gives where ('at', a map point) and after which route point it stops ('stop_after'), and may change any of these."
   },
   "rest": { "morning_hour": 8.0, "fade_s": 0.9, "dark_s": 0.8, "hours_headless": 9.0,
             "note": "[Z] in a friendly pack's standing tent: the screen fades to black, you heal, the time of day moves on to 'morning_hour', the game is saved, the screen fades back." },
