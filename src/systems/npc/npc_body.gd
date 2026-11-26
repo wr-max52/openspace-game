@@ -588,7 +588,7 @@ func carry_out(b: GuardBrain, dt: float) -> void:
 
 ## A line over the guard's head for a few seconds (barks; the HUD may also show it).
 func say(text: String, seconds: float = 2.6, shout: bool = false) -> void:
-	if _speech == null:
+	if _speech == null or dead:
 		return
 	_speech.text = text
 	_speech.visible = text != ""
@@ -1047,6 +1047,14 @@ func _on_death() -> void:
 	collision_mask = 1          # still rests on the floor
 	if _shape != null:
 		_shape.set_deferred("disabled", true)
+	# The dead stop talking: the speech timer only ticks while alive, so a line
+	# cut off mid-sentence would otherwise hang over the body for good.
+	if _speech != null:
+		_speech.visible = false
+	_speech_left = 0.0
+	var voice := _voice()
+	if voice != null:
+		voice.stop(self)
 	play_sfx("death")
 	_go_limp(was_moving)
 	var st: AudioStreamPlayer3D = _sfx.get("steps")
