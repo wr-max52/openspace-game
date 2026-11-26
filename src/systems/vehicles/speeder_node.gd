@@ -35,6 +35,8 @@ const BodyAnimator := preload("res://src/systems/anim/body_animator.gd")
 signal mounted
 signal dismounted
 signal destroyed(at: Vector3)
+signal crashed_out(at: Vector3)       ## crash_repair_s on: 0 hull crashed you out instead of bursting
+signal repaired
 signal npc_boarded(body: Node3D, seat: String)
 signal npc_left(body: Node3D, seat: String)
 
@@ -93,6 +95,14 @@ var cam_override := Transform3D.IDENTITY
 var cam_override_fov := 55.0
 var _fov_k := 0.0                    ## the boost's camera widening, eased
 var seated_avatar: PlayerAvatar      ## your body in the driver's seat while you ride (show_driver), else null
+## Speeder race crash-outs: a race sets this on your speeder while it runs. Above
+## 0, a hit that would burst it while you ride crashes you out instead: a bang,
+## it stops dead and sits smoking while it is patched up for this many seconds
+## (no throttle, no guns, no hits), then it is back to full hull and you race on.
+var crash_repair_s := 0.0
+var repair_left := 0.0               ## seconds of patching up still to go (0 = not crashed out)
+var crash_outs := 0                  ## times crashed out (tests)
+var _repair_smoke: CPUParticles3D
 
 
 func setup(town_demo, ground: WorldGround, config: Dictionary = {}, can_ride: bool = true, paint_job: String = "") -> void:
@@ -253,6 +263,8 @@ func threat_velocity() -> Vector3:
 
 ## Bolts land here (the hull's parent). Riding or parked, the hull takes it.
 func apply_damage(amount: float) -> void:
+	if repair_left > 0.0:
+		return                           # crashed out and being patched up: nothing more to break
 	if gear != null and model.alive() and gear.absorb():
 		_lift_glow = 1.0                 # issue #616: the deflector took it: a flash round the hull
 		Sound.play("ship_hit", model.position)
@@ -261,7 +273,45 @@ func apply_damage(amount: float) -> void:
 	for e in model.events:
 		log_events.append(e)
 	if killed:
-		_burst()
+		if crash_repair_s > 0.0 and riding:
+			_crash_out()
+		else:
+			_burst()
+
+
+## Crashed out in a race (crash_repair_s): a bang, dead stop, smoke while it is
+## patched up. Kept alive at 1 hull so it still rides and syncs; finish_repair()
+## puts the rest back.
+func _crash_out() -> void:
+	var at := model.position
+	crash_outs += 1
+	model.hp = 1
+	model.speed = 0.0
+	model.drift_dir = Vector3.ZERO
+	model.set_command(0.0, 0.0)
+	repair_left = crash_repair_s
+	ExplosionFx.small(get_parent(), at + model.up() * 0.6)
+	Sound.play("vehicle_boom", at)
+	if visual != null and demo != null and bool(demo.get("use_look")):
+		_repair_smoke = ExplosionFx.smoke_trail(visual, Vector3(0, 0.6, 0), 0.5, 10, 2.5)
+	crashed_out.emit(at)
+
+
+## Patched up: full hull, the smoke stops, the controls are yours again.
+func finish_repair() -> void:
+	if repair_left <= 0.0:
+		return
+	repair_left = 0.0
+	model.hp = model.max_hp
+	repaired.emit()
+	var smoke := _repair_smoke
+	_repair_smoke = null
+	if smoke != null and is_instance_valid(smoke):
+		smoke.emitting = false             # the last puffs drift off, then it goes
+		if not is_inside_tree():
+			smoke.queue_free()
+			return
+		get_tree().create_timer(3.0).timeout.connect(func(): if is_instance_valid(smoke): smoke.queue_free())
 
 
 # ------------------------------------------------------------------ frame
@@ -319,7 +369,14 @@ func _physics_process(dt: float) -> void:
 
 func _ride(dt: float) -> void:
 	var fire := false
-	if _external.is_empty():
+	if repair_left > 0.0:
+		# Crashed out: it sits where it stopped until it is patched up.
+		repair_left -= dt
+		model.set_command(0.0, 0.0)
+		if repair_left <= 0.0:
+			repair_left = 0.01
+			finish_repair()
+	elif _external.is_empty():
 		if _just("interact") and not model.airborne and not _hijack_claims():
 			dismount()
 			return
@@ -1370,6 +1427,8 @@ func _update_hud() -> void:
 		"DRIFT" if model.ability() == "drift" else "BOOST",
 		int(model.boost_left / maxf(model.p("boost_time", 3.5), 0.001) * 100.0),
 		"\nAIRBORNE" if model.airborne else ""]
+	if repair_left > 0.0:
+		_readout.text += "\nCRASHED  REPAIRING %.1fs" % repair_left
 	if model.has_lifter():
 		_readout.text += "\nLIFTER %s" % ("READY [SPACE]" if model.lift_ready() else "%.1fs" % model.lift_cooldown)
 	if gear != null and gear.has_any():
