@@ -250,11 +250,21 @@ func _load_model(path: String, spec: Dictionary) -> Node3D:
 ## Dark variant of a gun that keeps its own textures: neutral texels go dark, the
 ## saturated glow panels stay (weapon_dark.gdshader). Static: the guards' rifles
 ## use it too (CharacterKit._rifle).
-static func _darken(n: Node3D, d: Dictionary) -> void:
+## Issue #695: `shared` (an NPC's gun) takes one material per model material and
+## look, shared by every NPC gun; the player's own guns keep their own (the scope
+## sets near_clip on them).
+static var _dark_shared := {}
+
+
+static func _darken(n: Node3D, d: Dictionary, shared := false) -> void:
 	for mi in _meshes_under(n):
 		if mi.mesh == null or mi.mesh.get_surface_count() == 0:
 			continue
 		var src: Material = mi.mesh.surface_get_material(0)
+		var key := "%d_%s" % [src.get_instance_id() if src != null else 0, str(d)]
+		if shared and _dark_shared.has(key):
+			mi.material_override = _dark_shared[key]
+			continue
 		var mat := ShaderMaterial.new()
 		mat.shader = DARK
 		if src is BaseMaterial3D:
@@ -270,6 +280,8 @@ static func _darken(n: Node3D, d: Dictionary) -> void:
 			if d.has(k):
 				mat.set_shader_parameter(k, float(d[k]))
 		mi.material_override = mat
+		if shared:
+			_dark_shared[key] = mat
 
 
 ## Issue #229: the muzzle flash, three additive quads crossed along the barrel and

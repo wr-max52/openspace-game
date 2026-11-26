@@ -78,7 +78,11 @@ static func dress(body: Node3D, cfg: Dictionary) -> SkinnedBody:
 
 ## Issue #45: a variant of a model without a new model: every surface's colour
 ## multiplied by "albedo", and anything that glows (goggles, a prosthetic) glowing
-## "emission" instead. Materials are copied, so the original keeps its look.
+## "emission" instead. Materials are copied, so the original keeps its look; issue
+## #695: one copy per material and tint, shared by every body of the look.
+static var _tinted := {}
+
+
 func tint(t: Dictionary) -> void:
 	var alb := Color(str(t.get("albedo", "#ffffff")))
 	var has_em := t.has("emission")
@@ -93,11 +97,14 @@ func tint(t: Dictionary) -> void:
 				src = m.mesh.surface_get_material(i)
 			if not src is BaseMaterial3D:
 				continue
-			var c := (src as BaseMaterial3D).duplicate() as BaseMaterial3D
-			c.albedo_color = c.albedo_color * alb
-			if has_em and c.emission_enabled:
-				c.emission = em
-			m.set_surface_override_material(i, c)
+			var key := "%d_%s_%s" % [src.get_instance_id(), alb.to_html(), em.to_html() if has_em else ""]
+			if not _tinted.has(key):
+				var c := (src as BaseMaterial3D).duplicate() as BaseMaterial3D
+				c.albedo_color = c.albedo_color * alb
+				if has_em and c.emission_enabled:
+					c.emission = em
+				_tinted[key] = c
+			m.set_surface_override_material(i, _tinted[key])
 
 
 static func _find_skeleton(n: Node) -> Skeleton3D:
