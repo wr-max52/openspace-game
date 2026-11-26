@@ -680,6 +680,13 @@
         },
         "cantina_owner": {
           "mesh": "cantina_owner_torso",
+          "paint": {
+            "mesh": "cantina_owner_head",
+            "orm_out": "res://assets/characters/kit/colors/cantina_owner_paint_orm.png",
+            "zones": [
+              {"box": [[-1, 0.665, -1], [1, 2, 1]], "not": [{"ellipsoid": [[0, 0.63, 0.2], [0.07, 0.06, 0.08]]}], "max_s": 0.3, "min_l": 0.08, "colors": {"madder": "#8e3a26", "teal": "#2f6e66", "slate": "#4f5a66", "sand": "#b8a07a"}, "feather": 0.006, "roughness": 0.62, "metallic": 0.08, "wear": {"amount": 1.0, "edges": 1.0, "dust": 1.0, "grime": 1.0}}
+            ]
+          },
           "tol": 0.15,
           "min_l": 0.05,
           "variants": {
@@ -718,6 +725,16 @@
         },
         "nomad": {
           "mesh": "nomad_head",
+          "paint": {
+            "mesh": "nomad_head",
+            "cloth": {"fade": 1.0, "grain": 1.5, "grime": 1.6, "dust": 1.0},
+            "zones": [
+              {"ellipsoid": [[0.01, 0.7, 0.185], [0.055, 0.08, 0.07]], "color": "#2b2b2d", "feather": 0.006},
+              {"lens_ring": [0.0, 0.014], "color": "#58564f", "feather": 0.003, "detail": 0.6},
+              {"box": [[-1, 0.784, -0.17], [-0.085, 0.814, 0.135]], "color": "#4a3626", "feather": 0.003},
+              {"box": [[0.1, 0.784, -0.17], [1, 0.814, 0.135]], "color": "#4a3626", "feather": 0.003}
+            ]
+          },
           "tol": 0.3,
           "min_l": 0.06,
           "variants": {
@@ -737,6 +754,16 @@
         },
         "nomad_crest": {
           "mesh": "nomad_crest_head",
+          "paint": {
+            "mesh": "nomad_crest_head",
+            "cloth": {"fade": 1.0, "grain": 1.5, "grime": 1.6, "dust": 1.0},
+            "zones": [
+              {"ellipsoid": [[0.003, 0.661, 0.2], [0.052, 0.056, 0.05]], "color": "#2b2b2d", "feather": 0.006},
+              {"lens_ring": [0.0, 0.014], "color": "#58564f", "feather": 0.003, "detail": 0.6},
+              {"ridge": {"centre": [0.009, 0.74, 0.0], "half": 0.028, "rise": 0.002}, "box": [[-1, 0.77, -1], [1, 2, 0.16]], "color": "#6b4a2e", "feather": 0.004},
+              {"ridge": {"centre": [0.009, 0.74, 0.0], "half": 0.028, "rise": 0.021}, "box": [[-1, 0.77, -1], [1, 2, 0.16]], "color": "#d9cfb4", "feather": 0.004}
+            ]
+          },
           "tol": 0.3,
           "min_l": 0.06,
           "variants": {
@@ -756,6 +783,14 @@
         },
         "nomad_maw": {
           "mesh": "nomad_maw_head",
+          "paint": {
+            "mesh": "nomad_maw_head",
+            "cloth": {"fade": 1.0, "grain": 1.5, "grime": 1.6, "dust": 1.0},
+            "zones": [
+              {"ellipsoid": [[0.005, 0.685, 0.225], [0.058, 0.09, 0.075]], "color": "#2b2b2d", "feather": 0.006},
+              {"lens_ring": [0.0, 0.014], "color": "#58564f", "feather": 0.003, "detail": 0.6}
+            ]
+          },
           "tol": 0.3,
           "min_l": 0.06,
           "variants": {
@@ -775,6 +810,18 @@
         },
         "nomad_horn": {
           "mesh": "nomad_horn_head",
+          "paint": {
+            "mesh": "nomad_horn_head",
+            "cloth": {"fade": 1.0, "grain": 1.5, "grime": 1.6, "dust": 1.0},
+            "zones": [
+              {"ellipsoid": [[0.008, 0.69, 0.205], [0.056, 0.072, 0.06]], "color": "#2b2b2d", "feather": 0.006},
+              {"lens_ring": [0.0, 0.014], "lens_depth": 0.015, "color": "#58564f", "feather": 0.003, "detail": 0.6},
+              {"box": [[-1, 0.84, -1], [-0.115, 2, 1]], "color": "#cbbd9a", "feather": 0.006},
+              {"box": [[0.125, 0.84, -1], [1, 2, 1]], "color": "#cbbd9a", "feather": 0.006},
+              {"box": [[-1, 0.84, -1], [-0.185, 2, 1]], "color": "#4e4234", "feather": 0.02},
+              {"box": [[0.195, 0.84, -1], [1, 2, 1]], "color": "#4e4234", "feather": 0.02}
+            ]
+          },
           "tol": 0.3,
           "min_l": 0.06,
           "variants": {
