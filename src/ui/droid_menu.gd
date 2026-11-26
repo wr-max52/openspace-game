@@ -17,7 +17,11 @@ extends CanvasLayer
 ## stack; "alt_hint" names it in the key hint) and "buttons" ([{ id, text }], small
 ## buttons at the row's end that pick their id when clicked; the mouse is freed while
 ## a menu with buttons is open). A cargo droid's hold: Stash one / Stash all, and
-## Take one / Take all for what it holds.
+## Take one / Take all for what it holds. The cursor lands on a button too: A/D (or
+## the left/right arrows) move between a row's buttons, the one under the cursor is
+## lit, and Enter presses it. Buttons sit in a fixed-width column, so a row that
+## gains or loses its second button does not change the menu's size, and a menu
+## reopened with keep_cursor keeps its height.
 
 const INK := Color(0.95, 0.92, 0.85, 0.95)
 const AMBER := Color("#e0a050")
@@ -25,8 +29,13 @@ const JOB_GREEN := Color("#6ee07a")   ## coloured, so RetroSkin leaves it be
 const PANEL_W := 600.0             ## narrower on a small screen (or a big text size)
 const LIST_MAX_H := 330.0          ## rows past this scroll (less on a short screen)
 const MARK_W := 20.0               ## the cursor mark's column (not KEY_W: in here that would hide the W key)
+const BTN_W := 100.0               ## one button; a row's buttons always take two of these
+const BTN_GAP := 4.0
+const BTN_COL := BTN_W * 2.0 + BTN_GAP
+const LINE_GAP := 6.0
 const HINT := "[W/S]  Move    [Enter]  Choose    [Esc]  Walk away"
 const HINT_ALT := "[W/S]  Move    [Enter]  Choose    [Shift+Enter]  %s    [Esc]  Walk away"
+const HINT_BUTTONS := "[W/S]  Move    [A/D]  Button    [Enter]  Choose    [Esc]  Walk away"
 
 var panel: PanelContainer
 var title_label: Label
@@ -38,7 +47,9 @@ var options: Array = []           ## [{ id, text }]
 var on_pick: Callable             ## (id: String) -> void; "" = walked away
 var rows: Array = []              ## the text of each row, for tests
 var selected := 0                 ## the row under the cursor
-var _rows: Array = []             ## [{ box: PanelContainer, key: Label, text: Label }]
+var button := 0                   ## the button under the cursor in that row (kept when moving rows)
+var _rows: Array = []             ## [{ box: PanelContainer, key: Label, text: Label, buttons: [Button] }]
+var _keep_h := 0.0                ## reopened with keep_cursor: the list keeps this height
 var _cursor_box: StyleBoxFlat
 var _row_box: StyleBoxEmpty
 var _freed_mouse := false         ## we showed the mouse for the buttons
@@ -127,12 +138,15 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 				at = i
 				break
 	selected = at if at >= 0 else (clampi(selected, 0, maxi(options.size() - 1, 0)) if keep_cursor else first_job())
+	if not keep_cursor:
+		button = 0
+	_keep_h = scroll.custom_minimum_size.y if keep_cursor and scroll != null else 0.0
 	for i in options.size():
 		rows.append(str(options[i].text))
 	if panel == null:
 		return
 	title_label.text = title
-	hint.text = HINT_ALT % alt_hint() if has_alt() else HINT
+	hint.text = _hint_text()
 	body_label.text = body
 	body_label.visible = body != ""
 	for c in list.get_children():
@@ -142,6 +156,7 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 		var box := PanelContainer.new()
 		box.set_meta("retro_off", true)     # the cursor bar is ours, not RetroSkin's glass
 		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", int(LINE_GAP))
 		box.add_child(line)
 		var key := _row_label("")
 		key.custom_minimum_size.x = MARK_W
@@ -153,16 +168,29 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART     # long offers wrap under the text, not the cursor
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(text)
-		for b in options[i].get("buttons", []):
-			var btn := Button.new()
-			btn.text = str(b.text)
-			btn.focus_mode = Control.FOCUS_NONE     # the keys stay the menu's
-			btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-			btn.add_theme_font_size_override("font_size", 14)
-			btn.pressed.connect(choose.bind(str(b.id)))
-			line.add_child(btn)
+		var btns: Array = []
+		var defs: Array = options[i].get("buttons", [])
+		if not defs.is_empty():
+			var col := HBoxContainer.new()     # the same width whether it holds one button or two
+			col.add_theme_constant_override("separation", int(BTN_GAP))
+			col.custom_minimum_size.x = BTN_COL
+			col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			line.add_child(col)
+			for j in defs.size():
+				var btn := Button.new()
+				btn.set_meta("retro_off", true)     # lit by _show_cursor, not RetroSkin
+				btn.text = str(defs[j].text)
+				btn.clip_text = true
+				btn.custom_minimum_size.x = BTN_COL if defs.size() == 1 else BTN_W
+				btn.focus_mode = Control.FOCUS_NONE     # the keys stay the menu's
+				btn.add_theme_font_size_override("font_size", 14)
+				btn.add_theme_font_override("font", RetroUI.font("Bold"))
+				btn.pressed.connect(choose.bind(str(defs[j].id)))
+				btn.mouse_entered.connect(_point.bind(i, j))
+				col.add_child(btn)
+				btns.append(btn)
 		list.add_child(box)
-		_rows.append({ "box": box, "key": key, "text": text })
+		_rows.append({ "box": box, "key": key, "text": text, "buttons": btns })
 	_fit()
 	_show_cursor()
 	panel.visible = true
@@ -200,6 +228,31 @@ func has_buttons() -> bool:
 	return false
 
 
+func _hint_text() -> String:
+	if has_buttons():
+		return HINT_BUTTONS     # one line whatever row the cursor is on, so the box keeps its size
+	return HINT_ALT % alt_hint() if has_alt() else HINT
+
+
+## The buttons of row `i` (from its options, so it works before the panel is built).
+func _buttons_of(i: int) -> Array:
+	return options[i].get("buttons", []) if i >= 0 and i < options.size() else []
+
+
+## The button under the cursor in the selected row, or -1 when that row has none.
+func button_at() -> int:
+	var n := _buttons_of(selected).size()
+	return -1 if n == 0 else mini(button, n - 1)
+
+
+## The id Enter picks: the lit button, else the row's own id.
+func picked_id() -> String:
+	if selected >= options.size():
+		return ""
+	var b := button_at()
+	return str(_buttons_of(selected)[b].id) if b >= 0 else str(options[selected].id)
+
+
 ## The first row marked "job", or 0 when there is none.
 func first_job() -> int:
 	for i in options.size():
@@ -230,7 +283,10 @@ func _fit() -> void:
 	var widths := [inner, inner, inner]
 	for r in _rows:
 		wraps.append(r.text)
-		widths.append(inner - 16.0 - MARK_W - 12.0)     # less the scroll bar, the cursor mark, the gaps
+		var tw := inner - 16.0 - MARK_W - LINE_GAP     # less the scroll bar, the cursor mark, the gap
+		if not (r.buttons as Array).is_empty():
+			tw -= BTN_COL + LINE_GAP                   # and the button column
+		widths.append(tw)
 	for i in wraps.size():
 		var l: Label = wraps[i]
 		l.custom_minimum_size.x = widths[i]
@@ -242,7 +298,7 @@ func _fit() -> void:
 	if body_label.visible:
 		rest += body_label.get_combined_minimum_size().y
 	var room := clampf(vp.y * 0.92 - rest, 60.0, LIST_MAX_H)
-	scroll.custom_minimum_size = Vector2(inner, minf(h, room))
+	scroll.custom_minimum_size = Vector2(inner, minf(maxf(h, _keep_h), room))
 	var ph := panel.get_combined_minimum_size().y
 	panel.offset_top = -ph * 0.5
 	panel.offset_bottom = ph * 0.5
@@ -256,17 +312,58 @@ func move(step: int) -> void:
 	_show_cursor()
 
 
+## Move the cursor between the selected row's buttons (stops at the ends).
+func move_button(step: int) -> void:
+	var n := _buttons_of(selected).size()
+	if n < 2:
+		return
+	button = clampi(button_at() + step, 0, n - 1)
+	_show_cursor()
+
+
+## The mouse is over button `j` of row `i`: the cursor follows it.
+func _point(i: int, j: int) -> void:
+	if i == selected and j == button_at():
+		return
+	selected = i
+	button = j
+	_show_cursor()
+
+
 ## The row under the cursor: a lit bar behind it in the HUD colour (RetroSkin
 ## owns the text colours) and a ">" in front of it.
 func _show_cursor() -> void:
 	_cursor_box.bg_color = Color(RetroUI.accent, 0.28)
 	_cursor_box.border_color = RetroUI.accent
+	var lit := button_at()
 	for i in _rows.size():
 		var on := i == selected
 		_rows[i].box.add_theme_stylebox_override("panel", _cursor_box if on else _row_box)
 		_rows[i].key.text = ">" if on else ""
-	hint.text = HINT_ALT % alt_hint() if has_alt() else HINT
+		var btns: Array = _rows[i].buttons
+		for j in btns.size():
+			_style_button(btns[j], on and j == lit)
+	hint.text = _hint_text()
 	_scroll_to_cursor()
+
+
+## A row button: filled in the HUD colour with dark text under the cursor, dark
+## glass with a thin rim otherwise.
+func _style_button(b: Button, on: bool) -> void:
+	var a := RetroUI.accent
+	var sb: StyleBoxFlat
+	if on:
+		sb = StyleBoxFlat.new()
+		sb.bg_color = a
+		sb.set_content_margin_all(6.0)
+	else:
+		sb = RetroUI.box(0.85, 1, 6.0)
+		sb.shadow_size = 0
+	for k in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		b.add_theme_stylebox_override(k, sb)
+	var ink := Color.BLACK if on else a
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, ink)
 
 
 ## Once the list has been laid out (the rows' places are known), bring the cursor
@@ -308,6 +405,10 @@ func _input(event: InputEvent) -> void:
 		move(-1 if k in [KEY_UP, KEY_W] else 1)
 		get_viewport().set_input_as_handled()
 		return
+	if k in [KEY_LEFT, KEY_A, KEY_RIGHT, KEY_D]:
+		move_button(-1 if k in [KEY_LEFT, KEY_A] else 1)
+		get_viewport().set_input_as_handled()
+		return
 	if event.echo:
 		return
 	if k == KEY_ESCAPE:
@@ -315,5 +416,5 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif k in [KEY_ENTER, KEY_KP_ENTER] and selected < options.size():
 		var alt := str(options[selected].get("alt", ""))
-		choose(alt if event.shift_pressed and alt != "" else str(options[selected].id))
+		choose(alt if event.shift_pressed and alt != "" else picked_id())
 		get_viewport().set_input_as_handled()
