@@ -381,6 +381,36 @@ func spawn_point() -> Vector3:
 	return (bay.xf as Transform3D) * Vector3((p.local as Vector2).x - 18.0, 0.2, (p.local as Vector2).y)
 
 
+## The F11 map's side view of the station (StationMapView): each place you can set
+## a waypoint on, { id, tower, rect: Rect2 in (x, y) of the station's frame (seen
+## from the side, +z toward you), at: Vector3 (where the pointer goes, on its
+## floor) }: the landing bay (its deck beside the dock pad), then every floor of
+## every tower (on its walkway where a bridge from the elevator lands).
+func map_places() -> Array:
+	var out: Array = []
+	if not bay.is_empty():
+		var bc: Vector2 = bay.c
+		var br := float(bay.r)
+		out.append({ "id": "bay", "tower": "", "rect": Rect2(bc.x - br, 0.0, br * 2.0, float(bay.height)), "at": spawn_point() })
+	for t in towers:
+		var c: Vector2 = t.c
+		for i in (t.floors as Array).size():
+			var f: Dictionary = t.floors[i]
+			var a := float(bridge_angles(i)[0])
+			var w := c + Vector2(cos(a), sin(a)) * (gap_r + walk * 0.5)
+			out.append({ "id": str(f.id), "tower": str(t.id), "rect": Rect2(c.x - float(f.r), float(f.y) - plate, float(f.r) * 2.0, floor_h + plate * 2.0),
+				"at": Vector3(w.x, float(f.y) + 1.0, w.y) })
+	return out
+
+
+## A map place's point (station frame), or INF.
+func map_place(place_id: String) -> Vector3:
+	for p in map_places():
+		if str(p.id) == place_id:
+			return p.at
+	return Vector3.INF
+
+
 ## The elevator's stops in each tower: { tower, c: Vector2, stops: [y, ...] }.
 func elevators() -> Array:
 	var out: Array = []
