@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Known issues, worst first (2026-11-26)
+
+- **`KNOWN_ISSUES.md` is ranked by how much a player would feel it**, not by
+  date: freezes and crashes, wrong behaviour, LAN, looks, never played by hand,
+  tests and tools, not built yet. Each item says where it came from and, for
+  #693 and #695 to #712, the issue that fixes it.
+- **The old per-PR notes are in `docs/KNOWN_ISSUES_ARCHIVE.md`** whole, with
+  what each PR checked. Notes later work had replaced were left out of the new
+  list (capsule NPCs, no navmesh, primitive ships, the square desert's skirt,
+  no ragdolls, no skins, the station with nobody aboard, and the old handoff
+  numbers #574 replaced).
+- New PRs add a bullet where it belongs; fixed items are deleted.
+
 ## Speeder stalls at the race hangouts, and Dorrin faces his counter (2026-11-25)
 
 - **Dorrin's cousins run a stall at each race hangout.** Torrin Vask by the
