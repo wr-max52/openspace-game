@@ -16,6 +16,7 @@ signal outfit_changed(outfit: Dictionary)
 const LABELS := { "head": "Head", "torso": "Upper body", "legs": "Lower body" }
 const TURN_SPEED := 0.6        ## rad/s
 const BG := Color(0.11, 0.09, 0.08)
+const BUILD_AFTER_FRAMES := 2  ## issue #696: the Player page shows first, the preview after
 
 var outfit: Dictionary = {}    ## every part filled in: { part: "<piece>[:<colour>]" }
 var preview: Node3D            ## the model on the turntable
@@ -27,12 +28,16 @@ var _locked_note: Label        ## which item opens the pieces still locked
 var for_npc := false           ## issue #147: a stall keeper's look, not the player's
 var body_scale := Vector3.ONE  ## issue #147: the preview's height and build
 var controls: VBoxContainer    ## the column of pickers beside the preview (the NPC builder adds its own)
+var _vp: SubViewport
 
 
-func _init(npc := false) -> void:
+## Issue #696: `kit` is the player's own (PlayerAvatar.kit): its materials are
+## already made, so none are made again; `first` is the outfit shown first (the
+## saved one if null), so the preview is built once.
+func _init(npc := false, kit: CharacterKit = null, first = null) -> void:
 	for_npc = npc
 	add_theme_constant_override("separation", 14)
-	_kit = CharacterKit.new(LookMaterials.new(), -1000.0)
+	_kit = kit if kit != null else CharacterKit.new(LookMaterials.new(), -1000.0)
 	add_child(_viewport())
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -71,7 +76,7 @@ func _init(npc := false) -> void:
 	_locked_note.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_locked_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_locked_note)
-	show_outfit(_default() if for_npc else PlayerOutfit.load_outfit())
+	show_outfit(first if first is Dictionary else (_default() if for_npc else PlayerOutfit.load_outfit()))
 
 
 func _default() -> Dictionary:
@@ -84,6 +89,9 @@ func _catalog() -> Dictionary:
 
 
 func _process(dt: float) -> void:
+	# Issue #696: the viewport's first draw is a frame after the model is built.
+	if _vp != null and _vp.render_target_update_mode == SubViewport.UPDATE_DISABLED:
+		_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	if _turntable != null and is_visible_in_tree():
 		_turntable.rotation.y = wrapf(_turntable.rotation.y + TURN_SPEED * dt, -PI, PI)
 
@@ -178,9 +186,13 @@ func _viewport() -> Control:
 	var box := SubViewportContainer.new()
 	box.custom_minimum_size = Vector2(240, 360)
 	box.stretch = true
+	# Issue #696: no MSAA and one light (the faster preview); not drawn until the
+	# frame after it is built.
 	var vp := SubViewport.new()
 	vp.own_world_3d = true
-	vp.msaa_3d = Viewport.MSAA_4X
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_vp = vp
 	box.add_child(vp)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
@@ -197,11 +209,6 @@ func _viewport() -> Control:
 	key.light_energy = 1.4
 	key.light_color = Color(1.0, 0.92, 0.8)
 	vp.add_child(key)
-	var rim := DirectionalLight3D.new()
-	rim.rotation_degrees = Vector3(-20, 200, 0)
-	rim.light_energy = 0.7
-	rim.light_color = Color(0.7, 0.8, 1.0)
-	vp.add_child(rim)
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	cam.position = Vector3(0, 1.05, 4.2)

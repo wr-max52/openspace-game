@@ -43,6 +43,8 @@ var _hour_label: Label
 var _flags_box: VBoxContainer
 var _flag_new: LineEdit
 var builder: CharacterBuilder
+var _make_builder: Callable    ## issue #696: builds the Player page's preview
+var _builder_in := -1          ## frames until it is built (-1: not waiting)
 var _god := false
 var _endless_fuel := false
 var _cheats: Array[Control] = []       ## greyed out in a story save (_lock_for_story)
@@ -193,6 +195,7 @@ func _process(_dt: float) -> void:
 		_lan_refresh.call()          # players come and go while the panel is open
 	_watch_cruiser(_dt)
 	_watch_vehicles(_dt)
+	_tick_builder()
 
 
 ## While the Map page shows the planet you are on, the vehicles (and you) move on
@@ -1344,27 +1347,43 @@ func _character_page(v: VBoxContainer) -> void:
 	_story_note(v, "you play the smuggler; every piece and colour of their own kit is yours to pick.")
 	# Issue #545: the outfit's turntable is a whole character (about 2.3 s to build),
 	# so it is built the first time the Player page shows, not when the panel first
-	# opens: I, M and F11 open at once.
+	# opens: I, M and F11 open at once. Issue #696: and not on the frame the page
+	# shows either: it waits CharacterBuilder.BUILD_AFTER_FRAMES frames (_process),
+	# then is built on the body the player already wears (its kit and materials).
 	var holder := VBoxContainer.new()
 	v.add_child(holder)
 	var make := func():
 		if builder != null or not holder.is_visible_in_tree():
 			return
-		builder = CharacterBuilder.new()
-		builder.outfit_changed.connect(func(o):
-			var a = _avatar()
-			if a != null:
-				a.set_outfit(o))
-		holder.add_child(builder)
 		var a = _avatar()
-		builder.show_outfit(a.worn_outfit() if a != null else PlayerOutfit.load_outfit())
-	tabs.tab_changed.connect(func(_i): make.call())
+		builder = CharacterBuilder.new(false, a.kit if a != null else null,
+				a.worn_outfit() if a != null else PlayerOutfit.load_outfit())
+		builder.outfit_changed.connect(func(o):
+			var av = _avatar()
+			if av != null:
+				av.set_outfit(o))
+		holder.add_child(builder)
+	_make_builder = make
+	var later := func():
+		if builder == null and _builder_in < 0 and holder.is_visible_in_tree():
+			_builder_in = CharacterBuilder.BUILD_AFTER_FRAMES
+	tabs.tab_changed.connect(func(_i): later.call())
 	_refreshers.append(func():
 		if builder == null:
-			make.call()
+			later.call()
 			return
 		var a = _avatar()
 		builder.show_outfit(a.worn_outfit() if a != null else PlayerOutfit.load_outfit()))
+
+
+## Issue #696: count down to building the Player page's preview, a few frames after
+## the page shows.
+func _tick_builder() -> void:
+	if _builder_in < 0:
+		return
+	_builder_in -= 1
+	if _builder_in < 0 and _make_builder.is_valid():
+		_make_builder.call()
 
 
 func _avatar() -> PlayerAvatar:
