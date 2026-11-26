@@ -134,6 +134,23 @@ func test_pages_are_built_on_first_open_only() -> void:
 	p.close()
 
 
+## Issue #696: the Player page shows at once; its outfit preview (a whole
+## character in its own viewport) is built a few frames later, never on the frame
+## the page opens.
+func test_the_player_page_opens_before_its_preview_is_built() -> void:
+	var town = _town()
+	await wait_physics_frames(2)
+	var p: DevSettingsPanel = town.dev_settings
+	p.open_tab("Player")
+	assert_eq(p.tabs.get_tab_title(p.tabs.current_tab), "Player")
+	assert_null(p.builder, "no preview built on the frame the page opens")
+	for i in 6:
+		await get_tree().process_frame
+	assert_not_null(p.builder, "the preview turns up a few frames later")
+	assert_not_null(p.builder.preview if p.builder != null else null, "with its model")
+	p.close()
+
+
 func test_story_save_greys_out_the_cheats() -> void:
 	var town = _town()
 	var p: DevSettingsPanel = town.dev_settings
