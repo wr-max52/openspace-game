@@ -178,8 +178,6 @@ each PR checked and measured, are in the archive under "The per-PR log".
    the arms wobble about a millimetre; scoped in, the barrel casts no shadow, and
    the scope's last frames of aiming in can wobble once. *(the cruiser pass,
    2026-10-31; fix: #706)*
-4. **The camera may clip a tent's roof** in third person. *(#96, 2026-10-29;
-   fix: #707)*
 5. **Ships rest level** wherever they land, so a slope leaves one side hanging.
    *(M14, 2026-10-26; fix: #708)*
 6. **The ground can hop you a few cm** when the walkable desert re-centres under a
