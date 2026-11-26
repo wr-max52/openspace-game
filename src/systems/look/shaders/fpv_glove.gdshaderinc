@@ -32,8 +32,18 @@ uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
 
 varying vec3 lpos;
 
+// Issue #706: aimed in, pinned to the eye like the gun (viewmodel_pin, GunSights.pin);
+// the shaders that include this set render_mode skip_vertex_transform.
+#include "res://src/systems/look/shaders/viewmodel_pin.gdshaderinc"
+
 void vertex() {
 	lpos = VERTEX;
+	mat4 mv = pin_modelview(MODELVIEW_MATRIX);
+	VERTEX = (mv * vec4(VERTEX, 1.0)).xyz;
+	mat3 nm = pin_on > 0.5 ? mat3(mv) : MODELVIEW_NORMAL_MATRIX;
+	NORMAL = normalize(nm * NORMAL);
+	TANGENT = normalize(nm * TANGENT);
+	BINORMAL = normalize(nm * BINORMAL);
 }
 
 float grain_h(vec2 uv) {

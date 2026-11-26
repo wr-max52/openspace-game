@@ -140,6 +140,8 @@ func where(target: String) -> Vector3:
 			var g = demo.get("general_post")
 			if id == "general" and g != null and is_instance_valid(g) and g.body != null and g.body.visible:
 				return g.body.global_position          # issue #203: wherever he stands now
+			if id == "bounty":
+				return _bounty_pos()                   # issue #711: the officer, once you are close
 			return _marker(id)
 		"wreck":
 			# Issue #205: the crashed cruiser on the horizon.
@@ -236,6 +238,18 @@ func where(target: String) -> Vector3:
 					if str(o.id) == id:
 						return o.origin
 	return Vector3.INF
+
+
+## Issue #711: the bounty's officer where they stand now (or ride, a runner), else
+## their outpost.
+func _bounty_pos() -> Vector3:
+	var ro = demo.get("outposts")
+	if ro == null or not is_instance_valid(ro):
+		return Vector3.INF
+	var t = ro.target
+	if t != null and is_instance_valid(t) and not t.dead:
+		return t.global_position
+	return where("outpost:" + str(WorldState.bounty.get("outpost", "")))
 
 
 func _marker(id: String) -> Vector3:

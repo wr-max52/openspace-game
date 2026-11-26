@@ -174,18 +174,12 @@ each PR checked and measured, are in the archive under "The per-PR log".
 1. **Desert packs:** members out of the sand collider's reach slide frozen in
    their last pose; the gesture poses were never watched moving and may be wrong;
    spears and knives hang at a fixed angle. *(#96, 2026-10-29; fix: #704)*
-2. **A street lamp in the middle of the moon's club room** (from the old cantina
-   door). *(the moon rave, 2026-11-04; fix: #705)*
 3. **Far from the origin** (the cruiser, 11.5 km out) the pistol's iron sights and
    the arms wobble about a millimetre; scoped in, the barrel casts no shadow, and
    the scope's last frames of aiming in can wobble once. *(the cruiser pass,
    2026-10-31; fix: #706)*
-4. **The camera may clip a tent's roof** in third person. *(#96, 2026-10-29;
-   fix: #707)*
 5. **Ships rest level** wherever they land, so a slope leaves one side hanging.
    *(M14, 2026-10-26; fix: #708)*
-6. **The ground can hop you a few cm** when the walkable desert re-centres under a
-   player standing still. Not rechecked. *(M14, 2026-10-26; fix: #709)*
 7. **Loading a save can make a coin sound.** *(#16, 2026-10-27; fix: #710)*
 8. **Bounty targets have no marker:** the pointer leads to the outpost, not the
    person. *(#65, 2026-10-27; fix: #711)*

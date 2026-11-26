@@ -106,6 +106,11 @@ func _init() -> void:
 	collider_cells = near_cells
 	collider_size = near_cells * near_step
 	recenter_distance = near_recenter
+	# Issue #709: a shape swapped in is not seen by physics until the next step, so
+	# a body that moved after the swap found no ground for a frame, dropped, and was
+	# pushed back up (a hop of up to 0.2 m). Swap after every body has moved: they
+	# stand on the old patch this frame and on the new one the next.
+	process_physics_priority = 100
 
 
 func set_radius(r: float) -> void:

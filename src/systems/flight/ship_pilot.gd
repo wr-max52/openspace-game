@@ -453,14 +453,18 @@ func sell_berth(i: int) -> bool:
 
 ## Issue #207: T-89 fitted an upgrade: the parked ship you fly takes it now
 ## (in the air it waits for the next landing), and an upgrade with a paint job
-## repaints its ship (ShipUpgrades.look). Every owned ship shows its parts at once.
+## repaints its ship (ShipUpgrades.look). Every owned ship shows its parts at once,
+## and issue #703: its hull takes the new shape now, not at the next load.
 func refit() -> void:
 	for b in berths:
 		if not bool(b.get("destroyed", false)) and is_instance_valid(b.visual):
 			var base := str(content.get_ship(str(b.ship_id)).get("look", ""))
+			var was := ShipKit.shown(b.visual)
 			kit.repaint(b.visual, ShipUpgrades.look(str(b.ship_id), base))
 			if b.visual.has_meta("look_id"):
 				kit.dress(b.visual, ShipUpgrades.fitted(str(b.ship_id)))
+			if was != ShipKit.shown(b.visual) and b.get("hull") != null and is_instance_valid(b.hull):
+				(b.hull as ShipHull).refit(b.visual)
 	if not piloting and not berths.is_empty():
 		_use_berth(berth)
 

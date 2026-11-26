@@ -133,6 +133,20 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 	return root
 
 
+## Issue #697: an archetype's size against the 1.8 m reference, as build() scales
+## its look: (width, height, width). Read once for every body (the hitbox's size).
+static var _sizes := {}
+static func size_of(archetype: String) -> Vector3:
+	if _sizes.is_empty():
+		_sizes["_"] = _read_json(PALETTES_PATH).get("archetypes", {})
+	var all: Dictionary = _sizes["_"]
+	var p: Dictionary = all.get(archetype, {})
+	var base: Dictionary = all.get(str(p.get("base", archetype)), {})
+	var s := float(p.get("height", base.get("height", REF_HEIGHT))) / REF_HEIGHT
+	var bulk := float(p.get("bulk", base.get("bulk", 1.0)))
+	return Vector3(s * bulk, s, s * bulk)
+
+
 ## Issue #693: whether this palette's model is loaded and will dress the body
 ## (then the primitive armour under it is never seen).
 static func _will_skin(p: Dictionary) -> bool:

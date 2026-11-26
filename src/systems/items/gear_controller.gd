@@ -31,6 +31,8 @@ extends Node
 ##   - wreck field: a supply crate on each crashed starcruiser's bridge platform
 ##     (pickups "site_crates"), placed once the world's ground is here; [E] opens
 ##     it for one prize rolled from "crate_prizes" (credits or a stack of goods).
+##     Stray loot ("site_loot") lies along the climb up to it on every such wreck:
+##     grenades on the hold floor, better things on each deck up.
 ##
 ## The headless trace calls interact() and toggle_gear() directly: the same code
 ## path the keys use. All words come from content/core/flow/gear.json.
@@ -89,6 +91,7 @@ var menu: DroidMenu             ## a stall's trade menu: sell, buy, the fence's 
 var last_trade := ""            ## what the last pick in it did: "sold", "bought", "cant_afford", ...
 var _trade_said := ""           ## the trade menu's body: the pitch, then what the last trade did
 var on_refit := Callable()      ## issue #208: () after an upgrade (the town refits the player's guns)
+var on_sold := Callable()       ## issue #703: (id) after the last one of an item is sold (the town holsters that gun)
 var _armour_look := false       ## issue #209: the desert guard's look is on (story saves)
 var _dressed := ""              ## the outfit_note of armour just put on in free roam, said after the put-on line
 var _last_safe := Vector3.ZERO
@@ -202,7 +205,10 @@ func _build_site_crates() -> void:
 	_crates_built = true
 	for entry in content.get_site_crates(location_id):
 		var site := str(entry.get("site", ""))
-		if inv().is_taken(str(entry.get("id", ""))) or not StarcruiserWreck.has_wreck(ground, site):
+		if not StarcruiserWreck.has_wreck(ground, site):
+			continue
+		_build_site_loot(site)
+		if inv().is_taken(str(entry.get("id", ""))):
 			continue
 		var pt: Array = entry.get("site_point", [0, 0, 0])
 		var at := StarcruiserWreck.site_point(ground, Vector3(float(pt[0]), float(pt[1]), float(pt[2])), "level", site)
@@ -214,6 +220,31 @@ func _build_site_crates() -> void:
 		var node = PickupNode.new()
 		node.setup(items, e, { "look": "prize_crate" }, at)
 		node.transform = Transform3D(PlanetSphere.tilt_to(ground.up_at(at)), at)
+		add_child(node)
+		pickups.append(node)
+
+
+## Wreck field: the stray loot on one wreck's floors, each spot at its point in
+## the wreck's hull or level frame, lying flat on that floor (the hold's pitched
+## plating or a level deck). A spot under the sand is not put out.
+func _build_site_loot(site: String) -> void:
+	for spot in content.get_site_loot(location_id):
+		var e: Dictionary = (spot as Dictionary).duplicate()
+		e["id"] = "%s/%s" % [site, str(spot.get("id", ""))]
+		if inv().is_taken(str(e.id)):
+			continue
+		var item: Dictionary = content.get_item(str(e.get("item", "")))
+		if item.is_empty():
+			push_warning("GearController: site loot %s names an unknown item" % str(e.id))
+			continue
+		var kind := str(e.get("frame", "level"))
+		var pt: Array = e.get("point", [0, 0, 0])
+		var at := StarcruiserWreck.site_point(ground, Vector3(float(pt[0]), float(pt[1]), float(pt[2])), kind, site)
+		if StarcruiserWreck._buried(ground, at):
+			continue
+		var node = PickupNode.new()
+		node.setup(items, e, item, at)
+		node.transform = Transform3D(StarcruiserWreck.frame(ground, site, kind).basis.orthonormalized(), at)
 		add_child(node)
 		pickups.append(node)
 
@@ -634,6 +665,8 @@ func sell_item(id: String, v: Dictionary) -> String:
 	WorldState.log_event(_l("event_sold") % str(it.get("label", id)).to_lower())
 	if not inv().has(id):
 		_packs.erase(id)
+		if on_sold.is_valid():
+			on_sold.call(id)
 	sync_gear()
 	if bool(it.get("contraband", false)):
 		WorldState.on_contraband_sold()     # issue #64: a smuggling run done?

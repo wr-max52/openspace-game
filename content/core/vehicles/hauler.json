@@ -42,6 +42,14 @@
     "seat": "#3a2a20",
     "glass": "#22323f",
     "glow": "#7fe0d0",
+    "mounts": {
+      "hood": {"at": [0, 1.38, -2.4]},
+      "rack": {"at": [0.7, 2.16, 2.72]},
+      "tanks": {"at": [-0.95, 2.16, 2.72]},
+      "dome": {"at": [0, 1.34, -1.75]},
+      "flank": {"at": [1.49, -0.45, 1.9]},
+      "tail": {"at": [0, -0.35, 3.35]}
+    },
     "scene": "res://assets/vehicles/hauler.glb",
     "paints": {
       "work": "res://assets/vehicles/hauler.glb",

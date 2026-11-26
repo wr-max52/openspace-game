@@ -594,9 +594,10 @@ func _build_ramps() -> void:
 	_ramp_root = Node3D.new()
 	_ramp_root.name = "Ramps"
 	add_child(_ramp_root)
-	var with_look: bool = demo == null or not ("use_look" in demo) or bool(demo.use_look)
+	var with_look: bool = demo != null and "use_look" in demo and bool(demo.use_look) and demo.has_method("_flat_mats")
+	var mat: Material = SpeederPost.ramp_material(demo._flat_mats(), ground.sphere() if ground != null else null) if with_look else null
 	for b in ramps:
-		SpeederPost.add_ramp(_ramp_root, b, with_look)
+		SpeederPost.add_ramp(_ramp_root, b, mat)
 
 
 ## Issue #618: a small panel on the start line's left antenna: your best lap.

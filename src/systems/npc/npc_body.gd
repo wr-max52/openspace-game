@@ -216,6 +216,7 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	locomotion.reuse_out = true          # issue #540: one result dict, read at once
 	_repath_s = float(navc.get("repath_s", 1.5))
 	_repath_move = float(navc.get("repath_move", 1.5))
+	_fit_capsule(soldier)
 	if materials != null:
 		kit = CharacterKit.new(materials, -1000.0)
 		look_body = kit.build(str(soldier.get("archetype", "remnant_trooper")), "", soldier.get("outfit", {}))
@@ -271,6 +272,18 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	add_child(_speech)
 	_build_sounds()
 	_build_health_bar()
+
+
+## Issue #697: the capsule (the hitbox and what walks) takes the body's size: its
+## height with the look's height, its radius with the look's width, crouching
+## too. Set once, before the body is in the tree (CharacterBody._ready builds it);
+## the same with the look on or off.
+func _fit_capsule(soldier: Dictionary) -> void:
+	var size := CharacterKit.size_of(str(soldier.get("archetype", "remnant_trooper"))) * float(soldier.get("look_scale", 1.0))
+	capsule_height *= size.y
+	capsule_radius *= size.x
+	controller.stand_height *= size.y
+	controller.crouch_height *= size.y
 
 
 ## Issue #147: the look's size (a stall keeper's height and build).
@@ -884,6 +897,25 @@ func _ray_clear(tpos: Vector3) -> bool:
 	var hull: Node = v.hull_body() if v != null else null
 	while n != null:
 		if n == target or (hull != null and n == hull):
+			return true
+		n = n.get_parent()
+	return false
+
+
+## Issue #699: eye to `to`, clear if nothing but `other` (or a part of it) is in the
+## way. SilentKill's body check; one ray.
+func sight_clear(to: Vector3, other: Node = null) -> bool:
+	if not is_inside_tree():
+		return false
+	var q := PhysicsRayQueryParameters3D.create(eye_position(), to)
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return true
+	var n: Node = hit.collider
+	while n != null:
+		if other != null and n == other:
 			return true
 		n = n.get_parent()
 	return false

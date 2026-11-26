@@ -1106,8 +1106,12 @@ func _tick_fight(dt: float) -> void:
 		var r: Dictionary = _rousing.pop_front()
 		if not r.dead and r.fighter == null:
 			_rouse(r)
+	var under_way := absf(speed) > 0.1
 	for p in people:
 		var g = p.fighter
+		if g != null and is_instance_valid(g) and g.dead and under_way:
+			_settle(p)               # issue #703: a fighter's body does not hang where the deck was
+			continue
 		if g == null or not is_instance_valid(g) or g.dead:
 			continue
 		var spot := to_global(p.spot)

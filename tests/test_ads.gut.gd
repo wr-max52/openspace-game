@@ -148,6 +148,8 @@ func test_guns_use_the_dark_variant() -> void:
 		for m in PlayerAvatar._meshes_under(model):
 			if scope != null and scope.is_ancestor_of(m):
 				continue          # the procedural scope has its own metal (issue #229)
+			if m.get_parent().name == "IronSights":
+				continue          # issue #706: the sights' one shared metal (GunSights.sight_material)
 			if m.material_override is ShaderMaterial:
 				found += 1
 				var mat := m.material_override as ShaderMaterial
@@ -203,3 +205,79 @@ func test_rifle_shows_one_optic() -> void:
 	GunSights.pin(w, Transform3D(), false)
 	assert_eq(GunSights.scans, scans, "no tree scans over 60 frames of aiming")
 	assert_true((scope.get_node("Hardware") as Node3D).visible, "and still back from the hip")
+
+
+## Issue #706: aimed in, the pistol (its own meshes and the iron sights) and the
+## first person gloves and sleeves are pinned to the eye like the scope: each is
+## drawn at its place in the camera's space, made from local transforms only
+## (far out: tests/test_far_out_pin.gut.gd). Unaimed, all drawn the usual way
+## again, shadows back.
+func _aimed_pistol(at: Vector3) -> Array:
+	var body := Node3D.new()          # the player's body, the avatar under it as in play
+	add_child_autofree(body)
+	body.global_position = at
+	var a := PlayerAvatar.new()
+	body.add_child(a)
+	a.build_weapons(["pistol_blaster", "energy_blade", "rifle_blaster"])
+	a.set_first_person(true)
+	var cam := Camera3D.new()
+	add_child_autofree(cam)
+	a.ads_camera = cam
+	cam.global_transform = Transform3D(Basis.from_euler(Vector3(-0.2, 1.1, 0.0)), at + Vector3(0.0, 1.6, 0.0))
+	a.current = "pistol_blaster"
+	a.drawn = 1.0
+	a.ads_on = true
+	for i in 30:
+		a.animate(1.0 / 60.0, { "upper": BodyAnimator.UPPER_AIM, "cam_yaw": 1.1, "aim_pitch": -0.2 })
+		a._process(1.0 / 60.0)
+	return [a, cam]
+
+
+func _pin_of(g: GeometryInstance3D) -> Transform3D:
+	var x: Vector4 = g.get_instance_shader_parameter("pin_x")
+	var y: Vector4 = g.get_instance_shader_parameter("pin_y")
+	var z: Vector4 = g.get_instance_shader_parameter("pin_z")
+	return Transform3D(Basis(Vector3(x.x, y.x, z.x), Vector3(x.y, y.y, z.y), Vector3(x.z, y.z, z.z)), Vector3(x.w, y.w, z.w))
+
+
+func _pinned_meshes(a: PlayerAvatar) -> Array:
+	return GunSights.parts(a.weapon_node("pistol_blaster")).pinned + a._fpv.meshes()
+
+
+func test_pistol_sights_and_gloves_pin_to_the_eye() -> void:
+	var r := _aimed_pistol(Vector3.ZERO)
+	var a: PlayerAvatar = r[0]
+	var cam: Camera3D = r[1]
+	assert_eq(a.ads_blend, 1.0)
+	var w := a.weapon_node("pistol_blaster")
+	var sights := w.find_child("IronSights", true, false) as Node3D
+	var gun: Array = GunSights.parts(w).pinned
+	for m in sights.get_children():
+		assert_true(gun.has(m), "the iron sights are pinned with the gun")
+		assert_eq((m as GeometryInstance3D).material_override, GunSights.sight_material(), "one shared metal")
+	assert_gt(gun.size(), sights.get_child_count(), "and the gun's own meshes")
+	assert_not_null(a._fpv, "first person arms")
+	assert_gt(a._fpv.meshes().size(), 5)
+	var pinned := _pinned_meshes(a)
+	for m in pinned:
+		var g := m as GeometryInstance3D
+		assert_eq(float(g.get_instance_shader_parameter("pin_on")), 1.0, "%s pinned" % g.name)
+		assert_eq(g.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "no shadow pinned: fast over pretty")
+		# At the origin the world is exact: the pin is where it is drawn.
+		var want := cam.global_transform.affine_inverse() * g.global_transform
+		assert_lt(_pin_of(g).origin.distance_to(want.origin), 0.0005, "%s at its place from the eye" % g.name)
+	# Off (the next tick): drawn the usual way, shadows back.
+	a.ads_on = false
+	a._process(1.0)
+	a.animate(1.0 / 60.0, { "upper": BodyAnimator.UPPER_AIM, "cam_yaw": 1.1, "aim_pitch": -0.2 })
+	for m in pinned:
+		var g := m as GeometryInstance3D
+		assert_eq(float(g.get_instance_shader_parameter("pin_on")), 0.0, "%s unpinned" % g.name)
+		assert_false(g.has_meta("pin_shadow"), "%s shadow setting back" % g.name)
+
+
+func test_glove_shaders_take_the_pin() -> void:
+	for sh in [FpvArms.GLOVE, FpvArms.GLOVE_FADE]:
+		assert_true((sh as Shader).code.contains("skip_vertex_transform"), sh.resource_path)
+	var inc := FileAccess.get_file_as_string("res://src/systems/look/shaders/fpv_glove.gdshaderinc")
+	assert_true(inc.contains("viewmodel_pin.gdshaderinc") and inc.contains("pin_modelview"), "the gloves use the scope's pin")
