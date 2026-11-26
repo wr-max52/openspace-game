@@ -80,7 +80,8 @@
     "touchdown_speed": 9.0,
     "crash_speed": 36.0,
     "body_radius": 3.0,
-    "clearance": 1.0
+    "clearance": 1.0,
+    "land_tilt_max_deg": 15.0
   },
   "note": "IP-neutral (issue #43). A flying anvil: armoured, heavy-hitting guns (blaster_power), a seeker rack, and Shift is an air brake: it bleeds speed and snaps round to bring the guns on target.",
   "naming": {

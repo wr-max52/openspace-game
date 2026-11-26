@@ -78,7 +78,8 @@
     "touchdown_speed": 9.0,
     "crash_speed": 32.0,
     "body_radius": 2.0,
-    "clearance": 1.0
+    "clearance": 1.0,
+    "land_tilt_max_deg": 15.0
   },
   "note": "IP-neutral (issue #43). A rocket with wings for private travel and fast executive deliveries: the fastest small ship in the port and the lightest, two small cannons and a seeker rack, and a long boost on Shift.",
   "naming": {

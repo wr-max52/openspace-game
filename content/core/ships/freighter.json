@@ -95,7 +95,8 @@
     "touchdown_speed": 9.0,
     "crash_speed": 38.0,
     "body_radius": 3.8,
-    "clearance": 1.0
+    "clearance": 1.0,
+    "land_tilt_max_deg": 15.0
   },
   "note": "IP-neutral (issue #43). A round industrial disc hauler: tough and slow, four guns on a centre turret and a seeker rack, and Shift drifts: it keeps sliding while the nose swings round, so it can fire behind itself.",
   "naming": {
