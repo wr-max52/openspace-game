@@ -793,9 +793,7 @@ func _place() -> Dictionary:
 		# planet); the briefing's own "world" only when no planet is current.
 		_world_cache = GameFlow.planet().get("world", {})
 		if _world_cache.is_empty():
-			var cc := CoreContent.new()
-			cc.load_from()
-			_world_cache = cc.get_world(str(builder.world_text.get("world", "")))
+			_world_cache = CoreContent.shared().get_world(str(builder.world_text.get("world", "")))
 	if _world_cache.is_empty():
 		return {}
 	return { "town": NameHooks.town(_world_cache), "planet": NameHooks.planet(_world_cache) }

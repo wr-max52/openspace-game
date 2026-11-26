@@ -2,6 +2,33 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Coming down, part 4: build by sight, in layers, smaller pieces (2026-11-26)
+
+- **Nothing is built before you could see it.** An outpost over the curve of
+  the home planet waits until it comes over the horizon (flying in over the far
+  side builds none of the ten). The barge, the beast, the speeders, the race
+  courses and the native packs each wait for their own height on the way down,
+  3 km to 1.2 km, so they never land on the same frames.
+- **The switch frame is lighter.** The wrecks, their colliders and most of the
+  town's hidden boxes come in after the planet takes over, a piece at a time
+  (325 ms on the old build, ~71 ms now).
+- **Big builds come in smaller pieces:** the barge's decks, each race crew's
+  racers and the speeder post; the barge's crowd is 60% of what it was.
+- **Graphics come in late, never as a long frame.** Club textures paint in the
+  background on arrival (a flat colour for a few frames); game content is read
+  once a session, not once per person; the town's walk map and the outposts'
+  ground are worked out off the main thread; parts are merged without reading
+  meshes back from the GPU (`PrimBatch`).
+- **Models load on the way in.** Each planet's models are remembered, and from
+  30 km out in open space they start loading in the background.
+- **Coming down with home already loaded:** 76 frames over budget on the old
+  build, 21 now, worst ~93 ms. **Flying in from the gas giant is still rough:**
+  42 frames over, worst 384 ms (KNOWN_ISSUES 1.1).
+- **Checked:** smoke 2, staged build 14 (five new), barge 9, race course 14, race
+  crews 12, speeders 23, cruiser crew 7, belt cruiser 7, club people 6, kit
+  outfits 3, m4 outpost 2, a headless town boot, rendered descent probes (warm
+  and cold) on this Mac. Not played by hand; the moon route not measured.
+
 ## Known issues, worst first (2026-11-26)
 
 - **`KNOWN_ISSUES.md` is ranked by how much a player would feel it**, not by

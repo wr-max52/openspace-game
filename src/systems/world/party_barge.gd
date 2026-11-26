@@ -551,32 +551,43 @@ func merged_sliced(mats: Dictionary, st: StagedBuild) -> Array:
 		_merge_part(sets, parts[i])
 		if i % 16 == 15:
 			await StagedBuild.slice_of(st)
-	return _commit_sets(sets, mats)
+	return await _commit_sets_sliced(sets, mats, st)
 
 
 func _merge_part(sets: Dictionary, p) -> void:
 	var key := "%s|%s" % [p.finish, p.group]
 	if not sets.has(key):
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		sets[key] = st
-	(sets[key] as SurfaceTool).append_from(p.mesh, 0, p.xf)
+		sets[key] = PrimBatch.new()       # issue #693: nothing read back from the GPU
+	(sets[key] as PrimBatch).add(p.mesh, p.xf)
 
 
 func _commit_sets(sets: Dictionary, mats: Dictionary) -> Array:
 	var out: Array = []
 	for key in sets:
-		var bits: PackedStringArray = str(key).split("|")
-		var mi := MeshInstance3D.new()
-		mi.name = "Barge_" + bits[0] + ("_" + bits[1] if bits[1] != "" else "")
-		mi.mesh = (sets[key] as SurfaceTool).commit()
-		mi.material_override = mats.get(bits[0])
-		if bits[1] == "gangplank":
-			mi.set_meta("gangplank", true)
-		if bits[0] in ["lamp", "screen", "awning", "awning_stripe"]:
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		out.append(mi)
+		out.append(_commit_one(str(key), sets[key], mats))
 	return out
+
+
+## Issue #693: one finish's mesh a piece.
+func _commit_sets_sliced(sets: Dictionary, mats: Dictionary, st: StagedBuild) -> Array:
+	var out: Array = []
+	for key in sets:
+		await StagedBuild.slice_of(st)
+		out.append(_commit_one(str(key), sets[key], mats))
+	return out
+
+
+func _commit_one(key: String, batch: PrimBatch, mats: Dictionary) -> MeshInstance3D:
+	var bits: PackedStringArray = key.split("|")
+	var mi := MeshInstance3D.new()
+	mi.name = "Barge_" + bits[0] + ("_" + bits[1] if bits[1] != "" else "")
+	mi.mesh = batch.commit()
+	mi.material_override = mats.get(bits[0])
+	if bits[1] == "gangplank":
+		mi.set_meta("gangplank", true)
+	if bits[0] in ["lamp", "screen", "awning", "awning_stripe"]:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 
 # ------------------------------------------------------------------ the people

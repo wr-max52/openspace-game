@@ -56,8 +56,7 @@ func _ready() -> void:
 	shop.setup(demo, gear, cfg, func(): return world_point("bay") if found else Vector3.INF)
 	add_child(shop)
 	menu = shop.menu
-	var cc := CoreContent.new()
-	cc.load_from()
+	var cc: CoreContent = CoreContent.shared()
 	var world: Dictionary = demo.world if "world" in demo and not demo.world.is_empty() else cc.world_for_town("port_town")
 	var id := str(cfg.get("location", "mechanic_yard"))
 	for lm in world.get("landmarks", []):

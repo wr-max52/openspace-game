@@ -89,8 +89,7 @@ func setup(town_demo, box: Dictionary, ship_pilot: ShipPilot) -> void:
 
 
 func _ready() -> void:
-	content = CoreContent.new()
-	content.load_from()
+	content = CoreContent.shared()
 	ship_id = str(pad_box.get("remnant_ship", "remnant_interceptor"))
 	cfg = content.get_ship(ship_id)
 	sc = cfg.get("scramble", {})

@@ -193,10 +193,14 @@ func setup(town_scene) -> void:
 func _ready() -> void:
 	name = "ShipPilot"
 	_engine = Sound.carried_loop("ship_engine")   # one drone for every scene: a handoff never restarts it
-	content = CoreContent.new()
-	content.load_from()
+	content = CoreContent.shared()
 	world = demo.world if "world" in demo and not demo.world.is_empty() else content.world_for_town("port_town")
 	ground = WorldGround.new()
+	# Issue #693: a no-fade handoff's first frame leaves the wrecks (their boxes,
+	# colliders and plates) for build_late_scenery(), a piece a frame after it.
+	var late: bool = "staging" in demo and bool(demo.staging)
+	if late:
+		ground.defer_kinds = ["wreck"]
 	var desert: DesertTerrain = demo.terrain
 	if desert != null:
 		ground.setup(world, demo.town, content, desert.height_at, desert.extent)
@@ -206,9 +210,11 @@ func _ready() -> void:
 			ground.add_landforms(demo.landforms.data, demo.desert_site().floor)
 			ground.add_boulders(demo.landforms.boulders)      # issue #93: solid rocks, speeder ramps
 		scenery = WorldScenery.new()
+		scenery.build_later = late
 		scenery.setup(ground)
 		demo.add_child(scenery)
-		if demo.use_look:
+		_scenery_sand = desert.material
+		if demo.use_look and not late:
 			scenery.build_visuals(demo._flat_mats(), desert.material)
 	else:
 		ground.setup(world, demo.town, content)
@@ -297,6 +303,18 @@ func _gather_berths() -> void:
 		var bi := add_berth(v, id, box_id, pit_key if i == 0 else "")
 		if i > 0 and bool(demo.town.get_box(box_id).get("free", false)):
 			berths[bi]["free"] = true        # issue #316: the station's frigate, anyone's to fly
+
+
+## Issue #693: what a no-fade handoff's first frame left out of the world round
+## the town: the wrecks' boxes (one a piece), then the landmarks' colliders and,
+## with the look, their plates. `st` (a StagedBuild, may be null) spreads it.
+func build_late_scenery(st: StagedBuild = null) -> void:
+	while ground != null and not ground.add_deferred():
+		await StagedBuild.slice_of(st)
+	if scenery != null and scenery.build_later:
+		await StagedBuild.slice_of(st)
+		await scenery.build_late(st, demo._flat_mats() if demo.use_look else null, _scenery_sand, demo.use_look)
+var _scenery_sand: Material
 
 
 ## Issue #574: a handoff builds the bays' ships and the landforms after its

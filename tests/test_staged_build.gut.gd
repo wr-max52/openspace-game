@@ -111,6 +111,84 @@ func test_run_all_is_one_frame_in_order() -> void:
 
 # ---------------------------------------------------------------- altitude detail
 
+# ---------------------------------------------------------------- build by sight (issue #693)
+
+func test_a_held_step_waits_for_its_moment_without_holding_the_rest() -> void:
+	var ran: Array = []
+	var moment := [false]
+	var sb := StagedBuild.new()
+	sb.add("a", _sleep_step(ran, "a", 0.1))
+	sb.add("later", _sleep_step(ran, "later", 0.1))
+	sb.add("b", _sleep_step(ran, "b", 0.1))
+	sb.hold_until("later", func() -> bool: return moment[0])
+	add_child_autofree(sb)
+	for i in 10:
+		sb.run_frame()
+	assert_true(sb.done, "the plan is done without it")
+	assert_false(sb.settled, "but not settled")
+	assert_eq(ran, ["a", "b"], "the rest went on")
+	moment[0] = true
+	for i in 3:
+		sb.run_frame()
+	assert_eq(ran, ["a", "b", "later"], "built once its moment came")
+	assert_true(sb.settled)
+
+
+func test_run_all_and_release_never_wait_for_a_moment() -> void:
+	var ran: Array = []
+	var sb := StagedBuild.new()
+	sb.add("a", _sleep_step(ran, "a", 0.1))
+	sb.add("later", _sleep_step(ran, "later", 0.1))
+	sb.hold_until("later", func() -> bool: return false)
+	sb.run_all()
+	assert_eq(ran, ["a", "later"], "a normal arrival builds it all")
+	sb.free()
+	ran.clear()
+	var sb2 := StagedBuild.new()
+	sb2.add("a", _sleep_step(ran, "a", 0.1))
+	sb2.add("later", _sleep_step(ran, "later", 0.1))
+	sb2.hold_until("later", func() -> bool: return false)
+	add_child_autofree(sb2)
+	for i in 3:
+		sb2.run_frame()
+	sb2.release_held()
+	assert_eq(ran, ["a", "later"])
+	assert_true(sb2.settled)
+
+
+func test_a_trickle_builds_one_piece_a_frame_after_the_plan() -> void:
+	var pieces := [3]
+	var sb := StagedBuild.new()
+	sb.add("a", func(): return true)
+	sb.add_trickle("places", func() -> bool:
+		if pieces[0] <= 0:
+			return false
+		pieces[0] -= 1
+		return true)
+	add_child_autofree(sb)
+	sb.run_frame()
+	assert_eq(pieces[0], 3, "not before the plan is done")
+	for i in 2:
+		sb.run_frame()
+	assert_eq(pieces[0], 1, "one a frame")
+
+
+func test_sight_stops_at_range_and_at_the_horizon() -> void:
+	var g := SightGate.new().setup({ "range_m": 6000.0, "horizon_margin_m": 0.0 })
+	var c := Vector3(0, -5000, 0)
+	var r := 5000.0
+	var below := Vector3.ZERO                         # the top of the ball
+	assert_true(g.could_see(Vector3(0, 1000, 0), below, c, r), "straight down, near")
+	assert_false(g.could_see(Vector3(0, 7000, 0), below, c, r), "straight down, past the range")
+	var wide := SightGate.new().setup({ "range_m": 100000.0, "horizon_margin_m": 0.0 })
+	var far_side := Vector3(0, -10000, 0)             # the bottom of the ball
+	assert_false(wide.could_see(Vector3(0, 1000, 0), far_side, c, r), "the far side is hidden by the ball")
+	assert_true(wide.could_see(Vector3(0, 1000, 0), Vector3(3000, -1000, 0), c, r), "the near side is not")
+	var flat := SightGate.new().setup({ "range_m": 6000.0 })
+	assert_true(flat.could_see(Vector3(0, 10, 0), Vector3(5000, 0, 0), Vector3.ZERO, 0.0), "flat ground: range only")
+	assert_true(g.keep(Vector3(0, 7000, 0), below, c, r), "kept a little further once in")
+
+
 func test_groups_added_late_take_the_current_tier() -> void:
 	var d := AltitudeDetail.new()
 	d.setup({ "hysteresis": 50.0, "tiers": [{ "above": 500.0, "off": [], "hide": ["people"] }] })
@@ -233,3 +311,42 @@ func test_staging_off_builds_a_handoff_whole() -> void:
 	assert_eq(demo.staged.shell_ms, 0.0, "nothing split off")
 	assert_eq((demo.terrain as PlanetTerrain).far_detail_cells, 64)
 	assert_almost_eq(demo.pilot.atmo.position().distance_to(HANDOFF_POS), 0.0, 0.001)
+
+
+## Issue #693: the home planet, flown into over the far side of its ball (it is
+## 5 km round, centred 5 km under the port): the outposts by the town are over
+## the horizon, and the packs, the barge and the beast wait till the ship is low.
+func test_a_handoff_over_the_far_side_builds_nothing_over_there() -> void:
+	WorldState.reset()
+	GameFlow.reset()
+	GameFlow.change_scene = func(_p: String) -> void: pass
+	GameFlow.planet_id = ""
+	GameFlow.flown_ship = "interceptor"
+	var at := Vector3(0, -16000, 0)               # 6 km under the ball's bottom
+	var b := Basis.looking_at(Vector3.UP, Vector3.FORWARD)
+	GameFlow.arrival = { "mode": "handoff", "from": "open_space", "to": "port_desert", "ship": "interceptor",
+		"name": "", "pad": "", "hour": 10.0, "preset": "",
+		"handoff": { "position": at, "basis": b, "speed": 100.0, "throttle": 0.0 } }
+	var demo = load("res://scenes/town_demo.gd").new()
+	demo.use_look = false
+	demo.npc_brains = false
+	add_child_autofree(demo)
+	assert_true(demo.staging)
+	assert_not_null(demo.sight, "the home world builds by sight")
+	var frames := 0
+	while not demo.staged.done and frames < 3000:
+		await get_tree().process_frame
+		frames += 1
+	assert_true(demo.staged.done)
+	assert_eq(demo.staged.failed_step, "")
+	assert_not_null(demo.outposts)
+	var waiting: Array = demo.outposts.pending_ids()
+	assert_eq(demo.outposts.outposts.size(), 0, "no outpost on the far side of the ship's horizon")
+	assert_gt(waiting.size(), 0)
+	var held: Array = demo.staged.held.map(func(h): return str(h.name))
+	assert_has(held, "natives", "the packs wait till the ship is low")
+	assert_false(demo.staged.settled)
+	demo.settle_now()
+	assert_eq(demo.outposts.pending_ids().size(), 0, "settle_now builds the rest")
+	assert_eq(demo.outposts.outposts.size(), waiting.size())
+	assert_true(demo.staged.settled)

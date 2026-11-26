@@ -89,12 +89,22 @@ func setup(town_demo, world_ground: WorldGround) -> void:
 ## Read the outposts and build them, troopers included. Called by the town before
 ## its Garrison is set up (the troopers join it).
 func build() -> void:
+	_whole = true
 	while not build_step():
 		pass
+	_start_late_brains()
+
+
+## Issue #693: set once the town's brains step has run: outposts built from now
+## on (come into sight late) start their own garrison and droids.
+var late := false
 
 
 var _cc: CoreContent                ## issue #121: the content a staged build reads from
 var _queue: Array = []              ## issue #162: the pieces still to build, in order (Callables)
+var _pending: Array = []            ## issue #693: outposts not in sight yet: { id, at, call }
+var _whole := false                 ## build(): every outpost now, in sight or not
+var _late_ready: Array = []         ## issue #693: outposts built after the town's brains, still to start theirs
 
 
 ## Issue #121: build the next piece of an outpost. True once all are built. A
@@ -102,18 +112,77 @@ var _queue: Array = []              ## issue #162: the pieces still to build, in
 ## the nav, the look, the ship or one trooper, not a whole outpost (~55 ms).
 func build_step() -> bool:
 	if _cc == null:
-		_cc = CoreContent.new()
-		_cc.load_from()
+		_cc = CoreContent.shared()
 		# The port's seven (its desert world), or the moon's (its own landmarks:
 		# Territory's "moon" front).
 		var f := Territory.front_for_planet(str(demo.planet.get("id", ""))) if demo != null else Territory.HOME
 		var world: Dictionary = _cc.world_for_town("port_town") if f == Territory.HOME else ground.world
 		for id in Territory.outposts(f):
-			_queue.append(_build_outpost.bind(str(id), world))
+			_pending.append({ "id": str(id), "at": _site(str(id), world), "call": _build_outpost.bind(str(id), world) })
+	_take_in_sight()
 	if _queue.is_empty():
-		return true
+		return true                      # issue #693: what can be seen is built; late_step() does the rest
 	(_queue.pop_front() as Callable).call()
 	return _queue.is_empty()
+
+
+## Issue #693: build by sight. The outposts the ship could see now join the queue
+## (all of them on a normal arrival); the rest wait over the horizon.
+func _take_in_sight() -> void:
+	for p in _pending.duplicate():
+		if _whole or demo == null or not demo.has_method("could_see") or demo.could_see(p.at):
+			_pending.erase(p)
+			_queue.append(p.call)
+			if not _whole:
+				_prepare_ground(str(p.id), p.at)      # ready before it is needed
+
+
+## Issue #693: after the town's first build (StagedBuild's trickle): the next
+## piece of an outpost that has come into sight. True when one was built. An
+## outpost finished now starts its own garrison (the town's brains are up).
+func late_step() -> bool:
+	if _cc == null:
+		return false
+	_take_in_sight()
+	if _queue.is_empty():
+		_start_late_brains()
+		return false
+	(_queue.pop_front() as Callable).call()
+	if _queue.is_empty():
+		_start_late_brains()
+	return true
+
+
+## Outposts still over the horizon (tests, traces).
+func pending_ids() -> Array:
+	return _pending.map(func(p): return str(p.id))
+
+
+## Where outpost `id` stands on the ground (its landmark), for the sight check.
+func _site(id: String, world: Dictionary) -> Vector3:
+	for lm in world.get("landmarks", []):
+		if str(lm.get("location", "")) == id:
+			var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
+			var sp := ground.sphere()
+			return sp.surface_at(at.x, at.z) if sp != null else Vector3(at.x, ground.terrain.height_at(at.x, at.z), at.z)
+	return Vector3.ZERO
+
+
+## Issue #693: each outpost built late gets what the town's brains step gives the
+## others: its garrison (or the locals' one) and its droids.
+func _start_late_brains() -> void:
+	for o in _late_ready:
+		var id := str(o.id)
+		if demo.npc_brains and not garrisons.has(id) and not folks.has(id):
+			var mine: Array = guards.filter(func(g): return is_instance_valid(g) and str(g.get_meta("outpost", "")) == id)
+			if not mine.is_empty():
+				garrisons[id] = demo.make_outpost_garrison(o, mine)
+			var held: Array = held_by.filter(func(g): return is_instance_valid(g) and str(g.get_meta("outpost", "")) == id)
+			if not held.is_empty():
+				folks[id] = demo.make_locals_outpost_garrison(o, held)
+		if demo.droids != null and demo.droids.has_method("build_outpost_units"):
+			demo.droids.build_outpost_units(id)
+	_late_ready.clear()
 
 
 func _build_outpost(id: String, world: Dictionary) -> void:
@@ -132,10 +201,11 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 			o.origin = sp.surface_at(at.x, at.z)
 		o.xf = Transform3D(PlanetSphere.tilt_to(ground.up_at(o.origin)) * Basis(Vector3.UP, yaw), o.origin)
 		outposts.append(o)
-		var parts: Array = [_build_ground.bind(o), _build_room.bind(o), _build_nav.bind(o), _build_props.bind(o)]
+		var parts: Array = [_build_room.bind(o), _build_nav.bind(o), _build_props.bind(o)]
 		if demo.use_look:
 			parts.append(_dress.bind(o))
 		parts.append(_park_ship.bind(o))
+		parts.append(_build_ground.bind(o))   # issue #693: its heights come from a worker, so after the rest; before the people
 		if o.side == Territory.LOCALS:
 			var posts: Dictionary = Territory.cfg().get("outposts", {}).get("posts", {})
 			for p in posts:
@@ -143,6 +213,8 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 		else:
 			for p in TROOPER_POSTS:
 				parts.append(_add_guard.bind(o, p))
+		if late:
+			_late_ready.append(o)          # issue #693: built after the town's brains: starts its own
 		_queue = parts + _queue          # this outpost's pieces next, then the others
 
 
@@ -490,14 +562,15 @@ func _build_ground(o: Dictionary) -> void:
 	var hm := HeightMapShape3D.new()
 	hm.map_width = n
 	hm.map_depth = n
-	var heights := PackedFloat32Array()
-	heights.resize(n * n)
 	var c: Vector3 = o.origin
-	for j in n:
-		for i in n:
-			var x := c.x - GROUND_HALF + i * GROUND_STEP
-			var z := c.z - GROUND_HALF + j * GROUND_STEP
-			heights[j * n + i] = ground.terrain.height_at(x, z)
+	var job: Dictionary = _heights.get(str(o.id), {})
+	_heights.erase(str(o.id))
+	var heights: PackedFloat32Array
+	if not job.is_empty() and (job.at as Vector3).is_equal_approx(c):
+		WorkerThreadPool.wait_for_task_completion(int(job.task))      # issue #693: worked out since it came into sight
+		heights = job.out[0]
+	else:
+		heights = _ground_heights(ground.terrain, c)
 	hm.map_data = heights
 	var body := StaticBody3D.new()
 	body.name = "Ground_" + str(o.id)
@@ -507,6 +580,38 @@ func _build_ground(o: Dictionary) -> void:
 	body.add_child(cs)
 	add_child(body)
 	body.global_position = Vector3(c.x, 0.0, c.z)
+
+
+var _heights := {}                  ## issue #693: outpost id -> { at, task, out }: its ground's heights on a worker
+
+
+## The sand round an outpost's anchor, GROUND_STEP apart (~1,700 samples: work
+## for a worker thread, started when the outpost comes into sight).
+static func _ground_heights(terrain: WorldTerrain, c: Vector3) -> PackedFloat32Array:
+	var n := int(GROUND_HALF * 2.0 / GROUND_STEP) + 1
+	var heights := PackedFloat32Array()
+	heights.resize(n * n)
+	for j in n:
+		for i in n:
+			var x := c.x - GROUND_HALF + i * GROUND_STEP
+			var z := c.z - GROUND_HALF + j * GROUND_STEP
+			heights[j * n + i] = terrain.height_at(x, z)
+	return heights
+
+
+func _prepare_ground(id: String, at: Vector3) -> void:
+	if _heights.has(id) or ground == null or ground.terrain == null:
+		return
+	var out := [PackedFloat32Array()]
+	var terrain := ground.terrain
+	var task := WorkerThreadPool.add_task(func(): out[0] = _ground_heights(terrain, at), false, "outpost ground")
+	_heights[id] = { "at": at, "task": task, "out": out }
+
+
+func _exit_tree() -> void:
+	for id in _heights:
+		WorkerThreadPool.wait_for_task_completion(int(_heights[id].task))
+	_heights.clear()
 
 
 # ------------------------------------------------------------------ the look
@@ -746,15 +851,12 @@ func _room_look(o: Dictionary, b: Dictionary, parts: Array, up: Vector3, ramp: D
 			groups[f] = []
 		groups[f].append(part)
 	for f in groups:
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var batch := PrimBatch.new()      # issue #693: nothing read back from the GPU
 		for part in groups[f]:
-			var bm := BoxMesh.new()
-			bm.size = part.size
-			st.append_from(bm, 0, Transform3D(part.basis, (part.center as Vector3) + up))
+			batch.add_box(part.size, Transform3D(part.basis, (part.center as Vector3) + up))
 		var mi := MeshInstance3D.new()
 		mi.name = "Room_%s_%s" % [o.id, f]
-		mi.mesh = st.commit()
+		mi.mesh = batch.commit()
 		mi.material_override = _room_mat(str(f))
 		if f in ["screen", "glow"]:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

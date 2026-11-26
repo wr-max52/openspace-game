@@ -82,8 +82,28 @@ func setup(world_cfg: Dictionary, town = null, content = null,
 					k += 1
 				continue
 			add_box(str(b.id), str(b.kind), _v3(b.min), _v3(b.max), str(b.get("rise_toward", "")))
+	deferred = []
+	_deferred_content = content
 	for lm in world_cfg.get("landmarks", []):
+		if defer_kinds.has(str(lm.get("kind", ""))):
+			deferred.append(lm)              # issue #693: added later, a piece at a time
+			continue
 		_add_landmark(lm, content)
+
+
+## Issue #693: landmark kinds setup() leaves for later (a no-fade handoff's first
+## frame: the wrecks, ~23 ms each, far from a ship that just came in from space),
+## and the ones it left. add_deferred() adds the next one.
+var defer_kinds: Array = []
+var deferred: Array = []
+var _deferred_content = null
+
+
+## Issue #693: adds the next landmark setup() left for later. True once none are left.
+func add_deferred() -> bool:
+	if not deferred.is_empty():
+		_add_landmark(deferred.pop_front(), _deferred_content)
+	return deferred.is_empty()
 
 
 func add_box(id: String, kind: String, mn: Vector3, mx: Vector3, rise: String = "", visual: bool = true,

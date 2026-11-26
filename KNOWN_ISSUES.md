@@ -20,20 +20,20 @@ each PR checked and measured, are in the archive under "The per-PR log".
 
 ## 1. Freezes, hitches and crashes
 
-1. **Long frames coming down to a planet.** The worst of what is left.
-   - The switch into the home bubble is ~190–230 ms (`ShipPilot._ready`
-     ~70–100 ms of it; `CoreContent.load_from` ~11 ms, loaded again in ~20
-     places).
-   - The giant's first frame is ~270–330 ms (its station's parked ships' hulls
-     in `_gather_berths` ~160 ms).
-   - Over the moon, one 290 ms frame at ~765 m with no step on it; the rave's
-     club look still has a ~110 ms piece.
-   - Frames between 50 and 100 ms went from 46 to 65 when the big builds were cut
-     into pieces; single pieces still take 20–60 ms (the barge's skin and
-     portholes, a cantina body, the barracks dressing, the general's squad).
-   - Outposts are ~110 pieces of 16–30 ms (an NPC body ~23, nav ~21, room ~24,
-     ground ~29).
-   *(issues #573, #574, 2026-11-05 and 2026-11-24; fix: #693)*
+1. **Long frames coming down to a planet, worst flying in from the gas
+   giant.** Home loading fresh (a session that has not been home yet) has 42
+   frames over the 33 ms budget, worst 384 ms: the rock landforms' meshes and
+   trimeshes (~366 ms, one step), the wrecks' boxes and plates (~320 ms piece),
+   the town garrison (~225 ms), the decor batch flush (~170 ms) and the first
+   native body (~170 ms, pipeline compiles). The descent trace warms home before
+   it measures, so it does not show this. With home loaded once already: 21
+   frames over, worst ~93 ms, p99 21.6 ms; the switch is ~71 ms (desert, its
+   dust, the ship's pilot, 96 far-ball uploads). Single pieces left: the club
+   room's booths (~85 ms) and an instrument (~48), the barge's first commit and
+   hull skin (~40 each), the cruiser's first hull piece (~38), decor step 7
+   (~41), a town box (~34), the player's body (~33), each native pack member
+   (21-39), an outpost (~20). Nothing is let go once built, and only the home
+   planet builds by sight. *(#573, #574, #693, 2026-11-26; fix: #693)*
 2. **A first descent on a fresh install** has ~14 s of ~450 ms frames between
    2.1 and 1.4 km: shader compiles, once per install. Everyone who gets a share
    build hits it. *(#574, 2026-11-24; fix: #693)*

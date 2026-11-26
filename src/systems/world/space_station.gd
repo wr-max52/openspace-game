@@ -687,13 +687,10 @@ func _door_mat() -> Material:
 static func _merged(key: String, list: Array) -> ArrayMesh:
 	if _meshes.has(key):
 		return _meshes[key]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var batch := PrimBatch.new()          # issue #693: nothing read back from the GPU
 	for p in list:
-		var bm := BoxMesh.new()
-		bm.size = p.size
-		st.append_from(bm, 0, p.xf)
-	var mesh := st.commit()
+		batch.add_box(p.size, p.xf)
+	var mesh := batch.commit()
 	_meshes[key] = mesh
 	return mesh
 

@@ -65,7 +65,7 @@ func town_steps(town) -> Array:
 			_apply_materials(town)
 			kit = TownBuildings.new(mats, look)
 			kit.town = town,
-		_build_buildings.bind(town),
+		func(st: StagedBuild = null) -> void: await _build_buildings(town, st),    # issue #693: a building or a few a frame
 		func():
 			if not BarracksHall.halls(town.boxes()).is_empty():
 				barracks = BarracksLook.new()              # issue #321: before the flush, its bunks and doors batch with the town's
@@ -223,7 +223,7 @@ func _pad_plate(at: Vector3, radius := 6.0, height := 0.03) -> void:
 
 ## Every box with a `look` the kit knows is drawn by the kit; its greybox mesh is
 ## hidden, its collision stays.
-func _build_buildings(town) -> void:
+func _build_buildings(town, st: StagedBuild = null) -> void:
 	for b in town.boxes():
 		if not b.has("look") or str(b.look) in ["stall", "stall_back"]:
 			continue
@@ -233,6 +233,7 @@ func _build_buildings(town) -> void:
 				mi.visible = false
 		else:
 			push_warning("TownDecor: no building look '%s' for %s" % [b.look, b.id])
+		await StagedBuild.slice_of(st)
 
 
 func _dress_market(town) -> void:
@@ -261,10 +262,8 @@ func _dress_market(town) -> void:
 ## (droids.json "vendor"), wherever its marker is.
 func _stall_trades(town, stalls: Array) -> Dictionary:
 	var looks: Dictionary = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
-	var vendors: Array = []
-	var cc := CoreContent.new()
-	if cc.load_from():
-		vendors = cc.vendors_in(location_id)
+	var cc: CoreContent = CoreContent.shared()
+	var vendors: Array = cc.vendors_in(location_id)
 	for key in ["vendor", "club_vendor"]:          # issue #392: and the moon rave's
 		var droid_vendor: Dictionary = DroidRoster.config().get(key, {})
 		if not droid_vendor.is_empty():
@@ -753,8 +752,7 @@ func _add_banners(town) -> void:
 ## The box keeps its collision; only its greybox mesh is hidden. The box in
 ## port_town.json is sized to this model (tests/test_town_decor checks the fit).
 func _park_pads(town) -> void:
-	var content = preload("res://src/systems/dataload/core_content.gd").new()
-	content.load_from()
+	var content: CoreContent = CoreContent.shared()
 	var ship_kit := ShipKit.new()
 	for p in GameFlow.pads_for_scene("res://scenes/town_demo.tscn"):
 		var box: Dictionary = town.get_box(str(p.get("town_box", "")))
@@ -772,8 +770,7 @@ func _park_pads(town) -> void:
 ## with a `ship` (an id in content/core/ships) gets that ship's look; ShipPilot
 ## lets you board any of them.
 func _park_bays(town) -> void:
-	var content = preload("res://src/systems/dataload/core_content.gd").new()
-	content.load_from()
+	var content: CoreContent = CoreContent.shared()
 	var ship_kit := ShipKit.new()
 	for b in town.boxes():
 		if str(b.kind) == "ship" and b.has("ship"):
@@ -789,8 +786,7 @@ func _park_bays(town) -> void:
 ## Issue #58: park a ship bought from T-89 on a pad box (or any box). Returns the
 ## model, or null when the ship has no look.
 func park_ship(ship_id: String, box: Dictionary) -> Node3D:
-	var content = preload("res://src/systems/dataload/core_content.gd").new()
-	content.load_from()
+	var content: CoreContent = CoreContent.shared()
 	var look_id := str(content.ships.get(ship_id, {}).get("look", ""))
 	if look_id == "" or box.is_empty():
 		return null

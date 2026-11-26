@@ -31,6 +31,18 @@ var planets: Dictionary = {}       # planet-id -> Dictionary (a planet's config:
 var names: Dictionary = {}         # bank-id -> Dictionary (the name library: lists, tongues, kinds) (issue #15)
 var towns: Dictionary = {}         # layout-id -> Dictionary (a saved town layout at its size: port_square) (issue #237)
 var _loaded := false
+static var _shared = null
+
+
+## Issue #693: the whole of content/core read once a session and shared. A full
+## load is ~11 ms of disk and JSON, and a planet's arrival asked for it in ~20
+## places (the ship, the garrisons, the outposts, the decor...), all on the first
+## frames. Read-only: a caller that wants to change an entry copies it first.
+static func shared():
+	if _shared == null:
+		_shared = (load("res://src/systems/dataload/core_content.gd") as GDScript).new()
+		_shared.load_from()
+	return _shared
 
 
 func load_from(root: String = ROOT) -> bool:

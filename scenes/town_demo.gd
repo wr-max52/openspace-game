@@ -173,6 +173,9 @@ func _ready() -> void:
 	# now, in order. A no-fade handoff (the ship flying straight in from another
 	# planet) runs only the flight shell now and the rest over the next frames.
 	staging = staged_handoff and not lookdev_mode and str(GameFlow.arrival.get("mode", "")) == "handoff"
+	ClubTextures.async_paint = staging    # issue #693: textures painted on a worker, a stand-in till then
+	ModelCache.begin_planet(str(planet.get("id", "")))    # issue #693: what this planet loads, for next time
+	tree_exiting.connect(func(): ModelCache.save_use())
 	staged = StagedBuild.new()
 	staged.budget_ms = stage_budget_ms
 	for s in build_plan(staging):
@@ -185,6 +188,7 @@ func _ready() -> void:
 		else:
 			staged.add(s.name, s.fn)
 	if staging:
+		_build_by_sight()
 		staged.step_done.connect(func(_n, _ms): _register_detail())
 		add_child(staged)
 		staged.start()
@@ -193,6 +197,63 @@ func _ready() -> void:
 		_register_draw_distance()      # the steps after "detail" (natives, cruiser...) are built by now
 		add_child(staged)
 	ready_ms = (Time.get_ticks_usec() - t0) / 1000.0
+
+
+# ---------------------------------------------------------------- build by sight (issue #693)
+
+var sight: SightGate                  ## issue #693: what a handoff builds waits till it could be seen (null: build all)
+
+
+## Issue #693: a handoff builds nothing the ship could not see yet. The world's
+## "sight" block (content/core/worlds/<id>.json "detail") sets how far and how
+## far past the horizon; its "hold" names steps that wait till the ship is below
+## that many metres over the ground (the barge, the beast, the native packs: they
+## are drawn only from close by anyway). Outposts come in one by one as they
+## crest the horizon (RemnantOutposts.late_step, a trickle after the plan).
+func _build_by_sight() -> void:
+	var cfg: Dictionary = world.get("detail", {}).get("sight", {})
+	if cfg.is_empty():
+		return
+	sight = SightGate.new().setup(cfg)
+	var hold: Dictionary = cfg.get("hold", {})
+	for step_name in hold:
+		var agl := float(hold[step_name])
+		staged.hold_until(str(step_name), func() -> bool: return below(agl))
+	staged.add_trickle("outposts_late", func() -> bool:
+		return outposts != null and is_instance_valid(outposts) and outposts.late_step())
+
+
+## Issue #693: everything a handoff is still holding back, built now (tests).
+func settle_now() -> void:
+	staged.release_held()
+	if outposts != null and is_instance_valid(outposts):
+		outposts.build()
+
+
+## Where the player looks from: the camera, else the ship.
+func sight_eye() -> Vector3:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam != null:
+		return cam.global_position
+	if pilot != null and pilot.atmo != null:
+		return pilot.atmo.position()
+	return Vector3.ZERO
+
+
+## Issue #693: could the player see a thing `height` m tall at `at` yet (near
+## enough, not over the horizon)? Always true when nothing is built by sight.
+func could_see(at: Vector3, height := 30.0) -> bool:
+	if sight == null:
+		return true
+	var sp: PlanetSphere = pilot.ground.sphere() if pilot != null and pilot.ground != null else null
+	return sight.could_see(sight_eye(), at, sp.center if sp != null else Vector3.ZERO, sp.radius if sp != null else 0.0, height)
+
+
+## Issue #693: the ship is under `agl` metres over the ground, or nobody is flying.
+func below(agl: float) -> bool:
+	if pilot == null or pilot.atmo == null or not pilot.piloting:
+		return true
+	return pilot.atmo.agl() < agl
 
 
 # ---------------------------------------------------------------- the build plan (issue #121)
@@ -228,7 +289,13 @@ func build_plan(staged_build: bool) -> Array:
 		# Issue #162: the outfit textures load on worker threads from here, so the
 		# people built over the next frames (or after the next handoff) never wait on disk.
 		add.call("warm_outfits", SHELL, func(): ModelCache.prefetch(CharacterKit.outfit_textures()); return true)
-	add.call("boxes", SHELL, func(): _build_boxes(); return true)
+	# Issue #693: a handoff to a planet with sand builds only the pads' boxes on its
+	# first frame (the ship parks on one); the rest, hidden till the decor is on
+	# anyway, come in the first steps after, in pieces.
+	var split_boxes := staged_build and ground_kind == "terrain"
+	add.call("boxes", SHELL, func(): _build_boxes(_pad_box_ids() if split_boxes else []); return true)
+	if split_boxes:
+		add.call("boxes_rest", LATER, func(st: StagedBuild) -> void: await _build_boxes_rest(st), "sliced")
 	# One step per character: each is a whole procedural body (tens to hundreds of ms).
 	add.call("markers", LATER, func(): _markers_root(); return true)
 	for m in town.markers():
@@ -287,6 +354,13 @@ func build_plan(staged_build: bool) -> Array:
 	add.call("club", SHELL, func(): _add_club_music(); return true)    # issue #104: the cantina's club mix
 	add.call("pads", SHELL, func(): _build_launch_pads(); return true)
 	add.call("world_flags", SHELL, func(): _world_from_scene(); return true)
+	if staged_build:
+		# Issue #693: the wrecks the ship's first frame left out (before the gear
+		# and droids, which find their sites on the wrecks).
+		var wrecks_step := func(st: StagedBuild) -> void:
+			if pilot != null:
+				await pilot.build_late_scenery(st)
+		add.call("wrecks", LATER, wrecks_step, "sliced")
 	if use_look and with_body:
 		add.call("body", LATER, func(): _attach_body(has_feature("training_range")); return true)
 	if use_look and with_bar:
@@ -310,11 +384,12 @@ func build_plan(staged_build: bool) -> Array:
 				and (ranches == null or ranches.build_step()), true)
 		add.call("npc_brains", LATER, func(st: StagedBuild) -> void: await _npc_brains(st), "sliced")
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
-	add.call("speeders", LATER, func():
+	var speeders_step := func(st: StagedBuild) -> void:     # issue #693: the post, then a speeder a piece
 		if with_speeders and pilot != null and has_feature("speeders"):
-			_build_speeder_post()
-			_park_gate_speeders()
-		return true)
+			await _build_speeder_post(st)
+			await StagedBuild.slice_of(st)
+			await _park_gate_speeders(st)
+	add.call("speeders", LATER, speeders_step, "sliced")
 	var droids_step := func(st: StagedBuild) -> void:
 		if use_look and with_droids and gear != null:
 			await _build_droids(st)
@@ -360,10 +435,10 @@ func build_plan(staged_build: bool) -> Array:
 		if speeder_post != null and gear != null:
 			_build_mechanic()
 		return true)
-	add.call("race_courses", LATER, func():
+	var races_step := func(st: StagedBuild) -> void:        # issue #693: a course or a crew a piece
 		if pilot != null and terrain != null:
-			_build_race_courses()
-		return true)
+			await _build_race_courses(st)
+	add.call("race_courses", LATER, races_step, "sliced")
 	# Issue #574: built in pieces over frames (a ~330 ms build in one go before);
 	# `barge` is set once it is whole.
 	var barge_step := func(st: StagedBuild) -> void:
@@ -630,39 +705,70 @@ func _name_places() -> void:
 
 # ---------------------------------------------------------------- gameplay layer
 
-func _build_boxes() -> void:
+## `only` (issue #693): just these box ids now; the rest wait for _build_boxes_rest().
+func _build_boxes(only: Array = []) -> void:
 	var root := Node3D.new()
 	root.name = "Town"
 	add_child(root)
+	_boxes_left = []
 	for b in town.boxes():
-		if b.kind == "shell":
-			continue                             # issue #321: the barracks hall is its pieces
-		var color: Color = Greybox.KIND_COLORS.get(b.kind, Color.MAGENTA)
-		var node: StaticBody3D
-		if b.kind == "ramp":
-			var rt := TownLayout.ramp_transform(b)
-			node = Greybox.make_box(b.id, rt.center, rt.size, color, rt.basis)
-		elif b.kind == "spiral":
-			node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.tower_parts(b)), color)
-		elif b.kind == "bowl":
-			node = Greybox.make_trimesh(b.id, StairTower.merged(PitBowl.parts(b, town)), color)
-		elif b.kind == "ring":
-			node = RingWall.make_body(b, color)       # issue #237: a round wall
-		elif b.kind == "lookout":
-			var tower: Dictionary = town.get_box(str(b.get("stair", "")))
-			node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.lookout_parts(b, tower)), color)
-		else:
-			var cs := Greybox.center_size(b)
-			var tb := Greybox.turned(b)        # a crooked market stall or hut: its turned box inside
-			node = Greybox.make_box(b.id, cs[0], tb.get("size", cs[1]), color, tb.get("basis", Basis.IDENTITY), str(b.get("shape", "")) == "round")
-		if bool(b.get("hidden", false)):
-			node.visible = false                 # data only (a station town's spawn plate: the station's deck shows)
-		if b.kind == "pad":
-			for ch in node.get_children():       # issue #58: a painted plate, nothing to trip on
-				if ch is CollisionShape3D:
-					ch.disabled = true
-		root.add_child(node)
-		built_boxes += 1
+		if not only.is_empty() and not only.has(str(b.id)):
+			_boxes_left.append(b)
+			continue
+		_build_box(root, b)
+
+
+var _boxes_left: Array = []          ## issue #693: town boxes a handoff's first frame left for later
+
+
+## Issue #693: the boxes a handoff's first frame left, in pieces under the frame's
+## budget; the sand's floors among them hidden as _dress_desert hid the others.
+func _build_boxes_rest(st: StagedBuild = null) -> void:
+	var root := get_node_or_null("Town") as Node3D
+	while root != null and not _boxes_left.is_empty():
+		_build_box(root, _boxes_left.pop_front())
+		await StagedBuild.slice_of(st)
+	if _desert_dressed:
+		_hide_desert_floors()
+
+
+## The boxes the pads name (the ship you fly parks on one on the first frame).
+func _pad_box_ids() -> Array:
+	var out: Array = []
+	for p in GameFlow.pads_for_scene("res://scenes/town_demo.tscn"):
+		out.append(str(p.get("town_box", "")))
+	return out
+
+
+func _build_box(root: Node3D, b: Dictionary) -> void:
+	if b.kind == "shell":
+		return                               # issue #321: the barracks hall is its pieces
+	var color: Color = Greybox.KIND_COLORS.get(b.kind, Color.MAGENTA)
+	var node: StaticBody3D
+	if b.kind == "ramp":
+		var rt := TownLayout.ramp_transform(b)
+		node = Greybox.make_box(b.id, rt.center, rt.size, color, rt.basis)
+	elif b.kind == "spiral":
+		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.tower_parts(b)), color)
+	elif b.kind == "bowl":
+		node = Greybox.make_trimesh(b.id, StairTower.merged(PitBowl.parts(b, town)), color)
+	elif b.kind == "ring":
+		node = RingWall.make_body(b, color)       # issue #237: a round wall
+	elif b.kind == "lookout":
+		var tower: Dictionary = town.get_box(str(b.get("stair", "")))
+		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.lookout_parts(b, tower)), color)
+	else:
+		var cs := Greybox.center_size(b)
+		var tb := Greybox.turned(b)        # a crooked market stall or hut: its turned box inside
+		node = Greybox.make_box(b.id, cs[0], tb.get("size", cs[1]), color, tb.get("basis", Basis.IDENTITY), str(b.get("shape", "")) == "round")
+	if bool(b.get("hidden", false)):
+		node.visible = false                 # data only (a station town's spawn plate: the station's deck shows)
+	if b.kind == "pad":
+		for ch in node.get_children():       # issue #58: a painted plate, nothing to trip on
+			if ch is CollisionShape3D:
+				ch.disabled = true
+	root.add_child(node)
+	built_boxes += 1
 
 
 func _build_markers() -> void:
@@ -1005,6 +1111,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 			var mine: Array = outposts.held_by.filter(func(g): return str(g.get_meta("outpost", "")) == str(o.id))
 			if not mine.is_empty():
 				outposts.folks[str(o.id)] = make_locals_outpost_garrison(o, mine)
+	if outposts != null:
+		outposts.late = true             # issue #693: an outpost that comes into sight from now on starts its own
 	if npc_brains:
 		# Issue #541: the town's own people think less far off and sleep past the
 		# draw distance (content/core/npcs/wake_rings.json).
@@ -1175,8 +1283,7 @@ func make_npc(soldier: Dictionary, here: Vector3, yaw: float, post_id: String, n
 var _cc: CoreContent
 func _content() -> CoreContent:
 	if _cc == null:
-		_cc = CoreContent.new()
-		_cc.load_from()
+		_cc = CoreContent.shared()
 	return _cc
 
 
@@ -1315,10 +1422,14 @@ func _repaint_town(owner: String) -> void:
 ## Issue #42: Skrugs's speeder stall outside the back gate. Skrugs joins the bar's
 ## conversation host when there is one (a test that builds the bar later calls
 ## speeder_post.attach_host itself).
-func _build_speeder_post() -> void:
-	speeder_post = SpeederPost.new()
-	speeder_post.setup(self, pilot.ground)
-	add_child(speeder_post)
+func _build_speeder_post(st: StagedBuild = null) -> void:
+	var sp := SpeederPost.new()
+	sp.setup(self, pilot.ground)
+	sp.build_later = st != null           # issue #693: a part a piece
+	add_child(sp)
+	if st != null:
+		await sp.build(st)
+	speeder_post = sp                     # whole before anything asks for it
 	if bar != null:
 		speeder_post.attach_host(bar)
 
@@ -1326,7 +1437,7 @@ func _build_speeder_post() -> void:
 ## Issue #82: the Remnant's black and red Sand-boxers (the town's "vehicle"
 ## markers), parked outside the front gate while the garrison holds it. Not
 ## rideable: they are the Remnant's.
-func _park_gate_speeders() -> void:
+func _park_gate_speeders(st: StagedBuild = null) -> void:
 	# Issue #613: whoever holds the town parks it (the locals in their paint), and
 	# it can be ridden: stealing it is GateChase's business.
 	var holder := GateChase.holder()
@@ -1338,6 +1449,7 @@ func _park_gate_speeders() -> void:
 		s.place(town.marker_pos(str(m.id)), deg_to_rad(float(m.get("yaw_deg", 0.0))))
 		s.set_meta("gate_speeder", holder)
 		gate_speeders.append(s)
+		await StagedBuild.slice_of(st)
 	if not town.markers_with_role("vehicle_chase").is_empty() and gate_chase == null:
 		gate_chase = GateChase.new()
 		gate_chase.setup(self, pilot.ground)
@@ -1426,12 +1538,13 @@ func _build_mechanic() -> void:
 
 ## Issue #610: this world's race courses (content/core/racing/courses/*.json with
 ## its world id). Each draws its gates only while you are near it.
-func _build_race_courses() -> void:
+func _build_race_courses(st: StagedBuild = null) -> void:
 	for c in RaceCourse.courses_for(str(world.get("id", ""))):
 		var rc := RaceCourse.new()
 		rc.setup(self, pilot.ground, c)
 		add_child(rc)
 		race_courses.append(rc)
+		await StagedBuild.slice_of(st)
 	# Issue #611: the crews who race them, by their hangouts (people, so after the
 	# gear and the nav: the "race_courses" step comes late).
 	for c in RaceCrew.crews_for(str(world.get("id", ""))):
@@ -1440,8 +1553,12 @@ func _build_race_courses() -> void:
 			continue
 		var rcw := RaceCrew.new()
 		rcw.setup(self, pilot.ground, c, course)
+		rcw.build_later = st != null        # issue #693: a racer a piece
 		add_child(rcw)
+		if st != null:
+			await rcw.build(st)
 		race_crews.append(rcw)
+		await StagedBuild.slice_of(st)
 
 
 ## The race course with this id, or null.
@@ -1888,6 +2005,22 @@ func _dress_desert() -> void:
 		return          # issue #99: the asteroid's rock: no sand, dust or desert landforms
 	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).gas_look.is_empty():
 		return          # a gas ball's cloud tops: no sand either
+	_desert_dressed = true
+	_hide_desert_floors()
+	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
+	# Issue #93: wind you can see over the sand (not on a snow world).
+	if str(planet.get("type", "sand")) != "snow":
+		dust = DustWind.new()
+		add_child(dust)
+		var wd = terrain.material.get_shader_parameter("wind_dir")
+		dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+
+
+var _desert_dressed := false
+
+
+## The town's floors outside its walls: the sand shows there, not their greybox.
+func _hide_desert_floors() -> void:
 	var walls: Rect2 = desert_site().walls
 	for b in town.boxes():
 		if str(b.kind) != "floor" or float(b.max[1]) < -0.1:
@@ -1898,13 +2031,6 @@ func _dress_desert() -> void:
 		var mi := get_node_or_null("Town/%s/Mesh" % str(b.id)) as MeshInstance3D
 		if mi != null:
 			mi.visible = false
-	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
-	# Issue #93: wind you can see over the sand (not on a snow world).
-	if str(planet.get("type", "sand")) != "snow":
-		dust = DustWind.new()
-		add_child(dust)
-		var wd = terrain.material.get_shader_parameter("wind_dir")
-		dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
 
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
@@ -1948,8 +2074,7 @@ func _tint_rock(root: Node, rock: Dictionary) -> void:
 
 ## Issue #64: the world's landmarks that want open sand round them (the outposts).
 func _landmark_clearings() -> Array:
-	var cc := CoreContent.new()
-	cc.load_from()
+	var cc: CoreContent = CoreContent.shared()
 	var out: Array = []
 	var w: Dictionary = cc.world_for_town(str(town.data.get("id", "")), str(town.data.get("layout", "")))
 	for lm in w.get("landmarks", []):

@@ -730,13 +730,10 @@ func _build_look(st: StagedBuild = null) -> void:
 static func _merged(finish: String, list: Array) -> ArrayMesh:
 	if _meshes.has(finish):
 		return _meshes[finish]
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var batch := PrimBatch.new()          # issue #693: nothing read back from the GPU
 	for p in list:
-		var bm := BoxMesh.new()
-		bm.size = p.size
-		st.append_from(bm, 0, p.xf)
-	var mesh := st.commit()
+		batch.add_box(p.size, p.xf)
+	var mesh := batch.commit()
 	_meshes[finish] = mesh
 	return mesh
 
@@ -858,11 +855,9 @@ static func _ring(r: float, tube: float) -> TorusMesh:
 ## three meshes (house, dark metal, glow), made once a session.
 func _turrets() -> void:
 	if not _meshes.has("turret_house"):
-		var house := SurfaceTool.new()
-		var metal := SurfaceTool.new()
-		var glow := SurfaceTool.new()
-		for st: SurfaceTool in [house, metal, glow]:
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var house := PrimBatch.new()      # issue #693: nothing read back from the GPU
+		var metal := PrimBatch.new()
+		var glow := PrimBatch.new()
 		var fwd := Basis(Vector3.RIGHT, -PI * 0.5)        # a cylinder's +y to the bow (-z)
 		var oct := Basis(Vector3.UP, PI / 8.0)            # a flat face of the octagon forward
 		var stretch := Basis.from_scale(Vector3(1.0, 1.0, 1.22))
@@ -873,25 +868,25 @@ func _turrets() -> void:
 		for t in CruiserHull.turrets():
 			var base := Transform3D(grow, t.at)
 			var turn := Transform3D(Basis(Vector3.UP, float(t.yaw)) * grow, t.at)
-			metal.append_from(_cyl(4.0, 4.3, b_h, 32), 0, base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.5, 0)))
-			metal.append_from(_ring(4.05, 0.12), 0, base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.75, 0)))
-			house.append_from(_cyl(2.7, 3.3, h_h, 8), 0, turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h * 0.5, 0)))
-			house.append_from(_cyl(2.1, 2.6, 0.45, 8), 0, turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h + 0.22, 0)))
+			metal.add(_cyl(4.0, 4.3, b_h, 32), base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.5, 0)))
+			metal.add(_ring(4.05, 0.12), base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.75, 0)))
+			house.add(_cyl(2.7, 3.3, h_h, 8), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h * 0.5, 0)))
+			house.add(_cyl(2.1, 2.6, 0.45, 8), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h + 0.22, 0)))
 			# The sensor pod on the roof's aft end, and its whip.
-			house.append_from(_box_mesh(Vector3(1.3, 0.8, 1.7)), 0, turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 0.85, 1.6)))
-			metal.append_from(_cyl(0.05, 0.07, 2.4, 6), 0, turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 2.4, 2.2)))
+			house.add(_box_mesh(Vector3(1.3, 0.8, 1.7)), turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 0.85, 1.6)))
+			metal.add(_cyl(0.05, 0.07, 2.4, 6), turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 2.4, 2.2)))
 			# Cooling fins down the back.
 			for k in 4:
-				metal.append_from(_box_mesh(Vector3(0.18, h_h * 0.7, 1.2)), 0,
+				metal.add(_box_mesh(Vector3(0.18, h_h * 0.7, 1.2)),
 					turn * Transform3D(Basis.IDENTITY, Vector3(-1.2 + k * 0.8, b_h + h_h * 0.5, 3.9)))
 			# The mantlet across the house's face, and the barrels through it.
 			var e := float(t.elev)
 			var gun := Basis(Vector3.RIGHT, e)
 			var face := turn * Transform3D(gun, Vector3(0, pivot_y, -3.3))
-			metal.append_from(_box_mesh(Vector3(4.4, 1.9, 1.2)), 0, face)
+			metal.add(_box_mesh(Vector3(4.4, 1.9, 1.2)), face)
 			for bx: float in [-1.25, 0.0, 1.25]:
-				var lay := func(m: Mesh, z0: float, z1: float, st: SurfaceTool) -> void:
-					st.append_from(m, 0, face * Transform3D(fwd, Vector3(bx, 0, -(z0 + z1) * 0.5)))
+				var lay := func(m: Mesh, z0: float, z1: float, st: PrimBatch) -> void:
+					st.add(m, face * Transform3D(fwd, Vector3(bx, 0, -(z0 + z1) * 0.5)))
 				lay.call(_cyl(0.55, 0.62, 2.6, 14), 0.4, 3.0, metal)
 				lay.call(_cyl(0.3, 0.36, 10.5, 12), 3.0, 13.5, metal)
 				lay.call(_cyl(0.46, 0.46, 1.1, 12), 12.6, 13.7, metal)

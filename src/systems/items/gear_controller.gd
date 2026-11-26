@@ -111,8 +111,7 @@ func inv() -> Inventory:
 func _ready() -> void:
 	name = "Gear"
 	if content == null:
-		content = CoreContent.new()
-		content.load_from()
+		content = CoreContent.shared()
 	var raw = ItemKit._read_json(LABELS_PATH)
 	labels = raw.get("labels", {}) if raw is Dictionary else {}
 	items = ItemKit.new()

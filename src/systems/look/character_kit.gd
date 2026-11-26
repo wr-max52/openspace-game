@@ -66,12 +66,20 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 	root.name = archetype.to_pascal_case()
 	_body(root, p)
 	var default_pose := "idle"
+	# Issue #693: a skinned model hides the primitive armour (SkinnedBody._hide_primitives),
+	# so it is not built under one: ~12 ms a trooper. Only the rifle stays (the hands
+	# are posed on it).
+	var skinned := _will_skin(p)
 	match base:
 		"remnant_trooper":
-			_dress_trooper(root, p, false)
+			if skinned:
+				_rifle(root, p)
+			else:
+				_dress_trooper(root, p, false)
 			default_pose = "rifle"
 		"remnant_commander", "remnant_marked":
-			_dress_trooper(root, p, true)
+			if not skinned:
+				_dress_trooper(root, p, true)
 			default_pose = "parade_rest"
 			if base == "remnant_marked":
 				pistol(root)
@@ -95,6 +103,8 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 	# keep the pose; animated users call skin.sync() every frame after moving them.
 	var skins: Array[SkinnedBody] = []
 	var skin := SkinnedBody.dress(root, p.get("model", {}))
+	if skin == null and skinned and base.begins_with("remnant_"):
+		_unskinned_armour(root, p, base)  # the model would not dress after all: the primitives then
 	if skin != null:
 		_wear_outfit(root, skin, p.model, outfit)
 		skin.seat_finger_pivots()     # issue #324: the fingers bend at this outfit's knuckles
@@ -121,6 +131,22 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 	var bulk := float(p.get("bulk", 1.0))
 	root.scale = Vector3(s * bulk, s, s * bulk)
 	return root
+
+
+## Issue #693: whether this palette's model is loaded and will dress the body
+## (then the primitive armour under it is never seen).
+static func _will_skin(p: Dictionary) -> bool:
+	var path := str(p.get("model", {}).get("scene", ""))
+	return path != "" and ResourceLoader.exists(path) and ModelCache.scene(path) is PackedScene
+
+
+func _unskinned_armour(root: Node3D, p: Dictionary, base: String) -> void:
+	if root.has_meta("weapon"):
+		var r: Node = root.get_meta("weapon")
+		root.remove_meta("weapon")
+		r.get_parent().remove_child(r)
+		r.free()
+	_dress_trooper(root, p, base != "remnant_trooper")
 
 
 ## A split model has one mesh per part (prep_character.gd, split), all on one shared

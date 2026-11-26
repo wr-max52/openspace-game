@@ -14,26 +14,32 @@ const TEX := 256
 
 static var _images := {}        ## key -> [albedo ImageTexture, normal ImageTexture]
 static var _mats := {}          ## key -> StandardMaterial3D
+## Issue #693: paint on a worker (a coming-down handoff turns it on). A texture not
+## painted yet is a flat stand-in in its own colour at once, and the painting lands
+## in the same ImageTexture a few frames later, so every material that shares it
+## (copies too) picks it up. Off, a texture is painted where it is asked for.
+static var async_paint := false
+static var _tasks := {}         ## key -> WorkerThreadPool task id, while it paints
 
 
 ## Dark warm planks, `width` metres each (the texture repeats every 4 planks).
 static func wood(tint := Color("#5a3a24"), width := 0.18, roughness := 0.62) -> StandardMaterial3D:
-	return _mat("wood_%s_%s" % [tint.to_html(), width], func(): return _paint_wood(tint), 1.0 / (width * 4.0), roughness, 0.0, 0.6)
+	return _mat("wood_%s_%s" % [tint.to_html(), width], func(): return _paint_wood(tint), 1.0 / (width * 4.0), roughness, 0.0, 0.6, tint)
 
 
 ## Black and cream squares `size` metres across with a thin grout.
 static func checker(a := Color("#1a1716"), b := Color("#d8cbb0"), size := 0.6) -> StandardMaterial3D:
-	return _mat("checker_%s_%s_%s" % [a.to_html(), b.to_html(), size], func(): return _paint_checker(a, b), 1.0 / (size * 2.0), 0.35, 0.0, 0.5)
+	return _mat("checker_%s_%s_%s" % [a.to_html(), b.to_html(), size], func(): return _paint_checker(a, b), 1.0 / (size * 2.0), 0.35, 0.0, 0.5, a.lerp(b, 0.5))
 
 
 ## A deco rug: a field, a border and a diamond lattice, `repeat` metres a tile.
 static func rug(field := Color("#5a1e22"), line := Color("#c9a058"), repeat := 1.2) -> StandardMaterial3D:
-	return _mat("rug_%s_%s_%s" % [field.to_html(), line.to_html(), repeat], func(): return _paint_rug(field, line), 1.0 / repeat, 0.95, 0.0, 0.3)
+	return _mat("rug_%s_%s_%s" % [field.to_html(), line.to_html(), repeat], func(): return _paint_rug(field, line), 1.0 / repeat, 0.95, 0.0, 0.3, field)
 
 
 ## Deep velvet: a fine nap with a soft sheen.
 static func velvet(tint := Color("#6a1a24")) -> StandardMaterial3D:
-	var m := _mat("velvet_" + tint.to_html(), func(): return _paint_velvet(tint), 3.0, 0.85, 0.0, 0.4)
+	var m := _mat("velvet_" + tint.to_html(), func(): return _paint_velvet(tint), 3.0, 0.85, 0.0, 0.4, tint)
 	m.rim_enabled = true
 	m.rim = 0.35
 	m.rim_tint = 0.6
@@ -42,33 +48,33 @@ static func velvet(tint := Color("#6a1a24")) -> StandardMaterial3D:
 
 ## Button-tufted leather, `cell` metres between buttons.
 static func leather(tint := Color("#3a1e16"), cell := 0.22) -> StandardMaterial3D:
-	return _mat("leather_%s_%s" % [tint.to_html(), cell], func(): return _paint_leather(tint), 1.0 / (cell * 4.0), 0.45, 0.0, 1.2)
+	return _mat("leather_%s_%s" % [tint.to_html(), cell], func(): return _paint_leather(tint), 1.0 / (cell * 4.0), 0.45, 0.0, 1.2, tint)
 
 
 ## Brushed metal: fine streaks along X.
 static func brushed(tint := Color("#8a8c90"), metallic := 0.85) -> StandardMaterial3D:
-	return _mat("brushed_%s_%s" % [tint.to_html(), metallic], func(): return _paint_brushed(tint), 2.0, 0.32, metallic, 0.2)
+	return _mat("brushed_%s_%s" % [tint.to_html(), metallic], func(): return _paint_brushed(tint), 2.0, 0.32, metallic, 0.2, tint)
 
 
 ## Speaker cloth: a dark woven grille.
 static func grille(tint := Color("#1c1c1e")) -> StandardMaterial3D:
-	return _mat("grille_" + tint.to_html(), func(): return _paint_grille(tint), 6.0, 0.9, 0.0, 0.8)
+	return _mat("grille_" + tint.to_html(), func(): return _paint_grille(tint), 6.0, 0.9, 0.0, 0.8, tint)
 
 
 ## Panelled wainscot: raised frames `panel` metres wide on a stained board.
 static func panels(tint := Color("#4a2e1c"), panel := 1.2) -> StandardMaterial3D:
-	return _mat("panels_%s_%s" % [tint.to_html(), panel], func(): return _paint_panels(tint), 1.0 / panel, 0.55, 0.0, 1.0)
+	return _mat("panels_%s_%s" % [tint.to_html(), panel], func(): return _paint_panels(tint), 1.0 / panel, 0.55, 0.0, 1.0, tint)
 
 
 ## Diamond plate: raised diamonds on steel, for a stage deck.
 static func plate(tint := Color("#5a5c62")) -> StandardMaterial3D:
-	return _mat("plate_" + tint.to_html(), func(): return _paint_plate(tint), 2.5, 0.38, 0.8, 1.2)
+	return _mat("plate_" + tint.to_html(), func(): return _paint_plate(tint), 2.5, 0.38, 0.8, 1.2, tint)
 
 
 ## #269 cleanup: rusty hull plating: riveted steel plates, two to a `plate`-metre
 ## tile, rust blooming out of the seams and running down in streaks.
 static func rust(tint := Color("#5a5450"), plate := 3.2) -> StandardMaterial3D:
-	return _mat("rust_%s_%s" % [tint.to_html(), plate], func(): return _paint_rust(tint), 1.0 / plate, 0.82, 0.45, 1.1)
+	return _mat("rust_%s_%s" % [tint.to_html(), plate], func(): return _paint_rust(tint), 1.0 / plate, 0.82, 0.45, 1.1, tint)
 
 
 ## #269 cleanup: a solar panel: navy cells `cell` metres across in a dark frame,
@@ -77,11 +83,15 @@ static func solar(line := Color("#3aa8ff"), cell := 0.5, energy := 1.4) -> Stand
 	var key := "solar_%s_%s_%s" % [line.to_html(), cell, energy]
 	if _mats.has(key):
 		return _mats[key]
-	var m := _mat("solar_base_%s" % cell, func(): return _paint_solar(), 1.0 / (cell * 4.0), 0.5, 0.15, 0.6).duplicate() as StandardMaterial3D
+	var m := _mat("solar_base_%s" % cell, func(): return _paint_solar(), 1.0 / (cell * 4.0), 0.5, 0.15, 0.6, Color("#0e1c3e")).duplicate() as StandardMaterial3D
 	if not _images.has("solar_glow"):
-		var g := _paint_solar_glow()
-		g.generate_mipmaps()
-		_images["solar_glow"] = ImageTexture.create_from_image(g)
+		if async_paint:
+			_images["solar_glow"] = ImageTexture.create_from_image(_flat(Color.BLACK))
+			_tasks["solar_glow"] = WorkerThreadPool.add_task(ClubTextures._glow_job.bind(_images["solar_glow"]), false, "club texture")
+		else:
+			var g := _paint_solar_glow()
+			g.generate_mipmaps()
+			_images["solar_glow"] = ImageTexture.create_from_image(g)
 	m.emission_enabled = true
 	m.emission_texture = _images["solar_glow"]
 	m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY     # only the lines glow
@@ -131,17 +141,18 @@ static func beam(color: Color, alpha := 0.18) -> StandardMaterial3D:
 
 # ------------------------------------------------------------------ materials
 
-static func _mat(key: String, paint: Callable, scale: float, roughness: float, metallic: float, normal_depth: float) -> StandardMaterial3D:
+static func _mat(key: String, paint: Callable, scale: float, roughness: float, metallic: float, normal_depth: float,
+		hint := Color(0.5, 0.5, 0.5)) -> StandardMaterial3D:
 	if _mats.has(key):
 		return _mats[key]
 	var texs: Array = _images.get(key, [])
 	if texs.is_empty():
-		var out: Array = paint.call()          # [albedo Image, height Image]
-		var h: Image = out[1]
-		h.bump_map_to_normal_map(4.0)
-		h.generate_mipmaps()
-		(out[0] as Image).generate_mipmaps()
-		texs = [ImageTexture.create_from_image(out[0]), ImageTexture.create_from_image(h)]
+		if async_paint:
+			texs = [ImageTexture.create_from_image(_flat(hint)), ImageTexture.create_from_image(_flat(Color(0.5, 0.5, 1.0)))]
+			_tasks[key] = WorkerThreadPool.add_task(ClubTextures._paint_job.bind(key, paint, texs), false, "club texture")
+		else:
+			var imgs := _bake(paint.call())
+			texs = [ImageTexture.create_from_image(imgs[0]), ImageTexture.create_from_image(imgs[1])]
 		_images[key] = texs
 	var m := StandardMaterial3D.new()
 	m.albedo_texture = texs[0]
@@ -157,6 +168,47 @@ static func _mat(key: String, paint: Callable, scale: float, roughness: float, m
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_mats[key] = m
 	return m
+
+
+## [albedo, height] Images to [albedo, normal], mipmapped (any thread).
+static func _bake(out: Array) -> Array:
+	var h: Image = out[1]
+	h.bump_map_to_normal_map(4.0)
+	h.generate_mipmaps()
+	(out[0] as Image).generate_mipmaps()
+	return [out[0], h]
+
+
+## A tiny one-colour image: the stand-in till the painting lands.
+static func _flat(c: Color) -> Image:
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	img.fill(Color(c.r, c.g, c.b, 1.0))
+	return img
+
+
+## Issue #693, on a worker: paints, then hands the images to the main thread.
+static func _paint_job(key: String, paint: Callable, texs: Array) -> void:
+	ClubTextures._land.call_deferred(key, texs, _bake(paint.call()))
+
+
+static func _glow_job(tex: ImageTexture) -> void:
+	var g := _paint_solar_glow()
+	g.generate_mipmaps()
+	ClubTextures._land.call_deferred("solar_glow", [tex], [g])
+
+
+## Main thread: the painted images into the textures every material already holds.
+static func _land(key: String, texs: Array, imgs: Array) -> void:
+	for i in texs.size():
+		(texs[i] as ImageTexture).set_image(imgs[i])
+	if _tasks.has(key):
+		WorkerThreadPool.wait_for_task_completion(_tasks[key])
+		_tasks.erase(key)
+
+
+## Whether any texture is still being painted.
+static func painting() -> bool:
+	return not _tasks.is_empty()
 
 
 # ------------------------------------------------------------------ painting

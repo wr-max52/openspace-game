@@ -30,10 +30,36 @@ func setup(world_ground: WorldGround) -> void:
 	terrain = world_ground.terrain
 
 
+## Issue #693: on a no-fade handoff the colliders and visuals wait for build_late()
+## (thousands of wreck plates, ~75 ms on the first frame before).
+var build_later := false
+
+
 func _ready() -> void:
 	name = "WorldScenery"
 	look = ItemKit._read_json(LOOK_PATH)
-	_build_landmark_colliders()
+	if not build_later:
+		_build_landmark_colliders()
+
+
+## Issue #693: the colliders in pieces of COLLIDERS_A_PIECE, then (with the look)
+## the visuals. `st` (a StagedBuild, may be null) spreads them over frames.
+const COLLIDERS_A_PIECE := 400
+
+func build_late(st: StagedBuild, mats: LookMaterials = null, sand: Material = null, with_look := false) -> void:
+	build_later = false
+	var root := StaticBody3D.new()
+	root.name = "LandmarkColliders"
+	add_child(root)
+	var n := 0
+	for b in landmark_boxes():
+		if _add_collider(root, b):
+			n += 1
+			if n % COLLIDERS_A_PIECE == 0:
+				await StagedBuild.slice_of(st)
+	if with_look:
+		await StagedBuild.slice_of(st)
+		build_visuals(mats, sand)
 
 
 ## Build the visible world. `sand` = the desert's own material (DesertTerrain.material),
@@ -56,22 +82,27 @@ func _build_landmark_colliders() -> void:
 	root.name = "LandmarkColliders"
 	add_child(root)
 	for b in landmark_boxes():
-		if str(b.get("rise", "")) != "":
-			continue                 # a ramp: its dresser builds the sloped collider
-		var cs := CollisionShape3D.new()
-		var mn: Vector3 = b.min
-		var mx: Vector3 = b.max
-		if bool(b.get("wreck_shard", false)):
-			var shape := ConvexPolygonShape3D.new()
-			shape.points = StarcruiserWreck.shard_vertices(mx - mn)
-			cs.shape = shape
-		else:
-			var shape := BoxShape3D.new()
-			shape.size = mx - mn
-			cs.shape = shape
-		# Issue #77: on the ball a box stands in its own (leaning) frame.
-		cs.transform = WorldGround.box_xf(b) * Transform3D(Basis.IDENTITY, (mn + mx) * 0.5)
-		root.add_child(cs)
+		_add_collider(root, b)
+
+
+func _add_collider(root: StaticBody3D, b: Dictionary) -> bool:
+	if str(b.get("rise", "")) != "":
+		return false             # a ramp: its dresser builds the sloped collider
+	var cs := CollisionShape3D.new()
+	var mn: Vector3 = b.min
+	var mx: Vector3 = b.max
+	if bool(b.get("wreck_shard", false)):
+		var shape := ConvexPolygonShape3D.new()
+		shape.points = StarcruiserWreck.shard_vertices(mx - mn)
+		cs.shape = shape
+	else:
+		var shape := BoxShape3D.new()
+		shape.size = mx - mn
+		cs.shape = shape
+	# Issue #77: on the ball a box stands in its own (leaning) frame.
+	cs.transform = WorldGround.box_xf(b) * Transform3D(Basis.IDENTITY, (mn + mx) * 0.5)
+	root.add_child(cs)
+	return true
 
 
 ## A ring beyond the desert that keeps falling away with the planet. It starts

@@ -340,13 +340,42 @@ func build(town, async: bool = true) -> void:
 	# The map's cells must match the mesh's, or the server warns and rounds.
 	NavigationServer3D.map_set_cell_size(map, float(settings.cell_size))
 	NavigationServer3D.map_set_cell_height(map, float(settings.cell_height))
-	var src := source_geometry(town)
 	_bake_start = Time.get_ticks_usec()
 	if async:
-		NavigationServer3D.bake_from_source_geometry_data_async(navmesh, src, _on_baked)
+		# Issue #693: the source geometry (~45 ms of box faces and obstructions on
+		# the home town) is worked out on a worker thread too, not on a frame.
+		var out := [null]
+		_src_task = WorkerThreadPool.add_task(func(): out[0] = source_geometry(town), false, "town nav source")
+		_src_out = out
+		set_process(true)
 	else:
-		NavigationServer3D.bake_from_source_geometry_data(navmesh, src)
+		NavigationServer3D.bake_from_source_geometry_data(navmesh, source_geometry(town))
 		_on_baked()
+
+
+var _src_task := -1
+var _src_out: Array = []
+
+
+func _ready() -> void:
+	if _src_task < 0:
+		set_process(false)
+
+
+## Issue #693: once the worker has the source geometry, the bake starts (async too).
+func _process(_dt: float) -> void:
+	if _src_task < 0 or not WorkerThreadPool.is_task_completed(_src_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_src_task)
+	_src_task = -1
+	set_process(false)
+	NavigationServer3D.bake_from_source_geometry_data_async(navmesh, _src_out[0], _on_baked)
+
+
+func _exit_tree() -> void:
+	if _src_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_src_task)
+		_src_task = -1
 
 
 func _on_baked() -> void:

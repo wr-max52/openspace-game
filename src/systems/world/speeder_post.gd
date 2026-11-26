@@ -112,9 +112,20 @@ func setup(town_demo, world_ground: WorldGround) -> void:
 	name = "SpeederPost"
 
 
+var build_later := false              ## issue #693: build() runs over frames (a handoff), not in _ready
+
+
 func _ready() -> void:
-	var cc := CoreContent.new()
-	cc.load_from()
+	if not build_later:
+		build(null)
+
+
+## Skrugs, his stall, the stock and the speeders. `st` (a StagedBuild, may be null)
+## puts each part on its own piece; the post only ticks once it is whole.
+func build(st: StagedBuild = null) -> void:
+	set_process(false)
+	set_physics_process(false)
+	var cc: CoreContent = CoreContent.shared()
 	var world: Dictionary = demo.world if "world" in demo and not demo.world.is_empty() else cc.world_for_town("port_town")
 	card = NpcBrain._read(CARD_PATH)
 	for lm in world.get("landmarks", []):
@@ -135,13 +146,20 @@ func _ready() -> void:
 	parking = loc.get("parking", [])
 	_build_ramp_collider()
 	if demo.use_look:
+		await StagedBuild.slice_of(st)
 		_dress(loc)
+	await StagedBuild.slice_of(st)
 	_build_skrugs()
+	await StagedBuild.slice_of(st)
 	_build_shop()
+	await StagedBuild.slice_of(st)
 	_build_stock()
+	await StagedBuild.slice_of(st)
 	_trim_owned()
 	for i in WorldState.count("speeders_owned"):
+		await StagedBuild.slice_of(st)
 		_spawn(i)
+	await StagedBuild.slice_of(st)
 	line_up()
 	if "pilot" in demo and demo.pilot != null:
 		demo.pilot.woke.connect(line_up)
@@ -155,6 +173,8 @@ func _ready() -> void:
 			var path := str(look.get("paints", {}).get(id, look.get("scene", "") if str(id) == "" else ""))
 			if path != "" and ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
 				_paint_scenes[path] = null
+	set_process(true)
+	set_physics_process(true)
 
 
 func _process(_dt: float) -> void:

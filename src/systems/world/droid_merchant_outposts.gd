@@ -26,8 +26,7 @@ func setup(town_demo, world_ground: WorldGround) -> void:
 func _ready() -> void:
 	if demo == null or ground == null or str(demo.planet.get("id", "")) != PlanetGen.home_id():
 		return
-	var cc := CoreContent.new()
-	cc.load_from()
+	var cc: CoreContent = CoreContent.shared()
 	var world: Dictionary = demo.world if not demo.world.is_empty() else cc.world_for_town("port_town")
 	for id in POST_IDS:
 		for lm in world.get("landmarks", []):
