@@ -61,11 +61,8 @@ func _ride_near(t, at: Vector3, yaw: float) -> SpeederNode:
 ## A short 1-lap loop beside Dorrin's yard so a whole race fits in a test.
 func _short_course(t) -> RaceCourse:
 	var c := { "id": "test_loop", "label": "Test Loop", "world": "port_desert", "laps": 1, "gate_width": 26.0,
-		"antenna_height": 7.0, "grid": { "slots": 4, "back_m": 10.0, "row_m": 9.0, "side_m": 4.5 }, "gates": [], "line": [] }
+		"antenna_height": 7.0, "grid": { "slots": 4, "back_m": 10.0, "row_m": 9.0, "side_m": 4.5 }, "gates": [] }
 	var centre := Vector2(-1100, -1000)
-	for k in 24:
-		var a := deg_to_rad(k * 15.0)
-		c.line.append([centre.x + cos(a) * 110.0, centre.y + sin(a) * 110.0])
 	for k in 4:
 		var a := deg_to_rad(7.5 + k * 90.0)
 		c.gates.append({ "id": "g%d" % k, "at": [centre.x + cos(a) * 110.0, centre.y + sin(a) * 110.0] })
@@ -186,11 +183,7 @@ func test_win_pays_the_pot_at_once_and_skrugs_job_is_done() -> void:
 	for rc in crew.racers:
 		rc.brain.pace = 0.2              # let them dawdle: this test is about winning
 	var me := SpeederBrain.new(mine.model, "ace")
-	var start := crew._line_start()
-	var route: Array = []
-	for k in crew.course.line.size():
-		route.append(crew.course.line[(start + k) % crew.course.line.size()])
-	me.follow(route, true)
+	me.follow(crew.course.race_route(), true)
 	Engine.time_scale = 3.0
 	for i in 2400:
 		if crew.phase != RaceCrew.Phase.RACING:

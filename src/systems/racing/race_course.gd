@@ -5,6 +5,16 @@ extends Node3D
 ## line and the racing line NPC racers follow (#609). One node builds any course;
 ## nothing about a course is in code.
 ##
+## The course is the gates and nothing else: a straight leg from each gate to the
+## next, round the loop. The racing line is not in the file; load_course builds it
+## from the gates (gate_line: straight along the ground, so on the far side of the
+## ball, where the map is stretched, a leg is still straight where you drive it).
+## NPC racers drive at the gates themselves (race_route), the boulders keep off
+## those legs, each gate faces the way the legs run through it, and a course's
+## tunnels are cut along them (DesertLandforms, RaceCourse.tunnel_path). So the
+## way the racers go and the checkpoints you must pass are one thing; move a gate
+## and all of it moves with it.
+##
 ## Every gate is two relay antennas (RelayAntenna, the droid relays' array) with a
 ## knee-high glowing strip between them that flashes when a racer goes through
 ## (green for you). The antennas' masts are solid (WorldGround columns) so you
@@ -35,6 +45,9 @@ const LOOK_PATH := "res://content/look/race_gates.json"
 const CHECK_S := 0.5                  ## how often the draw distance is looked at
 const RAMP_LOCATION := "skrugs_ramp"  ## the ramp every course's `ramps` are (unless the course names another)
 const FAR_STRETCH := 1.2              ## the map stretched more than this: pads measured on the ground
+const LINE_STEP := 25.0               ## m of ground between racing-line points
+const START_LEAD := 15.0              ## m past the start line racers first aim at (they cross it square)
+const WORLDS := "res://content/core/worlds/"
 
 var demo                              ## town_demo.gd (the player), may be null (tests)
 var ground: WorldGround
@@ -56,6 +69,7 @@ var _ramp_root: Node3D                ## their look and walking colliders (while
 var _check := 0.0
 static var _look: Dictionary = {}
 static var _mats: Dictionary = {}
+static var _radius: Dictionary = {}   ## world id -> its ball's radius (0: a flat world)
 
 
 # ------------------------------------------------------------------ data
@@ -74,10 +88,119 @@ static func ids() -> Array:
 	return out
 
 
+## A course file, with its racing line built from its gates (gate_line).
 static func load_course(course_id: String) -> Dictionary:
 	var f := FileAccess.open(DIR + course_id + ".json", FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
-	return d if d is Dictionary else {}
+	if not d is Dictionary:
+		return {}
+	d["line"] = gate_line(d)
+	return d
+
+
+## The racing line of course `c`: straight legs from gate to gate round the loop
+## (the last back to the start line), a point every LINE_STEP m of ground and
+## every gate one of them, plateau x,z ([[x, z], ...]). Straight along the ground
+## of the course's world (a great circle on the ball), straight on the map on a
+## flat world.
+static func gate_line(c: Dictionary) -> Array:
+	var pts: Array = []
+	for g in c.get("gates", []):
+		pts.append(Vector2(float(g.at[0]), float(g.at[1])))
+	var r := sphere_radius(str(c.get("world", "")))
+	var out: Array = []
+	for i in pts.size():
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[(i + 1) % pts.size()]
+		var n := maxi(1, int(ceil(ground_dist(a, b, r) / LINE_STEP)))
+		for k in n:
+			var q := ground_lerp(a, b, float(k) / float(n), r)
+			out.append([q.x, q.y])
+	return out
+
+
+## A course tunnel's centre line (DesertLandforms course_mountains): the course's
+## straight legs through the gates `ids` in that order, carried straight on run_m
+## [before, after] metres of ground past the first and the last, a point every
+## 20 m of ground ([[x, z], ...] plateau x,z).
+static func tunnel_path(course_id: String, ids: Array, run_m: Array) -> Array:
+	var c := load_course(course_id)
+	var r := sphere_radius(str(c.get("world", "")))
+	var pts: Array = []
+	for want in ids:
+		for g in c.get("gates", []):
+			if str(g.get("id", "")) == str(want):
+				pts.append(Vector2(float(g.at[0]), float(g.at[1])))
+	if pts.size() < 2:
+		return []
+	var ends := [ground_lerp(pts[0], pts[1], -float(run_m[0]) / maxf(ground_dist(pts[0], pts[1], r), 0.01), r),
+		ground_lerp(pts[-2], pts[-1], 1.0 + float(run_m[1]) / maxf(ground_dist(pts[-2], pts[-1], r), 0.01), r)]
+	var chain: Array = [ends[0]] + pts + [ends[1]]
+	var out: Array = []
+	for i in chain.size() - 1:
+		var a: Vector2 = chain[i]
+		var b: Vector2 = chain[i + 1]
+		var n := maxi(1, int(ceil(ground_dist(a, b, r) / 20.0)))
+		for k in n:
+			var q := ground_lerp(a, b, float(k) / float(n), r)
+			out.append([q.x, q.y])
+	var last: Vector2 = chain[-1]
+	out.append([last.x, last.y])
+	return out
+
+
+## The radius of world `world_id`'s ball (its terrain's sphere_radius), 0 for a
+## flat world or none.
+static func sphere_radius(world_id: String) -> float:
+	if not _radius.has(world_id):
+		var r := 0.0
+		var f := FileAccess.open(WORLDS + world_id + ".json", FileAccess.READ) if world_id != "" else null
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		if d is Dictionary:
+			r = float(d.get("terrain", {}).get("sphere_radius", 0.0))
+		_radius[world_id] = r
+	return float(_radius[world_id])
+
+
+## Metres of ground between plateau points a and b on a ball of radius r (the
+## map distance when r is 0).
+static func ground_dist(a: Vector2, b: Vector2, r: float) -> float:
+	if r <= 0.0:
+		return a.distance_to(b)
+	return _ball_dir(a, r).angle_to(_ball_dir(b, r)) * r
+
+
+## The point `t` of the way from a to b straight along the ground (a great circle
+## on a ball of radius r, the map's straight line when r is 0); t may run past
+## either end.
+static func ground_lerp(a: Vector2, b: Vector2, t: float, r: float) -> Vector2:
+	if r <= 0.0:
+		return a.lerp(b, t)
+	var da := _ball_dir(a, r)
+	var db := _ball_dir(b, r)
+	var ang := da.angle_to(db)
+	if ang < 1.0e-9:
+		return a
+	return _ball_map(da.rotated(da.cross(db).normalized(), ang * t), r)
+
+
+## PlanetSphere.map_dir and dir_map for a ball of radius r (no sphere needed:
+## the course files are read before any planet is built).
+static func _ball_dir(m: Vector2, r: float) -> Vector3:
+	var d := m.length()
+	if d < 0.0001:
+		return Vector3.UP
+	var th := d / r
+	var s := sin(th) / d
+	return Vector3(m.x * s, cos(th), m.y * s)
+
+
+static func _ball_map(dir: Vector3, r: float) -> Vector2:
+	var h := Vector2(dir.x, dir.z)
+	var hl := h.length()
+	if hl < 0.0000001:
+		return Vector2.ZERO if dir.y > 0.0 else Vector2(PI * r, 0.0)
+	return h / hl * atan2(hl, dir.y) * r
 
 
 ## The courses on a world (its "world" id: port_desert).
@@ -272,7 +395,8 @@ static func look() -> Dictionary:
 func setup(town_demo, world_ground: WorldGround, course_data: Dictionary) -> void:
 	demo = town_demo
 	ground = world_ground
-	course = course_data
+	course = course_data.duplicate()
+	course["line"] = gate_line(course)          # the legs between the gates, whatever the data said
 	id = str(course.get("id", "course"))
 	name = "RaceCourse_" + id
 	_place()
@@ -401,6 +525,21 @@ func to_world_near(p: Vector3) -> Vector3:
 
 
 # ------------------------------------------------------------------ the race's questions
+
+## How an NPC racer drives a lap (world points): straight at each gate in turn,
+## first a point just past the start line (so off the grid it crosses the line
+## square), last the start line itself. The same legs as the racing line.
+func race_route() -> Array:
+	var out: Array = []
+	if gates.is_empty():
+		return out
+	var g0: Dictionary = gates[0]
+	out.append(to_world_near((g0.pos as Vector3) + (g0.fwd as Vector3) * START_LEAD))
+	for i in range(1, gates.size()):
+		out.append(gates[i].pos)
+	out.append(g0.pos)
+	return out
+
 
 ## A fresh lap counter for a race on this course.
 func new_laps() -> RaceLaps:

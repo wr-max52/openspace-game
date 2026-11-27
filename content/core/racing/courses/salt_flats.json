@@ -1,7 +1,7 @@
 {
   "id": "salt_flats",
   "label": "Salt Flats",
-  "note": "Issue #615: the salt crew's course, a long fast oval across the salt pan below their village, its start/finish line about 400 m from the village, on the flat stretch of the west bend (the sand nearer the village is all dune crests). Its north side runs through a range of three tunnel peaks, one long curving tunnel under them (course_mountains in content/look/desert_landforms.json, the line here its smoothed path): c4 is at the east portal, c5 halfway through, c6 at the west portal, with runner lights along the walls. Same shape as hoodoo_run.json (read its note); no track beast here.",
+  "note": "Issue #615: the salt crew's course, a fast loop across the salt pan below their village, its start/finish line on the straight down the west side, about 300 m from the village. It runs through a range of three tunnel peaks (course_mountains salt_flats in content/look/desert_landforms.json: the tunnel is cut along this course's own legs from c5 back to c2, so it bends a little at c3 and c4, with runner lights along the walls): c1 lines you up on the tunnel, c2 is its west portal, c3 and c4 inside, c5 the east portal; then you drop off the playa's edge into the deep basin north of it (c6, c7), climb out up its west side (c8) and come back down the valleys to the start (c9, c10). Same shape as hoodoo_run.json (read its note: the course is straight legs between the gates); no track beast here.",
   "world": "port_desert",
   "near": "ranch_saltpan",
   "laps": 2,
@@ -9,96 +9,18 @@
   "antenna_height": 7.0,
   "draw_m": 1500.0,
   "clear_m": 14.0,
-  "grid": {
-    "slots": 4,
-    "back_m": 10.0,
-    "row_m": 9.0,
-    "side_m": 4.5
-  },
+  "grid": { "slots": 4, "back_m": 10.0, "row_m": 9.0, "side_m": 4.5 },
   "gates": [
-    {
-      "id": "start",
-      "at": [-3410.2, 1480.8]
-    },
-    {
-      "id": "c1",
-      "at": [-2925.6, 1340.9]
-    },
-    {
-      "id": "c2",
-      "at": [-2647.6, 1389.7]
-    },
-    {
-      "id": "c3",
-      "at": [-2525.6, 1748.6]
-    },
-    {
-      "id": "c4",
-      "at": [-2682.9, 1823.0]
-    },
-    {
-      "id": "c5",
-      "at": [-2937.5, 1859.9]
-    },
-    {
-      "id": "c6",
-      "at": [-3198.8, 1828.2]
-    },
-    {
-      "id": "c7",
-      "at": [-3359.8, 1759.3]
-    }
-  ],
-  "line": [
-    [-3410.2, 1480.8],
-    [-3397.1, 1467.2],
-    [-3344.2, 1430.4],
-    [-3279.3, 1398.8],
-    [-3204.4, 1373.2],
-    [-3121.8, 1354.6],
-    [-3033.9, 1343.4],
-    [-2943.6, 1340.0],
-    [-2925.6, 1340.9],
-    [-2853.4, 1344.5],
-    [-2766.1, 1356.8],
-    [-2684.4, 1376.5],
-    [-2647.6, 1389.7],
-    [-2610.8, 1402.9],
-    [-2547.5, 1435.4],
-    [-2496.5, 1472.8],
-    [-2459.2, 1514.1],
-    [-2436.8, 1558.0],
-    [-2430.0, 1603.2],
-    [-2439.1, 1648.3],
-    [-2463.6, 1691.9],
-    [-2502.9, 1732.8],
-    [-2525.6, 1748.6],
-    [-2555.8, 1769.6],
-    [-2602.3, 1793.0],
-    [-2657.0, 1814.8],
-    [-2682.9, 1823.0],
-    [-2695.6, 1826.8],
-    [-2744.4, 1838.8],
-    [-2795.4, 1848.2],
-    [-2848.3, 1855.0],
-    [-2902.1, 1858.9],
-    [-2937.5, 1859.9],
-    [-2956.4, 1860.0],
-    [-3010.7, 1858.2],
-    [-3064.3, 1853.7],
-    [-3116.8, 1846.3],
-    [-3167.4, 1836.2],
-    [-3198.8, 1828.2],
-    [-3215.6, 1823.5],
-    [-3271.7, 1804.3],
-    [-3325.4, 1779.2],
-    [-3352.5, 1764.6],
-    [-3359.8, 1759.3],
-    [-3403.5, 1727.2],
-    [-3440.8, 1685.9],
-    [-3463.2, 1642.0],
-    [-3470.0, 1596.8],
-    [-3460.9, 1551.7],
-    [-3436.4, 1508.1]
+    { "id": "start", "at": [-3383.4, 1377.7] },
+    { "id": "c1", "at": [-3414.7, 1723.9] },
+    { "id": "c2", "at": [-3359.8, 1759.3] },
+    { "id": "c3", "at": [-3198.8, 1828.2] },
+    { "id": "c4", "at": [-2937.5, 1859.9] },
+    { "id": "c5", "at": [-2682.9, 1823.0] },
+    { "id": "c6", "at": [-2502.8, 1747.7] },
+    { "id": "c7", "at": [-2492.9, 1660.9] },
+    { "id": "c8", "at": [-2701.2, 1448.9] },
+    { "id": "c9", "at": [-2958.4, 1321.8] },
+    { "id": "c10", "at": [-3218.4, 1326.9] }
   ]
 }
