@@ -2,6 +2,11 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.5 (2026-11-27)
+
+- Share builds are now **OpenSpace V1.7.5**. Everything below, down to "New
+  version is 1.7.4", is in it.
+
 ## Graphics and AI are first-start questions, and your save keeps them (2026-11-26)
 
 - **The first time you start the game it asks Low graphics or Full graphics,**
