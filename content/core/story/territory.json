@@ -14,6 +14,22 @@
     "posts": {
       "guard_a": "local_sentry",
       "guard_b": "local_sentry", "guard_c": "local_launcher"
+    },
+    "refinery": {
+      "note": "Every outpost's quantonium refineries (src/systems/world/quantonium_refinery.gd, their look in content/look/refinery.json): two big tanks of the stuff behind the control room, a globe tank and a reactor column side by side, each on the sand where it stands (they need not be level with each other). 'units' says which styles and where, in the outpost's frame (+x toward the doorway); a location's points 'refinery_<style>' moves one (the ranch villages' outposts, whose houses are in the way). Shoot one, throw grenades at it or strafe it from the air: after 'hp' damage it goes up like a ship, three fireballs, and everyone within 'blast_radius' takes the grenade's kind of hurt (Blast: 'blast_damage' to people, enough for the outpost's guards, 'player_damage' to you from each one, speeders wrecked; parked ships are left alone). Whatever sets one off sets off the other 'chain_s' later, so standing near both is deadly. Below 'leak_below' of its hp it smokes. Both are built again with the outpost: when it changes hands or restocks, or once the outposts' respawn time (story/main.json remnant outpost_respawn_s) has passed, while off your screen and you at least 'back_away_m' away.",
+      "units": [
+        { "style": "globe", "at": [-8, 0, -17] },
+        { "style": "core", "at": [4, 0, -17] }
+      ],
+      "hp": 600,
+      "leak_below": 0.5,
+      "chain_s": 0.7,
+      "blast_radius": 22.0,
+      "blast_damage": 1000,
+      "player_damage": 90,
+      "vehicle_damage": 5000,
+      "noise_radius": 260.0,
+      "back_away_m": 120.0
     }
   },
   "barracks": {
@@ -115,6 +131,7 @@
     "locked": "The Remnant at %s answer to the cruiser. More will come until it falls.",
     "retaken": "The Remnant have taken %s back.",
     "cleared": "%s is cleared. It will change hands once you are well away.",
+    "refinery_blown": "The quantonium refineries at %s went up.",
     "supplied": "Supplies delivered to %s. +%d cr",
     "warn": "The locals at %s are running short.",
     "driven_off": "The Remnant have pulled out of the desert. The port is the locals' now.",
