@@ -468,29 +468,14 @@ func _map_tab() -> Control:
 	_section(side, GlobeMap.line("off_planet"))
 	_off_box = VBoxContainer.new()
 	side.add_child(_off_box)
-	_section(side, GlobeMap.line("legend"))
-	# Every row is a button: the next place of its kind, centred, as the waypoint.
+	# The legend in its groups (map.json "legend_groups": you and the vehicles,
+	# settlements, places to explore, merchants). Every row is a button: the next
+	# place of its kind, centred, as the waypoint.
 	_legend = []
-	_legend_add(side, GlobeMap.look().get("player", {}), GlobeMap.line("you"), { "special": "you" },
-		Color(str(GlobeMap.look().get("player", {}).get("color", "#4dff88"))))
-	_legend_add(side, GlobeMap.look().get("goal", {}), GlobeMap.line("goal"), { "special": "goal" },
-		Color(str(GlobeMap.look().get("goal", {}).get("color", "#ffd84a"))))
-	for kind in GlobeMap.VEHICLE_KINDS + ["port", "station", "remnant_outpost", "village", "droid_merchant_outpost", "post", "camp", "wreck", "outpost",
-			"cantina", "cantina_owner", "barracks", "ship_dealer", "food", "gear", "fence", "droids", "free_stall", "keeper", "spot"]:
-		var legend := str(GlobeMap.kind_cfg(kind).get("legend", GlobeMap.kind_cfg(kind).get("label", kind)))
-		_legend_add(side, GlobeView.pin_look({ "kind": kind }), legend, { "special": "spot" } if kind == "spot" else { "kind": kind })
-	var hostile := GlobeView.pin_look({ "kind": "camp", "hostile": true })
-	_legend_add(side, hostile, GlobeMap.line("legend_hostile"), { "test": func(p): return str(p.kind) == "camp" and bool(p.get("hostile", false)) })
-	_legend_add(side, GlobeView.pin_look({ "kind": "mountain" }), GlobeMap.line("legend_terrain"), { "special": "terrain" })
-	var pins_look: Dictionary = GlobeMap.look().get("pins", {})
-	var owners: Dictionary = GlobeMap.look().get("owners", {})
-	_legend_add(side, pins_look.get("remnant_outpost", {}), GlobeMap.line("legend_held"),
-		{ "test": func(p): return str(p.get("owner", "")) == Territory.LOCALS and not bool(p.get("short", false)) },
-		Color(str(owners.get("locals", "#5fd35f"))))
-	_legend_add(side, pins_look.get("remnant_outpost", {}), GlobeMap.line("legend_short"),
-		{ "test": func(p): return bool(p.get("short", false)) }, Color(str(owners.get("short", "#5fd35f"))))
-	_legend_add(side, { "shape": "ring" }, GlobeMap.line("legend_hold"),
-		{ "test": func(p): return float(p.get("hold", -1.0)) >= 0.0 }, Color(str(owners.get("locals", "#5fd35f"))))
+	for g in GlobeMap.cfg().get("legend_groups", []):
+		_section(side, str(g.get("title", "")))
+		for row in g.get("rows", []):
+			_legend_row(side, str(row))
 	var gap := Control.new()
 	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(gap)
@@ -523,6 +508,45 @@ func _map_tab() -> Control:
 		if tabs.get_tab_control(i) == page:
 			_refresh_map())          # a waypoint picked in the Ledger since
 	return page
+
+
+## One row of a legend group by its name in map.json: a pin kind, or one of the
+## '@' rows (you, the waypoint, your mark, who holds an outpost, a hostile camp,
+## the rock).
+func _legend_row(side: Control, row: String) -> void:
+	var lk := GlobeMap.look()
+	var pins_look: Dictionary = lk.get("pins", {})
+	var owners: Dictionary = lk.get("owners", {})
+	var locals := Color(str(owners.get("locals", "#5fd35f")))
+	match row:
+		"@you":
+			_legend_add(side, lk.get("player", {}), GlobeMap.line("you"), { "special": "you" },
+				Color(str(lk.get("player", {}).get("color", "#4dff88"))))
+		"@goal":
+			_legend_add(side, lk.get("goal", {}), GlobeMap.line("goal"), { "special": "goal" },
+				Color(str(lk.get("goal", {}).get("color", "#ffd84a"))))
+		"@spot":
+			_legend_add(side, GlobeView.pin_look({ "kind": "spot" }), _kind_legend("spot"), { "special": "spot" })
+		"@hostile_camp":
+			_legend_add(side, GlobeView.pin_look({ "kind": "camp", "hostile": true }), GlobeMap.line("legend_hostile"),
+				{ "test": func(p): return str(p.kind) == "camp" and bool(p.get("hostile", false)) })
+		"@terrain":
+			_legend_add(side, GlobeView.pin_look({ "kind": "mountain" }), GlobeMap.line("legend_terrain"), { "special": "terrain" })
+		"@held":
+			_legend_add(side, pins_look.get("remnant_outpost", {}), GlobeMap.line("legend_held"),
+				{ "test": func(p): return str(p.get("owner", "")) == Territory.LOCALS and not bool(p.get("short", false)) }, locals)
+		"@short":
+			_legend_add(side, pins_look.get("remnant_outpost", {}), GlobeMap.line("legend_short"),
+				{ "test": func(p): return bool(p.get("short", false)) }, Color(str(owners.get("short", "#5fd35f"))))
+		"@hold":
+			_legend_add(side, { "shape": "ring" }, GlobeMap.line("legend_hold"),
+				{ "test": func(p): return float(p.get("hold", -1.0)) >= 0.0 }, locals)
+		_:
+			_legend_add(side, GlobeView.pin_look({ "kind": row }), _kind_legend(row), { "kind": row })
+
+
+func _kind_legend(kind: String) -> String:
+	return str(GlobeMap.kind_cfg(kind).get("legend", GlobeMap.kind_cfg(kind).get("label", kind)))
 
 
 ## One legend line, a button: the pin's shape, drawn the way the globe draws it,
@@ -814,6 +838,8 @@ func _refresh_map(centre := false) -> void:
 		var town_id := WorldState.current_town_id() if live else (str(town_obj.data.get("id", "")) if town_obj != null else "")
 		var town: Array = GlobeMap.town_pins(town_obj, town_id, sphere.world_to_map, shown)
 		_static_pins = GlobeMap.pins(world, planet, town)
+		if live and demo != null:
+			GlobeMap.place_barge(_static_pins, demo.get("barge"), sphere.world_to_map)
 		globe.pins = _static_pins + (GlobeMap.vehicle_pins(demo, sphere.world_to_map) if live and demo != null else [])
 		if globe.hover >= globe.pins.size():
 			globe.hover = -1

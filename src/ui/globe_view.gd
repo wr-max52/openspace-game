@@ -22,6 +22,10 @@ extends Control
 ## in its role's colour (content/look/map.json), all drawn in one batch a paint.
 ## `fit` zooms to a place (the page opens on the town that way when you are in it).
 ##
+## No icon covers another (_layout, map.json "declutter"): each paint lays them
+## out in order of how much they matter, and one that would land on another is
+## nudged a little aside, or left off until you zoom in far enough for it.
+##
 ## Under the grid, faintly, the ground itself (`ground`, a GlobeTerrain bake of the
 ## ball's own heights): dunes, craters and mesas where they really are, lit from the
 ## top left. Until the bake is done the ball is the plain "sea" colour.
@@ -46,7 +50,10 @@ const GroundShader := preload("res://src/systems/look/shaders/globe_ground.gdsha
 const MapIcons := preload("res://src/ui/map_icons.gd")
 const MAX_PX_PER_M := 6.0                ## the deepest zoom: a metre this many pixels
 
-var pins: Array = []                    ## GlobeMap.pins
+var pins: Array = []:                   ## GlobeMap.pins
+	set(v):
+		pins = v
+		_layout_key = []
 var shapes: Array = []                  ## GlobeMap.station_shapes: a sealed station's domes, pit and tunnels
 var radius_m := 5000.0                  ## the planet's radius (m)
 var town_zoom := 14.0                   ## zoom past which the town's stops show instead of the port (no `details` town)
@@ -74,6 +81,19 @@ var ground: GlobeTerrain = null         ## the ball's ground, drawn under the gr
 var terrain: Dictionary = {}            ## how the ground is tinted (GlobeMap.terrain_look), {} = map.json's "terrain"
 
 var _ground_layer: Control              ## draws `ground` behind this control's own lines and pins
+
+var _placed := {}                       ## pin index -> where its icon is drawn (_layout); not in it = left off this paint
+var _placed_marks: Array = []           ## [[mark index, at, r]]: the rock icons drawn (_layout)
+var _taken := {}                        ## the layout's grid: Vector2i cell -> [[centre, r]] of the icons laid out
+var _layout_key: Array = []             ## what the layout was made for (the view, the waypoint, you): [] = make it again
+
+const CELL := 24.0                      ## px: the layout grid's cells
+## The order icons claim their room in (lower first), after you, the other
+## players, the waypoint's pin and the goal marker: the vehicles, then the places
+## out in the world, then a town's or a ranch's stops, then the rock.
+const PLACE_ORDER := ["port", "station", "remnant_outpost", "village", "outpost", "barge", "droid_merchant_outpost",
+	"mechanic", "speeder_stall", "post", "race", "wreck", "camp", "bay", "barracks", "homes", "dome", "speeders"]
+const STOP_ORDER := ["cantina", "cantina_owner", "barracks", "ship_dealer", "droids", "food", "gear", "fence", "keeper", "free_stall"]
 
 var _press := Vector2.INF
 var _dragged := false
@@ -226,16 +246,25 @@ func fit(map: Vector2, extent_m: float, fill := 0.75, min_px := 0.0) -> void:
 
 
 ## The pin index nearest screen point `p` (within HIT px), or -1.
+## Once laid out, only the icons drawn count, where they are drawn.
 func pin_at(p: Vector2) -> int:
 	var best := -1
 	var best_d := HIT
+	var laid := not _layout_key.is_empty()
 	for i in pins.size():
-		if not shown(pins[i]):
-			continue
-		var s := project(pins[i].map)
-		if s.z <= 0.0:
-			continue
-		var d := p.distance_to(Vector2(s.x, s.y))
+		var at: Vector2
+		if laid:
+			if not _placed.has(i):
+				continue
+			at = _placed[i]
+		else:
+			if not shown(pins[i]):
+				continue
+			var s := project(pins[i].map)
+			if s.z <= 0.0:
+				continue
+			at = Vector2(s.x, s.y)
+		var d := p.distance_to(at)
 		if d < best_d:
 			best_d = d
 			best = i
@@ -325,27 +354,23 @@ func _draw() -> void:
 	_draw_station(lk.get("station", {}), ink)
 	var batch := MapIcons.Batch.new()
 	_draw_details(batch, lk.get("details", {}))
-	_draw_marks(batch, lk.get("terrain_marks", {}))
 	batch.flush(self)
 	var font := get_theme_default_font()
 	var fs := 13
 	var flash := goal_pin_now()
-	var view_rect := Rect2(Vector2.ZERO, size).grow(10.0)
 	var pin_r := float(lk.get("pin_size", 6.0))
 	var sp: Array = lk.get("details", {}).get("stop_px", [3.5, 7.0])
 	var stop_r := clampf(px_per_m() * float(lk.get("details", {}).get("stop_scale", 3.5)), float(sp[0]), float(sp[1]))
+	_layout(flash, pin_r, stop_r)
+	_draw_leaders(pin_r, stop_r)
+	_draw_marks(batch)
 	var named_stops: Array = []         # [at, pin] of the town's and ranches' stops showing, for their names
 	var rides: Array = []               # [at, pin, flashing, hot] of the vehicles, drawn over the rest
 	for i in pins.size():
+		if not _placed.has(i):
+			continue
 		var pin: Dictionary = pins[i]
-		if not shown(pin):
-			continue
-		var s := project(pin.map)
-		if s.z <= 0.0:
-			continue
-		var at := Vector2(s.x, s.y)
-		if not view_rect.has_point(at):
-			continue
+		var at: Vector2 = _placed[i]
 		if vehicle_icon(pin) != "":
 			rides.append([at, pin, i == flash, i == hover])
 			continue
@@ -379,11 +404,11 @@ func _draw() -> void:
 	var named := hover
 	if named < 0:
 		for i in pins.size():
-			if (i == flash or str(pins[i].id) == selected) and shown(pins[i]):
+			if (i == flash or str(pins[i].id) == selected) and _placed.has(i):
 				named = i
-	if named >= 0 and font != null:
-		var s := project(pins[named].map)
-		if s.z > 0.0 and Rect2(Vector2.ZERO, size).grow(16.0).has_point(Vector2(s.x, s.y)):
+	if named >= 0 and font != null and _placed.has(named):
+		var s: Vector2 = _placed[named]
+		if Rect2(Vector2.ZERO, size).grow(16.0).has_point(s):
 			var text := str(pins[named].label)
 			if str(pins[named].get("status", "")) != "":
 				text += " - " + str(pins[named].status)
@@ -541,14 +566,30 @@ func _affine(centre: Vector2, step: float, c: Vector2) -> Transform2D:
 
 
 ## Mountains (always, sized by how wide they are on screen), spires and boulders
-## (only zoomed in), as rock icons.
-func _draw_marks(batch, t: Dictionary) -> void:
-	if marks.is_empty():
+## (only zoomed in), as rock icons: those _layout found room for.
+func _draw_marks(batch) -> void:
+	if _placed_marks.is_empty():
 		return
+	var looks: Dictionary = GlobeMap.look().get("pins", {})
+	var cols := {}
+	for k in ["mountain", "spire", "boulder"]:
+		cols[k] = Color(str(pin_look({ "kind": k }).get("color", "#a88a68")))
+	for pm in _placed_marks:
+		var kind := str(marks[int(pm[0])].kind)
+		MapIcons.add(batch, str(looks.get(kind, {}).get("shape", kind)), pm[1], float(pm[2]), cols.get(kind, cols.boulder))
+
+
+## Every rock icon on screen at this zoom: [[mark index, at, r]], the mountains
+## first (biggest first), then the spires, then the boulders.
+func _mark_spots() -> Array:
+	var out: Array = []
+	if marks.is_empty():
+		return out
 	if _mark_dirs.size() != marks.size():
 		_mark_dirs = PackedVector3Array()
 		for m in marks:
 			_mark_dirs.append(GlobeMap.dir(m.map, radius_m))
+	var t: Dictionary = GlobeMap.look().get("terrain_marks", {})
 	var ppm := px_per_m()
 	var sc := scale_px()
 	var half := size * 0.5
@@ -557,10 +598,7 @@ func _draw_marks(batch, t: Dictionary) -> void:
 	var mpx: Array = t.get("mountain_px", [6.0, 16.0])
 	var show_spire := ppm >= float(t.get("spire_px_per_m", 0.12))
 	var show_boulder := ppm >= float(t.get("boulder_px_per_m", 0.35))
-	var looks: Dictionary = GlobeMap.look().get("pins", {})
-	var cols := {}
-	for k in ["mountain", "spire", "boulder"]:
-		cols[k] = Color(str(pin_look({ "kind": k }).get("color", "#a88a68")))
+	var order := { "mountain": 0, "spire": 1 }
 	for i in marks.size():
 		var m: Dictionary = marks[i]
 		var kind := str(m.kind)
@@ -582,7 +620,197 @@ func _draw_marks(batch, t: Dictionary) -> void:
 		var at := half + Vector2(v.x, -v.y) * sc
 		if not view_rect.has_point(at):
 			continue
-		MapIcons.add(batch, str(looks.get(kind, {}).get("shape", kind)), at, r, cols[kind])
+		out.append([i, at, r, int(order.get(kind, 2))])
+	out.sort_custom(func(a, b): return a[3] < b[3] if a[3] != b[3] else (a[2] > b[2] if a[2] != b[2] else a[0] < b[0]))
+	return out
+
+
+# ------------------------------------------------------------------ layout
+
+## Lay every icon out for this paint so that none covers another (map.json
+## "declutter"). You, the other players and the goal marker stay exactly where
+## they are; the waypoint's pin is never left off. The rest claim room in order (PLACE_ORDER,
+## STOP_ORDER): each where it really is if that is free, else nudged up to
+## `shift` times its own size away from what it hit, else left off this paint
+## (a town's stop shows again once you zoom in and there is room). Rock is never
+## moved, only left off. Made again only when the view, the pins or the
+## waypoint change.
+func _layout(flash: int, pin_r: float, stop_r: float) -> void:
+	var key := [yaw, pitch, zoom, size, flash, player, goal, spot, selected, others.size(), marks.size(), details.size()]
+	if key == _layout_key:
+		return
+	_layout_key = key
+	_placed = {}
+	_placed_marks = []
+	_taken = {}
+	var dc: Dictionary = GlobeMap.look().get("declutter", {})
+	var gap := float(dc.get("gap_px", 2.0))
+	var shifts: Dictionary = dc.get("shift", {})
+	var view_rect := Rect2(Vector2.ZERO, size).grow(10.0)
+	# what never moves: you, the other players, the goal marker
+	var fixed: Array = []
+	if player != Vector2.INF:
+		fixed.append([player, float(dc.get("player_px", 12.0))])
+	for o in others:
+		fixed.append([o.map, 8.0])
+	var mark := goal if goal != Vector2.INF and flash < 0 else (spot if selected == "spot" else Vector2.INF)
+	if mark != Vector2.INF:
+		fixed.append([mark, 8.0])
+	for f in fixed:
+		var s := project(f[0])
+		if s.z > 0.0:
+			_take(Vector2(s.x, s.y), float(f[1]))
+	var items: Array = []               # [rank, index, at, r, shift]
+	for i in pins.size():
+		var pin: Dictionary = pins[i]
+		if not shown(pin):
+			continue
+		var s := project(pin.map)
+		if s.z <= 0.0:
+			continue
+		var at := Vector2(s.x, s.y)
+		if not view_rect.has_point(at):
+			continue
+		var r := icon_radius(pin, pin_r, stop_r)
+		if i == flash:              # never left off: nudged off you if it can be, else where it is
+			var to := _room(at, r + gap, r * 3.0)
+			_placed[i] = to if to != Vector2.INF else at
+			_take(_placed[i], r)
+			continue
+		var group := _group(pin)
+		items.append([_rank(pin, group), i, at, r, float(shifts.get(group, 2.0))])
+	items.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+	for it in items:
+		var r: float = it[3]
+		var at := _room(it[2], r + gap, r * float(it[4]))
+		if at != Vector2.INF:
+			_placed[it[1]] = at
+			_take(at, r)
+	for m in _mark_spots():
+		var r: float = m[2]
+		if _free(m[1], r * 0.85 + gap):
+			_placed_marks.append([m[0], m[1], r])
+			_take(m[1], r * 0.85)
+
+
+## How far from its middle a pin's icon reaches on screen (px), its hold ring
+## included.
+func icon_radius(pin: Dictionary, pin_r: float, stop_r: float) -> float:
+	var lk := GlobeMap.look()
+	if vehicle_icon(pin) != "":
+		return float(lk.get("vehicle_px", 26.0)) * 0.45
+	var stop := bool(pin.get("town", false)) or pin.has("detail")
+	var r := (stop_r if stop else pin_r) * float(lk.get("icon_scale", 1.3)) * 1.05
+	if str(pin.get("kind", "")) == "station":
+		r *= 1.7
+	if float(pin.get("hold", -1.0)) >= 0.0:
+		r = maxf(r, float(lk.get("owners", {}).get("ring_px", 11.0)) + 2.5)
+	return r
+
+
+## Which of map.json's declutter "shift" groups a pin is in: "vehicle", "place"
+## (out in the world) or "stop" (a town's or a ranch's).
+static func _group(pin: Dictionary) -> String:
+	if bool(pin.get("vehicle", false)):
+		return "vehicle"
+	if bool(pin.get("town", false)) or pin.has("detail"):
+		return "stop"
+	return "place"
+
+
+static func _rank(pin: Dictionary, group: String) -> int:
+	var k := str(pin.get("kind", ""))
+	match group:
+		"vehicle":
+			return 100
+		"place":
+			var i := PLACE_ORDER.find(k)
+			return 200 + (i if i >= 0 else 90)
+	var j := STOP_ORDER.find(k)
+	return 400 + (j if j >= 0 else 90)
+
+
+## Where an icon `r` px round (its gap included) wanted at `at` goes: there if it
+## is free, else the nearest free spot up to `shift` px away, tried first straight
+## away from what it hit; INF if none (or off the globe's side of the screen).
+func _room(at: Vector2, r: float, shift: float) -> Vector2:
+	var hit := _hit(at, r)
+	if hit == Vector2.INF:
+		return at
+	if shift < 1.0:
+		return Vector2.INF
+	var away := at - hit
+	var a0 := away.angle() if away.length_squared() > 0.01 else -PI / 2.0
+	var step := maxf(r * 0.5, 3.0)
+	var bounds := Rect2(Vector2.ZERO, size).grow(4.0)
+	var d := step
+	while d <= shift + 0.01:
+		for k in 12:
+			var turn := (k + 1) / 2 * (PI / 6.0) * (1.0 if k % 2 == 1 else -1.0)
+			var p := at + Vector2.from_angle(a0 + turn) * d
+			if bounds.has_point(p) and _hit(p, r) == Vector2.INF:
+				return p
+		d += step
+	return Vector2.INF
+
+
+func _free(at: Vector2, r: float) -> bool:
+	return _hit(at, r) == Vector2.INF
+
+
+## The middle of an icon laid out already that a circle `r` px round at `at`
+## would touch, or INF.
+func _hit(at: Vector2, r: float) -> Vector2:
+	var c0 := Vector2i(floori((at.x - r) / CELL), floori((at.y - r) / CELL))
+	var c1 := Vector2i(floori((at.x + r) / CELL), floori((at.y + r) / CELL))
+	for cx in range(c0.x, c1.x + 1):
+		for cy in range(c0.y, c1.y + 1):
+			for c in _taken.get(Vector2i(cx, cy), []):
+				var rr: float = r + float(c[1])
+				if at.distance_squared_to(c[0]) < rr * rr:
+					return c[0]
+	return Vector2.INF
+
+
+## Whether a laid-out icon (other than one in the middle at `own`) touches `box`.
+func _covers(box: Rect2, own: Vector2) -> bool:
+	var c0 := Vector2i(floori(box.position.x / CELL), floori(box.position.y / CELL))
+	var c1 := Vector2i(floori(box.end.x / CELL), floori(box.end.y / CELL))
+	for cx in range(c0.x, c1.x + 1):
+		for cy in range(c0.y, c1.y + 1):
+			for c in _taken.get(Vector2i(cx, cy), []):
+				var ctr: Vector2 = c[0]
+				if ctr.distance_squared_to(own) < 0.25:
+					continue
+				var near := Vector2(clampf(ctr.x, box.position.x, box.end.x), clampf(ctr.y, box.position.y, box.end.y))
+				if near.distance_squared_to(ctr) < float(c[1]) * float(c[1]):
+					return true
+	return false
+
+
+func _take(at: Vector2, r: float) -> void:
+	var c0 := Vector2i(floori((at.x - r) / CELL), floori((at.y - r) / CELL))
+	var c1 := Vector2i(floori((at.x + r) / CELL), floori((at.y + r) / CELL))
+	for cx in range(c0.x, c1.x + 1):
+		for cy in range(c0.y, c1.y + 1):
+			var cell := Vector2i(cx, cy)
+			if not _taken.has(cell):
+				_taken[cell] = []
+			(_taken[cell] as Array).append([at, r])
+
+
+## A faint line from each icon that was nudged aside back to where its place
+## really is.
+func _draw_leaders(pin_r: float, stop_r: float) -> void:
+	var col := Color(ink_color(), float(GlobeMap.look().get("declutter", {}).get("leader_alpha", 0.45)))
+	for i in _placed:
+		var at: Vector2 = _placed[i]
+		var s := project(pins[i].map)
+		var real := Vector2(s.x, s.y)
+		var r := icon_radius(pins[i], pin_r, stop_r)
+		if at.distance_to(real) > r * 0.7:
+			draw_line(real, at + (real - at).normalized() * r * 0.8, col, 1.0, true)
+			draw_circle(real, 1.5, col)
 
 
 ## The names of the town's (and a ranch's) stops under their icons, once a metre
@@ -591,7 +819,7 @@ func _draw_marks(batch, t: Dictionary) -> void:
 func _draw_stop_names(stops: Array, font: Font, d: Dictionary) -> void:
 	if stops.is_empty() or font == null or px_per_m() < float(d.get("label_px_per_m", 1.1)):
 		return
-	var first := ["cantina", "cantina_owner", "barracks", "ship_dealer", "droids", "food", "gear", "fence", "keeper", "free_stall"]
+	var first := STOP_ORDER
 	stops.sort_custom(func(a, b):
 		var ia := first.find(str(a[1].kind))
 		var ib := first.find(str(b[1].kind))
@@ -610,7 +838,7 @@ func _draw_stop_names(stops: Array, font: Font, d: Dictionary) -> void:
 			if (r as Rect2).intersects(box):
 				clash = true
 				break
-		if clash or not Rect2(Vector2.ZERO, size).encloses(box):
+		if clash or not Rect2(Vector2.ZERO, size).encloses(box) or _covers(box, at):
 			continue
 		taken.append(box)
 		var p := Vector2(box.position.x + 2.0, box.position.y + fs)
