@@ -19,11 +19,22 @@ extends RefCounted
 ##
 ## Issue #95: the Grav Lifter (a "hover" block in the config, from the mechanic's
 ## upgrades). Issue #100: it keeps the momentum you have. lift() hops it off the
-## ground (or, already climbing, keeps that climb), and for float_s seconds gravity
-## and any downward speed are off: what goes up keeps going up, nothing comes
-## down. Meet a rising slope while it is on and the slope's climb is added: grav
-## lift into a ramp or a dune face and you are launched up it and off the top.
-## Then it falls as usual, and the lifter needs recharge_s before it works again.
+## ground (or, already climbing, keeps that climb). While it is on (up to float_s
+## seconds; lift() again drops it early) gravity is off and the climb eases toward
+## what the nose asks for at hold_damp a second: level holds the height, nose up
+## climbs at `climb` m/s, nose down sinks, so a hop rises about hop_vy / hold_damp
+## and stops rather than running away. Nose down also gains speed (to max_speed)
+## and nose up bleeds it, at `tilt_accel` of the speeder's accel. Meet a rising
+## slope while it is on and the slope's climb is added: grav lift into a ramp or a
+## dune face and you are launched up it and off the top. Sink onto flat ground and
+## it lands. Then it falls as usual, and the lifter recharges for recharge_s times
+## the share of float_s it was on (at least min_recharge_s).
+##
+## In the air, any speeder: W/S tilt the nose down/up (`air_pitch`, up to
+## air_pitch_deg, back to level when let go) and boost still pushes it on toward
+## boost_speed, at air_boost_scale of its accel, with no throttle needed (W is the
+## tilt up there). Boosting under the lifter climbs or sinks boost_climb times as
+## fast. Without the lifter the tilt is only for the eye: gravity has the height.
 ##
 ## Issue #77: on the home planet's ball "up" turns with the ground. The heading is
 ## a direction slid along the ground as it drives (so straight stays straight round
@@ -59,6 +70,8 @@ var air_time := 0.0                  ## of the current (or last) jump
 var top_height := 0.0                ## highest clearance over the ground on the last jump
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
+var air_pitch := 0.0                 ## radians, nose up +, in the air only (W/S tilt it); 0 on the ground
+var _float_used := 0.0               ## seconds the lifter has been on this lift (sets the recharge)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
 
@@ -146,7 +159,7 @@ func ability_lit() -> bool:
 		return false
 	if ability() == "drift":
 		return absf(speed) > 2.0
-	return float(_cmd.throttle) > 0.1
+	return airborne or float(_cmd.throttle) > 0.1     # in the air W is the tilt, not the throttle
 
 
 ## Boost is lit this step (the throttle open, the key held, boost left, and not
@@ -179,7 +192,17 @@ func lifter() -> Dictionary:
 
 
 func lift_ready() -> bool:
-	return has_lifter() and lift_cooldown <= 0.0 and hp > 0
+	return has_lifter() and lift_cooldown <= 0.0 and hp > 0 and not lifting()
+
+
+## The Grav Lifter is holding it up now.
+func lifting() -> bool:
+	return float_left > 0.0
+
+
+## The air tilt as a share of its limit: -1 nose full down .. 1 full up.
+func tilt() -> float:
+	return air_pitch / maxf(deg_to_rad(p("air_pitch_deg", 25.0)), 0.001)
 
 
 # ---- control --------------------------------------------------------------------------
@@ -202,24 +225,44 @@ func set_command(throttle: float, steer: float, boost: bool = false) -> void:
 	_cmd = { "throttle": clampf(throttle, -1.0, 1.0), "steer": clampf(steer, -1.0, 1.0), "boost": boost }
 
 
-## Issue #95: fire the Grav Lifter. On the ground it hops; in the air it starts
-## the hang at once. False if there is no lifter or it is recharging.
+## Issue #95: the Grav Lifter's button. On the ground it hops; in the air it
+## starts the hold at once; already on, it drops it (falling from there). False
+## if there is no lifter or it is recharging.
 func lift() -> bool:
+	if lifting():
+		drop_lift()
+		return true
 	if not lift_ready():
 		return false
 	var h := lifter()
 	if not airborne:
 		airborne = true
 		# Issue #100: climbing a slope already? Keep that climb if it beats the hop.
-		vy = maxf(maxf(vy, _ground_rate), float(h.get("hop_vy", 6.5)))
+		vy = maxf(maxf(vy, _ground_rate), float(h.get("hop_vy", 5.0)))
 		air_time = 0.0
 		top_height = 0.0
 	else:
 		vy = maxf(vy, 0.0)
-	float_left = float(h.get("float_s", 1.2))
-	lift_cooldown = float(h.get("recharge_s", 4.0))
+	float_left = float(h.get("float_s", 4.0))
+	_float_used = 0.0
 	_pending.append({ "type": "lift", "vy": vy })     # reported by the next step()
 	return true
+
+
+## Turn the lifter off (Space again, its time up, or touching down) and start
+## its recharge: the longer it was on, the longer it takes. `now`: from inside
+## step(), so the event goes out this step instead of the next.
+func drop_lift(now: bool = false) -> void:
+	if lifting():
+		_end_lift(now)
+
+
+func _end_lift(now: bool) -> void:
+	var h := lifter()
+	var share := clampf(_float_used / maxf(float(h.get("float_s", 4.0)), 0.01), 0.0, 1.0)
+	float_left = 0.0
+	lift_cooldown = maxf(float(h.get("min_recharge_s", 1.0)), float(h.get("recharge_s", 4.0)) * share)
+	(events if now else _pending).append({ "type": "drop", "held": _float_used })
 
 
 ## Gunfire. Returns true if this shot destroyed it.
@@ -275,6 +318,21 @@ func _drive(dt: float) -> void:
 		rate = p("brake", 34.0)
 	if not airborne and not drift:
 		speed = move_toward(speed, target, rate * dt)    # issue #627: a drift holds the speed it had
+	# The air: W/S tilt the nose (down/up), back to level when let go; boost still
+	# pushes it on; under the lifter the tilt also trades height for speed.
+	if airborne:
+		air_pitch = move_toward(air_pitch, -throttle * deg_to_rad(p("air_pitch_deg", 25.0)), deg_to_rad(p("air_pitch_rate_deg", 110.0)) * dt)
+		if boost:
+			speed = move_toward(speed, p("boost_speed", 52.0), p("accel", 16.0) * p("air_boost_scale", 0.6) * dt)
+		elif lifting() and not drift:
+			var f := tilt()
+			var push := p("accel", 16.0) * float(lifter().get("tilt_accel", 0.5)) * absf(f) * dt
+			if f < 0.0 and speed < p("max_speed", 36.0):
+				speed = minf(p("max_speed", 36.0), speed + push)     # nose down: on you go
+			elif f > 0.0:
+				speed = move_toward(speed, 0.0, push)                 # nose up: it bleeds off
+	else:
+		air_pitch = 0.0
 	# Turning: quicker when slow, a little in the air, faster in a drift.
 	var k := clampf(absf(speed) / maxf(p("max_speed", 36.0), 1.0), 0.0, 1.0)
 	var turn := deg_to_rad(lerpf(p("turn_rate_deg", 110.0), p("turn_rate_fast_deg", 62.0), k))
@@ -316,16 +374,22 @@ func _hover(dt: float) -> void:
 	var rate := 0.0 if is_nan(_last_ride) else (ride - _last_ride) / maxf(dt, 0.0001)
 	_last_ride = ride
 	if airborne:
-		if float_left > 0.0:
-			# Issue #100: the Grav Lifter: no gravity, no downward speed. Up stays up.
+		if lifting():
+			# The Grav Lifter: no gravity; the climb eases toward what the nose asks
+			# for (level holds, up climbs, down sinks), so nothing runs away.
+			var h := lifter()
 			float_left = maxf(0.0, float_left - dt)
-			vy = maxf(vy, 0.0)
+			_float_used += dt
+			var climb := float(h.get("climb", 3.0)) * (float(h.get("boost_climb", 1.6)) if boosting() else 1.0)
+			vy = lerpf(vy, tilt() * climb, clampf(dt * float(h.get("hold_damp", 2.0)), 0.0, 1.0))
+			if float_left <= 0.0:
+				_end_lift(true)            # its time is up
 		else:
 			vy -= p("gravity", 9.0) * dt
 		_lift(vy * dt)
 		air_time += dt
 		top_height = maxf(top_height, _level(position) - ride)
-		if float_left > 0.0 and _level(position) <= ride:
+		if lifting() and _level(position) <= ride and rate > 0.5:
 			# A rising slope under it while the lifter is on: ride up it, carrying
 			# its climb, and off the top (a ramp launches you).
 			_lift(ride - _level(position))
@@ -336,7 +400,8 @@ func _hover(dt: float) -> void:
 			_lift(ride - _level(position))
 			vy = 0.0
 			airborne = false
-			float_left = 0.0
+			air_pitch = 0.0
+			drop_lift(true)                # sunk onto flat ground: the lifter lets go
 		return
 	var before := _level(position)
 	if before - ride > p("launch_gap", 0.45):
