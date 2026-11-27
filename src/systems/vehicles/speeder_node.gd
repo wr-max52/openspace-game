@@ -40,6 +40,7 @@ signal crashed_out(at: Vector3)       ## crash_repair_s on: 0 hull crashed you o
 signal repaired
 signal npc_boarded(body: Node3D, seat: String)
 signal npc_left(body: Node3D, seat: String)
+signal autopilot_done                 ## a called speeder pulled up on its spot (SpeederPost.call_speeder)
 
 var demo                              ## town_demo.gd (player, rig, terrain)
 var model: HoverModel
@@ -95,6 +96,10 @@ var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sit
 var _boarding: Dictionary = {}       ## NpcBody walking to a seat -> { seat, t, free_walk }
 var _npc_cmd: Dictionary = {}        ## what the NPC driver did this frame (the lean reads it)
 var gear: SpeederGear                ## issue #616: seekers, mines, deflector (the parts fitted)
+## Called (SpeederPost.call_speeder): nobody aboard, it drives itself to a spot
+## with this brain (PARK), through the same HoverModel as anyone. Climbing on
+## takes over; on the spot it is parked again (autopilot_done).
+var autopilot: SpeederBrain
 ## Issue #627: parked speeders sleep (no hover step) while the player is beyond
 ## the config's sleep_distance, so owning one of each costs what one did.
 var asleep := false
@@ -209,6 +214,7 @@ func mount() -> bool:
 	if _hud != null:
 		_hud.visible = true
 	jolt.start()
+	autopilot = null            # a called speeder you climb on is yours to drive
 	_ensure_parts()             # issue #100: the looks parts are on every time you get in
 	mounted.emit()
 	return true
@@ -393,7 +399,7 @@ func _set_weld_fx(on: bool) -> void:
 ## ground) with the player more than sleep_distance away. A parked speeder only
 ## settles its hover; asleep it keeps where it is until someone comes near.
 func _sleeps() -> bool:
-	if riding or not npc_seats.is_empty() or not _boarding.is_empty():
+	if riding or autopilot != null or not npc_seats.is_empty() or not _boarding.is_empty():
 		return false
 	if model.airborne or absf(model.speed) > 0.05 or absf(model.vy) > 0.05:
 		return false
@@ -426,6 +432,9 @@ func _physics_process(dt: float) -> void:
 		_show_prompt(free_now)
 		if free_now and _just("interact"):
 			mount()
+			return
+		if autopilot != null:
+			_autopilot_drive(dt)
 			return
 		if _sleeps():
 			# Issue #627: parked with every player far off: no hover step, no sync.
@@ -872,6 +881,36 @@ func _npc_drive(dt: float) -> void:
 		if not _engine.playing:
 			_engine.play()
 		_engine.pitch_scale = 1.1 + clampf(absf(model.speed) / 40.0, 0.0, 1.0) * 0.6
+
+
+## A called speeder's frame (nobody aboard): its autopilot's command through the
+## model, the engine's drone so you hear it coming; parked once it is on the spot.
+func _autopilot_drive(dt: float) -> void:
+	autopilot.model = model
+	var cmd := autopilot.update(dt)
+	model.set_command(float(cmd.get("throttle", 0.0)), float(cmd.get("steer", 0.0)), bool(cmd.get("boost", false)))
+	for e in model.step(dt):
+		log_events.append(e)
+	_sync()
+	if _engine != null:
+		if not _engine.playing:
+			_engine.play()
+		_engine.pitch_scale = 1.1 + clampf(absf(model.speed) / 40.0, 0.0, 1.0) * 0.6
+	# On the spot and stopped is parked, whichever way it ended up facing (a
+	# hover turns slowly standing still).
+	var on_spot := autopilot.park_at != Vector3.INF and absf(model.speed) < 0.8 \
+		and autopilot._flat(autopilot.park_at - model.position).length() <= autopilot.s("park_reach", 2.5) + 0.5
+	if autopilot.done or on_spot:
+		stop_autopilot()
+		autopilot_done.emit()
+
+
+## Off autopilot, where it is (done, or the call gave up).
+func stop_autopilot() -> void:
+	autopilot = null
+	model.set_command(0.0, 0.0)
+	if _engine != null and not riding:
+		_engine.stop()
 
 
 ## A bot's lift is held in its command from frame to frame; the Grav Lifter is a
