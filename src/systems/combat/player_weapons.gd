@@ -56,9 +56,10 @@ var avatar: PlayerAvatar
 var rig_node: Node3D                ## camera_rig_node.gd
 var bolt_parent: Node3D
 ## Slot n is number key n and wheel slot n. 4 is the seeker launcher; 5 and 6 are
-## left free for guns to come; 7 is the plasma welder (issue #722), a tool, not a gun.
+## left free for guns to come; 7 is the energy blade; 8 is the plasma welder (issue
+## #722), a tool, not a gun, after the blade.
 const LAUNCHER := "seeker_launcher"
-var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", LAUNCHER, "", "", Welder.ITEM, "energy_blade"])
+var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", LAUNCHER, "", "", "energy_blade", Welder.ITEM])
 var guns: Dictionary = {}           ## id -> Weapon (ammo + timing)
 var combo: SwordCombo
 var wheel := WeaponWheel.new()      ## hold Tab (issue #410)

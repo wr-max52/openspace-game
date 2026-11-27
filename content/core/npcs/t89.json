@@ -29,7 +29,7 @@
   "weld_stand_m": 1.3,
   "weld_height_m": 1.9,
   "weld_job_note": "Issue #722: paid to rebuild or patch up your ship, he walks over at weld_walk_speed m/s (his walk clip, sped up to match), stands weld_stand_m out from her nearest side, raises his arm and welds her for weld_job_s (sparks off his torch and the hull at weld_height_m), then walks back to his marker. She looks wrecked and will not fly until he is done.",
-  "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key 7. Hold E with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
+  "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key 8. Hold E with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
   "welder_gift_note": "Issue #722: what he says as he hands you the plasma welder, the first time you talk to him in a story save (or the next time, in a save from before the welder; the flag t89_welder_given). %d is the flasks a ship weld takes (the welder item's ship_flasks). Only he gives one: T-99 has no welder_gift.",
   "upgrades": {
     "shields": { "label": "Boosted shields", "short": "Shields+", "price": 1200, "mult": { "shield.max": 1.5, "shield.regen": 1.5 } },
