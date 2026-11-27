@@ -82,9 +82,9 @@
       "id": "outpost",
       "kind": "location",
       "location": "outpost",
-      "note": "The racers' outpost: the old abandoned outpost, taken over by the basin crew (content/core/locations/outpost.json). Moved from 2.6 km out east into the Basin Run's infield, about 150 m in from the racing line all round and 165 m from the start line, its gate (+x) turned toward the start. 'clear' keeps the rocks off its yard.",
-      "at": [715, 0, -1835],
-      "yaw_deg": 185,
+      "note": "The racers' outpost: the old abandoned outpost, taken over by the basin crew (content/core/locations/outpost.json). It sits in the Basin Run's infield, about 150 m in from the racing line all round and 165 m from the start line, its gate (+x) turned toward the start. Planet layout spread: the outpost, the Basin Run and the Blue Basin droid relay moved together, 3.9 km out south-south-east (turned round the ball as one piece, so the course keeps its shape and the outpost its place in it). 'clear' keeps the rocks off its yard.",
+      "at": [1461, 0, 3616],
+      "yaw_deg": -179.2,
       "clear": 45
     },
     {
@@ -114,7 +114,7 @@
       "id": "remnant_outpost_near",
       "kind": "location",
       "location": "remnant_outpost_near",
-      "note": "The Remnant's seven outposts stand 0.85 to 1.6 km out (each moved 0.6 to 1 km further than it first stood), so each is a real drive from the port and sits among the rest of the desert: the west one by the Ridgeback droid relay, the far one under the east mesa, the mid one on the way to the first wreck, the south and mid ones either side of the Bone Teeth's loop and the near and west ones on the Red Wind's. Each is turned so its door (+x) faces the town.",
+      "note": "Planet layout spread: only this one (the dry wash, 0.85 km out) stays near the port, by the Red Wind's loop. The other six are spread round the whole planet: the broken ridge (mid) 2.9 km north-north-east (still the second nearest, so the story's first heist is a short drive), the dust gap (southwest) 3.7 km south-south-west, the old well (south) 5.6 km north-east under a mountain, the glass flats (west) 8.2 km west, the deep dunes (far) 11.8 km east and the salt pan (north) 11.6 km south, both over the curve on the far side. Each is turned so its door (+x) faces the port.",
       "at": [-120, 0, 840],
       "yaw_deg": 82,
       "clear": 45
@@ -123,56 +123,56 @@
       "id": "remnant_outpost_mid",
       "kind": "location",
       "location": "remnant_outpost_mid",
-      "at": [950, 0, -600],
-      "yaw_deg": 212,
+      "at": [1536.8, 0, -2459.3],
+      "yaw_deg": -122.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_far",
       "kind": "location",
       "location": "remnant_outpost_far",
-      "at": [1430, 0, 615],
-      "yaw_deg": 157,
+      "at": [11620.7, 0, -2049],
+      "yaw_deg": -170.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_north",
       "kind": "location",
       "location": "remnant_outpost_north",
-      "note": "Issue #187: the four outposts round the other sides of the town, each turned so its door (+x) faces the town.",
-      "at": [215, 0, 1400],
-      "yaw_deg": 99,
+      "note": "Issue #187: the four outposts round the other sides of the town. Planet layout spread: see remnant_outpost_near's note for where each stands now.",
+      "at": [1614.4, 0, 11487.1],
+      "yaw_deg": 98.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_south",
       "kind": "location",
       "location": "remnant_outpost_south",
-      "at": [-150, 0, -1335],
-      "yaw_deg": 276,
+      "at": [4642.6, 0, -3131.5],
+      "yaw_deg": -146.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_west",
       "kind": "location",
       "location": "remnant_outpost_west",
-      "at": [-1320, 0, 425],
-      "yaw_deg": 18,
+      "at": [-7956.4, 0, 1983.8],
+      "yaw_deg": 14.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_southwest",
       "kind": "location",
       "location": "remnant_outpost_southwest",
-      "at": [-1310, 0, -955],
-      "yaw_deg": 324,
+      "at": [-2069, 0, 3067.4],
+      "yaw_deg": 56.0,
       "clear": 45
     },
     {
       "id": "remnant_outpost_saltpan",
       "kind": "location",
       "location": "remnant_outpost_saltpan",
-      "note": "Ranch villages: three walled yards, each a Remnant outpost with a few houses, four merchant stands (gear, food, the fence, droids; no speeders) and armed locals round a fire. Two far out west, past the barge and the droid ridge, the third out east under the Remnant's cruiser, beyond the first wreck. 3.5 to 4.5 km from the port: well below its horizon, and past the 1500 m the ranches draw their buildings to (src/systems/world/ranches.gd), so nothing of them is drawn at the start. Each is two landmarks at the same spot: the outpost (remnant_outpost_<name>, one of Story.OUTPOSTS) and the ranch round it (ranch_<name>). Turned so the gate (+x) faces the port.",
+      "note": "Ranch villages: three walled yards, each a Remnant outpost with a few houses, four merchant stands (gear, food, the fence, droids; no speeders) and armed locals round a fire. Two far out west (Saltpan and Windbreak), the third out east under the Remnant's cruiser, beyond the first wreck. 3.5 to 4.5 km from the port: well below its horizon, and past the 1500 m the ranches draw their buildings to (src/systems/world/ranches.gd), so nothing of them is drawn at the start. Each is two landmarks at the same spot: the outpost (remnant_outpost_<name>, one of Story.OUTPOSTS) and the ranch round it (ranch_<name>). Turned so the gate (+x) faces the port.",
       "at": [-3300, 0, 1100],
       "yaw_deg": 18.4,
       "clear": 60
@@ -266,16 +266,16 @@
       "id": "droid_post_ridge",
       "kind": "location",
       "location": "droid_post_ridge",
-      "at": [-1450, 0, 700],
-      "yaw_deg": 35,
+      "at": [-4822.1, 0, -1660.4],
+      "yaw_deg": -19.0,
       "clear": 28
     },
     {
       "id": "droid_post_basin",
       "kind": "location",
       "location": "droid_post_basin",
-      "at": [700, 0, -1550],
-      "yaw_deg": 250,
+      "at": [1392.9, 0, 3902],
+      "yaw_deg": -120.8,
       "clear": 28
     },
     {
