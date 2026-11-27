@@ -6,7 +6,9 @@ shader_type spatial;
 // coordinates (distance and direction along the ground from the port); the fine
 // patterns (ripples, blowing sand, glitter) are triplanar on the world position,
 // the three planes picked by the ground's up, so they keep their size all round
-// the ball (map coordinates stretch sideways far from the port). On a flat world
+// the ball (map coordinates stretch sideways far from the port). Past ~3 km round
+// the broad colour goes triplanar too (map_stretch), or the far side's sand is
+// drawn out in long streaks toward the port (8 times across there). On a flat world
 // only the top-down plane is used. A layer of sand sinks out of the way wherever
 // the finer layer inside it covers (hole_*: that layer's square, per instance).
 //
@@ -49,6 +51,7 @@ varying vec3 wpos;
 varying vec3 wnorm;
 varying vec2 mpos;
 varying vec3 wup;
+varying float map_stretch;   // how much the map is stretched across here (1 at the port, ~8 on the far side)
 
 vec2 to_map(vec3 w) {
 	if (planet_radius <= 0.0) {
@@ -77,6 +80,8 @@ void vertex() {
 		}
 	}
 	mpos = to_map(wpos);
+	float th = planet_radius > 0.0 ? length(mpos) / planet_radius : 0.0;
+	map_stretch = th > 0.01 ? th / max(sin(th), 1e-3) : 1.0;
 }
 
 // One ripple field in a plane, at 2D point q (metres): its height (0..1, for
@@ -127,11 +132,39 @@ float drift(vec2 q, vec2 wd, float t) {
 
 void fragment() {
 	float dist = length(wpos - CAMERA_POSITION_WORLD);
-	float n_big = texture(noise_tex, mpos * 0.0021).r;
-	float n_mid = texture(noise_tex, mpos * 0.019).r;
-	float n_fine = texture(noise_tex, mpos * 0.11).r;
-
 	vec3 up = normalize(wup);
+	// Triplanar weights from the ground's up (not the dune's own slope, so a dune
+	// face does not swap planes); sharp, so blends are short.
+	vec3 aw = pow(abs(up), vec3(8.0));
+	aw /= (aw.x + aw.y + aw.z);
+	// The broad colour: on the map near the port (as it always was), triplanar on
+	// the world where the map is stretched (eased in over 1.15..1.6 times).
+	float tri_k = smoothstep(1.15, 1.6, map_stretch);
+	vec3 nc = vec3(0.0);
+	if (tri_k < 1.0) {
+		nc = vec3(texture(noise_tex, mpos * 0.0021).r, texture(noise_tex, mpos * 0.019).r,
+			texture(noise_tex, mpos * 0.11).r);
+	}
+	if (tri_k > 0.0) {
+		vec3 nt = vec3(0.0);
+		if (aw.y > 0.01) {
+			nt += vec3(texture(noise_tex, wpos.xz * 0.0021).r, texture(noise_tex, wpos.xz * 0.019).r,
+				texture(noise_tex, wpos.xz * 0.11).r) * aw.y;
+		}
+		if (aw.x > 0.01) {
+			nt += vec3(texture(noise_tex, wpos.zy * 0.0021).r, texture(noise_tex, wpos.zy * 0.019).r,
+				texture(noise_tex, wpos.zy * 0.11).r) * aw.x;
+		}
+		if (aw.z > 0.01) {
+			nt += vec3(texture(noise_tex, wpos.xy * 0.0021).r, texture(noise_tex, wpos.xy * 0.019).r,
+				texture(noise_tex, wpos.xy * 0.11).r) * aw.z;
+		}
+		nc = mix(nc, nt, tri_k);
+	}
+	float n_big = nc.x;
+	float n_mid = nc.y;
+	float n_fine = nc.z;
+
 	vec3 base_n = wnorm;
 	float crest = 0.0;
 	if (relief > 0.0) {
@@ -144,10 +177,6 @@ void fragment() {
 	float slope = 1.0 - clamp(dot(base_n, up), 0.0, 1.0);
 	alb = mix(alb, sand_shadow.rgb, smoothstep(0.15, 0.55, slope) * 0.45);
 
-	// Triplanar weights from the ground's up (not the dune's own slope, so a dune
-	// face does not swap planes); sharp, so blends are short.
-	vec3 aw = pow(abs(up), vec3(8.0));
-	aw /= (aw.x + aw.y + aw.z);
 	vec2 wd = normalize(wind_dir);
 	float fade_near = 1.0 - smoothstep(6.0, 40.0, dist);
 	float fade_mid = 1.0 - smoothstep(20.0, 160.0, dist);

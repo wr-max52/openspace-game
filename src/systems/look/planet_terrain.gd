@@ -58,6 +58,7 @@ var _camera_source: Callable = Callable()   ## () -> Vector3, for the mid ring
 var _jobs := {}
 var _pending_jobs := {}                ## latest requested center/resolution per layer
 var _near_map := Vector2.INF            ## map centre of the near layer in place
+var _near_frame := Transform3D()        ## its patch frame (PlanetSphere.patch_frame)
 var _mid_map := Vector2.INF
 var _fast_flight_quality := false
 var perf_far_build_ms := 0.0
@@ -446,11 +447,16 @@ func collider_covers(x: float, z: float, margin: float = 0.0) -> bool:
 	return _map_covers(sphere.world_to_map(Vector3(x, y, z)), margin)
 
 
+## Whether map point `m` is on the collider in place, `margin` metres in from its
+## edge. Measured on the ground in the patch's own frame, not on the map: far round
+## the ball the map is stretched across (up to 8 times), and a map box there held
+## only a sliver of the patch, so it rebuilt every few steps and never caught up.
 func _map_covers(m: Vector2, margin: float) -> bool:
 	if _near_map == Vector2.INF:
 		return false
 	var half := collider_size * 0.5 - margin
-	return absf(m.x - _near_map.x) <= half and absf(m.y - _near_map.y) <= half
+	var rel := sphere.center + sphere.map_dir(m.x, m.y) * sphere.radius - _near_frame.origin
+	return absf(rel.dot(_near_frame.basis.x)) <= half and absf(rel.dot(_near_frame.basis.z)) <= half
 
 
 func build(with_mesh: bool = true) -> void:
@@ -753,9 +759,9 @@ func prefetch(pos: Vector3) -> void:
 		return
 	var c := snapped_center(pos)
 	var m := Vector2(c.x, c.z)
-	if _near_map != Vector2.INF and m.distance_to(_near_map) < recenter_distance:
+	if _near_map != Vector2.INF and sphere.ground_dist(m, _near_map) < recenter_distance:
 		return
-	if _jobs.has("near") and m.distance_to(_jobs.near.center) < recenter_distance:
+	if _jobs.has("near") and sphere.ground_dist(m, _jobs.near.center) < recenter_distance:
 		return
 	_start("near", m)
 	set_physics_process(true)
@@ -811,9 +817,10 @@ func _physics_process(_dt: float) -> void:
 		if not _map_covers(m, 8.0) and not (_jobs.has("near") and _jobs.near.get("snap", false)):
 			# Teleported past the edge: rebuild now. A one-off hitch beats a fall.
 			snap_to(p)
-		elif m.distance_to(_near_map) >= recenter_distance:
+		elif sphere.ground_dist(m, _near_map) >= recenter_distance:
+			# In metres on the ground (far round the ball the map is stretched across).
 			var current_near: Dictionary = _pending_jobs.get("near", _jobs.get("near", {}))
-			if current_near.is_empty() or m.distance_to(current_near.center) >= recenter_distance:
+			if current_near.is_empty() or sphere.ground_dist(m, current_near.center) >= recenter_distance:
 				var c := snapped_center(p)
 				_start("near", Vector2(c.x, c.z))
 	if _with_mesh:
@@ -822,14 +829,14 @@ func _physics_process(_dt: float) -> void:
 			var agl := sphere.height_above_ground(to_local(eye))
 			_hold_mid(agl > mid_below_agl + (mid_agl_hysteresis if not mid_held_off else 0.0))
 		var me := sphere.world_to_map(eye)
-		if not mid_held_off and me.distance_to(_mid_map) >= mid_recenter:
+		if not mid_held_off and (_mid_map == Vector2.INF or sphere.ground_dist(me, _mid_map) >= mid_recenter):
 			var cells := _mid_cells_for_quality()
 			var step := _mid_step_for_quality()
 			var center := Vector2(snappedf(me.x, step), snappedf(me.y, step))
 			var current_mid: Dictionary = _pending_jobs.get("mid", _jobs.get("mid", _ready_meshes.get("mid", {})))
 			var changed := current_mid.is_empty()
 			if not changed:
-				changed = center.distance_to(current_mid.center) >= mid_recenter
+				changed = sphere.ground_dist(center, current_mid.center) >= mid_recenter
 				if int(current_mid.cells) != cells or not is_equal_approx(float(current_mid.step), step):
 					changed = true
 			if changed:
@@ -994,6 +1001,7 @@ func _apply_collider(p: Dictionary) -> void:
 		collider_body.global_transform = xf
 		collider_center = Vector3(p.center.x, 0.0, p.center.y)
 		_near_map = p.center
+		_near_frame = xf
 		_pending = false
 
 

@@ -283,9 +283,13 @@ func _draw_marks() -> void:
 	marks.draw_polyline(pts + PackedVector2Array([pts[0]]), Color.BLACK, 2.0)
 	var player := col != AMBER
 	var over := NetSession.n("name_height", 2.15) if player else 2.0
-	if cam.is_position_behind(target_pos + Vector3.UP * over):
+	# Over their head along the ground's own up: far round a ball planet the
+	# world's +y points sideways, and on its far side nearly down into the sand.
+	var up := PlanetSphere.current.up_at(target_pos) if PlanetSphere.current != null else Vector3.UP
+	var head := target_pos + up * over
+	if cam.is_position_behind(head):
 		return
-	var at := cam.unproject_position(target_pos + Vector3.UP * over)
+	var at := cam.unproject_position(head)
 	if player:
 		at.y -= 22.0                       # over their name, which is the same size at any distance
 	var r := DIAMOND
