@@ -6,7 +6,9 @@ extends RefCounted
 ##
 ## The design:
 ##   - One particle per joint, plus five tips (head top, hands, toes), placed where
-##     the pose was at the moment of the hit. Verlet integration, the game's gravity.
+##     the pose was at the moment of the hit. Verlet integration, the game's gravity,
+##     pulling along the ground's own down (`up`: on the home planet's ball it turns
+##     with the ground, so a body far from town lies still instead of sliding off).
 ##   - Distance constraints keep every bone its length. The shoulders and the hips
 ##     are two rigid blocks joined by a spine and four soft braces, so the back bends
 ##     a little but never folds.
@@ -98,6 +100,7 @@ var running := false
 var elapsed := 0.0
 var rays_cast := 0
 var touching := false         ## a particle hit the world this step
+var up := Vector3.UP          ## the ground's up where it fell: gravity pulls the other way
 
 var _idx := {}                 ## name -> index
 var _pos: PackedVector3Array
@@ -129,17 +132,20 @@ static func load_config() -> Dictionary:
 	return d if d is Dictionary else {}
 
 
-## The killing blow's push: away from `from` (flat), lifted by kick_up, harder for
-## bigger hits. `from` INF = no push.
-static func kick_for(at: Vector3, from: Vector3, damage: float, config: Dictionary) -> Vector3:
+## The killing blow's push: away from `from` (along the ground, square to
+## `ground_up`), lifted by kick_up, harder for bigger hits. `from` INF = no push.
+static func kick_for(at: Vector3, from: Vector3, damage: float, config: Dictionary,
+		ground_up: Vector3 = Vector3.UP) -> Vector3:
 	if from == Vector3.INF:
 		return Vector3.ZERO
-	var away := Vector3(at.x - from.x, 0.0, at.z - from.z)
+	var u := ground_up.normalized() if ground_up.length() > 0.01 else Vector3.UP
+	var off := at - from
+	var away := off - u * off.dot(u)
 	if away.length() < 0.01:
 		return Vector3.ZERO
 	var speed := clampf(damage * float(config.get("kick_per_damage", 0.12)),
 		float(config.get("kick_min", 1.5)), float(config.get("kick_max", 4.5)))
-	return (away.normalized() + Vector3(0, float(config.get("kick_up", 0.35)), 0)).normalized() * speed
+	return (away.normalized() + u * float(config.get("kick_up", 0.35))).normalized() * speed
 
 
 ## Issue #372: a blast's kill throws the whole body away from where it burst
@@ -164,10 +170,13 @@ func _num(key: String, def: float) -> float:
 ## Let go. `velocity` is how the body was moving (m/s); `kick` is the push of the
 ## killing blow (m/s, world space; zero for none). `space` is the world to land in
 ## (null = fall forever, for tests without a world); `exclude` is the body's own
-## collision, so it does not land on itself.
-func start(velocity: Vector3, kick: Vector3, space: PhysicsDirectSpaceState3D = null, exclude: Array[RID] = []) -> void:
+## collision, so it does not land on itself. `ground_up` is the ground's up where it
+## fell (a character's tilt.y): world up in town, turned with the ball far out.
+func start(velocity: Vector3, kick: Vector3, space: PhysicsDirectSpaceState3D = null, exclude: Array[RID] = [],
+		ground_up: Vector3 = Vector3.UP) -> void:
 	_space = space
 	_exclude = exclude
+	up = ground_up.normalized() if ground_up.length() > 0.01 else Vector3.UP
 	var n := POINTS.size()
 	_pos.resize(n)
 	_prev.resize(n)
@@ -230,7 +239,7 @@ func step(dt: float) -> bool:
 	if asleep or not running:
 		return false
 	elapsed += dt
-	var g := Vector3(0, -_num("gravity", 20.0), 0)
+	var g := -up * _num("gravity", 20.0)
 	var damp := 1.0 - _num("air_drag", 0.02)
 	var fastest := 0.0
 	for i in _pos.size():
@@ -376,8 +385,8 @@ func _collide() -> void:
 	touching = false
 	for i in _pos.size():
 		var r := _radius[i]
-		var from := _prev[i] + Vector3(0, r, 0)
-		var to := _pos[i] - Vector3(0, r, 0)
+		var from := _prev[i] + up * r
+		var to := _pos[i] - up * r
 		var q := PhysicsRayQueryParameters3D.create(from, to, mask, _exclude)
 		var hit := _space.intersect_ray(q)
 		rays_cast += 1
