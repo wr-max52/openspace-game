@@ -3,6 +3,7 @@
   "label": "the leap crew",
   "note": "Races 4 and 5: the top rung of the race ladder, three locals who race out of Farleap village on the far side of the planet, the furthest place from the port, on the Far Leaps: two tunnels through the far mountains and rows of jump ramps (Skrugs's own ramp, placed by the course file) on the stretches between. They only race you once you have beaten the crag crew (`after`). The best there is: three fully stacked racers, the best drivers on the planet at the yoke (skill pro), every piece of race gear, shooting from lap 1. Same shape as yard.json (read its note); the hangout frame's +x faces their start line.",
   "rung": 5,
+  "difficulty": "Hard",
   "after": "crag",
   "course": "far_leaps",
   "profile": "local_racer",

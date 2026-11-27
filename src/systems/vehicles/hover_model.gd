@@ -11,7 +11,8 @@ extends RefCounted
 ## ramps and crests do the jumping, and low gravity makes it float like the light
 ## sled it is.
 ##
-## Buildings stop it (WorldGround.hit) with a small bounce. Nothing it does to
+## Buildings stop it (WorldGround.hit) with a small bounce. Wedged inside rock,
+## where every way out is a bump, pushing at it hops it to clear ground (_unwedge). Nothing it does to
 ## itself hurts it: no fall or crash damage. Only gunfire does, through
 ## apply_damage(), which the node's hull passes on from bolts.
 ##
@@ -84,6 +85,7 @@ var _pending: Array = []             ## events from between steps (lift), for th
 var _cmd := { "throttle": 0.0, "steer": 0.0, "boost": false }
 var _last_ride := NAN                ## the ride height last step (NAN: none yet)
 var _ground_rate := 0.0              ## how fast the ground under it was rising, m/s
+var _wedged := 0.0                   ## seconds pushed at while stuck inside something (see _unwedge)
 var _rest_basis := Basis.IDENTITY    ## parked: its tilt to the ground under its footprint (world)
 var _rest_lift := 0.0                ## parked: how far it is raised so no end is in the sand
 var _rest_w := 0.0                   ## 0..1: how far that rest pose is blended in
@@ -425,7 +427,9 @@ func _move(dt: float) -> void:
 		if hit_id != "":
 			events.append({ "type": "bump", "what": hit_id, "speed": speed })
 			speed = -speed * p("bump_bounce", 0.25)        # bounced off: no damage
+			_unwedge(dt)
 			return
+	_wedged = 0.0
 	var lv := _level(position)
 	position = to
 	_lift(lv - _level(position))       # along the ground: the hover settles the height
@@ -434,6 +438,67 @@ func _move(dt: float) -> void:
 	_fwd = (_fwd - u * _fwd.dot(u)).normalized()
 	if drift_dir != Vector3.ZERO:
 		drift_dir = (drift_dir - u * drift_dir.dot(u)).normalized()
+
+
+## Wedged: the move was blocked and the spot it is on already touches rock (it
+## came down into a slot narrower than itself off a Grav Lifter hop, or a rock's
+## shape changed round it), so every way it turns is a bump and it can never
+## drive out. Pushed at (throttle held) for unwedge_s, it hops to the nearest
+## clear ground instead. A parked one stays where it is; a wall ahead of a clear
+## spot is only a bump.
+func _unwedge(dt: float) -> void:
+	var r := p("body_radius", 1.3)
+	if absf(float(_cmd.throttle)) < 0.1 or ground.hit(position, r) == "":
+		_wedged = 0.0
+		return
+	_wedged += dt
+	if _wedged < p("unwedge_s", 0.5):
+		return
+	_wedged = 0.0
+	var spot := _clear_spot(r)
+	if not spot.is_finite():
+		return                         # nowhere near: try again in unwedge_s
+	var from := position
+	position = spot
+	speed = 0.0
+	vy = 0.0
+	airborne = false
+	air_pitch = 0.0
+	drift_dir = Vector3.ZERO
+	drop_lift(true)
+	_last_ride = NAN
+	_ground_rate = 0.0
+	var u := up()
+	_fwd = (_fwd - u * _fwd.dot(u)).normalized()
+	events.append({ "type": "unwedged", "from": from, "to": spot })
+
+
+## The nearest ground (rings `r` apart, out to unwedge_m) where a speeder sits
+## clear of everything with a little room, at its hover height there and no
+## more than unwedge_climb metres above the ground it is on now (beside a spire,
+## not on top of it). Behind it first in each ring: the way it came is open.
+## Vector3(INF, INF, INF) when there is none.
+func _clear_spot(r: float) -> Vector3:
+	var u := up()
+	var back := -_fwd
+	var side := _fwd.cross(u).normalized()
+	var hh := p("hover_height", 1.05)
+	var here := ground_height()
+	var climb := p("unwedge_climb", 3.0)
+	var rings := int(ceil(p("unwedge_m", 30.0) / r))
+	for ring in range(1, rings + 1):
+		var d := r * float(ring)
+		for k in 12:
+			var a := PI / 6.0 * floorf((k + 1) * 0.5) * (1.0 if k % 2 == 1 else -1.0)
+			var c := position + (back * cos(a) + side * sin(a)) * d
+			var lc := _level(c)
+			var g := lc - ground.height_above(c)
+			if g - here > climb:
+				continue
+			c += ground.up_at(c) * (g + hh - lc)
+			if ground.hit(c, r + 0.3) == "":
+				return c
+	return Vector3(INF, INF, INF)
 
 
 func _hover(dt: float) -> void:

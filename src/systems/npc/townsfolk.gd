@@ -85,6 +85,9 @@ var _club_next := 0.0             ## game seconds before a patron may talk again
 ## Where these people are, for the alarm toast (the town's locals, a village, the
 ## barge, the station): set by whoever builds them (TownAlarm.toast_text).
 var place := ""
+## Calm, the local you walk close by talks of the beast, the packs or the club.
+## Off for a speeder race crew: their leader speaks for them when you walk up.
+var chatty := true
 
 ## The alarm went up here (any cause): the locals' barracks join it (Garrison.join_alarm).
 signal alarm_up(at: Vector3)
@@ -203,10 +206,10 @@ func _physics_process(dt: float) -> void:
 		var due: float = g.brain_step(dt)   # issue #541: thinner far off, none asleep (NpcRings)
 		if due >= 0.0:
 			_run_brain(g, due, ppos)
-	if not alarm.active():
-		var chatty: Array = alive if scared.is_empty() else alive.filter(func(g): return not scared.has(g))
-		_calm_talk(chatty, ppos)
-		_club_chat(chatty, ppos)
+	if chatty and not alarm.active():
+		var calm: Array = alive if scared.is_empty() else alive.filter(func(g): return not scared.has(g))
+		_calm_talk(calm, ppos)
+		_club_chat(calm, ppos)
 
 
 func _run_brain(g: NpcBody, dt: float, ppos: Vector3) -> void:
