@@ -58,7 +58,8 @@ a frame, with headroom left for the local LLM.
 9b. **Build by sight** (issue #693). Nothing is built before the player could
     see it: not over the horizon of a round planet, not past the world's sight
     range. Ask `SightGate` (`town.could_see(at)`), with the numbers in the
-    world's `detail.sight` block, and put a place that comes into view later
+    world's `detail.sight` block (every planet has one: `types.json`'s
+    default, issue #717), and put a place that comes into view later
     on a `StagedBuild` trickle (`RemnantOutposts.late_step`). A whole step that
     only matters close to the ground waits in `detail.sight.hold` (barge,
     packs, race courses), layered so no two land on the same frames. Get

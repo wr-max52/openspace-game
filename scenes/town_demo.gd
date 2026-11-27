@@ -225,6 +225,8 @@ func _build_by_sight() -> void:
 		staged.hold_until(str(step_name), func() -> bool: return below(agl))
 	staged.add_trickle("outposts_late", func() -> bool:
 		return outposts != null and is_instance_valid(outposts) and outposts.late_step())
+	staged.add_trickle("ranches_late", func() -> bool:       # issue #717
+		return ranches != null and is_instance_valid(ranches) and ranches.late_step())
 
 
 ## Issue #693: everything a handoff is still holding back, built now (tests).
@@ -1151,6 +1153,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 				outposts.folks[str(o.id)] = make_locals_outpost_garrison(o, mine)
 	if outposts != null:
 		outposts.late = true             # issue #693: an outpost that comes into sight from now on starts its own
+	if ranches != null:
+		ranches.late = true              # issue #717: a ranch likewise
 	if npc_brains:
 		# Issue #541: the town's own people think less far off and sleep past the
 		# draw distance (content/core/npcs/wake_rings.json).

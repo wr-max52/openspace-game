@@ -106,6 +106,7 @@ Each block is data. Copy it from the planet named and change the numbers.
 | `barge` | A party barge, numbers from `content/core/barges/party_barge.json`. | `port_desert.json` |
 | `cantina_owner` | `{ "card": "npcs/<file>.json", "look": "<archetype>" }`. No card: a new Oda. | `grit_station.json` |
 | `station_town` | A station landmark as the whole town (bay only, no deck). | `ringed_giant.json` |
+| `sight` | Build by sight (render rule 9b). Every planet already has it from `types.json` `detail.sight`: flying in, its outposts and ranches wait till they could be seen, and its natives till the ship is low. Only add a block to change the numbers (`range_m`, `horizon_margin_m`, `release_m`, `hold`), for a planet or (in `types.json`) a type. | `types.json` `detail.sight` |
 
 Smuggling on a new planet: a `kind: "smuggle"` job in `content/core/board/` with
 the planet's town id as `location`, plus `content/core/pickups/<town_id>.json` and
