@@ -13,12 +13,12 @@
     { "id": "homes", "side": "-z", "fill": "homes", "note": "The locals' homes: the station's gray homes, at the end of a third tunnel." }
   ],
   "landmarks": [
-    { "id": "remnant_outpost_moon_crater", "kind": "location", "location": "remnant_outpost_moon_crater", "at": [380, 0, 250], "yaw_deg": 147, "clear": 45,
-      "note": "The moon's five Remnant outposts (Territory's 'moon' front), 450 to 610 m out on the rock, each turned so its door (+x) faces the station. Out here there is no air: armour on." },
-    { "id": "remnant_outpost_moon_ridge", "kind": "location", "location": "remnant_outpost_moon_ridge", "at": [-330, 0, 320], "yaw_deg": 44, "clear": 45 },
-    { "id": "remnant_outpost_moon_farside", "kind": "location", "location": "remnant_outpost_moon_farside", "at": [-520, 0, -260], "yaw_deg": 333, "clear": 45 },
-    { "id": "remnant_outpost_moon_rim", "kind": "location", "location": "remnant_outpost_moon_rim", "at": [180, 0, -480], "yaw_deg": 249, "clear": 45 },
-    { "id": "remnant_outpost_moon_plain", "kind": "location", "location": "remnant_outpost_moon_plain", "at": [600, 0, -120], "yaw_deg": 191, "clear": 45 }
+    { "id": "remnant_outpost_moon_crater", "kind": "location", "location": "remnant_outpost_moon_crater", "at": [2240, 0, 2240], "yaw_deg": 135, "clear": 45,
+      "note": "The moon's five Remnant outposts (Territory's 'moon' front), spread round the whole ball, 2.1 to 3.2 km out along the ground (two past the equator, on the far side; at least 74 degrees apart and from the station), each on the highest level ground near its spot, each turned so its door (+x) faces the station. Far round the ball the map is stretched, so their pads are measured on the ground (PlanetTerrain.outpost_flat_sites). Out here there is no air: armour on." },
+    { "id": "remnant_outpost_moon_ridge", "kind": "location", "location": "remnant_outpost_moon_ridge", "at": [-884, 0, 1985], "yaw_deg": 66, "clear": 45 },
+    { "id": "remnant_outpost_moon_farside", "kind": "location", "location": "remnant_outpost_moon_farside", "at": [-3208, 0, -281], "yaw_deg": 355, "clear": 45 },
+    { "id": "remnant_outpost_moon_rim", "kind": "location", "location": "remnant_outpost_moon_rim", "at": [-435, 0, -2049], "yaw_deg": 282, "clear": 45 },
+    { "id": "remnant_outpost_moon_plain", "kind": "location", "location": "remnant_outpost_moon_plain", "at": [1888, 0, -1274], "yaw_deg": 214, "clear": 45 }
   ],
   "body": {
     "note": "How this moon looks from far off (a neighbour's sky, past types.json space.real_ball_within): a smooth ball with the moon baked onto it as paint, its rock, craters and the station's domes, tunnels, landing pit and outposts, instead of a lumpy low-poly rock. paint: its colours and glow, relief: its ground's normals (tools/planets/bake_moon_paint.gd writes both; re-run when its rock, station or outposts change). Up close it is still its real coarse ball.",

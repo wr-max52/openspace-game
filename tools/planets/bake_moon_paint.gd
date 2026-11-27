@@ -94,7 +94,12 @@ func _bake(id: String) -> void:
 	for l in p.cfg.get("landmarks", []):
 		var at = l.get("at", null)
 		if at is Array:
-			outposts.append({ "c": Vector2(float(at[0]), float(at[2])), "yaw": deg_to_rad(float(l.get("yaw_deg", 0.0))) })
+			# Its own ground frame (as PlanetTerrain.outpost_flat_sites lays its pad):
+			# far round the ball the map is stretched across, so the outpost is
+			# measured on the ground, not on the map.
+			var dir: Vector3 = sphere.map_dir(float(at[0]), float(at[2]))
+			var b: Basis = sphere.tilt_to(dir) * Basis(Vector3.UP, deg_to_rad(float(l.get("yaw_deg", 0.0))))
+			outposts.append({ "dir": dir, "x": b.x, "z": b.z })
 	var seed := int(p.cfg.get("seed", 0)) + id.hash()
 	for nz in [[big, 1.0 / 520.0, 4], [mid, 1.0 / 90.0, 3], [fine, 1.0 / 14.0, 2], [swirl, 1.0 / 40.0, 3]]:
 		var n: FastNoiseLite = nz[0]
@@ -181,7 +186,7 @@ func _molten_at(d: Vector3, h: float) -> float:
 	var m: Vector2 = sphere.dir_map(d)
 	var clear := smoothstep(keep_clear - 20.0, keep_clear, m.length())
 	for o in outposts:
-		clear = minf(clear, smoothstep(26.0, 34.0, m.distance_to(o.c)))   # each outpost on its dry pad
+		clear = minf(clear, smoothstep(26.0, 34.0, d.angle_to(o.dir) * radius))   # each outpost on its dry pad
 	return clear * (1.0 - smoothstep(level - 0.6, level + 0.6, h))
 
 
@@ -208,7 +213,7 @@ func _paint(d: Vector3, h: float, m: float, nm: Vector3, texel: float) -> Color:
 			var heat := clampf((0.25 + 0.8 * smoothstep(0.3, 0.8, sw) + 0.35 * depth) / 1.4, 0.0, 1.0)
 			col = col.lerp(_lin(str(lava.get("crust", "#0f0503"))), m)
 			glow = lerpf(glow, heat, m)
-	var fur := _furnish(sphere.dir_map(d), texel)
+	var fur := _furnish(d, sphere.dir_map(d), texel)
 	var fc: Color = fur[0]
 	if fc.a > 0.0:
 		col = col.lerp(Color(fc.r, fc.g, fc.b), fc.a)
@@ -231,14 +236,15 @@ static func _lin(hex: String) -> Color:
 const NONE := [Color(0, 0, 0, 0), 0.0]
 
 
-## The station and the outposts painted at map point `m` (metres from the port).
-func _furnish(m: Vector2, texel: float) -> Array:
+## The station and the outposts painted at direction `d`, map point `m` (metres
+## from the port).
+func _furnish(d: Vector3, m: Vector2, texel: float) -> Array:
 	var w := texel * 0.6                  # soft edges: about a texel
 	var out: Array = NONE
 	if not station.is_empty() and m.length() < 260.0:
 		out = _station(m, w)
 	for o in outposts:
-		out = _over(out, _outpost(m, o, w))
+		out = _over(out, _outpost(d, o, w))
 	return out
 
 
@@ -329,15 +335,17 @@ func _dome(m: Vector2, c0: Vector2, r0: float, w: float, seed: int) -> Array:
 
 
 ## An outpost out on the rock: its trodden pad, the block, the ship parked by it.
-func _outpost(m: Vector2, o: Dictionary, w: float) -> Array:
-	var rel: Vector2 = m - (o.c as Vector2)
-	var r := rel.length()
-	if r > 26.0:
+func _outpost(d: Vector3, o: Dictionary, w: float) -> Array:
+	var od: Vector3 = o.dir
+	if d.dot(od) < cos(30.0 / radius):
 		return NONE
 	# Local frame: +x faces the station (yaw about up, as the landmark turns it).
-	var yaw := float(o.yaw)
-	var lx := rel.x * cos(yaw) - rel.y * sin(yaw)
-	var lz := rel.x * sin(yaw) + rel.y * cos(yaw)
+	var rel := (d - od) * radius
+	var lx := rel.dot(o.x)
+	var lz := rel.dot(o.z)
+	var r := Vector2(lx, lz).length()
+	if r > 26.0:
+		return NONE
 	var c: Color = look.rock_light
 	var a: float = (1.0 - smoothstep(18.0, 24.0, r)) * 0.45
 	var ship := _box(lx, lz, -14.0, 2.0, 5.0, 4.0, w)
