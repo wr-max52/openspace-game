@@ -53,8 +53,9 @@
       }
     },
     "lava_moon": {
-      "note": "The lava moon's front, on the moon's rules (see 'moon'): its five Remnant outposts on high ground among the lava (landmarks in content/core/planets/cinder_station.json, location files remnant_outpost_lava_*) and its barracks dome off the landing pit. Flags lava_moon_remnant_driven_off and lava_moon_town_retaken.",
+      "note": "The lava moon's front, on the moon's rules (see 'moon'): its five Remnant outposts on high ground among the lava (landmarks in content/core/planets/cinder_station.json, location files remnant_outpost_lava_*) and its barracks dome off the landing pit. Flags lava_moon_remnant_driven_off and lava_moon_town_retaken. It orbits the ringed giant, so it answers to the giant's cruiser, not the story's ('cruiser': content/core/cruiser/belt_cruiser.json; Territory.cruiser_fallen): while the Remnant hold it, its outposts are locked (clear one and the troopers come back, line 'locked') and the barracks troopers come back; once the locals hold it, the Remnant here are cut off (their outposts run short and give up on the 'remnant' clocks, a dead barracks trooper stays dead) and the barracks are the locals'; then it is the locals who restock (Territory.locals_locked): kill every guard of theirs at an outpost or the barracks and nothing changes hands; more come out of sight (line 'locals_locked'), and the Remnant's own troopers stop coming back. The fleet's defeat does not touch it. Should the Remnant get the cruiser back (the dark master's oath) it turns round again.",
       "planet": "cinder_station",
+      "cruiser": "belt_cruiser",
       "outposts": ["remnant_outpost_lava_caldera", "remnant_outpost_lava_ridge", "remnant_outpost_lava_cinder",
         "remnant_outpost_lava_basalt", "remnant_outpost_lava_glow"],
       "barracks_id": "lava_moon_barracks",
@@ -71,6 +72,8 @@
       },
       "lines": {
         "driven_off": "The Remnant have pulled off the lava moon. The station is the locals' now.",
+        "locked": "The Remnant at %s answer to the cruiser by the giant's station. More will come until it falls.",
+        "locals_locked": "The locals hold the cruiser by the giant's station. More of them will come to %s.",
         "barracks": "The locals hold the lava moon's barracks now.",
         "barracks_remnant": "The Remnant hold the lava moon's barracks again.",
         "town_retaken": "The last of the locals' guards at the lava moon's barracks is dead. The Remnant are taking the station back.",

@@ -2,7 +2,7 @@
   "id": "belt_cruiser",
   "base": "remnant_cruiser",
   "label": "Remnant star cruiser",
-  "note": "IP-neutral. Issue #327: a second Remnant star cruiser, the same ship as the home planet's (everything not listed here is remnant_cruiser.json's: its pads and parked ships, how Z docks you, the crew, the droids, the general, the escort). It holds station near the ringed giant's space station: where is the giant's 'belt_cruiser' landmark (content/core/planets/ringed_giant.json). It is not the story's: killing its general sets only its own flag (WorldState 'belt_cruiser_taken', saved with the world) and pays its own reward; the home cruiser, Oda's story, the port's love and the dark master (who waits only in the home cruiser's bay) are untouched. Once taken it is empty and still there to fly to and walk round. Its escort meets you when you climb out of the station's sky flying for it (nose within approach.cone_deg of it, or already within dock.radius of it); leaving for another planet the other way meets nobody.",
+  "note": "IP-neutral. Issue #327: a second Remnant star cruiser, the same ship as the home planet's (everything not listed here is remnant_cruiser.json's: its pads and parked ships, how Z docks you, the crew, the droids, the general, the escort). It holds station near the ringed giant's space station: where is the giant's 'belt_cruiser' landmark (content/core/planets/ringed_giant.json). It is not the story's: killing its general sets only its own flag (WorldState 'belt_cruiser_taken', saved with the world) and pays its own reward; the home cruiser, Oda's story, the port's love and the dark master (who waits only in the home cruiser's bay) are untouched. Once taken the locals crew it as they do the home one (remnant_cruiser.json's 'holders': the bay and the bridge, by your standing with them; his Remnant on the dark master's oath), and it is still there to fly to and walk round. Its escort meets you when you climb out of the station's sky flying for it (nose within approach.cone_deg of it, or already within dock.radius of it); leaving for another planet the other way meets nobody.",
   "flag": "belt_cruiser_taken",
   "reward": { "credits": 15000, "locals": 0, "remnant": -25, "smuggler": 10 },
   "holo": {
@@ -39,7 +39,7 @@
   },
   "lines": {
     "taken": "+%d cr  ·  The whole belt will hear about this.",
-    "event_taken": "%s, the Remnant general aboard the star cruiser by the station, was killed on the bridge. The cruiser is empty.",
+    "event_taken": "%s, the Remnant general aboard the star cruiser by the station, was killed on the bridge. The locals are moving aboard.",
     "objective_bay": "Land in the Remnant cruiser's bay, out in the belt",
     "objective_general": "Kill %s on the cruiser's bridge"
   }
