@@ -2,7 +2,7 @@
 
 Every fixed line a character can say with the AI off (card greetings and canned
 replies, story beats, T-89, the general, the dark master, the guards' and locals'
-barks, the speeder shops) is rendered once per voice that can say it and saved
+barks, the speeder shops, the race crews) is rendered once per voice that can say it and saved
 as assets/audio/voice/<key>.mp3. NpcVoice plays a bundled clip before it tries
 the player's cache or the API, so these need no key at all.
 
@@ -14,10 +14,14 @@ An inline audio tag ("... [scared] sometimes ...") is spoken but never shown:
 the clip is keyed by the line without it (as the game shows it) and rendered
 with the tag by the profiles' model, which reads tags (the quick one does not).
 
-Speakers in a role pool (guards, locals, Odas on other planets) get a stable
-pick by id in game, so their lines are rendered in every voice of the pool.
+Speakers in a role pool (guards, locals, Odas on other planets, racers) get a
+stable pick by id in game, so their lines are rendered in every voice of the pool.
 
-Run: python3 tools/audio/make_voice_lines.py [--list] [--cache-only] [--model eleven_flash_v2_5]
+A speaker whose soldier profile sets a `voice_mood` (the racers: "menacing") is
+rendered with that mood's tag from voice_profiles.json, as the game would ask
+for it live, by the tag-reading model; the clip is still keyed by the bare line.
+
+Run: python3 tools/audio/make_voice_lines.py [--list] [--cache-only] [--model eleven_flash_v2_5] [--voices a,b]
 Key: $ELEVENLABS_API_KEY, else the game's own user://llm/keys.cfg.
 Existing clips are kept; delete one to re-record it. A line the game already
 rendered while it was played is copied from user://npc_voice_cache first (free).
@@ -89,9 +93,49 @@ def card_lines(card):
     yield from strings(card.get("ship_buy", {}).get("lines", {}))
 
 
+# What a race crew's leader and racers say aloud (src/systems/racing/race_crew.gd
+# _say): every key below, and the leader's word when you beat them, which is
+# leader_lost and next_crew joined by a space. A crew's own line wins over the
+# shared one in racing/rules.json; {crew} is filled with the crew's label.
+RACE_SAID = ["challenge", "not_yet", "no_speeder", "slips_not_yours", "no_room", "slips_accept",
+             "too_poor", "accept", "rematch_accept", "taunts", "jeers", "leader_won"]
+
+
+def race_lines():
+    """{crew id: [lines]} for every race crew."""
+    shared = read("racing/rules.json").get("lines", {})
+    out = {}
+    for name in sorted(os.listdir(os.path.join(CORE, "racing", "crews"))):
+        if not name.endswith(".json"):
+            continue
+        crew = read("racing/crews/" + name)
+        own = crew.get("lines", {})
+
+        def pick(k):
+            v = own.get(k, shared.get(k, ""))
+            return v if isinstance(v, list) else [v]
+
+        lines = [l for k in RACE_SAID for l in pick(k)]
+        lines += ["%s %s" % (a, b) for a in pick("leader_lost") for b in pick("next_crew")]
+        label = crew.get("label", crew.get("id", ""))
+        out[crew.get("id", name[:-5])] = [l.replace("{crew}", label) for l in lines if l]
+    return out
+
+
+def soldier_voice(soldier_id):
+    """(voice pool, delivery tag) for a soldier profile: its voice_role's pool
+    (else its role's) and its voice_mood's tag ("" when none)."""
+    s = read("soldiers/%s.json" % soldier_id)
+    base = read("soldiers/%s.json" % s["base"]) if s.get("base") else {}
+    role = s.get("voice_role", base.get("voice_role", s.get("role", base.get("role", ""))))
+    mood = s.get("voice_mood", base.get("voice_mood", ""))
+    return POOLS.get(role, [DEFAULT]), PROFILES["mood_tags"].get(mood, "")
+
+
 def collect():
-    """[(line, profile)] for every fixed spoken line, deduplicated."""
-    said = []          # (line, [profiles])
+    """[(line, profile, tag)] for every fixed spoken line, deduplicated; tag is
+    a delivery tag spoken before it ("" for none)."""
+    said = []          # (line, [profiles]) or (line, [profiles], tag)
     oda = named("cantina_owner") + POOLS["planet_owner"]
     said.append((card_lines(read("npcs/cantina_owner_card.json")), oda))
     said.append((strings(read("dialogue/cantina_owner_fallback.json")), oda))
@@ -122,10 +166,15 @@ def collect():
     shops = read("vehicles/speeder_upgrades.json")
     for shop in [shops["mechanic"]] + list(shops["shops"].values()):
         said.append((strings(shop.get("lines", {})), named(shop.get("voice", "mechanic"))))
+    for crew_id, lines in race_lines().items():
+        profile = read("racing/crews/%s.json" % crew_id).get("profile", "local_racer")
+        pool, tag = soldier_voice(profile)
+        said.append((lines, pool, tag))
 
     out, seen = [], set()
-    for lines, profiles in said:
-        lines = list(lines)
+    for entry in said:
+        lines, profiles = list(entry[0]), entry[1]
+        tag = entry[2] if len(entry) > 2 else ""
         for line in lines:
             line = line.strip()
             if line == "" or FILL.search(line):
@@ -133,7 +182,7 @@ def collect():
             for p in profiles:
                 if p in LIBRARY and (line, p) not in seen:
                     seen.add((line, p))
-                    out.append((line, p))
+                    out.append((line, p, tag))
     return out
 
 
@@ -167,7 +216,7 @@ def cached(line, voice):
     return ""
 
 
-def record(key, model, line, profile):
+def record(key, model, line, profile, tag=""):
     voice = LIBRARY[profile]
     path = os.path.join(OUT, clip_name(shown(line), voice["voice_id"]))
     if os.path.exists(path):
@@ -178,9 +227,10 @@ def record(key, model, line, profile):
         return "from_cache"
     if key == "":
         return "skipped"
+    spoken = ("%s %s" % (tag, line)) if tag else line
     body = json.dumps({
-        "text": line,
-        "model_id": model if shown(line) == line else PROFILES.get("model_id", "eleven_v4"),
+        "text": spoken,
+        "model_id": model if shown(spoken) == spoken else PROFILES.get("model_id", "eleven_v4"),
         "voice_settings": {"speed": 1.0, "stability": float(voice.get("stability", 0.55)),
                            "similarity_boost": 0.75},
     }).encode("utf-8")
@@ -199,12 +249,16 @@ def main():
     ap.add_argument("--model", default="eleven_flash_v2_5", help="quick by default")
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--cache-only", action="store_true", help="copy from the game's cache, no API calls")
+    ap.add_argument("--voices", default="", help="only these voice profiles, comma separated (racer pool: man_dark_tough,man_harsh,man_menacing,woman_cold)")
     args = ap.parse_args()
     lines = collect()
+    if args.voices:
+        only = set(args.voices.split(","))
+        lines = [x for x in lines if x[1] in only]
     if args.list:
-        for line, p in lines:
-            print("%-16s %s" % (p, line))
-        print("%d clips, %d characters" % (len(lines), sum(len(l) for l, _ in lines)), file=sys.stderr)
+        for line, p, tag in lines:
+            print("%-16s %s%s" % (p, (tag + " ") if tag else "", line))
+        print("%d clips, %d characters" % (len(lines), sum(len(l) for l, _, _ in lines)), file=sys.stderr)
         return
     key = "" if args.cache_only else api_key()
     if key == "" and not args.cache_only:
@@ -212,7 +266,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     counts = {"new": 0, "from_cache": 0, "kept": 0, "skipped": 0, "failed": 0}
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
-        jobs = {pool.submit(record, key, args.model, l, p): (l, p) for l, p in lines}
+        jobs = {pool.submit(record, key, args.model, l, p, t): (l, p) for l, p, t in lines}
         for job in concurrent.futures.as_completed(jobs):
             try:
                 counts[job.result()] += 1

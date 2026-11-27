@@ -1022,8 +1022,8 @@ func _build_npc(m: Dictionary) -> void:
 		var had = barracks_locals.get(barracks_post)
 		if (had != null and is_instance_valid(had)) or Territory.barracks_dead(Territory.here()).has(barracks_post):
 			return
-	elif _is_remnant_post(m) and Story.remnant_gone() and Territory.remnant_dead(Territory.here()).has(str(m.id)):
-		return                        # the fleet is beaten: a dead trooper stays dead
+	elif _is_remnant_post(m) and Territory.remnant_gone_on(Territory.here()) and Territory.remnant_dead(Territory.here()).has(str(m.id)):
+		return                        # the fleet is beaten (or this front's cruiser fallen): a dead trooper stays dead
 	var here := town.marker_pos(str(m.id))
 	var face := town.marker_pos("gate") if m.role == "trooper_post" else town.marker_pos("cantina_door")
 	if m.has("face"):
@@ -1148,10 +1148,41 @@ func _locals_garrison_join(n: NpcBody) -> void:
 		return
 	locals_garrison = _make_garrison("LocalsGarrison", [n], false, Vector3.INF, false, _town_zones())
 	locals_garrison.place = TownAlarm.place_name("town_locals_barracks", _town_label())
-	locals_garrison.respawn_rule = Callable()   # a dead one stays dead (Territory.barracks_dead)
+	locals_garrison.respawn_rule = _barracks_locals_rule   # a dead one stays dead (Territory.barracks_dead),
+	locals_garrison.spawner = _barracks_locals_respawn     # unless they hold this front's cruiser (locals_locked)
 	if townsfolk != null:
 		locals_garrison.alarm_up.connect(townsfolk.join_alarm)
 		townsfolk.alarm_up.connect(locals_garrison.join_alarm)
+
+
+## A local guard on a barracks post comes back only while the locals hold the
+## cruiser this front answers to (Territory.locals_locked: the lava moon's); else a
+## dead one stays dead and the last one hands the town to the Remnant.
+func _barracks_locals_rule(g: NpcBody) -> Dictionary:
+	if not g.has_meta("barracks_locals") or not Territory.locals_locked(Territory.barracks_here()):
+		return {}
+	return { "post": str(g.get_meta("barracks_locals")),
+		"delay": float(Story.remnant_cfg().get("town_respawn_s", 60.0)) }
+
+
+func _barracks_locals_respawn(r: Dictionary) -> NpcBody:
+	if Story.town_garrison() or not Territory.locals_locked(Territory.barracks_here()):
+		return null
+	var post := str(r.get("post", ""))
+	var had = barracks_locals.get(post)
+	if had != null and is_instance_valid(had) and not had.dead:
+		return null
+	barracks_locals.erase(post)
+	var m := town.get_marker(post)
+	if m.is_empty():
+		return null
+	_build_npc(m)
+	var n = barracks_locals.get(post)
+	if n == null or not is_instance_valid(n):
+		return null
+	if townsfolk != null:
+		townsfolk.add_member(n)
+	return n
 
 
 ## The locals at an outpost they hold: a garrison on their side with the
@@ -1327,7 +1358,7 @@ func respawn_rule(g: NpcBody) -> Dictionary:
 		r.merge({ "delay": float(rc.get("outpost_respawn_s", 180.0)), "at": g.post_pos, "outpost": str(g.get_meta("outpost")) })
 		return r
 	var mk := str(rc.get("town_respawn_marker", "remnant_respawn"))
-	if not Story.town_garrison() or Story.remnant_gone() or town.get_marker(mk).is_empty():
+	if not Story.town_garrison() or Territory.remnant_gone_on(Territory.here()) or town.get_marker(mk).is_empty():
 		return {}                     # the fleet beaten, the town's troopers stay dead (Territory.remnant_dead)
 	var aloft := bool(g.profile.get("combat", {}).get("hold_ground", false))
 	r.merge({ "delay": float(rc.get("town_respawn_s", 60.0)), "at": g.post_pos if aloft else town.marker_pos(mk) })
@@ -1337,10 +1368,12 @@ func respawn_rule(g: NpcBody) -> Dictionary:
 ## Bring one back (Garrison calls this when its time is up). Null = not now.
 func respawn(r: Dictionary) -> NpcBody:
 	var is_outpost := r.has("outpost")
-	if not is_outpost and (not Story.town_garrison() or Story.remnant_gone()):
+	if not is_outpost and (not Story.town_garrison() or Territory.remnant_gone_on(Territory.here())):
 		return null
 	if is_outpost and Territory.owner(str(r.outpost)) != Territory.REMNANT:
 		return null                   # issue #187: the locals hold it now
+	if is_outpost and Territory.restocked_by(Territory.front_of(str(r.outpost))) == Territory.LOCALS:
+		return null                   # the locals hold the cruiser this front answers to: cut off
 	_respawned += 1
 	var npc := make_soldier(str(r.soldier), r.at, float(r.yaw), str(r.post),
 		"npc:%s/%s#%d" % [str(town.data.get("id", "town")), str(r.post), _respawned])

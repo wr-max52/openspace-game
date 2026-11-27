@@ -960,12 +960,13 @@ static func cruiser_label(c: Dictionary) -> String:
 
 ## Who holds a cruiser now: the home one by RemnantCruiser.home_holder (issue
 ## #497: the Remnant, the locals, "" while the dark master is aboard); any other
-## the Remnant's until its general dies (its config's flag), then nobody's ("").
+## by RemnantCruiser.holder_of: the Remnant's until its general dies (its config's
+## flag), then the locals' (the Remnant's again on the dark master's oath).
 static func cruiser_owner(c: Dictionary) -> String:
 	var cfg_id := str(c.get("cfg", ""))
 	if cfg_id == "" or cfg_id == CruiserHull.HOME_ID:
 		return CruiserHolo.owner_of(CruiserHolo.CRUISER)
-	return "" if WorldState.has_flag(str(CruiserHull.data_for(cfg_id).get("flag", ""))) else Territory.REMNANT
+	return RemnantCruiser.holder_of(cfg_id)
 
 
 ## The hover line for who holds a cruiser.
