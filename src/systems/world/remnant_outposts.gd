@@ -845,12 +845,12 @@ func _dress(o: Dictionary) -> void:
 	var y0: float = (o.origin as Vector3).y
 	var wall := mats._shader(LookMaterials.HULL, "outpost_wall_%s" % y0, {
 		"sand_y": y0 - 3.5, "panel_size": 1.5, "marking_y": -1000.0,
-		"metal": Color("#34373d"), "metal_light": Color("#4a4e55"), "scorch": Color("#2f3238"),
-		"sand": Color("#b89468"), "metal_scale": 0.8, "rough_add": 0.05 })
-	var black := mats.flat(Color("#141416"), 0.55, 0.4)
+		"metal": Dressing.c("outpost", "wall_metal", "#34373d"), "metal_light": Dressing.c("outpost", "wall_metal_light", "#4a4e55"), "scorch": Dressing.c("outpost", "wall_scorch", "#2f3238"),
+		"sand": Dressing.c("outpost", "wall_sand", "#b89468"), "metal_scale": 0.8, "rough_add": 0.05 })
+	var black := mats.flat(Dressing.c("outpost", "black", "#141416"), 0.55, 0.4)
 	var red := mats.faction_flat("mark", str(o.id), 0.6, 0.2)       # issue #393: this outpost's own
-	var steel := mats.flat(Color("#5d6168"), 0.35, 0.75)
-	var grille := mats.flat(Color("#0c0c0e"), 0.7, 0.5)
+	var steel := mats.flat(Dressing.c("outpost", "steel", "#5d6168"), 0.35, 0.75)
+	var grille := mats.flat(Dressing.c("outpost", "grille", "#0c0c0e"), 0.7, 0.5)
 	var lamp := mats.faction_glow("lamp", str(o.id))
 	o["wall"] = wall                      # the refinery wears them too
 	o["red"] = red
@@ -893,7 +893,7 @@ func _dress(o: Dictionary) -> void:
 			for sz: float in [-1.0, 1.0]:
 				_mesh(o, LookMeshKit.box(Vector3(0.14, dh + 0.2, 0.2)), red, c + Vector3(hx + 0.02, (dh + 0.2) * 0.5, (dw * 0.5 + 0.1) * sz))
 			_mesh(o, LookMeshKit.box(Vector3(0.14, 0.2, dw + 0.4)), red, c + Vector3(hx + 0.02, dh + 0.1, 0))
-			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, dh + 0.35, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Dressing.c("outpost", "door_lamp", "#ffb04a")), c + Vector3(hx + 0.12, dh + 0.35, 0))
 		else:
 			# The door, toward the town: a red frame, a dark door with a seam, a step, a lamp over it.
 			_mesh(o, LookMeshKit.box(Vector3(0.14, 2.5, 1.8)), red, c + Vector3(hx + 0.02, 1.25, 0))
@@ -901,7 +901,7 @@ func _dress(o: Dictionary) -> void:
 			_mesh(o, LookMeshKit.box(Vector3(0.17, 2.1, 0.03)), steel, c + Vector3(hx + 0.07, 1.1, 0))
 			var step := 0.18 + _sink(o, c + Vector3(hx + 0.4, 0, 0), 0.4, 1.0)
 			_mesh(o, LookMeshKit.box(Vector3(0.8, step, 2.0)), steel, c + Vector3(hx + 0.4, 0.18 - step * 0.5, 0))
-			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, 2.75, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Dressing.c("outpost", "door_lamp", "#ffb04a")), c + Vector3(hx + 0.12, 2.75, 0))
 		_mesh(o, LookMeshKit.box(Vector3(0.05, 2.6, 0.9)), red, c + Vector3(hx + 0.05, s.y - 1.7, hz - 0.9))
 		# Vents: two on the back, one on each side.
 		for v in [Vector3(-hx - 0.05, 1.4, -hz * 0.45), Vector3(-hx - 0.05, 1.4, hz * 0.45)]:
@@ -931,7 +931,7 @@ func _dress(o: Dictionary) -> void:
 			_mesh(o, LookMeshKit.box(Vector3(2.8, 0.9, 0.12)), red, t + Vector3(0, 7.5, 1.35))
 	# The light over the door, so the outpost reads at night.
 	var light := OmniLight3D.new()
-	light.light_color = Color("#ff9a50")
+	light.light_color = Dressing.c("outpost", "door_light", "#ff9a50")
 	light.light_energy = 1.2
 	light.omni_range = 7.0
 	add_child(light)
@@ -1098,8 +1098,8 @@ func _room_look(o: Dictionary, b: Dictionary, parts: Array, up: Vector3, ramp: D
 	map.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_near_only(map)
 	var reach := maxf(s.x, s.z) * 0.85
-	for l in [[Color("#ff3a2a"), 1.8, c + up + Vector3(-s.x * 0.5 + 1.3, s.y - 1.6, 0)],
-			[Color("#4aa8ff"), 1.4, holo + Vector3(0, 2.2, 0)]]:
+	for l in [[Dressing.c("outpost", "alarm_light", "#ff3a2a"), 1.8, c + up + Vector3(-s.x * 0.5 + 1.3, s.y - 1.6, 0)],
+			[Dressing.c("outpost", "holo_light", "#4aa8ff"), 1.4, holo + Vector3(0, 2.2, 0)]]:
 		var light := OmniLight3D.new()
 		light.light_color = l[0]
 		light.light_energy = l[1]
@@ -1110,7 +1110,7 @@ func _room_look(o: Dictionary, b: Dictionary, parts: Array, up: Vector3, ramp: D
 		_near_only(light)
 	if not ramp.is_empty():
 		var xf: Transform3D = ramp.xf
-		_mesh(o, LookMeshKit.box(ramp.size), demo._flat_mats().flat(Color("#5d6168"), 0.35, 0.75), xf.origin, xf.basis)
+		_mesh(o, LookMeshKit.box(ramp.size), demo._flat_mats().flat(Dressing.c("outpost", "steel", "#5d6168"), 0.35, 0.75), xf.origin, xf.basis)
 
 
 ## The room's inside is drawn only up close (content/look/world.json
@@ -1145,9 +1145,9 @@ func _room_mat(f: String) -> Material:
 		m = sm
 	else:                                   # "glow": the ceiling's light bars
 		var g := StandardMaterial3D.new()
-		g.albedo_color = Color("#e8f6ff")
+		g.albedo_color = Dressing.c("outpost", "ceiling_glow", "#e8f6ff")
 		g.emission_enabled = true
-		g.emission = Color("#e8f6ff")
+		g.emission = Dressing.c("outpost", "ceiling_glow", "#e8f6ff")
 		g.emission_energy_multiplier = 3.0
 		g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m = g
@@ -1472,21 +1472,21 @@ func _prop_look(parent: Node3D, pr: Dictionary, xf: Transform3D, mats: LookMater
 		parent.add_child(mi)
 	match str(pr.kind):
 		"crate":
-			var body_mat := mats.flat(Color("#3d4046") if int(pr.level) % 2 == 0 else Color("#2a2c30"), 0.5, 0.55)
-			var band := mats.flat(Color("#1a1a1c"), 0.6, 0.4)
+			var body_mat := mats.flat(Dressing.c("outpost", "crate_a", "#3d4046") if int(pr.level) % 2 == 0 else Dressing.c("outpost", "crate_b", "#2a2c30"), 0.5, 0.55)
+			var band := mats.flat(Dressing.c("outpost", "crate_band", "#1a1a1c"), 0.6, 0.4)
 			add.call(LookMeshKit.box(Vector3(r * 2.0, h, r * 2.0)), body_mat, Transform3D.IDENTITY)
 			for y in [-h * 0.36, h * 0.36]:
 				add.call(LookMeshKit.box(Vector3(r * 2.04, 0.08, r * 2.04)), band, Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
-			add.call(LookMeshKit.box(Vector3(r * 0.9, h * 0.25, 0.02)), mats.flat(Color("#a81e1a"), 0.7), Transform3D(Basis.IDENTITY, Vector3(0, 0, r + 0.01)))
+			add.call(LookMeshKit.box(Vector3(r * 0.9, h * 0.25, 0.02)), mats.flat(Dressing.c("outpost", "crate_mark", "#a81e1a"), 0.7), Transform3D(Basis.IDENTITY, Vector3(0, 0, r + 0.01)))
 		"canister":
-			var shell := mats.flat(Color("#4f535a"), 0.35, 0.8)
+			var shell := mats.flat(Dressing.c("outpost", "canister", "#4f535a"), 0.35, 0.8)
 			add.call(LookMeshKit.cyl(r, r, h * 0.82, 8), shell, Transform3D(Basis.IDENTITY, Vector3(0, -h * 0.05, 0)))
-			add.call(LookMeshKit.cyl(r * 0.55, r * 0.55, h * 0.14, 8), mats.flat(Color("#1a1a1c"), 0.5, 0.6), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.42, 0)))
-			add.call(LookMeshKit.cyl(r * 1.02, r * 1.02, 0.1, 8), mats.flat(Color("#c8a02a"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.12, 0)))
+			add.call(LookMeshKit.cyl(r * 0.55, r * 0.55, h * 0.14, 8), mats.flat(Dressing.c("outpost", "canister_cap", "#1a1a1c"), 0.5, 0.6), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.42, 0)))
+			add.call(LookMeshKit.cyl(r * 1.02, r * 1.02, 0.1, 8), mats.flat(Dressing.c("outpost", "canister_band", "#c8a02a"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.12, 0)))
 		"drum":
-			add.call(LookMeshKit.cyl(r, r, h, 8), mats.flat(Color("#202226"), 0.55, 0.5), Transform3D.IDENTITY)
+			add.call(LookMeshKit.cyl(r, r, h, 8), mats.flat(Dressing.c("outpost", "drum", "#202226"), 0.55, 0.5), Transform3D.IDENTITY)
 			for y in [-h * 0.3, h * 0.3]:
-				add.call(LookMeshKit.cyl(r * 1.03, r * 1.03, 0.06, 8), mats.flat(Color("#8a1a16"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
+				add.call(LookMeshKit.cyl(r * 1.03, r * 1.03, 0.06, 8), mats.flat(Dressing.c("outpost", "drum_band", "#8a1a16"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
 
 
 ## The outpost's ship (the location's "ship"; issue #76: the Remnant's dark

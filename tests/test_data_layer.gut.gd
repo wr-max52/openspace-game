@@ -74,6 +74,31 @@ func test_mission_loaded_by_id() -> void:
 
 
 
+## Issue #542: the dressings' palettes load and every colour in them parses.
+func test_dressing_palettes_parse() -> void:
+	var d: Dictionary = load("res://src/systems/look/dressing.gd").data()
+	var pals: Dictionary = d.get("palettes", {})
+	for id in ["barge", "club", "market", "station_fill", "outpost"]:
+		assert_true(pals.has(id), "dressing.json has a %s palette" % id)
+	var n := 0
+	for id in pals:
+		var p: Dictionary = pals[id]
+		for name in p:
+			if name == "note":
+				continue
+			var v = p[name]
+			var list: Array = v if v is Array else [v]
+			assert_gt(list.size(), 0, "%s.%s is not empty" % [id, name])
+			for c in list:
+				assert_true(c is String and str(c).begins_with("#") and str(c).length() == 7 and Color.html_is_valid(str(c)),
+					"%s.%s: %s is a #rrggbb colour" % [id, name, str(c)])
+				n += 1
+	assert_gt(n, 250, "the six dressings' colours are in the file")
+	var variants: Dictionary = d.get("variants", {})
+	for v in variants:
+		assert_true(pals.has(str((variants[v] as Dictionary).get("base", ""))), "variant %s names a palette as its base" % v)
+
+
 func test_loader_tolerates_missing_root() -> void:
 	var ok: bool = content.load_from("res://this/path/does/not/exist")
 	assert_false(ok, "missing root returns false, not crash")
