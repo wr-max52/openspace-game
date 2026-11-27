@@ -216,6 +216,7 @@ What happens today, if it helps ("Right now there is none").
 * **Bold lead-in:** one behaviour the player can see or do.
 * Numbers (sizes, speeds, prices) are tunable in content data, not code.
 * **Headless test:** a concrete scenario and its outcome.
+* Failing test (bugs only): the one key test that fails today because of the bug, named or described. The fix is done when it passes.
 
 # Could have
 * Wanted, but the issue ships without it.
@@ -252,6 +253,8 @@ One feature per branch (`feature/...`, `fix/...`), off the latest `main`,
 merged by PR. The gate is `tests/test_smoke.gut.gd` plus a clean headless
 boot of the town; name anything else you did not run.
 
+Bug fixes start with the failing test. Before building the fix, find or write the one key test that reproduces the bug, and run it to confirm it fails. Then fix until it passes. The test ships in the PR, and Checked says it failed before the fix and passes after.
+
 **Every PR comes down to what the user wanted.** The body opens with their
 words: a quote from the chat when you have one, otherwise a one-sentence
 paraphrase of the issue's ask in the player's terms, marked as a paraphrase.
@@ -276,6 +279,7 @@ GitHub URL on this branch. `tools/lookdev/shoot.sh` captures stills.
 ## Checked
 * The suites and probes that ran, with their counts. `./scripts/ci.sh` is
   green on `main` (issue #545), so a red suite is this PR's to fix.
+* Bug fixes: the key failing test by name, failing before the fix and passing after.
 * Not run: the rest, by name.
 
 ## Leaves behind
