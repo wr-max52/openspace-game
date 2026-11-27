@@ -100,6 +100,7 @@
     "buy_in_steps": 6,
     "multiple": 20,
     "shoot_from_lap": 1,
+    "hold_fire_gates": 1,
     "off_course_m": 500.0,
     "crowd": [
       7,
@@ -133,6 +134,7 @@
     "too_poor": "{stake} credits, minimum. Come back when you've got it.",
     "no_speeder": "Race us on what, your feet? Bring a speeder.",
     "accept": "Done. Get to the line. Don't keep the crowd waiting.",
+    "comms": "We'll be on your comms. Try not to scream on the jumps.",
     "line_up": "[Z] Line up",
     "go_line": "Get to the start line by the antennas",
     "taunts": [

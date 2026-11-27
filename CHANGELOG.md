@@ -2,6 +2,23 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Speeder racers talk over the comms (2026-11-27)
+
+- **You can now hear the racers once a race is on.** Their taunts and threats
+  come over your comms: a scratchy, crackly radio version of their voice, as
+  loud wherever they are on the course, with their words captioned on the HUD.
+  Before, the lines were spoken from the racer like any other NPC, so a racer
+  more than about 55 m off made no sound at all.
+- **When you accept, each crew's leader tells you they'll be on your comms**
+  (a line of their own for each of the five crews), face to face, before they
+  head for their speeders.
+- **Don't keep them waiting.** Not at the start line 20 s after accepting and
+  the leader asks over the comms: "The crowd is waiting for your defeat. Where
+  are you?", then 20 s later "So you're a coward then? Line up when you're
+  ready to race."
+- All the new lines are recorded in the four racer voices, so they play with
+  no ElevenLabs key.
+
 ## Heavier explosion sounds (2026-11-27)
 
 - **Every ship, speeder, grenade and blast now goes up with a deeper, heavier
