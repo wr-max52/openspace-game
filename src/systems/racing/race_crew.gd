@@ -20,6 +20,12 @@ extends Node3D
 ##                         (SpeederNode seats, #609) and cruise to the grid at
 ##                         cruise_pace; a crowd of locals gathers at the line, one
 ##                         body a tick.
+##   comms              -- the leader tells you they'll be on your comms; from
+##                         then on (the grid, the race, the drive home) the crew
+##                         talk over the radio (NpcVoice: flat, scratchy, as loud
+##                         wherever they are), captioned on the HUD. Not at the
+##                         line no_show_s after accepting and the leader asks
+##                         where you are (rules.json lines no_show, in order).
 ##   [Z] near the grid  -- your speeder drives itself onto your slot and holds.
 ##   3, 2, 1, GO        -- held until GO.
 ##   the race           -- laps through the gates in order (RaceLaps); the HUD
@@ -82,6 +88,7 @@ var winner := ""                      ## key of the winner, once the race is ove
 var player_out := ""                  ## why you are out ("" = still in)
 var lined_up := false
 var said := ""                        ## the last line spoken (tests)
+var said_on_comms := false            ## ... and whether it went over the comms (tests)
 var in_reach := false
 var menu: DroidMenu
 var races_run := 0
@@ -119,6 +126,9 @@ var _beast_due := false               ## the track beast comes once the crowd is
 var _slips := ""                      ## issue #617: "won" / "lost" this race, settled once they are home
 var last_stake := 0                   ## the buy-in of your last money race with this crew (0 = none yet)
 var rematch_on := false               ## the race is over and [Z] races them again for last_stake
+var _comms_due := -1.0                ## grid seconds when the leader says they'll be on your comms (-1 = not due)
+var _no_show_t := 0.0                 ## seconds on the grid you have not lined up since the last no-show line
+var _no_show_n := 0                   ## no-show lines said this race
 
 
 # ------------------------------------------------------------------ data
@@ -394,10 +404,30 @@ func _gear():
 	return demo.get("gear") if demo != null else null
 
 
-func _say(body: NpcBody, text: String) -> void:
+## A crew member says `text`. Once a race is on (accepted, until they are home
+## and it is idle again) it goes over the comms: the scratchy radio voice and a
+## caption on the HUD, since they may be far off; `in_person` keeps it face to face.
+func _say(body: NpcBody, text: String, in_person := false) -> void:
 	said = text
-	if body != null and is_instance_valid(body) and not body.dead:
-		body.say(text, 3.0)
+	if body == null or not is_instance_valid(body) or body.dead:
+		return
+	var radio := phase != Phase.IDLE and not in_person
+	said_on_comms = radio
+	body.say(text, 3.0, false, radio)
+	if radio:
+		var g = _gear()
+		if g != null and g.hud != null:
+			var who := body.display_name if body.display_name != "" else str(crew.get("label", id))
+			g.hud.toast_after(str(rules().get("hud", {}).get("comms", "{name}: {line}")).format({ "name": who, "line": text }), 3.0)
+
+
+## The `i`th line of a list (a crew's own, else rules.json's), filled in; "" past its end.
+func line_at(key: String, i: int) -> String:
+	var v = crew.get("lines", {}).get(key, rules().get("lines", {}).get(key, []))
+	var list: Array = v if v is Array else [v]
+	if i < 0 or i >= list.size():
+		return ""
+	return str(list[i]).format({ "name": leader_name(), "crew": str(crew.get("label", id)) })
 
 
 func _toast(text: String, secs: float = 3.5) -> void:
@@ -535,7 +565,8 @@ func accept_slips() -> String:
 	stake = 0
 	pink = true
 	_start_grid()
-	_say(leader(), line("slips_accept"))
+	_say(leader(), line("slips_accept"), true)
+	_comms_due = rule("comms_after_s", 3.5)
 	return ""
 
 
@@ -599,7 +630,8 @@ func accept(amount: int) -> String:
 		return "speeder"
 	_pay(amount)
 	_start_grid()
-	_say(leader(), line("accept"))
+	_say(leader(), line("accept"), true)
+	_comms_due = rule("comms_after_s", 3.5)    # then: we'll be on your comms
 	return ""
 
 
@@ -848,6 +880,9 @@ func _start_grid() -> void:
 	player_out = ""
 	lined_up = false
 	_grid_t = 0.0
+	_comms_due = -1.0
+	_no_show_t = 0.0
+	_no_show_n = 0
 	_slips = ""
 	laps = course.new_laps()
 	laps.add_racer(YOU)
@@ -1102,7 +1137,9 @@ func line_up() -> bool:
 	_lineup = SpeederBrain.new(sp.model)
 	_lineup.park(s0.pos, float(s0.yaw))
 	lined_up = true
-	_toast(line("taunts"), 2.5)
+	var by: Array = racers.filter(func(rc): return not bool(rc.out) and _body_ok(rc))
+	if not by.is_empty():
+		_say(by[_rng.randi() % by.size()].body, line("taunts"))
 	return true
 
 
@@ -1110,6 +1147,11 @@ func _tick_grid(dt: float) -> void:
 	_grid_t += dt
 	_tick_set_off()
 	_tick_spawns()
+	if _comms_due >= 0.0 and _grid_t >= _comms_due:
+		_comms_due = -1.0
+		_say(leader(), line("comms"), true)    # still by you: face to face, the last time
+	if not lined_up:
+		_tick_no_show(dt)
 	var p := _player()
 	if not lined_up:
 		var near: bool = p != null and p.piloting and p.vehicle is SpeederNode \
@@ -1140,6 +1182,21 @@ func _tick_grid(dt: float) -> void:
 				ready = false
 	if ready and _crowd_left <= 0:
 		_start_countdown()
+
+
+## You have not come to the line: every no_show_s the leader asks where you are
+## over the comms, each no_show line once, in order.
+func _tick_no_show(dt: float) -> void:
+	_no_show_t += dt
+	var every := rule("no_show_s", 20.0)
+	if every <= 0.0 or _no_show_t < every:
+		return
+	_no_show_t = 0.0
+	var text := line_at("no_show", _no_show_n)
+	if text == "":
+		return
+	_no_show_n += 1
+	_say(leader(), text)
 
 
 func _start_countdown() -> void:
