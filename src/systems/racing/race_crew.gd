@@ -97,7 +97,9 @@ var _fc_hidden: Array = []            ## the HUD layers the finish cam hid
 var _hud: CanvasLayer
 var _hud_lap: Label
 var _hud_big: Label
+var _hud_hint: Label                 ## the smaller line under the big one (the crash-out's weld hint)
 var _hud_list: Label
+var _big_fit := ""                   ## what _hud_big was last fitted for (text, hint, window)
 var _big_left := 0.0
 var _count := 0
 var _count_left := 0.0
@@ -1686,6 +1688,7 @@ func _physics_process(dt: float) -> void:
 		_big_left -= dt
 		if _big_left <= 0.0 and _hud_big != null:
 			_hud_big.visible = false
+			_hud_hint.visible = false
 
 
 ## Speeder race lag: the crew and the crowd think by distance, on the town's own
@@ -1740,17 +1743,37 @@ func _build_hud() -> void:
 	_hud.layer = 5
 	add_child(_hud)
 	_hud_lap = _hud_label(28, Vector2(-260, 90), HORIZONTAL_ALIGNMENT_RIGHT)
-	_hud_big = _hud_label(84, Vector2(-200, -120), HORIZONTAL_ALIGNMENT_CENTER)
 	_hud_list = _hud_label(22, Vector2(-200, -40), HORIZONTAL_ALIGNMENT_CENTER)
+	# The countdown, GO and the crash-out: the window's width, centred, the big
+	# line on top and the hint under it. _big fits both to the window.
+	var col := VBoxContainer.new()
+	col.anchor_left = 0.0
+	col.anchor_right = 1.0
+	col.anchor_top = 0.5
+	col.anchor_bottom = 0.5
+	col.offset_left = BIG_MARGIN
+	col.offset_right = -BIG_MARGIN
+	col.offset_top = -120.0
+	col.grow_vertical = Control.GROW_DIRECTION_END
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud.add_child(col)
+	_hud_big = _hud_label(RetroUI.size("race_big", 84), Vector2.ZERO, HORIZONTAL_ALIGNMENT_CENTER, col)
+	_hud_hint = _hud_label(RetroUI.size("race_hint", 30), Vector2.ZERO, HORIZONTAL_ALIGNMENT_CENTER, col)
 
 
-func _hud_label(size: int, at: Vector2, align: HorizontalAlignment) -> Label:
+## In `col` (a container) it is laid out there; else it is placed at `at`.
+func _hud_label(size: int, at: Vector2, align: HorizontalAlignment, col: Container = null) -> Label:
 	var l := Label.new()
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", Color("#ffe6b0"))
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 6)
 	l.horizontal_alignment = align
+	l.visible = false
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if col != null:
+		col.add_child(l)
+		return l
 	l.size = Vector2(400, 200)
 	if align == HORIZONTAL_ALIGNMENT_RIGHT:
 		l.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -1758,17 +1781,29 @@ func _hud_label(size: int, at: Vector2, align: HorizontalAlignment) -> Label:
 	else:
 		l.set_anchors_preset(Control.PRESET_CENTER)
 		l.position = at
-	l.visible = false
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(l)
 	return l
 
 
-func _big(text: String, secs: float) -> void:
+const BIG_MARGIN := 40.0             ## px kept clear each side of the big race text
+
+
+## The big race line ("3", "GO!", "CRASHED!") and an optional smaller line under
+## it, for `secs`. Both shrink to fit the window, whatever the text size (F11 > HUD).
+func _big(text: String, secs: float, hint: String = "") -> void:
 	if _hud_big == null:
 		return
-	_hud_big.text = text
+	var room := _hud.get_viewport().get_visible_rect().size if _hud.is_inside_tree() else Vector2(1920, 1080)
+	var key := "%s|%s|%s" % [text, hint, room]
+	if key != _big_fit:
+		_big_fit = key
+		_hud_big.text = text
+		_hud_hint.text = hint
+		var w := room.x - BIG_MARGIN * 2.0
+		_hud_big.add_theme_font_size_override("font_size", RetroUI.fit_size(_hud_big, RetroUI.size("race_big", 84), Vector2(w, room.y * 0.35)))
+		_hud_hint.add_theme_font_size_override("font_size", RetroUI.fit_size(_hud_hint, RetroUI.size("race_hint", 30), Vector2(w, room.y * 0.15)))
 	_hud_big.visible = true
+	_hud_hint.visible = hint != ""
 	_big_left = secs
 
 
@@ -1789,7 +1824,7 @@ func _update_hud() -> void:
 	if _player_speeder != null and is_instance_valid(_player_speeder) and _player_speeder.repair_left > 0.0:
 		# Issue #722: hold E with a welder for full hull; without one it is half.
 		var hint := str(h.get("weld_hint" if Welder.owned() else "no_welder", ""))
-		_big("%s\n%d%s" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left), "\n" + hint if hint != "" else ""], 0.2)
+		_big("%s\n%d" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left)], 0.2, hint)
 
 
 func _show_results(order: Array) -> void:
