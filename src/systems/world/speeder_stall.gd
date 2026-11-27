@@ -165,6 +165,39 @@ const AWNING_TILT := 0.1              ## radians it slopes down toward the custo
 func _dress(loc: Dictionary) -> void:
 	var mats: LookMaterials = demo._flat_mats()
 	var look: LookEnvironment = demo.get("look") as LookEnvironment
+	var m := look_mats(mats, look)
+	var kit := TownBuildings.new(mats, look)
+	kit._xf = xf
+	for b in loc.get("buildings", []):
+		var s := WorldGround._v3(b.get("size", [1, 1, 1]))
+		var p := WorldGround._v3(b.get("position", [0, 0, 0]))
+		match str(b.get("id", "")):
+			"counter":
+				dress_counter(kit, m, p, s, _sand_floor(p, s))
+			"rack":
+				_dress_rack(kit, m, p, s)
+			"back_wall":
+				scrap_wall(kit, m, p, s, Vector3.BACK, Vector3.LEFT, 911, _sand_floor(p, s))
+				neon_gear(kit, m, p + Vector3(s.x * 0.5 + 0.02, 2.25, 0.15))
+			"side_wall":
+				scrap_wall(kit, m, p, s, Vector3.RIGHT, Vector3.FORWARD, 912, _sand_floor(p, s))
+				_dress_side_wall_bits(kit, m, p, s)
+	_dress_awning(kit, m)
+	_dress_yard(kit, m)
+	_dress_bay(kit, m)
+	var parts := Node3D.new()
+	parts.name = "StallLook"
+	add_child(parts)
+	kit.flush_merged(parts, xf)
+	# A real lamp over the counter, like Dorrin's and Skrugs's.
+	HangingLamp.build(self, xf, Vector3(0.2, 2.3, 0.0), mats, look, "CounterLamp", 3.2, 6.0, 0.7, 0.45)
+
+
+## The stall's materials by name, from content/look/speeder_stall.json (Dorrin's
+## yard colours: MechanicYard dresses with the same set). Every metal is the
+## favela's painted metal, the wood the market's planks, the awning its canvas;
+## "scrap" is a list of sheet colours, the glows are shared and on the lamp clock.
+static func look_mats(mats: LookMaterials, look: LookEnvironment) -> Dictionary:
 	var col: Dictionary = ItemKit._read_json(LOOK_PATH)
 	var c := func(k: String) -> Color: return Color(str(col.get(k, "#808080")))
 	var m := {
@@ -183,34 +216,10 @@ func _dress(loc: Dictionary) -> void:
 		"screen": _glow(mats, look, "screen", c.call("screen")),
 	}
 	var scrap: Array = []
-	for s in col.get("scrap", ["#55606a"]):
-		scrap.append(mats.painted(Color(str(s)), 0.75, 0.35))
+	for sc in col.get("scrap", ["#55606a"]):
+		scrap.append(mats.painted(Color(str(sc)), 0.75, 0.35))
 	m["scrap"] = scrap
-	var kit := TownBuildings.new(mats, look)
-	kit._xf = xf
-	for b in loc.get("buildings", []):
-		var s := WorldGround._v3(b.get("size", [1, 1, 1]))
-		var p := WorldGround._v3(b.get("position", [0, 0, 0]))
-		match str(b.get("id", "")):
-			"counter":
-				_dress_counter(kit, m, p, s)
-			"rack":
-				_dress_rack(kit, m, p, s)
-			"back_wall":
-				_dress_wall(kit, m, p, s, Vector3.BACK, 911)
-				_dress_neon(kit, m, p + Vector3(s.x * 0.5 + 0.02, 2.25, 0.15))
-			"side_wall":
-				_dress_wall(kit, m, p, s, Vector3.RIGHT, 912)
-				_dress_side_wall_bits(kit, m, p, s)
-	_dress_awning(kit, m)
-	_dress_yard(kit, m)
-	_dress_bay(kit, m)
-	var parts := Node3D.new()
-	parts.name = "StallLook"
-	add_child(parts)
-	kit.flush_merged(parts, xf)
-	# A real lamp over the counter, like Dorrin's and Skrugs's.
-	HangingLamp.build(self, xf, Vector3(0.2, 2.3, 0.0), mats, look, "CounterLamp", 3.2, 6.0, 0.7, 0.45)
+	return m
 
 
 ## A glow shared by every stall (one a LookMaterials and kind), on the lamp clock.
@@ -228,10 +237,10 @@ static func _awning_y(x: float) -> float:
 
 
 ## The steel counter down to the sand, angle-iron corners, patch plates and a
-## chevron kick band on the customer's side, and on its rusty top a toolbox, a
-## vice, a tray of nuts, a thruster nozzle he is working on and a diagnostic screen.
-func _dress_counter(kit: TownBuildings, m: Dictionary, p: Vector3, s: Vector3) -> void:
-	var cb := _sand_floor(p, s)
+## chevron kick band on the customer's side (+x), and on its rusty top a toolbox,
+## a vice, a tray of nuts, a thruster nozzle he is working on and a diagnostic
+## screen. `cb`: where its body starts (the sand under it). Dorrin's counter too.
+static func dress_counter(kit: TownBuildings, m: Dictionary, p: Vector3, s: Vector3, cb: float) -> void:
 	var h := s.y - cb
 	var mid := p + Vector3(0, (s.y + cb) * 0.5, 0)
 	var top := s.y + 0.06
@@ -325,47 +334,52 @@ func _dress_rack(kit: TownBuildings, m: Dictionary, p: Vector3, s: Vector3) -> v
 
 
 ## A wall of scrap sheets (the favela's painted metal, a few colours) over the
-## building box `p`, `s`, laid along `along` (BACK: the back wall across z, RIGHT:
-## the side wall across x): overlapping, each its own height and a little out of
-## true, battens across the outside and a patch or two riveted on.
-func _dress_wall(kit: TownBuildings, m: Dictionary, p: Vector3, s: Vector3, along: Vector3, seed_value: int) -> void:
+## building box `p`, `s`, laid along `along` (BACK: across z, RIGHT: across x),
+## its outside toward `out`: overlapping sheets, each its own height (up to
+## `ragged` short of the top) and a little out of true, battens across the outside
+## every 1.4 m, patches riveted on, and one inside up high. `lo`: where the sheets
+## start (the sand under them). Dorrin's garage walls are the same, ragged 0.
+static func scrap_wall(kit: TownBuildings, m: Dictionary, p: Vector3, s: Vector3, along: Vector3, out: Vector3,
+		seed_value: int, lo: float, ragged: float = 0.35) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var scrap: Array = m.scrap
-	var length := s.z if along == Vector3.BACK else s.x
-	var thick := s.x if along == Vector3.BACK else s.z
-	var out := Vector3.LEFT if along == Vector3.BACK else Vector3.FORWARD      # the outside, away from him
-	var n := 3 if length < 3.0 else 4
+	var x_wall := along == Vector3.BACK
+	var length := s.z if x_wall else s.x
+	var thick := s.x if x_wall else s.z
+	var sheet := thick * 0.5 if thick < 0.2 else thick - 0.04
+	var n := 3 if length < 3.0 else maxi(4, ceili(length / 1.3))
 	var w := length / n
-	var lo := _sand_floor(p, s)
 	for k in n:
-		var hgt := s.y - rng.randf_range(0.0, 0.35)
+		var hgt := s.y - rng.randf_range(0.0, ragged)
 		var at := p + along * (-length * 0.5 + w * (k + 0.5)) + out * (0.012 if k % 2 else -0.012)
 		at.y = (hgt + lo) * 0.5
-		var size := Vector3(thick * 0.5, hgt - lo, w + 0.08) if along == Vector3.BACK else Vector3(w + 0.08, hgt - lo, thick * 0.5)
-		var lean := Basis(along, rng.randf_range(-0.02, 0.02))
+		var size := Vector3(sheet, hgt - lo, w + 0.08) if x_wall else Vector3(w + 0.08, hgt - lo, sheet)
+		var lean := Basis(along, rng.randf_range(-1.0, 1.0) * (0.004 + ragged * 0.045))
 		kit.part(kit.box(size.x, size.y, size.z), scrap[(k + seed_value) % scrap.size()], at, lean)
-	# Battens across the outside, and patches.
-	for y in [0.55, 1.95]:
-		var bat := Vector3(0.05, 0.07, length) if along == Vector3.BACK else Vector3(length, 0.07, 0.05)
-		kit.part(kit.box(bat.x, bat.y, bat.z), m.dark, p + out * (thick * 0.5 + 0.03) + Vector3(0, y, 0))
-	for k in 2:
+	var face := thick * 0.5
+	var y := 0.55
+	while y < s.y - 0.3:
+		var bat := Vector3(0.05, 0.07, length) if x_wall else Vector3(length, 0.07, 0.05)
+		kit.part(kit.box(bat.x, bat.y, bat.z), m.dark, p + out * (face + 0.03) + Vector3(0, y, 0))
+		y += 1.4
+	for k in maxi(2, n / 2):
 		var pw := rng.randf_range(0.4, 0.65)
 		var ph := rng.randf_range(0.35, 0.55)
-		var off := along * rng.randf_range(-length * 0.35, length * 0.35)
-		var py := rng.randf_range(0.8, 1.6)
-		var ps := Vector3(0.02, ph, pw) if along == Vector3.BACK else Vector3(pw, ph, 0.02)
+		var off := along * rng.randf_range(-length * 0.4, length * 0.4)
+		var py := rng.randf_range(0.8, maxf(1.6, s.y - 1.0))
+		var ps := Vector3(0.02, ph, pw) if x_wall else Vector3(pw, ph, 0.02)
 		kit.part(kit.box(ps.x, ps.y, ps.z), scrap[(k + 2 + seed_value) % scrap.size()],
-			p + off + out * (thick * 0.5 + 0.02) + Vector3(0, py, 0), Basis(out, rng.randf_range(-0.12, 0.12)))
-	# One more patch on the inside, high up where it shows over the rack.
-	var ins := Vector3(0.02, 0.4, 0.7) if along == Vector3.BACK else Vector3(0.7, 0.4, 0.02)
+			p + off + out * (face + 0.02) + Vector3(0, py, 0), Basis(out, rng.randf_range(-0.12, 0.12)))
+	var ins := Vector3(0.02, 0.4, 0.7) if x_wall else Vector3(0.7, 0.4, 0.02)
 	kit.part(kit.box(ins.x, ins.y, ins.z), scrap[(seed_value + 1) % scrap.size()],
-		p - out * (thick * 0.5 + 0.015) + along * (length * 0.28) + Vector3(0, 2.05, 0), Basis(out, 0.08))
+		p - out * (face + 0.015) + along * (length * 0.28) + Vector3(0, minf(2.05, s.y - 0.5), 0), Basis(out, 0.08))
 
 
 ## The neon over the rack on the back wall, facing him and the customer: a gear
-## (a ring and eight teeth) with a wrench across it, on the favela's neon.
-func _dress_neon(kit: TownBuildings, m: Dictionary, at: Vector3) -> void:
+## (a ring and eight teeth) with a wrench across it, on the favela's neon, facing
+## +x. Dorrin's garage has one too.
+static func neon_gear(kit: TownBuildings, m: Dictionary, at: Vector3) -> void:
 	var face := Basis(Vector3.BACK, PI * 0.5)        # a torus's axis is y: turned to x
 	kit.part(kit.box(0.02, 0.62, 0.62), m.dark, at + Vector3(-0.01, 0, 0))
 	kit.part(_torus(0.15, 0.19), m.neon, at + Vector3(0.01, 0, 0), face)
