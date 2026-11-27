@@ -1,0 +1,15 @@
+{
+  "id": "refinery",
+  "note": "The quantonium refinery at every Remnant outpost (the port's, the moon's and the lava moon's): its look. Read by src/systems/world/quantonium_refinery.gd. Each outpost has a 'globe' and a 'core' side by side (content/core/story/territory.json outposts.refinery 'units' names the style of each); 'style' here is only the fallback for a unit with none. The shapes: 'globe' (a storage sphere on eight legs, a glowing conduit up its middle), 'silo' (a tall domed tank and two small ones, glowing sight glasses up their sides, a flare stack) or 'core' (a glowing column in a steel cage between two tanks lying on cradles). Each is built from boxes, cylinders, spheres and rings merged by material (PrimBatch): the outpost's own hull wall, steel, black, its faction mark (repainted with the outpost) and the quantonium glow, about five draw calls, nothing read back from the GPU and no new shader. 'glow' is the quantonium's colour (the flask's amber, content/look/items.json quantonium_flask), 'glow_energy' how bright it burns and 'pulse' how far and how fast it breathes (one shared material for every refinery). 'light' is one amber lamp, no shadow, fading out from the outdoor rule's light distance. 'scale' grows or shrinks the whole thing. 'blast_sizes': the fireballs when it goes up, one after another 'blast_gap_s' apart (ExplosionFx.big; a ship is 1.0).",
+  "style": "globe",
+  "scale": 1.0,
+  "steel": "#5d6168",
+  "black": "#141416",
+  "glow": "#ffb347",
+  "glow_energy": 2.4,
+  "pulse": { "depth": 0.35, "hz": 0.6 },
+  "light": { "color": "#ffaa44", "energy": 2.2, "range": 16.0 },
+  "blast_sizes": [2.0, 2.6, 3.4],
+  "blast_gap_s": 0.32,
+  "smoke": { "size": 2.2, "amount": 14, "life": 6.0 }
+}

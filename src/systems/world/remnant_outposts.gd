@@ -42,6 +42,12 @@ extends Node3D
 ## ranchers, in the locals' garrison there). They change hands with the outpost
 ## and count toward taking it (or losing it).
 ##
+## Each outpost keeps two quantonium refineries behind it (QuantoniumRefinery): a
+## globe tank and a reactor column, glowing, that go up like ships when shot enough
+## (one sets off the other), hurting everyone round them, guards and you included,
+## and are built again with the outpost (a swap, or the outposts' respawn time,
+## out of sight).
+##
 ## The moon has outposts of its own (Territory's "moon" front, landmarks in its
 ## planet file): the same building, people and rules, on the moon's ball.
 ##
@@ -213,6 +219,7 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 		var parts: Array = [_build_room.bind(o), _build_nav.bind(o), _build_props.bind(o)]
 		if demo.use_look:
 			parts.append(_dress.bind(o))
+		parts.append(_build_refinery.bind(o))   # after the look: it wears the outpost's wall and mark
 		parts.append(_park_ship.bind(o))
 		parts.append(_build_ground.bind(o))   # issue #693: its heights come from a worker, so after the rest; before the people
 		if o.side == Territory.LOCALS:
@@ -429,13 +436,18 @@ static func ready_to_swap(waited: float, away: float) -> bool:
 
 ## Outpost `o` is in the camera's view and not hidden over the planet's curve.
 func _on_screen(o: Dictionary) -> bool:
+	return _seen(o.origin, o.origin + _up_at(o.origin) * 6.0)
+
+
+## A thing standing at `at` with its top at `top` is in the camera's view and not
+## hidden over the planet's curve.
+func _seen(at: Vector3, top: Vector3) -> bool:
 	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if cam == null:
 		return false
-	var top: Vector3 = o.origin + _up_at(o.origin) * 6.0
-	if not cam.is_position_in_frustum(top):
+	if not cam.is_position_in_frustum(top) and not cam.is_position_in_frustum(at):
 		return false
-	return demo == null or not demo.has_method("could_see") or demo.could_see(o.origin)
+	return demo == null or not demo.has_method("could_see") or demo.could_see(at)
 
 
 ## Up at `at`: away from the planet's centre on a ball, else +Y.
@@ -462,6 +474,8 @@ func swap(o: Dictionary, side: String, restock := false) -> void:
 	o.wait = 0.0
 	o.cleared = false
 	o.restock = false
+	for ref in refineries(o):
+		ref.rebuild()                          # the outpost's respawn brings its refineries back
 	if not restock:
 		swaps += 1
 	if demo.use_look:
@@ -551,6 +565,7 @@ func _physics_process(dt: float) -> void:
 	if p == null:
 		return
 	_tick_control(dt, p)
+	_tick_refineries(p)
 	_tick_hack(dt, p)
 	_tick_wave(p)
 	for g in guards + held_by + ([target] if target != null else []):
@@ -663,6 +678,11 @@ func _build_nav(o: Dictionary) -> void:
 			Vector3(pos.x - size.x * 0.5, 0.0, pos.z + size.z * 0.5),
 		])
 		obstructions.append({ "outline": outline, "bottom": pos.y, "height": size.y + 1.0 })
+	var rr := QuantoniumRefinery.footprint()
+	for u in refinery_units(o):           # the refineries' plinths
+		var rs: Vector3 = u.at
+		obstructions.append({ "outline": PackedVector3Array([rs + Vector3(-rr, 0, -rr), rs + Vector3(rr, 0, -rr),
+			rs + Vector3(rr, 0, rr), rs + Vector3(-rr, 0, rr)]), "bottom": 0.0, "height": 20.0 })
 	for pr in props(o):
 		var r: float = pr.radius
 		var at: Vector3 = pr.at
@@ -758,6 +778,61 @@ func _exit_tree() -> void:
 	_heights.clear()
 
 
+# ------------------------------------------------------------------ the refinery
+
+## Outpost `o`'s refineries: [{ style, at (its frame, on y = 0) }], territory.json
+## outposts.refinery "units", each moved by the location's "refinery_<style>" point.
+func refinery_units(o: Dictionary) -> Array:
+	var pts: Dictionary = o.cfg.get("points", {})
+	var out: Array = []
+	for u in QuantoniumRefinery.game_cfg().get("units", [{ "style": "globe", "at": [-8, 0, -17] }]):
+		var st := str(u.get("style", "globe"))
+		var v := WorldGround._v3(pts.get("refinery_" + st, u.get("at", [0, 0, 0])))
+		out.append({ "style": st, "at": Vector3(v.x, 0.0, v.z) })
+	return out
+
+
+## The refineries (QuantoniumRefinery): their hit bodies always, their looks when
+## the town is dressed, each on the sand at its own spot (not level with each other),
+## upright in the outpost's frame, each other's partners (one going up sets off the rest).
+func _build_refinery(o: Dictionary) -> void:
+	var r := QuantoniumRefinery.footprint()
+	var made: Array = []
+	for u in refinery_units(o):
+		var at := world_point(o, u.at)
+		var local := (o.xf as Transform3D).affine_inverse() * at
+		var ref := QuantoniumRefinery.new()
+		ref.name = "Refinery_%s_%s" % [o.id, u.style]
+		ref.label = str(o.label)
+		ref.host = demo
+		add_child(ref)
+		ref.global_transform = Transform3D((o.xf as Transform3D).basis, at)
+		ref.build(str(u.style), demo._flat_mats() if demo.use_look else null,
+			o.get("wall", null), o.get("red", null), _sink(o, local, r, r), "%s/%s" % [o.id, u.style])
+		made.append(ref)
+	for ref in made:
+		ref.partners = made.filter(func(x): return x != ref)
+	if not made.is_empty():
+		made[0].blown.connect(func(): _toast(Territory.line("refinery_blown") % o.label))   # said once for the pair
+	o["refineries"] = made
+
+
+## The live refineries at outpost `o`.
+func refineries(o: Dictionary) -> Array:
+	return (o.get("refineries", []) as Array).filter(func(x): return is_instance_valid(x))
+
+
+## A blown refinery is built again once the outposts' respawn time has passed,
+## out of sight: you well away and it off your screen.
+func _tick_refineries(p: Node3D) -> void:
+	var away_m := float(QuantoniumRefinery.game_cfg().get("back_away_m", 120.0))
+	for o in outposts:
+		for ref in refineries(o):
+			if not ref.due() or p.global_position.distance_to(o.origin) < away_m or _seen(ref.global_position, ref.top()):
+				continue
+			ref.rebuild()
+
+
 # ------------------------------------------------------------------ the look
 
 ## Issue #76: cleaner and more metallic, same footprint. Panelled dark metal walls
@@ -777,6 +852,8 @@ func _dress(o: Dictionary) -> void:
 	var steel := mats.flat(Color("#5d6168"), 0.35, 0.75)
 	var grille := mats.flat(Color("#0c0c0e"), 0.7, 0.5)
 	var lamp := mats.faction_glow("lamp", str(o.id))
+	o["wall"] = wall                      # the refinery wears them too
+	o["red"] = red
 	var look: Dictionary = o.cfg.get("look", {})
 	for b in o.cfg.get("buildings", []):
 		var s := WorldGround._v3(b.get("size", [1, 1, 1]))
