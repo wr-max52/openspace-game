@@ -22,6 +22,11 @@ extends CanvasLayer
 ## lit, and Enter presses it. Buttons sit in a fixed-width column, so a row that
 ## gains or loses its second button does not change the menu's size, and a menu
 ## reopened with keep_cursor keeps its height.
+##
+## A row marked "heading" (with an optional "icon", a white silhouette) starts a
+## section: its icon and name in amber over a thin rule, like the inventory's
+## headings. A row marked "note" is a dim line of text ("The droid is empty.").
+## Neither can be picked: the cursor steps over them.
 
 const INK := Color(0.95, 0.92, 0.85, 0.95)
 const AMBER := Color("#e0a050")
@@ -33,6 +38,7 @@ const BTN_W := 100.0               ## one button; a row's buttons always take tw
 const BTN_GAP := 4.0
 const BTN_COL := BTN_W * 2.0 + BTN_GAP
 const LINE_GAP := 6.0
+const HEAD_ICON := Vector2(22, 22)   ## a section heading's icon
 const HINT := "[W/S]  Move    [Enter]  Choose    [Esc]  Walk away"
 const HINT_ALT := "[W/S]  Move    [Enter]  Choose    [Shift+Enter]  %s    [Esc]  Walk away"
 const HINT_BUTTONS := "[W/S]  Move    [A/D]  Button    [Enter]  Choose    [Esc]  Walk away"
@@ -48,7 +54,8 @@ var on_pick: Callable             ## (id: String) -> void; "" = walked away
 var rows: Array = []              ## the text of each row, for tests
 var selected := 0                 ## the row under the cursor
 var button := 0                   ## the button under the cursor in that row (kept when moving rows)
-var _rows: Array = []             ## [{ box: PanelContainer, key: Label, text: Label, buttons: [Button] }]
+var _rows: Array = []             ## [{ box: PanelContainer, key: Label, text: Label, buttons: [Button], fixed: bool }]
+static var _icons: Dictionary = {}  ## heading icon path -> Texture2D (null when it does not load)
 var _keep_h := 0.0                ## reopened with keep_cursor: the list keeps this height
 var _cursor_box: StyleBoxFlat
 var _row_box: StyleBoxEmpty
@@ -138,6 +145,7 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 				at = i
 				break
 	selected = at if at >= 0 else (clampi(selected, 0, maxi(options.size() - 1, 0)) if keep_cursor else first_job())
+	selected = _pickable_near(selected)
 	if not keep_cursor:
 		button = 0
 	_keep_h = scroll.custom_minimum_size.y if keep_cursor and scroll != null else 0.0
@@ -153,6 +161,12 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 		c.free()
 	_rows.clear()
 	for i in options.size():
+		if bool(options[i].get("heading", false)):
+			_heading_row(options[i])
+			continue
+		if bool(options[i].get("note", false)):
+			_note_row(options[i])
+			continue
 		var box := PanelContainer.new()
 		box.set_meta("retro_off", true)     # the cursor bar is ours, not RetroSkin's glass
 		var line := HBoxContainer.new()
@@ -190,7 +204,7 @@ func open(title: String, opts: Array, pick: Callable, body: String = "", keep_cu
 				col.add_child(btn)
 				btns.append(btn)
 		list.add_child(box)
-		_rows.append({ "box": box, "key": key, "text": text, "buttons": btns })
+		_rows.append({ "box": box, "key": key, "text": text, "buttons": btns, "fixed": false })
 	_fit()
 	_show_cursor()
 	panel.visible = true
@@ -253,12 +267,94 @@ func picked_id() -> String:
 	return str(_buttons_of(selected)[b].id) if b >= 0 else str(options[selected].id)
 
 
-## The first row marked "job", or 0 when there is none.
+## The first row marked "job", else the first row that can be picked.
 func first_job() -> int:
 	for i in options.size():
 		if bool(options[i].get("job", false)):
 			return i
-	return 0
+	return _pickable_near(0)
+
+
+## Row `i` can be picked: not a heading or a note.
+func pickable(i: int) -> bool:
+	return i >= 0 and i < options.size() and not bool(options[i].get("heading", false)) \
+		and not bool(options[i].get("note", false))
+
+
+## Row `i` if it can be picked, else the next one down that can, else the next one
+## up (`i` itself when none can).
+func _pickable_near(i: int) -> int:
+	for j in range(i, options.size()):
+		if pickable(j):
+			return j
+	for j in range(mini(i, options.size()) - 1, -1, -1):
+		if pickable(j):
+			return j
+	return i
+
+
+## A section heading: its icon and name in amber over a thin rule.
+func _heading_row(o: Dictionary) -> void:
+	var box := PanelContainer.new()
+	box.set_meta("retro_off", true)
+	box.add_theme_stylebox_override("panel", _row_box)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	box.add_child(v)
+	if list.get_child_count() > 0:
+		var gap := Control.new()     # air above every heading but the first
+		gap.custom_minimum_size.y = 8
+		v.add_child(gap)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", int(LINE_GAP) + 2)
+	v.add_child(line)
+	var path := str(o.get("icon", ""))
+	if path != "":
+		if not _icons.has(path):
+			_icons[path] = load(path) if ResourceLoader.exists(path) else null
+		var r := TextureRect.new()
+		r.custom_minimum_size = HEAD_ICON
+		r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		r.texture = _icons[path]
+		r.modulate = AMBER
+		line.add_child(r)
+	var text := _row_label(str(o.text))
+	text.add_theme_font_size_override("font_size", 17)
+	text.add_theme_color_override("font_color", AMBER)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.add_child(text)
+	var rule := ColorRect.new()
+	rule.color = Color(AMBER, 0.35)
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(rule)
+	list.add_child(box)
+	_rows.append({ "box": box, "key": null, "text": text, "buttons": [], "fixed": true,
+		"text_w": HEAD_ICON.x + LINE_GAP + 2.0 if path != "" else 0.0 })
+
+
+## A dim line of text in a section ("The droid is empty."), in line with the rows' names.
+func _note_row(o: Dictionary) -> void:
+	var box := PanelContainer.new()
+	box.set_meta("retro_off", true)
+	box.add_theme_stylebox_override("panel", _row_box)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", int(LINE_GAP))
+	box.add_child(line)
+	var pad := Control.new()
+	pad.custom_minimum_size.x = MARK_W
+	line.add_child(pad)
+	var text := _row_label(str(o.text))
+	text.add_theme_color_override("font_color", Color(INK, 0.5))
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(text)
+	list.add_child(box)
+	_rows.append({ "box": box, "key": null, "text": text, "buttons": [], "fixed": true,
+		"text_w": MARK_W + LINE_GAP })
 
 
 func _row_label(t: String) -> Label:
@@ -284,7 +380,9 @@ func _fit() -> void:
 	for r in _rows:
 		wraps.append(r.text)
 		var tw := inner - 16.0 - MARK_W - LINE_GAP     # less the scroll bar, the cursor mark, the gap
-		if not (r.buttons as Array).is_empty():
+		if bool(r.fixed):
+			tw = inner - 16.0 - float(r.text_w)        # a heading's icon, a note's indent
+		elif not (r.buttons as Array).is_empty():
 			tw -= BTN_COL + LINE_GAP                   # and the button column
 		widths.append(tw)
 	for i in wraps.size():
@@ -304,11 +402,16 @@ func _fit() -> void:
 	panel.offset_bottom = ph * 0.5
 
 
-## Move the cursor by `step` rows (wraps round).
+## Move the cursor by `step` rows (wraps round), over headings and notes.
 func move(step: int) -> void:
 	if options.is_empty():
 		return
-	selected = posmod(selected + step, options.size())
+	var at := selected
+	for _i in options.size():
+		at = posmod(at + step, options.size())
+		if pickable(at):
+			selected = at
+			break
 	_show_cursor()
 
 
@@ -337,6 +440,8 @@ func _show_cursor() -> void:
 	_cursor_box.border_color = RetroUI.accent
 	var lit := button_at()
 	for i in _rows.size():
+		if bool(_rows[i].fixed):
+			continue
 		var on := i == selected
 		_rows[i].box.add_theme_stylebox_override("panel", _cursor_box if on else _row_box)
 		_rows[i].key.text = ">" if on else ""
@@ -367,19 +472,23 @@ func _style_button(b: Button, on: bool) -> void:
 
 
 ## Once the list has been laid out (the rows' places are known), bring the cursor
-## row into view.
+## row into view, and the heading just over it, so the first row of a section
+## does not scroll up without its name.
 func _scroll_to_cursor() -> void:
 	if not is_inside_tree():
 		return
 	await get_tree().process_frame
 	if scroll != null and selected < _rows.size() and is_instance_valid(_rows[selected].box):
+		var up := selected - 1
+		if up >= 0 and bool(_rows[up].fixed) and is_instance_valid(_rows[up].box):
+			scroll.ensure_control_visible(_rows[up].box)
 		scroll.ensure_control_visible(_rows[selected].box)
 
 
 ## Pick an option by id ("" = walk away). The same path the keys use.
 func choose(id: String) -> void:
 	for i in options.size():
-		if str(options[i].id) == id:
+		if pickable(i) and str(options[i].id) == id:
 			selected = i
 			break
 	if panel != null:
@@ -414,7 +523,7 @@ func _input(event: InputEvent) -> void:
 	if k == KEY_ESCAPE:
 		choose("")
 		get_viewport().set_input_as_handled()
-	elif k in [KEY_ENTER, KEY_KP_ENTER] and selected < options.size():
+	elif k in [KEY_ENTER, KEY_KP_ENTER] and pickable(selected):
 		var alt := str(options[selected].get("alt", ""))
 		choose(alt if event.shift_pressed and alt != "" else picked_id())
 		get_viewport().set_input_as_handled()
