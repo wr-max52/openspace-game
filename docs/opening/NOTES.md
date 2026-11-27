@@ -1,4 +1,53 @@
-# Opening cutscene: notes after the first rough cut (2026-11-27)
+# Opening cutscene
+
+## v2: the one-minute cut (in progress)
+
+> "start making the much better version of this cutscene with all the improvements. it should be exceptional and basically demo the world and show the depth we have here." (the user)
+
+The crashing ship ties it together; the captions tell who the Remnant are (the
+lore is the cards': the Hegemony ruled this planet for fifty years, its centre has
+collapsed, what is left of its army holds the port and the desert). About 66 s.
+
+| # | Time | Shot | Caption / line |
+|---|---|---|---|
+| 1 | 10 s | Space, one move: the stars, a tilt down onto the lit planet with the Remnant's star cruiser hanging over it, a slow push in; the ship streaks in past the camera, over the cruiser, down at the planet. | "For fifty years the Hegemony ruled this world." / "Now its heart has fallen." |
+| 2 | 4 s | Low on the sand under the buried star cruiser wreck; the camera cranes up the hull as the ship streaks over, smoking. | "Its fleets lie broken in the sand." |
+| 3 | 4 s | A Red Wind nomad (no flag) walks out of camp toward the camera, stops, looks up; the camera tilts up with his look to the ship. | |
+| 4 | 2.5 s | His view: a slow long-lens push on the ship (no shake). | |
+| 5 | 3 s | The party barge on the dunes, the party on its decks; the ship passes over. | |
+| 6 | 5 s | Wide on the Remnant outpost and its quantonium refinery, pushing in to the gate: the trooper turns a local back, then shoots him. Ship far behind. | "What is left of its army still holds the desert." / "Halt! Back in the dirt, sand rat." |
+| 7 | 6 s | The Basin Run: the beast crawls across the racing line, the racers' outpost behind it. The race passes the camera and swings round in front of its head (never through it); the last racer's seeker blows up the leader. Ship in the sky. | |
+| 8 | 4 s | Gliding over the Remnant cruiser's hull to the bridge tower, the planet below. | "They call themselves the Remnant." |
+| 9 | 3 s | On the bridge: close on the holo of the homeworld, pulling back to the general at the window. | |
+| 10 | 6 s | Close on the general, the holo over his left shoulder; the guard walks up. He turns to camera for his line. | "Sir, a ship has just entered orbit. They are landing at the port." / "And who do we have here?" |
+| 11 | 1 s | On the bar counter: Oda sets a drink down. | |
+| 12 | 3 s | End of the bar, patrons one side, Oda the other. | "Dust ale. That'll be four credits." |
+| 13 | 2.5 s | Backing out of the club through its door; the ship over the roofs. | |
+| 14 | 2 s | The general and two gate guards walk the main street toward the pit; camera in front. | |
+| 15 | 2 s | The same walk from behind and above. | |
+| 16 | 4.5 s | The pit: T-89 welding the frigate in the left foreground; the general and guards come down the ramp; T-89 turns to them, then up at the ship coming in. | |
+| 17 | 3.5 s | Fade to the OPENSPACE title card, then the existing landing. | |
+
+What changed from the rough cut, against the notes below:
+- **No shake:** a fixed 60 Hz step (`--fixed-fps 60`); every camera is a keyframed
+  Hermite path, eased at both ends; follows are damped points, never a body.
+- **The ship in every exterior:** its own straight track per shot, placed from that
+  shot's framing so it always reads in the sky (not the bridge or cantina).
+- **The beast:** the race passes in front of its head while its body trails off
+  the other side; the probe logs the closest pass (7.5 m at worst).
+- **The cantina crowd:** every body gets its own animation clock (probe only for
+  now; the game has the same unison idles, worth a fix of its own).
+- **Exposition:** captions drawn in the shot (AnonymousPro, lower third), and the
+  cruiser, the wreck, the outposts, the barge and the race all on screen.
+- The cruiser's hull is moved for the exterior shots (1, 8) to hang over the sunlit
+  side; its real orbit is over the night side at golden hour.
+
+Tools: `tools/opening/pass.sh "shot:t,t ..."` (stills), `sheet.sh` (contact
+sheets), `clip.sh <shots>` (720p30 clips), `assemble.sh` (the cut, with Ambient 2).
+
+# Notes after the first rough cut
+
+(2026-11-27)
 
 The rough cut is `test_results/cine/rough_cut.mp4` (47 s, 720p30, Ambient 2 only:
 no sound effects, voices or subtitles). It was filmed in-engine with

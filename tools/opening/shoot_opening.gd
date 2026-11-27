@@ -1,17 +1,36 @@
 extends Node
-## Throwaway probe (test_results/, not in the repo): the opening cutscene's shots.
-## `-- shot=N [still=T]`: films shot N into test_results/cine/sN/, one game step per
-## saved frame at 60 fps; still=T saves only the frame T seconds in (stills pass).
-## Every shot runs PRE seconds of game steps first (smoke trails, walks settle).
+## The opening cutscene's shots, filmed in-engine (v2: the one-minute cut).
+## `-- shot=N [still=T] [fps=30] [res=720]`: films shot N into test_results/cine2/sN/,
+## one fixed 1/60 s game step per frame (run Godot with --fixed-fps 60, see clip.sh);
+## still=T saves only the frame T seconds in. Every shot runs PRE seconds of game
+## first (smoke trails, walks and crowds settle).
+##
+## Smooth by construction: every camera is a keyframed path (Hermite, eased at its
+## ends), never glued to a body; where it must follow someone it follows a damped
+## point. The crashing ship flies its own straight track across each exterior shot,
+## placed from that shot's framing, so it always reads in the sky.
 
 const BOOT := 420
 const STEP := 4
 const PRE := 2.0
-const OUT := "res://test_results/cine/s%d/%s.png"
-const LINE_TROOPER := "Halt! Back in the dirt, sand rat."
+const OUT := "res://test_results/cine2/s%d/%s.png"
+const FONT := "res://assets/fonts/AnonymousPro-Bold.ttf"
 
-const SECS := { 1: 3.0, 2: 2.0, 3: 3.0, 4: 2.0, 5: 2.0, 6: 3.0, 7: 5.0, 8: 3.0, 9: 6.0,
-	10: 1.0, 11: 3.0, 12: 2.5, 13: 2.0, 14: 2.0, 15: 4.0 }
+const SECS := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 2.5, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
+	10: 6.0, 11: 1.0, 12: 3.0, 13: 2.5, 14: 2.0, 15: 2.0, 16: 4.5 }
+
+## Lines on screen: [from, to, text]. Story captions (exposition) and dialogue
+## subtitles; the voices come with the sound pass.
+const CAPTIONS := {
+	1: [[1.2, 4.4, "For fifty years the Hegemony ruled this world."], [5.4, 8.8, "Now its heart has fallen."]],
+	2: [[0.4, 3.6, "Its fleets lie broken in the sand."]],
+	6: [[0.2, 1.7, "What is left of its army still holds the desert."],
+		[1.9, 3.6, "\"Halt! Back in the dirt, sand rat.\""]],
+	8: [[0.5, 3.6, "They call themselves the Remnant."]],
+	10: [[0.3, 3.4, "\"Sir, a ship has just entered orbit. They are landing at the port.\""],
+		[3.9, 5.9, "\"And who do we have here?\""]],
+	12: [[0.5, 2.8, "\"Dust ale. That'll be four credits.\""]],
+}
 
 var shot := 0
 var still := -1.0
@@ -20,6 +39,7 @@ var demo
 var sv: SubViewport
 var cam: Camera3D
 var rcam: Camera3D              ## the root viewport's camera, kept on ours (culling, fog, sky read it)
+var caption: Label
 var n := 0
 var fi := -1
 var lead := 0
@@ -36,6 +56,8 @@ var v: Dictionary = {}          ## per-shot scratch
 var sp                          ## PlanetSphere
 var pilot
 var ship: Node3D                ## the player's ship look, placed by hand
+var keys: Array = []            ## this shot's camera: [t, eye, target, fov]
+var up := Vector3.UP            ## this shot's camera up
 
 
 func _ready() -> void:
@@ -49,8 +71,8 @@ func _ready() -> void:
 		elif a.begins_with("res="):
 			res_h = int(a.substr(4))
 	secs = SECS.get(shot, 3.0)
-	_log = FileAccess.open("res://test_results/cine/log_s%d.txt" % shot, FileAccess.WRITE)
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_results/cine/s%d" % shot))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_results/cine2/s%d" % shot))
+	_log = FileAccess.open("res://test_results/cine2/log_s%d.txt" % shot, FileAccess.WRITE)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var gf = load("res://src/systems/flow/game_flow.gd")
 	gf.resumed = true
@@ -66,6 +88,7 @@ func _ready() -> void:
 	sv.size = Vector2i(res_h * 16 / 9, res_h)
 	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	sv.msaa_3d = Viewport.MSAA_4X
+	sv.use_taa = false
 	sv.use_debanding = true
 	add_child(sv)
 	cam = Camera3D.new()
@@ -76,6 +99,37 @@ func _ready() -> void:
 	rcam = Camera3D.new()
 	rcam.far = 200000.0
 	add_child(rcam)
+	_build_caption()
+
+
+func _build_caption() -> void:
+	var layer := CanvasLayer.new()
+	sv.add_child(layer)
+	caption = Label.new()
+	var ls := LabelSettings.new()
+	ls.font = load(FONT)
+	ls.font_size = int(res_h * 0.034)
+	ls.font_color = Color(0.96, 0.94, 0.9)
+	ls.outline_size = int(res_h * 0.006)
+	ls.outline_color = Color(0, 0, 0, 0.75)
+	ls.shadow_size = int(res_h * 0.01)
+	ls.shadow_color = Color(0, 0, 0, 0.45)
+	caption.label_settings = ls
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	caption.size = Vector2(res_h * 16 / 9 * 0.8, res_h * 0.2)
+	caption.position = Vector2(res_h * 16 / 9 * 0.1, res_h * 0.72)
+	caption.modulate.a = 0.0
+	layer.add_child(caption)
+
+
+func _caption(t: float) -> void:
+	caption.modulate.a = 0.0
+	for c in CAPTIONS.get(shot, []):
+		if t >= c[0] - 0.25 and t <= c[1] + 0.25:
+			caption.text = c[2]
+			caption.modulate.a = clampf(minf(t - (c[0] - 0.25), c[1] + 0.25 - t) / 0.25, 0.0, 1.0)
 
 
 func say(s: String) -> void:
@@ -91,7 +145,8 @@ func _process(_dt: float) -> void:
 		return
 	if n == BOOT:
 		for c in get_tree().root.find_children("*", "CanvasLayer", true, false):
-			c.visible = false
+			if not sv.is_ancestor_of(c):
+				c.visible = false
 		sp = demo.terrain.sphere if demo.terrain != null and "sphere" in demo.terrain else null
 		pilot = demo.pilot
 		_setup()
@@ -115,6 +170,7 @@ func _process(_dt: float) -> void:
 	get_tree().paused = true
 	_hide_speech()
 	_place_camera(float(fi + steps_per - 1) / 60.0)
+	_caption(float(fi + steps_per - 1) / 60.0)
 	_cycle += 1
 	if _cycle < STEP - 1:
 		return
@@ -134,7 +190,7 @@ func _process(_dt: float) -> void:
 		get_tree().quit()
 		return
 	fi += steps_per
-	if fi % 30 == 0:
+	if fi % 60 == 0:
 		say("frame %d / %d" % [fi, int(secs * 60.0)])
 	if fi >= int(secs * 60.0):
 		get_tree().quit()
@@ -147,6 +203,8 @@ func _hide_speech() -> void:
 			l.visible = false
 
 
+# ------------------------------------------------------------------ helpers
+
 func _spawn(key: String, soldier: String, at: Vector3, yaw: float) -> NpcBody:
 	var cc = demo._content()
 	var npc: NpcBody = demo.make_npc(cc.get_soldier(soldier), at, yaw, "cine_" + key, "")
@@ -156,6 +214,11 @@ func _spawn(key: String, soldier: String, at: Vector3, yaw: float) -> NpcBody:
 	npc.home_target = rcam
 	cast[key] = npc
 	return npc
+
+
+func _walk_speed(npc: NpcBody, mps: float) -> void:
+	if npc.controller != null and "walk_speed" in npc.controller:
+		npc.controller.walk_speed = mps
 
 
 func _hide_player() -> void:
@@ -185,6 +248,35 @@ func _flat(d: Vector3, at: Vector3) -> Vector3:
 	return (d - u * d.dot(u)).normalized()
 
 
+## Right, up and forward of a camera at `eye` looking at `target`.
+func _frame_of(eye: Vector3, target: Vector3, u: Vector3) -> Array:
+	var f := (target - eye).normalized()
+	var r := f.cross(u).normalized()
+	return [r, r.cross(f).normalized(), f]
+
+
+## A point given in a framing's own metres: x right, y up, z forward.
+func _rel(eye: Vector3, target: Vector3, u: Vector3, x: float, y: float, z: float) -> Vector3:
+	var b := _frame_of(eye, target, u)
+	return eye + b[0] * x + b[1] * y + b[2] * z
+
+
+func _ease(t: float) -> float:
+	t = clampf(t, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+
+## Everyone in sight gets their own clock: no crowd idles, sways or dances in step.
+func _stagger() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	for b: NpcBody in demo.find_children("*", "NpcBody", true, false):
+		if b.anim != null:
+			b.anim.time += rng.randf_range(0.0, 40.0)
+			b.anim.dance_time += rng.randf_range(0.0, 10.0)
+			b.anim.phase += rng.randf_range(0.0, TAU)
+
+
 ## Space: the sky follows our camera, not the player on the ground.
 func _space_sky() -> void:
 	if pilot == null or pilot.sky == null or sp == null:
@@ -196,21 +288,88 @@ func _space_sky() -> void:
 
 
 ## The ship's look, out of the pilot's hands: the damaged hull, engines lit, smoking.
-func _take_ship() -> void:
+## `big` scales the smoke for ships seen far off.
+func _take_ship(big := 1.0) -> void:
 	pilot.process_mode = Node.PROCESS_MODE_DISABLED
 	ship = pilot.visual
 	pilot._set_hull(false)
 	WreckLook.apply(ship)
 	ShipKit.throttle_flames(ship, 0.55, false, 0.0)
-	var len: float = pilot._look_length()
-	v.smoke = ExplosionFx.smoke_trail(ship, Vector3(0.0, 0.4, len * 0.42), 0.9, 110, 5.0)
-	v.smoke2 = ExplosionFx.smoke_trail(ship, Vector3(len * 0.18, 0.2, len * 0.2), 1.0, 50, 3.5)
+	var length: float = pilot._look_length()
+	v.smoke = ExplosionFx.smoke_trail(ship, Vector3(0.0, 0.4, length * 0.42), 0.9 * big, 110, 5.0)
+	v.smoke2 = ExplosionFx.smoke_trail(ship, Vector3(length * 0.18, 0.2, length * 0.2), 1.0 * big, 50, 3.5)
+	if big > 1.0:
+		v.smoke.scale_amount_min = 1.2 * big
+		v.smoke.scale_amount_max = 1.8 * big
 
 
-func _ship_at(at: Vector3, dir: Vector3, up: Vector3, roll := 0.0) -> void:
-	var b := Basis.looking_at(dir, up)
+func _ship_at(at: Vector3, dir: Vector3, u: Vector3, roll := 0.0) -> void:
+	var b := Basis.looking_at(dir, u)
 	b = b.rotated(dir.normalized(), roll)
 	ship.global_transform = Transform3D(b, at)
+
+
+## The ship on its track for this shot: v.ship_a at v.ship_t0, v.ship_b at v.ship_t1,
+## straight and steady (a slow, small wallow), nose along the track.
+func _fly_ship(t: float) -> void:
+	if ship == null or not v.has("ship_a"):
+		return
+	var t0: float = v.get("ship_t0", 0.0)
+	var t1: float = v.get("ship_t1", secs)
+	var k := (t - t0) / (t1 - t0)
+	var a: Vector3 = v.ship_a
+	var b: Vector3 = v.ship_b
+	var at := a.lerp(b, k)
+	var dir := (b - a).normalized()
+	_ship_at(at, dir, _upv(at), 0.22 + 0.08 * sin(t * 1.3))
+
+
+## A damped point: chases `target` at `rate` per second (a camera's aim, never a body).
+func _follow(key: String, target: Vector3, rate := 3.0) -> Vector3:
+	var cur: Vector3 = v.get(key, target)
+	cur = cur.lerp(target, 1.0 - exp(-rate / 60.0))
+	v[key] = cur
+	return cur
+
+
+# ------------------------------------------------------------------ the camera path
+
+## This shot's keys at time t: Hermite through every key, still at the first and
+## last (eased in and out), smooth through the middle ones.
+func _path(t: float) -> Array:
+	var nk := keys.size()
+	if nk == 1 or t <= keys[0][0]:
+		return [keys[0][1], keys[0][2], keys[0][3]]
+	if t >= keys[nk - 1][0]:
+		return [keys[nk - 1][1], keys[nk - 1][2], keys[nk - 1][3]]
+	var i := 0
+	while keys[i + 1][0] < t:
+		i += 1
+	var t0: float = keys[i][0]
+	var t1: float = keys[i + 1][0]
+	var s := (t - t0) / (t1 - t0)
+	var out := []
+	for j in [1, 2, 3]:
+		var p0 = keys[i][j]
+		var p1 = keys[i + 1][j]
+		var m0 = p0 * 0.0
+		var m1 = p0 * 0.0
+		if i > 0:
+			m0 = (p1 - keys[i - 1][j]) / (t1 - keys[i - 1][0]) * (t1 - t0)
+		if i + 2 < nk:
+			m1 = (keys[i + 2][j] - p0) / (keys[i + 2][0] - t0) * (t1 - t0)
+		var s2 := s * s
+		var s3 := s2 * s
+		out.append(p0 * (2 * s3 - 3 * s2 + 1) + m0 * (s3 - 2 * s2 + s) + p1 * (-2 * s3 + 3 * s2) + m1 * (s3 - s2))
+	return out
+
+
+func _look(at: Vector3, target: Vector3, u := Vector3.UP, fov := 50.0) -> void:
+	cam.fov = fov
+	cam.global_position = at
+	if (target - at).normalized().cross(u).length() < 0.01:
+		u = Vector3.FORWARD
+	cam.look_at(target, u)
 
 
 # ------------------------------------------------------------------ setup
@@ -221,321 +380,578 @@ func _setup() -> void:
 	if sp != null:
 		demo.terrain.follow_camera(func(): return cam.global_position)
 	match shot:
-		1, 2, 3:
-			var c: Vector3 = sp.center
-			var r: float = sp.radius
-			var sun: Vector3 = demo.look.sun_dir.normalized()
-			var side := sun.cross(Vector3.UP).normalized()
-			v.c = c
-			v.r = r
-			v.dir = (sun * 0.3 + side * 0.85 + Vector3.UP * 0.3).normalized()
-			v.side = side
-			if shot == 3:
-				_take_ship()
-			say("sun %s dir %s" % [sun, v.dir])
-		4, 5:
-			var pk: Dictionary = demo.natives.pack("red_wind")
-			var camp: Vector3 = pk.camp.center
-			v.camp = camp
-			_put_player(camp + _upv(camp) * 1.0 + _flat(Vector3(1, 0, 0), camp) * 14.0)
-			demo.natives.set_physics_process(false)
-			# An adult who is not the chief (the chief carries the pack's standard).
-			var lead_m = demo.natives.leader(pk)
-			var lead_npc = lead_m.npc if lead_m is Dictionary else lead_m
-			var npc: NpcBody = null
-			for mm in pk.members:
-				if mm.npc != lead_npc and not bool(mm.get("child", false)) and is_instance_valid(mm.npc):
-					npc = mm.npc
-					break
-			if npc == null:
-				npc = lead_npc
-			for st in npc.find_children("Standard*", "Node3D", true, false):
-				st.visible = false
-			npc.process_mode = Node.PROCESS_MODE_INHERIT
-			npc.home_target = rcam
-			cast.nomad = npc
-			var toward_port := _flat(-camp, camp)
-			var side := toward_port.cross(_upv(camp)).normalized()
-			v.port_dir = toward_port
-			v.side = side
-			# Out on the open sand past the camp (it shows behind him), walking across.
-			var a: Vector3 = camp + side * 8.0 + toward_port * 24.0
-			v.walk_a = a
-			npc.global_position = a + _upv(a) * 0.3
-			npc.go_to(a - side * 14.0)
-			# The ship over him, coming down toward the port.
-			v.ship0 = camp + _upv(camp) * 260.0 - toward_port * 150.0 + side * 40.0
-			v.ship_vel = (toward_port * 95.0 - _upv(camp) * 40.0)
-			_take_ship()
-			v.smoke.scale_amount_min = 3.0
-			v.smoke.scale_amount_max = 4.5
+		1:
+			_setup_space()
+		2:
+			_setup_wreck()
+		3, 4:
+			_setup_nomad()
+		5:
+			_setup_barge()
 		6:
-			var o: Dictionary = demo.outposts.outpost("remnant_outpost_near")
-			v.o = o
-			var W := func(l: Vector3) -> Vector3: return demo.outposts.world_point(o, l)
-			v.W = W
-			_put_player(W.call(Vector3(34, 1, 14)))
-			var out_dir: Vector3 = (W.call(Vector3(1, 0, 0)) - W.call(Vector3.ZERO)).normalized()
-			var tr := _spawn("trooper", "outpost_trooper", W.call(Vector3(20.5, 0.1, 2.0)), 0.0)
-			tr.face_point(W.call(Vector3(40, 1.5, 0)))
-			var lo := _spawn("local", "local_resident", W.call(Vector3(33, 0.1, -3.0)), 0.0)
-			lo.go_to(W.call(Vector3(24.5, 0, -1.5)))
-			v.out_dir = out_dir
-			_take_ship()
+			_setup_outpost()
 		7:
-			# The Basin Run, the racers' outpost 220 m down the course. The beast has
-			# crawled onto the racing line; the race comes from behind the camera,
-			# splits round it and runs on for the outpost, where the last racer puts
-			# a seeker into the leader.
-			var outpost := _surf(1461.0, 3616.0)
-			var guess := _surf(1241.0, 3580.0)
-			var d := _flat(outpost - guess, guess)
-			var p0 := guess
-			var u := _upv(p0)
-			var side := d.cross(u).normalized()          # camera right
-			v.p0 = p0
-			v.d = d
-			v.u = u
-			v.side = side
-			v.outpost = outpost
-			_put_player(p0 + u * 1.0 - d * 30.0)
-			var beast = demo.beast
-			if beast != null:
-				beast.set_physics_process(false)          # we walk it, slowly, at the camera
-				beast.heading = (-d * 0.94 + side * 0.34).normalized()
-				beast.home = beast._ground_at(p0 + d * 24.0 - side * 1.5)
-				beast._seed_trail()
-				beast._place(beast.home)
-				beast._pose()
-			# Three racers, a driver at each yoke.
-			v.racers = []
-			var paints := ["#d8452a", "#2a6fd8", "#e2bf3a"]
-			for i in 3:
-				var s = SpeederNode.new()
-				s.setup(demo, pilot.ground, HoverModel.load_config("racer"), true, paints[i])
-				demo.add_child(s)
-				var drv := _spawn("racer%d" % i, "local_racer", p0 - d * 60.0, 0.0)
-				s.seat_npc(drv, "driver")
-				v.racers.append(s)
-		8, 9:
-			var c = demo.cruiser
-			var L := func(l: Vector3) -> Vector3: return c.frame * l
-			v.L = L
-			_put_player(L.call(Vector3(0, 58.6, 250)))
-			v.gen_at = Vector3(28.6, 58.0, 221.0)
-			# The planet's warm light on him through the side window (a fill for the shot).
-			var fill := OmniLight3D.new()
-			fill.light_color = Color("#ffc890")
-			fill.light_energy = 2.2
-			fill.omni_range = 9.0
-			add_child(fill)
-			fill.global_position = L.call(Vector3(30.4, 60.6, 221.6))
-			var rim := OmniLight3D.new()
-			rim.light_color = Color("#7fb8ff")
-			rim.light_energy = 1.2
-			rim.omni_range = 7.0
-			add_child(rim)
-			rim.global_position = L.call(Vector3(26.0, 61.0, 218.5))
-		10, 11:
-			_put_player(Vector3(-100.0, 0.3, 6.0))
-			var patron := _spawn("patron", "local_patron", Vector3(-104.25, 0.0, -1.0), -PI * 0.5)
-			patron.face_point(Vector3(-109.0, 1.6, -1.0))
-			say("oda at %s" % (demo.cantina_owner.global_position if demo.cantina_owner != null else Vector3.INF))
+			_setup_race()
+		8, 9, 10:
+			_setup_cruiser()
+		11, 12, 13:
+			_setup_cantina()
+		14, 15:
+			_setup_walk()
+		16:
+			_setup_pit()
+	say("cast %s keys %d" % [str(cast.keys()), keys.size()])
+
+
+## Shot 1, one move: the stars, a tilt down onto the planet with the Remnant's
+## cruiser hanging over it, a slow push in, and the ship streaks in past us, over
+## the cruiser and on down toward the ball.
+func _setup_space() -> void:
+	var cr = demo.cruiser
+	var c: Vector3 = sp.center
+	var C: Vector3 = _sunlit_cruiser()
+	var uc := (C - c).normalized()
+	var sun: Vector3 = demo.look.sun_dir.normalized()
+	var side := uc.cross(sun).normalized()
+	var sunward := (sun - uc * sun.dot(uc)).normalized()
+	_put_player(cr.frame * Vector3(0, 58.6, 250))
+	# Out above the cruiser, the sun over our shoulder: it hangs against the lit
+	# planet with the terminator beyond.
+	var eye: Vector3 = C + uc * 1500.0 + side * 420.0 + sunward * 380.0
+	var aim: Vector3 = C + (c - C).normalized() * 260.0
+	var b := _frame_of(eye, aim, uc)
+	var stars: Vector3 = eye + (aim - eye).rotated(b[0], deg_to_rad(70.0))
+	var eye2: Vector3 = eye.lerp(C, 0.18)
+	up = uc
+	keys = [[0.0, eye, stars, 44.0], [0.9, eye, stars, 44.0], [4.6, eye.lerp(eye2, 0.3), aim, 42.0], [10.0, eye2, aim, 40.0]]
+	v.space = true
+	_take_ship()
+	# From behind our right shoulder, past us, over the cruiser, down at the planet.
+	v.ship_a = _rel(eye, aim, uc, 24.0, -5.0, -80.0)
+	v.ship_b = C + (c - C).normalized() * 1400.0 + side * 160.0
+	v.ship_t0 = 4.9
+	v.ship_t1 = 10.6
+	say("cruiser %s eye %s dist %.0f" % [C, eye, eye.distance_to(C)])
+
+
+## The cruiser's hull, moved for the exterior shots to hang over the sunlit side
+## near the terminator (its real orbit is over the night side at golden hour).
+## Returns its middle.
+func _sunlit_cruiser() -> Vector3:
+	var cr = demo.cruiser
+	var c: Vector3 = sp.center
+	var sun: Vector3 = demo.look.sun_dir.normalized()
+	var port_up := (_surf(0.0, 0.0) - c).normalized()
+	var rd := (sun * 0.55 + port_up * 0.45).normalized()
+	var pos: Vector3 = c + rd * (sp.radius + 7000.0)
+	var sw := (sun - rd * sun.dot(rd)).normalized()
+	var fwd := rd.cross(sw).normalized()          # starboard (+x) faces the sun
+	var bas := Basis.looking_at(fwd, rd)
+	# In the cruiser's own frame z runs bow to stern, so its bow is -z.
+	var fr := Transform3D(bas, pos)
+	cr._hull.transform = fr
+	v.cr_frame = fr
+	return fr * Vector3(0, 30, -20)
+
+
+## Shot 2: down on the sand under the buried star cruiser; the camera cranes up its
+## hull as the ship streaks over, smoking.
+func _setup_wreck() -> void:
+	var at := _surf(1350.0, -120.0)
+	var best: Node3D = null
+	for w in demo.find_children("*", "Node3D", true, false):
+		if w is StarcruiserWreck and (best == null or w.global_position.distance_to(at) < best.global_position.distance_to(at)):
+			best = w
+	var wc: Vector3 = best.global_position if best != null else at
+	say("wreck %s (%s) %.0f m from the landmark" % [wc, best, wc.distance_to(at)])
+	var g := _surf(0.0, 0.0)
+	var u := _upv(wc)
+	var to_port := _flat(g - wc, wc)
+	var side := to_port.cross(u).normalized()
+	var e0: Vector3 = wc + to_port * 300.0 + side * 140.0
+	e0 = sp.surface_at_dir((e0 - sp.center).normalized()) if sp.has_method("surface_at_dir") else e0
+	e0 += u * 2.0
+	_put_player(e0 + u * 1.0)
+	var t0: Vector3 = wc + u * 40.0
+	var e1: Vector3 = e0 + u * 34.0 - to_port * 40.0
+	up = u
+	keys = [[0.0, e0, t0, 52.0], [4.0, e1, wc + u * 70.0, 48.0]]
+	_take_ship(2.5)
+	v.ship_a = _rel(e0, t0, u, -190.0, 150.0, 260.0)
+	v.ship_b = _rel(e0, t0, u, 170.0, 105.0, 210.0)
+	v.ship_t0 = -0.6
+	v.ship_t1 = 4.4
+
+
+## Shots 3 and 4: a Red Wind nomad walks out of camp toward the camera, stops and
+## looks up; the camera tilts with him to the ship. Then his view, a slow push in.
+func _setup_nomad() -> void:
+	var pk: Dictionary = demo.natives.pack("red_wind")
+	var camp: Vector3 = pk.camp.center
+	var u := _upv(camp)
+	demo.natives.set_physics_process(false)
+	var lead_npc = demo.natives.leader(pk)
+	var npc: NpcBody = null
+	for mm in pk.members:
+		if mm.npc != lead_npc and not bool(mm.get("child", false)) and is_instance_valid(mm.npc):
+			npc = mm.npc
+			break
+	if npc == null:
+		npc = lead_npc
+	for st in npc.find_children("Standard*", "Node3D", true, false):
+		st.visible = false
+	npc.process_mode = Node.PROCESS_MODE_INHERIT
+	npc.home_target = rcam
+	cast.nomad = npc
+	_walk_speed(npc, 1.25)
+	# Toward the port, away from camp: the camp stays behind him.
+	var out := _flat(-camp, camp)
+	var side := out.cross(u).normalized()
+	var a: Vector3 = camp + out * 16.0 + side * 2.0
+	var stop_at: Vector3 = a + out * 4.2
+	var eye: Vector3 = a + out * 10.5 + side * 1.4 + u * 0.9
+	_put_player(eye + u)
+	npc.global_position = a + u * 0.3
+	npc.go_to(stop_at)
+	v.stop_at = stop_at
+	v.out = out
+	v.u = u
+	var chest0: Vector3 = a + u * 1.3
+	v.eye = eye
+	up = u
+	# Where he looks: up and over the camera's right, the ship crossing.
+	var sky_dir: Vector3 = (-out * 0.55 + u * 0.8 + side * 0.15).normalized()
+	_take_ship(1.6)
+	if shot == 3:
+		var sky_pt: Vector3 = eye + sky_dir * 300.0
+		v.ship_a = sky_pt - side * 210.0 + u * 40.0
+		v.ship_b = sky_pt + side * 150.0 - u * 20.0
+		v.ship_t0 = 0.0
+		v.ship_t1 = 4.6
+		v.chest0 = chest0
+		keys = [[0.0, eye, chest0, 40.0]]
+	else:
+		# His eyes, the moment after: the ship further on, a long lens pushing in.
+		var head: Vector3 = stop_at + u * 1.7
+		npc.global_position = stop_at + u * 0.3
+		npc.stop()
+		var look_pt: Vector3 = head + sky_dir.rotated(u, deg_to_rad(-25.0)) * 330.0
+		var sd := (look_pt - head).cross(u).normalized()
+		v.ship_a = look_pt + sd * -40.0
+		v.ship_b = look_pt + sd * 70.0 - u * 55.0 + (look_pt - head).normalized() * 60.0
+		v.ship_t0 = 0.0
+		v.ship_t1 = 2.5
+		v.head = head
+		keys = [[0.0, head, look_pt, 24.0]]
+	say("camp %s nearest outpost %s" % [camp, _nearest_outpost(camp)])
+
+
+func _nearest_outpost(p: Vector3) -> String:
+	var best := ""
+	var bd := INF
+	for o in demo.outposts.outposts:
+		var w: Vector3 = demo.outposts.world_point(o, Vector3.ZERO)
+		if w.distance_to(p) < bd:
+			bd = w.distance_to(p)
+			best = "%s %.0f m" % [o.id, bd]
+	return best
+
+
+## Shot 5: the party barge parked on the dunes, the party on its decks; the
+## ship passes over and the camera trucks along her side.
+func _setup_barge() -> void:
+	var bg = demo.barge
+	var bp: Vector3 = bg.global_position
+	var u := _upv(bp)
+	var hd: Vector3 = _flat(bg.heading, bp)
+	var side := hd.cross(u).normalized()
+	var e0: Vector3 = bp + hd * 40.0 + side * 30.0 + u * 13.0
+	var e1: Vector3 = bp + hd * 26.0 + side * 36.0 + u * 15.0
+	_put_player(bp + side * 20.0 + u)
+	up = u
+	var tg: Vector3 = bp + u * 9.0 + hd * 2.0
+	keys = [[0.0, e0, tg, 46.0], [3.0, e1, tg - hd * 6.0, 46.0]]
+	_take_ship(1.8)
+	v.ship_a = _rel(e0, tg, u, 220.0, 150.0, 340.0)
+	v.ship_b = _rel(e0, tg, u, -200.0, 115.0, 300.0)
+	v.ship_t0 = -0.2
+	v.ship_t1 = 3.4
+
+
+## Shot 6: wide on the Remnant outpost and its refinery, pushing in to the gate,
+## where the trooper turns a local back, then shoots him.
+func _setup_outpost() -> void:
+	var o: Dictionary = demo.outposts.outpost("remnant_outpost_near")
+	var W := func(l: Vector3) -> Vector3: return demo.outposts.world_point(o, l)
+	v.W = W
+	var u := _upv(W.call(Vector3.ZERO))
+	_put_player(W.call(Vector3(34, 0, 14)) + u)
+	var tr := _spawn("trooper", "outpost_trooper", W.call(Vector3(20.5, 0.0, 1.5)) + u * 0.1, 0.0)
+	tr.face_point(W.call(Vector3(40, 1.5, 0)))
+	var lo := _spawn("local", "local_resident", W.call(Vector3(29.0, 0.0, -3.0)) + u * 0.1, 0.0)
+	_walk_speed(lo, 1.2)
+	lo.go_to(W.call(Vector3(24.0, 0, -1.0)))
+	up = u
+	var e0: Vector3 = W.call(Vector3(62, 0, 30)) + u * 9.0
+	var t0: Vector3 = W.call(Vector3(6, 0, -6)) + u * 3.0
+	var e1: Vector3 = W.call(Vector3(23.2, 0, 7.4)) + u * 1.7
+	var t1: Vector3 = W.call(Vector3(22.2, 0, 0.2)) + u * 1.35
+	keys = [[0.0, e0, t0, 44.0], [2.4, e1, t1, 42.0], [5.0, e1 + (e1 - t1).normalized() * 0.5, t1, 42.0]]
+	_take_ship(3.0)
+	v.ship_a = _rel(e1, t1, u, -160.0, 150.0, 620.0)
+	v.ship_b = _rel(e1, t1, u, 60.0, 95.0, 560.0)
+	v.ship_t0 = 0.0
+	v.ship_t1 = 5.5
+
+
+## Shot 7, the Basin Run: the beast crawls across the racing line, the racers'
+## outpost behind it. The race tears past the camera and swings round in front of
+## its head (its body trails off the other way, so nothing ever touches it); the
+## last racer puts a seeker into the leader in front of the outpost.
+func _setup_race() -> void:
+	var outpost := _surf(1461.0, 3616.0)
+	var guess := _surf(1241.0, 3580.0)
+	var d := _flat(outpost - guess, guess)
+	var p0 := guess
+	var u := _upv(p0)
+	var side := d.cross(u).normalized()          # course right
+	v.p0 = p0
+	v.d = d
+	v.u = u
+	v.side = side
+	_put_player(p0 + u * 1.0 + d * 10.0)
+	var beast = demo.beast
+	if beast != null:
+		beast.set_physics_process(false)
+		beast.heading = -side                     # crawling right to left across the line
+		beast.home = beast._ground_at(p0 + d * 36.0 + side * 9.5)
+		beast._seed_trail()
+		beast._place(beast.home)
+		beast._pose()
+	v.racers = []
+	var paints := ["#d8452a", "#2a6fd8", "#e2bf3a"]
+	for i in 3:
+		var s = SpeederNode.new()
+		s.setup(demo, pilot.ground, HoverModel.load_config("racer"), true, paints[i])
+		demo.add_child(s)
+		var drv := _spawn("racer%d" % i, "local_racer", p0 - d * 60.0, 0.0)
+		s.seat_npc(drv, "driver")
+		v.racers.append(s)
+	up = u
+	var cam0: Vector3 = p0 - side * 15.0 + u * 0.7
+	var head0: Vector3 = p0 + d * 36.0 + side * 9.5 + u * 2.6
+	var far: Vector3 = p0 + d * 118.0 - side * 3.0 + u * 2.0
+	keys = [[0.0, cam0, head0.lerp(outpost + u * 8.0, 0.08), 38.0], [1.2, cam0, head0.lerp(outpost + u * 8.0, 0.08), 38.0],
+		[3.3, cam0 + u * 4.0 + d * 4.0, p0 + d * 70.0 + u * 2.0, 30.0], [6.0, cam0 + u * 7.0 + d * 8.0, far, 22.0]]
+	_take_ship(3.0)
+	v.ship_a = _rel(cam0, far, u, -90.0, 140.0, 700.0)
+	v.ship_b = _rel(cam0, far, u, 30.0, 105.0, 650.0)
+	v.ship_t0 = 0.0
+	v.ship_t1 = 6.5
+
+
+## Shots 8 to 10, the Remnant's cruiser: gliding along its hull to the bridge, then
+## inside, the planet through the window and the general by it.
+func _setup_cruiser() -> void:
+	var c = demo.cruiser
+	var L := func(l: Vector3) -> Vector3: return c.frame * l
+	v.L = L
+	_put_player(L.call(Vector3(0, 58.6, 250)))
+	up = (c.frame.basis.y).normalized()
+	v.gen_at = Vector3(28.6, 58.0, 221.0)
+	if shot == 8:
+		v.space = true
+		_sunlit_cruiser()
+		var F: Transform3D = v.cr_frame
+		up = F.basis.y.normalized()
+		keys = [[0.0, F * Vector3(270, 230, -330), F * Vector3(0, 40, 150), 44.0],
+			[4.0, F * Vector3(175, 160, 40), F * Vector3(0, 58, 230), 40.0]]
+		return
+	# The planet's warm light on him through the side window (a fill for the shot).
+	var fill := OmniLight3D.new()
+	fill.light_color = Color("#ffc890")
+	fill.light_energy = 2.2
+	fill.omni_range = 9.0
+	add_child(fill)
+	fill.global_position = L.call(Vector3(30.4, 60.6, 221.6))
+	var rim := OmniLight3D.new()
+	rim.light_color = Color("#7fb8ff")
+	rim.light_energy = 1.2
+	rim.omni_range = 7.0
+	add_child(rim)
+	rim.global_position = L.call(Vector3(26.0, 61.0, 218.5))
+	var head: Vector3 = L.call(v.gen_at + Vector3(0.0, 1.62, -0.1))
+	if shot == 9:
+		var holo := _find_holo()
+		if holo != null:
+			holo.global_position = L.call(Vector3(26.0, 60.4, 218.6))
+		var hc: Vector3 = L.call(Vector3(26.0, 60.4, 218.6))
+		keys = [[0.0, L.call(Vector3(26.4, 60.5, 221.0)), hc, 44.0],
+			[3.0, L.call(Vector3(31.4, 60.3, 227.6)), L.call(Vector3(27.6, 59.8, 220.4)), 46.0]]
+	else:
+		# Close on him, three-quarter, the map over his left shoulder; the guard
+		# comes up into the left of frame.
+		keys = [[0.0, L.call(Vector3(30.3, 59.85, 223.4)), head, 32.0],
+			[6.0, L.call(Vector3(30.2, 59.85, 223.15)), head, 31.0]]
+
+
+## Shots 11 to 13: the cantina.
+func _setup_cantina() -> void:
+	_put_player(Vector3(-100.0, 0.3, 6.0))
+	var patron := _spawn("patron", "local_patron", Vector3(-104.25, 0.0, -1.0), -PI * 0.5)
+	patron.face_point(Vector3(-109.0, 1.6, -1.0))
+	_stagger()
+	var oda: Node3D = demo.cantina_owner
+	var o := oda.global_position if oda != null else Vector3(-107.55, 0, 0)
+	say("oda at %s" % o)
+	match shot:
+		11:
+			keys = [[0.0, Vector3(-105.3, 1.16, o.z + 1.2), Vector3(o.x, 1.2, o.z - 0.2), 40.0],
+				[1.0, Vector3(-105.3, 1.18, o.z + 1.05), Vector3(o.x, 1.25, o.z - 0.2), 40.0]]
 		12:
+			keys = [[0.0, Vector3(-105.8, 1.62, o.z - 2.4), Vector3(o.x + 0.1, 1.5, o.z + 0.3), 42.0],
+				[3.0, Vector3(-105.8, 1.6, o.z - 2.0), Vector3(o.x + 0.1, 1.5, o.z + 0.3), 40.0]]
+		13:
 			_put_player(Vector3(-80.0, 0.3, 4.0))
-		13, 14:
-			_put_player(Vector3(110.0, 0.3, 6.0))
-			v.start = 128.0
-			_spawn("general", "barracks_general", Vector3(v.start, 0.05, 0.0), -PI * 0.5)
-			_spawn("guard_n", "gate_guard", Vector3(v.start + 1.8, 0.05, 1.9), -PI * 0.5)
-			_spawn("guard_s", "gate_guard", Vector3(v.start + 1.8, 0.05, -1.9), -PI * 0.5)
-		15:
-			_put_player(Vector3(12.0, -5.7, 14.0))
-			# The general and his two guards come down the ramp together.
-			_spawn("general", "barracks_general", Vector3(36.0, 0.05, 0.0), -PI * 0.5)
-			_spawn("guard_n", "gate_guard", Vector3(37.8, 0.05, 1.9), -PI * 0.5)
-			_spawn("guard_s", "gate_guard", Vector3(37.8, 0.05, -1.9), -PI * 0.5)
-			var t89 = demo.salesman
-			v.t89 = t89
-			# The frigate in for repairs on the pit floor, T-89 at her flank.
-			var fr: Node3D = pilot.kit.build("frigate")
-			demo.add_child(fr)
-			# The camera looks +x up the ramp: the frigate sits off to the left (-z),
-			# T-89 at her flank in the left foreground.
-			fr.global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(0.0)), Vector3(13.0, -6.0, -17.0))
-			v.frigate = fr
-			if t89 != null and t89.body != null:
-				t89.set_physics_process(false)
-				t89.body.global_position = Vector3(8.0, -6.0, -6.0)
-			# No droids but T-89 in the pit (the cargo droid stays out of the shot).
-			if demo.droids != null:
-				for d3: Node3D in demo.droids.find_children("*", "Node3D", false, false):
-					d3.visible = false
-				for d3 in demo.droids.get_children():
-					if d3 is Node3D:
-						d3.visible = false
-			_take_ship()
-			v.smoke.scale_amount_min = 2.5
-			v.smoke.scale_amount_max = 3.5
-	say("cast %s" % str(cast.keys()))
+			keys = [[0.0, Vector3(-92.0, 1.7, 0.0), Vector3(-106.0, 1.5, 0.0), 50.0],
+				[2.5, Vector3(-73.0, 2.4, 0.0), Vector3(-104.0, 1.6, 0.0), 50.0]]
+			# Outside, over the roofs as we leave: the ship coming down.
+			_take_ship(1.4)
+			var e1 := Vector3(-73.0, 2.4, 0.0)
+			v.ship_a = e1 + Vector3(-160.0, 120.0, -150.0)
+			v.ship_b = e1 + Vector3(-210.0, 85.0, 40.0)
+			v.ship_t0 = 0.0
+			v.ship_t1 = 3.0
+
+
+## Shots 14 and 15: the general and two gate guards walk the main street toward
+## the pit, at a general's stride.
+func _setup_walk() -> void:
+	_put_player(Vector3(110.0, 0.3, 6.0))
+	v.start = 130.0
+	var g := _spawn("general", "barracks_general", Vector3(v.start, 0.05, 0.0), -PI * 0.5)
+	var gn := _spawn("guard_n", "gate_guard", Vector3(v.start + 1.8, 0.05, 1.9), -PI * 0.5)
+	var gs := _spawn("guard_s", "gate_guard", Vector3(v.start + 1.8, 0.05, -1.9), -PI * 0.5)
+	for b in [g, gn, gs]:
+		_walk_speed(b, 1.5)
+	_stagger()
+	# They walk from t = -1.6 at 1.5 m/s; the cameras ride the same line.
+	var x0: float = v.start - 0.6
+	if shot == 14:
+		keys = [[0.0, Vector3(x0 - 6.2, 1.5, 1.1), Vector3(x0, 1.45, 0.2), 40.0],
+			[2.0, Vector3(x0 - 3.0 - 6.4, 1.5, 1.0), Vector3(x0 - 3.0, 1.45, 0.2), 40.0]]
+		_take_ship(1.6)
+		var e := Vector3(x0 - 6.2, 1.5, 1.1)
+		v.ship_a = e + Vector3(260.0, 140.0, 80.0)
+		v.ship_b = e + Vector3(250.0, 118.0, -20.0)
+	else:
+		var x1: float = x0 - 3.0
+		keys = [[0.0, Vector3(x1 + 11.0, 5.2, 2.4), Vector3(x1 - 22.0, -0.5, 0.0), 48.0],
+			[2.0, Vector3(x1 + 11.0 - 3.2, 4.9, 2.0), Vector3(x1 - 25.0, -1.0, 0.0), 48.0]]
+		_take_ship(1.6)
+		var e2 := Vector3(x1 + 7.0, 4.6, 2.2)
+		v.ship_a = e2 + Vector3(-300.0, 120.0, -150.0)
+		v.ship_b = e2 + Vector3(-280.0, 95.0, -40.0)
+	v.ship_t0 = 0.0
+	v.ship_t1 = 2.4
+
+
+## Shot 16, the pit: T-89 welding the frigate in the left foreground; the general and
+## his guards come down the ramp beyond; T-89 turns to them, then up at the ship.
+func _setup_pit() -> void:
+	_put_player(Vector3(12.0, -5.7, 14.0))
+	for k in ["general", "guard_n", "guard_s"]:
+		var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
+		var b := _spawn(k, "barracks_general" if k == "general" else "gate_guard", Vector3(31.0, -1.4, 0.0) + off, -PI * 0.5)
+		_walk_speed(b, 1.5)
+	_stagger()
+	var t89 = demo.salesman
+	v.t89 = t89
+	var fr: Node3D = pilot.kit.build("frigate")
+	demo.add_child(fr)
+	fr.global_transform = Transform3D.IDENTITY
+	var bb := _aabb(fr)
+	var yaw := 0.0 if bb.size.x >= bb.size.z else PI * 0.5
+	fr.global_transform = Transform3D(Basis(Vector3.UP, yaw), Vector3.ZERO)
+	bb = _aabb(fr)
+	# Long side along the pit, her flank 5.6 m off the ramp's line, wheels on the floor.
+	fr.global_position = Vector3(6.0 - bb.get_center().x, -6.0 - bb.position.y, -5.6 - bb.end.z)
+	say("frigate size %s at %s" % [bb.size, fr.global_position])
+	v.frigate = fr
+	v.weld = Vector3(7.0, -4.6, -5.6)
+	v.t89_at = Vector3(7.0, -6.0, -4.2)
+	if t89 != null and t89.body != null:
+		t89.set_physics_process(false)
+		t89.set_process(false)
+		t89.body.global_position = v.t89_at
+	if demo.droids != null:
+		for d3 in demo.droids.get_children():
+			if d3 is Node3D:
+				d3.visible = false
+	# Low behind T-89's right shoulder: him left, the frigate beyond him, the ramp right.
+	var e0 := Vector3(-1.5, -4.5, 6.5)
+	var tg0 := Vector3(16.0, -3.6, -2.6)
+	keys = [[0.0, e0, tg0, 50.0], [2.6, e0 + Vector3(0.3, 0.0, 0.4), tg0, 50.0],
+		[4.5, e0 + Vector3(0.4, -0.2, 0.6), tg0 + Vector3(4.0, 7.0, 0.0), 50.0]]
+	_take_ship(1.4)
+	v.ship_a = _rel(e0, tg0 + Vector3(4, 7, 0), Vector3.UP, 60.0, 120.0, 260.0)
+	v.ship_b = _rel(e0, tg0 + Vector3(4, 7, 0), Vector3.UP, 10.0, 75.0, 220.0)
+	v.ship_t0 = 1.5
+	v.ship_t1 = 5.5
 
 
 # ------------------------------------------------------------------ direction
 
 func _direct(ts: float) -> void:
+	_fly_ship(ts)
 	match shot:
 		3:
-			var c: Vector3 = v.c
-			var eye: Vector3 = c + v.dir * v.r * 1.95
-			var fwd: Vector3 = (c - eye).normalized()
-			var right: Vector3 = fwd.cross(Vector3.UP).normalized()
-			var up: Vector3 = right.cross(fwd).normalized()
-			v.eye = eye
-			v.fwd = fwd
-			# From just behind and right of the camera, past it, on toward the ball.
-			var at: Vector3 = eye + right * 11.0 + up * -3.0 + fwd * (ts * 95.0 - 12.0)
-			_ship_at(at, fwd + up * -0.02, up, 0.25 * sin(ts * 3.0) + 0.3)
-		4, 5:
-			var at: Vector3 = v.ship0 + v.ship_vel * ts
-			var u := _upv(at)
-			var wob := 0.18 * sin(ts * 7.0) + 0.1 * sin(ts * 13.0)
-			_ship_at(at, v.ship_vel.normalized(), u, wob)
 			var npc: NpcBody = cast.nomad
-			if shot == 4 and ts >= 1.0 and not v.has("stopped"):
+			if ts >= 1.9 and not v.has("stopped"):
 				v.stopped = true
 				npc.stop()
-				npc.face_point(at)
-			if shot == 5 or ts >= 1.0:
-				var k := clampf((ts - 1.0) / 0.5, 0.0, 1.0) if shot == 4 else 1.0
-				npc.hold_pose = { "neck": Vector3(-14.0 * k, 0, 0), "head": Vector3(-28.0 * k, 0, 0) }
-				if shot == 5:
-					npc.stop()
-					npc.face_point(at)
+				npc.face_point(npc.global_position + v.out * 5.0)
+			var k := _ease((ts - 1.9) / 0.8)
+			npc.hold_pose = { "neck": Vector3(-14.0 * k, 0, 0), "head": Vector3(-26.0 * k, 0, 0) }
+			_follow("aim", npc.global_position + v.u * 1.35, 2.5)
+		4:
+			var npc: NpcBody = cast.nomad
+			npc.hold_pose = { "neck": Vector3(-14.0, 0, 0), "head": Vector3(-26.0, 0, 0) }
 		6:
 			var tr: NpcBody = cast.trooper
 			var lo: NpcBody = cast.local
-			var at: Vector3 = v.W.call(Vector3(120, 0, -60)) + _upv(tr.global_position) * 1700.0
-			_ship_at(at, v.out_dir * -1.0 - _upv(at) * 0.4, _upv(at), 0.2)
-			if ts >= 0.0 and not v.has("halt"):
+			if ts >= 1.8 and not v.has("halt"):
 				v.halt = true
-				tr.say(LINE_TROOPER, 2.0, true)
+				tr.say("Halt! Back in the dirt, sand rat.", 2.0, true)
 				lo.stop()
-				lo.face_point(tr.global_position + Vector3(0, 1.6, 0))
-			if ts >= 0.0:
+			if ts >= 1.8 and not lo.dead:
+				lo.face_point(tr.global_position + _upv(tr.global_position) * 1.6)
+			if ts >= 0.8:
 				tr.face_point(lo.global_position)
-			if ts >= 1.5 and not lo.dead:
+			if ts >= 3.5 and not lo.dead:
 				tr.fire_at(lo.global_position + _upv(lo.global_position) * 1.2, 1.0 / 60.0)
-			if ts >= 1.7 and not lo.dead:
+			if ts >= 3.7 and not lo.dead:
 				lo.apply_damage_from(9999.0, tr)
+			if not lo.dead:
+				v.lo_last = lo.global_position
+			var mid: Vector3 = tr.global_position.lerp(v.get("lo_last", lo.global_position), 0.5)
+			_follow("aim", mid + _upv(mid) * 1.3, 2.0)
 		7:
-			var beast = demo.beast
-			var dt := 1.0 / 60.0
-			if beast != null:
-				var head: Vector3 = beast.global_position - _upv(beast.global_position) * beast.radius
-				var g: Vector3 = beast._ground_at(head + beast.heading * 1.1 * dt)
-				beast.travelled += 1.1 * dt
-				beast._t += dt
-				beast._place(g)
-				beast._push_trail(g)
-				beast._pose()
-			# Each racer: [time it passes the camera, side offset at the camera, side
-			# offset passing the beast]. Red leads; yellow trails and fires.
-			var plan := [[0.7, 3.2, 8.5], [0.95, -3.6, -9.0], [1.25, -2.4, -6.5]]
-			var speed := 38.0
-			for i in v.racers.size():
-				var s = v.racers[i]
-				if not is_instance_valid(s) or (i == 0 and v.has("burst")):
-					continue
-				var x := speed * (ts - float(plan[i][0]))          # metres down the course from the camera
-				var y := _race_y(x, plan[i])
-				var y2 := _race_y(x + 1.0, plan[i])
-				var at: Vector3 = v.p0 + v.d * x + v.side * y
-				at = beast._ground_at(at) if beast != null else at
-				var heading: Vector3 = (v.d + v.side * (y2 - y)).normalized()
-				var yaw := atan2(-heading.x, -heading.z)
-				s.place(at + v.u * 1.1, yaw)
-				if s.model.has_method("forward") and s.model.forward().dot(heading) < 0.0:
-					s.place(at + v.u * 1.1, yaw + PI)
-			var shooter = v.racers[2]
-			var target = v.racers[0]
-			if ts >= 2.45 and not v.has("seeker") and is_instance_valid(shooter) and is_instance_valid(target):
-				v.seeker = _seeker(shooter.model.position + v.u * 1.3 + v.d * 2.5, target.visual)
-				say("t=%.2f seeker away, gap %.1f" % [ts, shooter.model.position.distance_to(target.model.position)])
-			if v.has("seeker") and not v.has("burst") and is_instance_valid(target):
-				var sk = v.seeker
-				if not is_instance_valid(sk) or sk.global_position.distance_to(target.model.position) < 3.5:
-					v.burst = true
-					var where: Vector3 = target.model.position
-					target.apply_damage(9999.0)
-					ExplosionFx.big(demo, where, 1.6)
-					say("t=%.2f seeker hit %.0f m out" % [ts, (where - v.p0).dot(v.d)])
-		8, 9:
+			_direct_race(ts)
+		9, 10:
 			var c = demo.cruiser
 			var L: Callable = v.L
 			var g: NpcBody = c.general if "general" in c else null
 			if g != null and is_instance_valid(g):
 				g.global_position = L.call(v.gen_at)
 				g.velocity = Vector3.ZERO
-				g.face_point(L.call(v.gen_at + Vector3(10, -1.5, 0)))
+				g.face_point(L.call(Vector3(34.0, 58.6, 229.0)) if shot == 10 else L.call(v.gen_at + Vector3(10, -1.5, 0.6)))
 				g.home_target = rcam
 				cast.general = g
-			if shot == 9:
+			if shot == 10:
 				if not cast.has("guard"):
-					_spawn("guard", "cruiser_honour_guard", L.call(Vector3(27.0, 58.0, 225.6)), 0.0)
+					_spawn("guard", "cruiser_honour_guard", L.call(Vector3(24.6, 58.0, 222.8)), 0.0)
 				var gd: NpcBody = cast.guard
-				var k := clampf((ts + 0.5) / 2.0, 0.0, 1.0)
-				gd.global_position = L.call(Vector3(27.0, 58.0, 225.6).lerp(Vector3(27.6, 58.0, 222.6), k))
+				var k := _ease((ts + 0.3) / 1.6)
+				gd.global_position = L.call(Vector3(24.6, 58.0, 222.8).lerp(Vector3(27.0, 58.0, 220.1), k))
 				gd.velocity = Vector3.ZERO
 				gd.face_point(L.call(v.gen_at + Vector3(0, 1.6, 0)))
-				# The holo map over his left shoulder (moved in for the shot).
+				if ts > 3.7 and g != null:
+					g.face_point(cam.global_position)
 				var holo := _find_holo()
 				if holo != null:
-					holo.global_position = L.call(Vector3(25.2, 60.5, 218.4))
-		10, 11:
+					holo.global_position = L.call(Vector3(26.0, 60.4, 218.6))
+			else:
+				var holo := _find_holo()
+				if holo != null:
+					holo.global_position = L.call(Vector3(26.0, 60.4, 218.6))
+		11, 12:
 			if ts >= -0.15 and not v.has("served") and demo.cantina_owner != null:
 				v.served = true
 				demo.cantina_owner.serve({ "paid": true })
-		13, 14:
-			var spd := 1.45
-			var d := (ts + PRE) * spd
-			for k in cast:
-				var npc: NpcBody = cast[k]
-				var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
-				npc.go_to(Vector3(v.start - d - 20.0, 0, 0) + off)
+		14, 15:
+			if ts >= -1.6 and not v.has("walking"):
+				v.walking = true
+				for k in cast:
+					var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
+					cast[k].go_to(Vector3(v.start - 40.0, 0, 0) + off)
 			if int((ts + PRE) * 60.0) % 30 == 0:
-				say("t=%.2f general %s vel %s" % [ts, cast.general.global_position, cast.general.velocity])
-		15:
+				say("t=%.2f general %s" % [ts, cast.general.global_position])
+		16:
 			var g: NpcBody = cast.general
-			var top := Vector3(37.0, 0.05, 0.0)
-			var foot := Vector3(9.0, -5.95, 0.0)
-			var k := clampf((ts + PRE) / (PRE + 4.0), 0.0, 1.0)
-			for key in cast:
-				var off := Vector3.ZERO if key == "general" else Vector3(1.8, 0, 1.9 if key == "guard_n" else -1.9)
-				cast[key].go_to(top.lerp(foot, k) + Vector3(-3.0, 0, 0) + off)
-			if int((ts + PRE) * 60.0) % 30 == 0:
-				say("t=%.2f general %s" % [ts, g.global_position])
+			if ts >= -1.5 and not v.has("walking"):
+				v.walking = true
+				for k in cast:
+					var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
+					cast[k].go_to(Vector3(14.0, -6.0, 0.0) + off)
 			var t89 = v.t89
 			if t89 != null and t89.look != null:
-				var fr: Vector3 = v.frigate.global_position
+				var fr: Vector3 = v.weld
 				var body: Vector3 = t89.body.global_position
-				if ts < 1.2:
+				t89.body.global_position = v.t89_at
+				if ts < 1.4:
 					t89._face(fr - body)
 					DroidKit.raise_arm(t89.look, 1.0)
 					t89._sparks(true)
-				elif ts < 2.4:
+				elif ts < 2.8:
 					t89._sparks(false)
-					DroidKit.raise_arm(t89.look, clampf(1.0 - (ts - 1.2) * 2.5, 0.0, 1.0))
+					DroidKit.raise_arm(t89.look, clampf(1.0 - (ts - 1.4) * 2.0, 0.0, 1.0))
 					t89._face(g.global_position - body)
 				else:
-					t89._face(v.get("ship_now", fr) - body)
-			# The ship far up in the sky, coming in.
-			var at := Vector3(224.0, 127.0, -98.0) + Vector3(-30.0, -15.0, 18.0) * ts
-			v.ship_now = at
-			_ship_at(at, Vector3(-30.0, -15.0, 18.0).normalized(), Vector3.UP, 0.2 * sin(ts * 5.0))
+					t89._face(ship.global_position - body)
 
 
-## A seeker the way NpcLauncher.fire builds one (content/core/weapons/npc_seeker.json
-## numbers), homing on `target`.
+func _direct_race(ts: float) -> void:
+	var beast = demo.beast
+	var dt := 1.0 / 60.0
+	if beast != null:
+		var head: Vector3 = beast.global_position - _upv(beast.global_position) * beast.radius
+		var g: Vector3 = beast._ground_at(head + beast.heading * 1.4 * dt)
+		beast.travelled += 1.4 * dt
+		beast._t += dt
+		beast._place(g)
+		beast._push_trail(g)
+		beast._pose()
+	# Each racer: [time it passes the camera, lane at the camera, lane past the
+	# beast's head] (m, course right +). Red leads; yellow trails and fires.
+	var plan := [[0.55, -4.5, -5.5], [0.8, -3.0, -8.5], [1.1, -6.0, -7.0]]
+	var speed := 36.0
+	for i in v.racers.size():
+		var s = v.racers[i]
+		if not is_instance_valid(s) or (i == 0 and v.has("burst")):
+			continue
+		var x := speed * (ts - float(plan[i][0]))
+		var y := _race_y(x, plan[i])
+		var y2 := _race_y(x + 1.0, plan[i])
+		var at: Vector3 = v.p0 + v.d * x + v.side * y
+		at = beast._ground_at(at) if beast != null else at
+		var heading: Vector3 = (v.d + v.side * (y2 - y)).normalized()
+		var yaw := atan2(-heading.x, -heading.z)
+		s.place(at + v.u * 1.1, yaw)
+		if s.model.has_method("forward") and s.model.forward().dot(heading) < 0.0:
+			s.place(at + v.u * 1.1, yaw + PI)
+		if beast != null and abs(x - 36.0) < 8.0:
+			var clear := INF
+			for seg in beast.segments:
+				clear = minf(clear, (seg.node as Node3D).global_position.distance_to(at) - float(seg.r))
+			clear = minf(clear, beast.global_position.distance_to(at) - beast.radius)
+			v["clear%d" % i] = minf(v.get("clear%d" % i, INF), clear)
+	var shooter = v.racers[2]
+	var target = v.racers[0]
+	if ts >= 2.9 and not v.has("seeker") and is_instance_valid(shooter) and is_instance_valid(target):
+		v.seeker = _seeker(shooter.model.position + v.u * 1.3 + v.d * 2.5, target.visual)
+		say("t=%.2f seeker away; clearances %s %s %s" % [ts, v.get("clear0"), v.get("clear1"), v.get("clear2")])
+	if v.has("seeker") and not v.has("burst") and is_instance_valid(target):
+		var sk = v.seeker
+		if not is_instance_valid(sk) or sk.global_position.distance_to(target.model.position) < 3.5:
+			v.burst = true
+			var where: Vector3 = target.model.position
+			target.apply_damage(9999.0)
+			ExplosionFx.big(demo, where, 2.4)
+			say("t=%.2f seeker hit %.0f m out" % [ts, (where - v.p0).dot(v.d)])
+
+
+## A seeker the way NpcLauncher.fire builds one, homing on `target`.
 func _seeker(origin: Vector3, target: Node3D) -> Node3D:
 	var b = load("res://scenes/entities/bolt.tscn").instantiate()
 	b.direction = (target.global_position - origin).normalized()
@@ -557,20 +973,29 @@ func _seeker(origin: Vector3, target: Node3D) -> Node3D:
 		b.ground_up = func(p: Vector3) -> Vector3: return sphere.up_at(p)
 	demo.add_child(b)
 	b.global_position = origin
-	Sound.play("ship_missile", origin)
 	return b
 
 
-## A racer's side offset (m, camera right +) at x metres down the course: close
-## by the camera, swung wide round the beast, then easing back toward the line.
+## A racer's lane (m, course right +) x metres down the course from the camera:
+## its own lane by the camera, swung out round the beast's head, easing back after.
 func _race_y(x: float, p: Array) -> float:
 	var a: float = p[1]
 	var b: float = p[2]
-	if x < 24.0:
-		var k := clampf((x + 20.0) / 44.0, 0.0, 1.0)
-		return lerpf(a, b, k * k * (3.0 - 2.0 * k))
-	var k2 := clampf((x - 24.0) / 70.0, 0.0, 1.0)
-	return lerpf(b, b * 0.45, k2 * k2 * (3.0 - 2.0 * k2))
+	if x < 36.0:
+		return lerpf(a, b, _ease((x + 10.0) / 42.0))
+	return lerpf(b, b * 0.4, _ease((x - 36.0) / 60.0))
+
+
+func _aabb(root: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null:
+			continue
+		var bx: AABB = mi.global_transform * mi.get_aabb()
+		out = bx if first else out.merge(bx)
+		first = false
+	return out
 
 
 func _find_holo() -> Node3D:
@@ -586,145 +1011,34 @@ func _find_holo() -> Node3D:
 
 # ------------------------------------------------------------------ cameras
 
-func _ease(t: float) -> float:
-	t = clampf(t, 0.0, 1.0)
-	return t * t * (3.0 - 2.0 * t)
-
-
-func _look(at: Vector3, target: Vector3, up := Vector3.UP, fov := 50.0) -> void:
-	cam.fov = fov
-	cam.global_position = at
-	if (target - at).normalized().cross(up).length() < 0.01:
-		up = Vector3.FORWARD
-	cam.look_at(target, up)
-
-
 func _place_camera(t: float) -> void:
-	var k := clampf(t / secs, 0.0, 1.0)
-	match shot:
-		1:
-			# Stars, tilting down until the planet's limb rises into the frame.
-			var c: Vector3 = v.c
-			var eye: Vector3 = c + v.dir * v.r * 2.6
-			var to_c := (c - eye).normalized()
-			var right := to_c.cross(Vector3.UP).normalized()
-			var away := to_c.rotated(right, deg_to_rad(68.0))
-			var end_dir: Vector3 = (c + to_c.cross(right).normalized() * -v.r * 0.0 - eye).normalized().rotated(right, deg_to_rad(19.0))
-			var e := _ease(k)
-			_look(eye, eye + away.slerp(end_dir, e), Vector3.UP, 42.0)
-			_space_sky()
-		2:
-			var c: Vector3 = v.c
-			var dir: Vector3 = v.dir.rotated(Vector3.UP, deg_to_rad(-2.0 * k))
-			var eye: Vector3 = c + dir * v.r * lerpf(3.25, 3.1, k)
-			_look(eye, c, Vector3.UP, 42.0)
-			_space_sky()
-		3:
-			var c: Vector3 = v.c
-			_look(v.eye, c + Vector3.UP * v.r * 0.25, Vector3.UP, 48.0)
-			_space_sky()
-		4:
-			# Low on the dunes, side on: he walks across, stops and looks up.
-			var npc: NpcBody = cast.nomad
-			var p: Vector3 = npc.global_position
-			var u := _upv(p)
-			# From the port side, looking back at him with the camp behind.
-			# Then, as he looks up, the camera tilts up with him to the ship.
-			var at: Vector3 = v.walk_a + v.port_dir * 7.0 - v.side * 5.0 + u * 0.8
-			var to_him := (p + u * 1.35 - at).normalized()
-			var to_ship := (ship.global_position - at).normalized()
-			var e := _ease((t - 0.9) / 1.05)
-			_look(at, at + to_him.slerp(to_ship, e) * 50.0, u, lerpf(36.0, 30.0, e))
-		5:
-			# His eyes: a shaky push in on the ship coming down, smoking.
-			var npc: NpcBody = cast.nomad
-			var p: Vector3 = npc.global_position
-			var u := _upv(p)
-			var eye: Vector3 = p + u * 1.75 + v.port_dir * -0.6
-			var target: Vector3 = ship.global_position
-			var e := _ease(k)
-			var shake := Vector3(sin(t * 23.0) * 0.6 + sin(t * 41.0) * 0.3, cos(t * 19.0) * 0.5 + sin(t * 37.0) * 0.25, 0.0) * lerpf(1.0, 2.2, e)
-			var right := (target - eye).normalized().cross(u).normalized()
-			_look(eye, target + right * shake.x * 6.0 + u * shake.y * 6.0, u, lerpf(34.0, 9.0, e))
-		6:
-			# A medium two-shot of the trooper and the local, from the side away from
-			# the outpost so its buildings and the refinery stand behind them.
-			var W: Callable = v.W
-			var tp: Vector3 = cast.trooper.global_position
-			var lp: Vector3 = cast.local.global_position
-			if cast.local.dead and v.has("local_last"):
-				lp = v.local_last
-			else:
-				v.local_last = lp
-			var mid := tp.lerp(lp, 0.45)
-			var u := _upv(mid)
-			var along := _flat(lp - tp, mid)
-			var perp := along.cross(u).normalized()
-			if perp.dot(W.call(Vector3.ZERO) - mid) > 0.0:
-				perp = -perp
-			var a: Vector3 = mid + perp * 7.0 + along * 1.5 + u * 1.55
-			_look(a, mid + u * 1.25, u, 44.0)
-		7:
-			# Down on the sand, long lens: the beast's head filling the frame, the
-			# outpost over its back. The race tears past either side of us; we crane
-			# up behind it, the beast falling below frame, and the leader goes up in
-			# front of the outpost.
-			var u: Vector3 = v.u
-			var beast = demo.beast
-			var head: Vector3 = beast.global_position if beast != null else v.p0 + v.d * 24.0
-			var e := _ease(clampf((t - 1.15) / 3.5, 0.0, 1.0))
-			var at: Vector3 = v.p0 + u * lerpf(0.45, 15.0, e) + v.d * lerpf(0.0, 9.0, e) + v.side * 0.3
-			var start_look: Vector3 = (head + u * 1.4).lerp(v.outpost + u * 6.0, 0.18)
-			var end_look: Vector3 = v.p0 + v.d * 160.0 + u * 4.0
-			_look(at, start_look.lerp(end_look, e), u, lerpf(34.0, 42.0, e))
-		8:
-			# At the side window on the planet, backing away to show the general.
-			var L: Callable = v.L
-			var e := _ease(k)
-			var a: Vector3 = L.call(Vector3(30.2, 60.3, 222.0).lerp(Vector3(24.0, 60.2, 223.8), e))
-			var target: Vector3 = L.call(Vector3(40.0, 57.6, 221.0).lerp(v.gen_at + Vector3(1.8, 1.4, -0.6), e))
-			_look(a, target, Vector3.UP, 50.0)
-		9:
-			# Close on the general's face, the window's light on him, the map
-			# glowing over his left shoulder.
-			var L: Callable = v.L
-			var a: Vector3 = L.call(Vector3(30.5, 59.95, 222.55 + k * 0.1))
-			_look(a, L.call(v.gen_at + Vector3(0.0, 1.62, -0.25)), Vector3.UP, 34.0)
-		10:
-			# On the counter, low: the bottle lands in the foreground, Oda behind it.
-			var oda: Node3D = demo.cantina_owner
-			var o := oda.global_position if oda != null else Vector3(-109, 0, 0)
-			_look(Vector3(-105.25, 1.2, o.z + 1.4), Vector3(o.x, 1.25, o.z - 0.3), Vector3.UP, 42.0)
-		11:
-			# The end of the bar: Oda behind it on the left, the patrons on the right.
-			var oda: Node3D = demo.cantina_owner
-			var o := oda.global_position if oda != null else Vector3(-109, 0, 0)
-			_look(Vector3(-105.9, 1.6, o.z - 5.5 + k * 0.4), Vector3(-106.9, 1.4, o.z + 1.0), Vector3.UP, 50.0)
-		12:
-			# Backing out of the club through its door into the square.
-			var e := _ease(k)
-			_look(Vector3(lerpf(-90.0, -72.0, e), lerpf(1.7, 2.6, e), 0.0), Vector3(-104.0, 1.6, 0.0), Vector3.UP, 50.0)
-		13:
-			# In front of them, walking backwards with them down the main street.
-			var g: Vector3 = cast.general.global_position
-			_look(Vector3(g.x - 5.5, 1.45, g.z + 0.9), g + Vector3(0, 1.35, 0), Vector3.UP, 44.0)
-		14:
-			# Behind and above them, the pit ahead down the street.
-			var g: Vector3 = cast.general.global_position
-			_look(Vector3(g.x + 6.5, 4.2, g.z + 1.5), Vector3(g.x - 26.0, -2.0, 0.0), Vector3.UP, 52.0)
-		15:
-			# Beside T-89 at the frigate: the general coming down the ramp; then up.
-			var t89 = v.t89
-			var b: Vector3 = t89.body.global_position if t89 != null else Vector3(2.5, -6, 15.5)
-			# Low over T-89's shoulder (he is in the left foreground), the ramp beyond.
-			var a := b + Vector3(-4.0, 1.5, 3.5)
-			var ramp := Vector3(20.0, -3.2, 0.0)
-			var up_t := _ease(clampf((t - 2.4) / 1.2, 0.0, 1.0))
-			var target := ramp.lerp(ship.global_position, up_t * 0.6)
-			_look(a, target, Vector3.UP, 54.0)
-		_:
-			var pp: Vector3 = demo._player.global_position
-			_look(pp + Vector3(6, 4, 10), pp + Vector3(0, 1, 0))
+	if keys.is_empty():
+		var pp: Vector3 = demo._player.global_position
+		_look(pp + Vector3(6, 4, 10), pp + Vector3(0, 1, 0))
+	else:
+		var p := _path(t)
+		var eye: Vector3 = p[0]
+		var tgt: Vector3 = p[1]
+		var fov: float = p[2]
+		match shot:
+			3:
+				# On him (a damped point, not his bob), then up with his look to the ship.
+				var aim: Vector3 = v.get("aim", v.chest0)
+				var k := _ease((t - 1.95) / 1.6)
+				var to_ship: Vector3 = ship.global_position.lerp(v.ship_b, 0.15)
+				tgt = aim.lerp(eye + (to_ship - eye).normalized() * eye.distance_to(aim), k)
+				fov = lerpf(40.0, 46.0, k)
+			6:
+				if v.has("aim"):
+					tgt = tgt.lerp(v.aim, _ease((t - 1.0) / 1.4))
+			4:
+				var e := _ease(t / secs)
+				eye = v.head
+				tgt = ship.global_position
+				fov = lerpf(24.0, 9.0, e)
+		_look(eye, tgt, up, fov)
+	if v.get("space", false):
+		_space_sky()
 	rcam.global_transform = cam.global_transform
 	rcam.fov = cam.fov
 	rcam.current = true
