@@ -29,6 +29,7 @@ const UPPER := {
 	"pistol_blaster": BodyAnimator.UPPER_AIM,
 	"rifle_blaster": BodyAnimator.UPPER_RIFLE,
 	"sniper_rifle": BodyAnimator.UPPER_RIFLE,
+	"seeker_launcher": BodyAnimator.UPPER_RIFLE,
 	"energy_blade": BodyAnimator.UPPER_SWORD,
 }
 const LEAD_MAX := 0.25            ## seconds a body may run on past its last packet

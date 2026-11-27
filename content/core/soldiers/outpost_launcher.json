@@ -1,0 +1,7 @@
+{
+  "id": "outpost_launcher",
+  "base": "outpost_trooper",
+  "label": "Outpost launcher trooper",
+  "note": "The one seeker launcher trooper at each Remnant outpost (its guard_c post; remnant_outposts.gd OUTPOST_LAUNCHER_POST). An outpost trooper with the seeker launcher over his shoulder ('launcher': NpcLauncher, content/core/weapons/npc_seeker.json): a ship or speeder you ride near an outpost they are fighting gets locked and shot at (your ship's seeker warning sounds; a speeder has none). On foot he lobs slow seekers at you.",
+  "launcher": {}
+}

@@ -261,10 +261,22 @@ func get_crate_prizes(location_id: String) -> Array:
 	return pickups.get(location_id, {}).get("crate_prizes", [])
 
 
-## Wreck field: the stray loot along the climb through every wreck ({ id, frame,
-## point, item, count }; frame "hull" or "level", as StarcruiserWreck.site_point).
+## Wreck field: the stray loot spots along the climb through every wreck ({ id,
+## frame, point }; frame "hull" or "level", as StarcruiserWreck.site_point).
 func get_site_loot(location_id: String) -> Array:
 	return pickups.get(location_id, {}).get("site_loot", [])
+
+
+## Wreck field: what a loot spot can hold, rolled by weight ({ item, count } or
+## { credits }; a count or credits is a number or a [min, max] range).
+func get_site_loot_table(location_id: String) -> Array:
+	return pickups.get(location_id, {}).get("site_loot_table", [])
+
+
+## Wreck field: mixed into every loot spot's roll, so the whole field's loot can
+## be dealt again from data.
+func get_site_loot_seed(location_id: String) -> int:
+	return int(pickups.get(location_id, {}).get("site_loot_seed", 0))
 
 
 func get_world(id: String) -> Dictionary:

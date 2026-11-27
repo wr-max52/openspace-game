@@ -130,6 +130,7 @@ func _build_visual() -> void:
 		hull.fit_box(size, center)
 	visual.add_child(hull)
 	hull.on_damage = _on_hit
+	hull.lock_check = flying            # the seeker launcher locks on it in the air
 
 
 ## The barracks changed hands: the interceptor on its pad takes the holder's paint

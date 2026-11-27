@@ -12,6 +12,7 @@ extends Node
 ##   Sound.set_club_live(false)         the band is dead: the club goes quiet
 ##   Sound.club_vibe("hard")            Oda changes the song to one with that mood
 ##   Sound.radio_next()                 issue #291: J in a ship, the next station
+##   Sound.set_droid(id, near)          your laser droid's music, and how near it is
 ##
 ## The music is the ambient tracks, played in a shuffled order (a new one each
 ## game) with cross-fades; a battle track (from 30 s in) while NPCs are shooting
@@ -33,6 +34,11 @@ extends Node
 ## volume and unmuffled, wherever the ship is: in space and in a fight too (the
 ## score stays ducked under it). J steps through `club.radio` and back to off;
 ## getting out of the seat turns it off.
+##
+## Your laser droid plays a club playlist on that layer too (droids.json
+## upgrades.lasers.modes), unmuffled, as loud as it is near you, ducking the score
+## like a cantina. A cantina you are inside and the ship's radio play over it; out
+## by a cantina's wall the louder of the two plays.
 ##
 ## Static and lazy, like GameFlow and WorldState (no autoload): the first call
 ## puts one node under the tree root, where it outlives scene changes, so the
@@ -79,6 +85,8 @@ var _club_tw: Tween
 var _club_bag: Array = []      ## paths still to play before the playlist reshuffles
 var _club_playing := ""        ## the playlist the club deck is playing from
 var radio := ""                ## issue #291: the playlist the ship's radio plays ("" = off)
+var droid := ""                ## the playlist your laser droid plays ("" = none)
+var droid_near := 0.0          ## 0 out of earshot of it .. 1 beside it
 
 
 # ------------------------------------------------------------------ the calls
@@ -216,6 +224,14 @@ func set_radio(id: String) -> void:
 	radio = id
 	if id != "" and _club_deck != null and _club_deck.playing:
 		_club_next(float(_club_cfg().get("radio_fade", 1.0)))
+
+
+## Your laser droid's music: playlist `id` ("" for none), `near` 0 out of earshot
+## .. 1 beside you. The droid controller says it each frame it changes.
+static func set_droid(id: String, near: float) -> void:
+	var s := lib()
+	s.droid = id
+	s.droid_near = clampf(near, 0.0, 1.0) if id != "" else 0.0
 
 
 ## Start the music if it is not already going (each playable scene calls this).
@@ -392,22 +408,34 @@ func club_tracks(id: String, mood := "") -> Array:
 	return tagged if not tagged.is_empty() else all
 
 
-## The playlist the club layer plays: the radio's when it is on, else the club's
-## you are near.
+## The playlist the club layer plays: the radio's when it is on, else your laser
+## droid's when it is louder than the club you are near (never inside one), else
+## the club's.
 func club_playlist() -> String:
-	return radio if radio != "" else club
-
-
-## Whether the club layer has music to play: the radio has no band to kill.
-func _club_on() -> bool:
-	return radio != "" or club_live
-
-
-## How loud the club layer should be, 0..1: nothing in space or away from a
-## club, up to `outside` at the wall, all of it inside or with the radio on.
-func club_target() -> float:
 	if radio != "":
-		return 1.0
+		return radio
+	return droid if droid_plays() else club
+
+
+## Your laser droid's music is the one on the club layer: no radio, not inside a
+## club, and louder than the club through its wall.
+func droid_plays() -> bool:
+	if radio != "" or droid == "" or droid_near <= 0.0:
+		return false
+	if club != "" and club_inside and not in_space:
+		return false                   # inside a club its band plays
+	return droid_near >= _club_heard()
+
+
+## Whether the club layer has music to play: the radio and the droid have no
+## band to kill.
+func _club_on() -> bool:
+	return radio != "" or droid_plays() or club_live
+
+
+## How loud the club you are near is, 0..1: nothing in space or away from one,
+## up to `outside` at the wall, all of it inside.
+func _club_heard() -> float:
 	if club == "" or in_space:
 		return 0.0
 	if club_inside:
@@ -415,12 +443,22 @@ func club_target() -> float:
 	return club_near * float(_club_cfg().get("outside", 0.5))
 
 
+## How loud the club layer should be, 0..1: the club you are near, all of it with
+## the radio on, as near as your laser droid is when its music plays.
+func club_target() -> float:
+	if radio != "":
+		return 1.0
+	if droid_plays():
+		return droid_near
+	return _club_heard()
+
+
 func _club_process(dt: float) -> void:
 	var c := _club_cfg()
 	var target := club_target()
 	var k := clampf(dt * float(c.get("ease", 2.0)), 0.0, 1.0)
 	club_level = lerpf(club_level, target, k)
-	club_open = lerpf(club_open, 1.0 if club_inside or radio != "" else 0.0, k)
+	club_open = lerpf(club_open, 1.0 if club_inside or radio != "" or droid_plays() else 0.0, k)
 	if target == 0.0 and club_level < 0.002:
 		club_level = 0.0
 	_club_mix()
@@ -463,7 +501,7 @@ func _club_next(fade := -1.0) -> bool:
 	if id == "" or not _club_on():
 		return false
 	if _club_bag.is_empty() or _club_playing != id:
-		_club_bag = club_tracks(id, club_mood if radio == "" else "")
+		_club_bag = club_tracks(id, club_mood if radio == "" and not droid_plays() else "")
 		_club_bag.shuffle()
 		if _club_bag.size() > 1 and _club_bag.back() == club_track:
 			_club_bag.push_front(_club_bag.pop_back())

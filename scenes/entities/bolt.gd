@@ -47,6 +47,9 @@ var matte := false             ## issue #96: a thrown rock: plain colour, no glo
 ## bolt's pop. No seek: it flies straight, like any bolt.
 var seek: Node3D = null
 var turn_rate := 0.0
+## A seeker that comes within this many metres of `seek` bursts on it (the seeker
+## launcher's: its turning circle is wider than a ship). 0: off, it must touch.
+var proximity := 0.0
 var blast_size := 0.0
 var reflected := 0             ## times a blade has sent it back
 var _streak: MeshInstance3D
@@ -217,6 +220,9 @@ func _home(dt: float) -> void:
 		return
 	if not is_instance_valid(seek) or seek.get("dead") == true or not seek.is_inside_tree() or not is_inside_tree():
 		seek = null
+		return
+	if proximity > 0.0 and global_position.distance_to(seek.global_position) <= proximity:
+		apply_to(seek)
 		return
 	var want := (seek.global_position - global_position).normalized()
 	var cur := direction.normalized()

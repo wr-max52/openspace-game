@@ -76,7 +76,14 @@
     "disengage_dist": 70.0,
     "disengage_unseen_s": 12.0,
     "search_leash": 22.0,
-    "chase_leash": 30.0
+    "chase_leash": 30.0,
+    "hunt_note": "On the alarm with nobody in sight for hunt_after_s: rifle up, sweeping sweep_deg either way every sweep_every_s, walking search spots within hunt_radius of the last sighting (pausing hunt_pause_s at each), calling out every hunt_call_s or so.",
+    "hunt_after_s": 6.0,
+    "hunt_radius": 10.0,
+    "hunt_pause_s": 2.0,
+    "hunt_call_s": 8.0,
+    "sweep_deg": 60.0,
+    "sweep_every_s": 1.4
   },
   "patrol": {
     "pause_s": 4.0,

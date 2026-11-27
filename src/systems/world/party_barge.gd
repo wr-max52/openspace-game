@@ -1038,7 +1038,7 @@ func _provoke() -> void:
 	if wrecked or demo == null or not bool(demo.get("npc_brains")) or not demo.has_method("make_npc"):
 		return
 	if _folk == null:
-		_folk = demo.make_townsfolk("BargeFolk", [])
+		_folk = demo.make_townsfolk("BargeFolk", [], barge_name)
 		_folk.standing = false
 	fights += 1
 	_folk.provoke()

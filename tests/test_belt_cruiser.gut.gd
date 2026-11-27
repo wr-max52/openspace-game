@@ -2,7 +2,7 @@ extends GutTest
 ## Issue #327: the belt cruiser, a second Remnant star cruiser by the ringed giant's
 ## space station. The same ship as the home one from its own config; where it hangs;
 ## taken on its own (its flag, saved with the world) without touching the home
-## cruiser or the story; its pointer; and the bridge's holo of the station.
+## cruiser or the story; its pointer; and the bridge's holo of the whole system.
 
 const BELT := "belt_cruiser"
 
@@ -43,7 +43,7 @@ func test_the_same_cruiser_from_its_own_config() -> void:
 	assert_false(belt.has("base"))
 	for k in ["pads", "dock", "crew", "droids", "general", "escort"]:
 		assert_eq(belt[k], home[k], "%s is the home cruiser's" % k)
-	assert_eq(str(belt.holo.kind), "station", "its holo shows the station")
+	assert_eq(str(belt.holo.kind), "system", "its holo shows the whole system")
 	assert_eq(belt.lines.dock_hint, home.lines.dock_hint, "lines it does not list are the home one's")
 
 
@@ -106,25 +106,62 @@ func test_at_the_station_the_pointer_is_its_bay_then_its_general() -> void:
 	assert_true(Objective.other_cruiser().is_empty(), "at home the story points at the home cruiser")
 
 
-func test_its_holo_shows_the_station_and_the_belt() -> void:
-	var lm := _belt_landmark()
+func _system_holo() -> CruiserHolo:
 	var sp := PlanetSphere.new(3500.0)
-	var xf := CruiserHull.frame_for(sp, lm)
+	var xf := CruiserHull.frame_for(sp, _belt_landmark())
 	var slm: Dictionary = StationHull.landmarks(_giant())[0]
 	var hull := StationHull.for_id(str(slm.station))
+	var stations := [{ "id": Territory.STATION + str(slm.id), "hull": hull, "frame": hull.frame_for(sp, slm, _giant()),
+		"name": "Test Station" }]
+	var moons: Array = []
+	for n in PlanetGen.neighbours("ringed_giant"):
+		var m: Dictionary = n.duplicate()
+		m["name"] = "Test Moon"
+		moons.append(m)
 	var h := CruiserHolo.new()
 	var spec: Dictionary = CruiserHull.data_for(BELT).holo
-	h.setup_station(spec, hull, hull.frame_for(sp, slm, _giant()), xf, Vector3.ZERO, { "station": "Test Station", "cruiser": "Test" })
+	h.setup_system(spec, sp, PlanetGen.build("ringed_giant").cfg.get("body", {}), xf, Vector3.ZERO, stations, moons,
+		{ "cruiser": "Test" }, str(CruiserHull.data_for(BELT).flag))
 	add_child_autofree(h)
+	return h
+
+
+func test_its_holo_shows_the_giant_its_ring_and_what_orbits_it() -> void:
+	var h := _system_holo()
+	var spec: Dictionary = CruiserHull.data_for(BELT).holo
 	var turn := h.get_node("Turn")
-	var belt := turn.get_node("Belt") as MultiMeshInstance3D
-	assert_eq(belt.multimesh.instance_count, int(spec.rocks), "the belt's rocks")
-	assert_not_null(turn.get_node_or_null("Cruiser"), "the cruiser on it")
-	var floors := 0
-	for t in hull.towers:
-		floors += t.floors.size()
-	assert_gt(turn.get_child_count(), floors * 2, "every floor of both towers")
-	assert_almost_eq(h.radius * 2.0, float(spec.width), 0.01, "the station is holo.width long")
+	assert_not_null(turn.get_node_or_null("Planet"), "the giant")
+	assert_not_null(turn.get_node_or_null("Ring"), "its ring")
+	assert_eq((turn.get_node("Rocks") as MultiMeshInstance3D).multimesh.instance_count, int(spec.rocks), "the ring's rocks")
+	assert_not_null(turn.get_node_or_null("Station_station_orbital_station"), "the station")
+	assert_not_null(turn.get_node_or_null("Cruiser"), "the cruiser")
+	var moon := turn.get_node_or_null("Moon_cinder_station") as Node3D
+	assert_not_null(moon, "the lava moon, the giant's moon")
+	assert_null(turn.get_node_or_null("Moon_grit_station"), "not the home planet's moon")
+	assert_gt(moon.position.length(), float(spec.radius) * 2.5, "the moon outside the ring")
+	for id in Territory.outposts("lava_moon"):
+		assert_true(h.places.has(id), "%s pinned on the moon" % id)
+	assert_true(h.places.has(Territory.barracks_of("lava_moon")), "the moon's barracks")
+	assert_true(h.places.has("station_orbital_station"), "the station's barracks")
+	assert_true(h.places.has(CruiserHolo.CRUISER), "the cruiser")
+
+
+func test_its_holo_says_who_holds_each() -> void:
+	var h := _system_holo()
+	var cruiser: Label3D = h.places[CruiserHolo.CRUISER].label
+	var station: Label3D = h.places["station_orbital_station"].label
+	var moon := h.get_node("Turn/Moon_cinder_station").get_meta("label") as Label3D
+	assert_string_contains(cruiser.text, "Remnant")
+	assert_string_contains(station.text, "Barracks: Remnant")
+	assert_string_contains(moon.text, "5 Remnant, 0 Locals")
+	WorldState.set_flag("belt_cruiser_taken")
+	Territory.take_station("station_orbital_station", "Test Station")
+	WorldState.control["remnant_outpost_lava_glow"] = { "owner": Territory.LOCALS }
+	h.refresh_owners()
+	assert_string_contains(cruiser.text, "Empty", "the cruiser is empty once taken")
+	assert_string_contains(station.text, "Barracks: Locals")
+	assert_string_contains(moon.text, "4 Remnant, 1 Locals")
+	assert_eq(h.owner_color("remnant_outpost_lava_glow"), Color(str(h.spec.owner_colors.locals)))
 
 
 func test_its_escort_meets_you_flying_for_it_not_away() -> void:

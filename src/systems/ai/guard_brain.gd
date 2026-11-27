@@ -16,7 +16,10 @@ extends RefCounted
 ##   PATROL   walk the loop, pause and look around at each point
 ##   ATTEND   stand, face the player, rifle at the ready (a challenge is on);
 ##            with walk_up set, walk up to the player first
-##   COMBAT   cover, hide, wind up, burst, back down; in the open if no cover
+##   COMBAT   cover, hide, wind up, burst, back down; in the open if no cover.
+##            Nobody in sight for hunt_after_s: hunt (rifle up, sweeping, walking
+##            search points round where the player was), so a trooper on the
+##            alarm is always plainly looking for you, even one that never saw you
 ##   SEARCH   walk to where the player was last seen or heard and look around
 ##   RETURN   back to the loop
 ##
@@ -80,6 +83,14 @@ var _investigate_left := 0.0
 var _investigate_at := Vector3.INF
 var _look_base := 0.0
 var _walking_up := false
+var _hunting := false
+var _hunt_to := Vector3.INF
+var _hunt_wait := 0.0
+var _hunt_center := Vector3.INF
+var _call_left := 0.0
+var _sweep_left := 0.0
+var _sweep_yaw := 0.0
+var _sweep_base := 0.0
 
 
 func _init(soldier: Dictionary = {}, rng_seed: int = 1) -> void:
@@ -97,7 +108,7 @@ func pt(key: String, fallback: float) -> float:
 
 func state_name() -> String:
 	if state == State.COMBAT:
-		return "COMBAT/" + Fight.keys()[fight]
+		return "COMBAT/HUNT" if _hunting else "COMBAT/" + Fight.keys()[fight]
 	return State.keys()[state]
 
 
@@ -129,7 +140,15 @@ func engage() -> void:
 		fight = Fight.TO_COVER
 		want_cover = true
 	_no_sight = 0.0
+	_hunting = false
+	_hunt_to = Vector3.INF
+	_sweep_base = facing          # with nowhere to look, it looks round the way it faced (fixed: turning must not drag it round)
 	_say("contact", 0.0)
+
+
+## Hunting: on the alarm, nobody in sight for a while (rifle up, looking).
+func hunting() -> bool:
+	return state == State.COMBAT and _hunting
 
 
 ## The fight is over for now: go and look, then go back.
@@ -321,16 +340,34 @@ func _combat(dt: float, hit: bool) -> void:
 	if threat == Vector3.INF:
 		threat = heard_pos
 	if threat == Vector3.INF:
-		# Told to fight with nothing to go on: stand ready where we are.
+		# Told to fight with nothing to go on: stand ready where we are, rifle up,
+		# looking round for them.
 		go_to = Vector3.INF
-		face = Vector3.INF
-		aim = Vector3.INF
 		crouch = false
+		sprint = false
+		_sweep(dt, Vector3.INF)
 		return
 	face = threat
 	_no_sight = 0.0 if visible else _no_sight + dt
 	if hit and _rng.randf() < 0.5:
 		_say("hit", 3.0)
+	if _hunting and (visible or hit):
+		# There they are: back to the fight, shooting first.
+		_hunting = false
+		_hunt_to = Vector3.INF
+		_no_sight = 0.0
+		fight = Fight.WINDUP
+		_timer = c("windup_s", 0.35)
+		_opening = true
+	elif not _hunting and not visible and _no_sight >= c("hunt_after_s", 6.0) and not reloading:
+		_hunting = true
+		_hunt_to = Vector3.INF
+		_hunt_center = Vector3.INF
+		_hunt_wait = 0.0
+		_call_left = 0.0           # the first call as the hunt starts
+	if _hunting:
+		_hunt(dt, threat)
+		return
 	if holds_ground():
 		_hold_ground(dt, threat, hit)
 		return
@@ -410,6 +447,75 @@ func _combat(dt: float, hit: bool) -> void:
 				want_cover = true
 			if cover != Vector3.INF:
 				fight = Fight.TO_COVER
+
+
+## Nobody in sight: look for them. Rifle up and sweeping round where they were;
+## a trooper that can move walks search points round that spot (on its leash,
+## running to far ones), a sentry steps to its rim facing it. Now and then one
+## calls out.
+func _hunt(dt: float, threat: Vector3) -> void:
+	crouch = false
+	sprint = false
+	fire = false
+	_call_left -= dt
+	if _call_left <= 0.0:
+		_call_left = c("hunt_call_s", 8.0) * _rng.randf_range(0.8, 1.6)
+		_say("hunt", 0.0)
+	if holds_ground():
+		go_to = Vector3.INF
+		var rim := c("hold_radius", 0.0)
+		if rim > 0.0 and patrol_points.size() > 0:
+			var home: Vector3 = patrol_points[0]
+			var to := Vector3(threat.x - home.x, 0.0, threat.z - home.z)
+			if to.length() > 0.5:
+				var spot := home + to.normalized() * rim
+				if not _near(spot, 0.6):
+					go_to = spot
+		_sweep(dt, threat)
+		return
+	var radius := c("hunt_radius", 10.0)
+	# A fresh sighting somewhere else (someone else has eyes on): search there instead.
+	if _hunt_center == Vector3.INF or Vector2(threat.x - _hunt_center.x, threat.z - _hunt_center.z).length() > radius * 1.5:
+		_hunt_center = threat
+		_hunt_to = Vector3.INF
+		_hunt_wait = 0.0
+	if _hunt_to == Vector3.INF or (_near(_hunt_to, 1.2) and _hunt_wait <= 0.0):
+		if _hunt_to != Vector3.INF:
+			# Got there: stand and look a moment before the next spot.
+			_hunt_wait = c("hunt_pause_s", 2.0) * _rng.randf_range(0.7, 1.4)
+		var ang := _rng.randf() * TAU
+		var r := radius * sqrt(_rng.randf())
+		_hunt_to = _leashed(_hunt_center + Vector3(cos(ang), 0.0, sin(ang)) * r, c("chase_leash", 30.0))
+		if _near(_hunt_to, 1.2):
+			_hunt_wait = maxf(_hunt_wait, c("hunt_pause_s", 2.0))   # the end of its leash: look from here
+	if _hunt_wait > 0.0:
+		_hunt_wait -= dt
+		go_to = Vector3.INF
+		_sweep(dt, _hunt_center)
+	else:
+		go_to = _hunt_to
+		sprint = not _near(_hunt_to, 15.0)
+		if sprint:
+			face = Vector3.INF          # running there: rifle at the hip, eyes ahead
+			aim = Vector3.INF
+		else:
+			_sweep(dt, _hunt_to)
+
+
+## Rifle up at chest height, sweeping left and right of `toward` (or of the way
+## it faces): plainly on the lookout.
+func _sweep(dt: float, toward: Vector3) -> void:
+	_sweep_left -= dt
+	if _sweep_left <= 0.0:
+		_sweep_left = c("sweep_every_s", 1.4) * _rng.randf_range(0.7, 1.3)
+		_sweep_yaw = deg_to_rad(_rng.randf_range(-1.0, 1.0) * c("sweep_deg", 60.0))
+	var base := _sweep_base
+	if toward != Vector3.INF and Vector2(toward.x - pos.x, toward.z - pos.z).length() > 0.5:
+		base = atan2(toward.x - pos.x, toward.z - pos.z)
+	var y := base + _sweep_yaw
+	var p := pos + Vector3(sin(y), 0.0, cos(y)) * 12.0
+	face = p
+	aim = p + Vector3(0, target_chest, 0)
 
 
 ## A sentry fights where it stands: duck (if it can), stand, wind up, burst, repeat.

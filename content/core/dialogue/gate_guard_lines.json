@@ -87,6 +87,13 @@
       "Where'd they go?",
       "Spread out, find them."
     ],
+    "hunt": [
+      "Eyes open, they're still here.",
+      "Check every corner.",
+      "Anything? Keep looking.",
+      "Sweep left, I've got right.",
+      "Stay sharp. They can't have gone far."
+    ],
     "search_area": [
       "Check behind the crates.",
       "They went this way."
@@ -127,7 +134,7 @@
     ],
     "alarm": [
       "Alarm! Alarm!",
-      "All units, front gate!",
+      "All units, on me!",
       "We've got a live one!"
     ],
     "on_my_way": [

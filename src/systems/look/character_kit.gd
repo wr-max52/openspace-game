@@ -678,6 +678,31 @@ func _rifle(body: Node3D, p: Dictionary) -> void:
 	_mi(r, _box(Vector3(0.035, 0.06, 0.05)), metal, Vector3(0, -0.02, 0.3))
 
 
+## A guard's seeker launcher in place of the gun the archetype carries: the
+## player's tube (LauncherLook and the scope, hand_weapons.json "seeker_launcher"),
+## posed and gripped by that entry ("gun" meta) and rested on the shoulder
+## ("carry" launcher, WeaponCarry).
+func launcher(body: Node3D) -> void:
+	if body.has_meta("weapon"):
+		var old: Node3D = body.get_meta("weapon")
+		body.remove_meta("weapon")
+		if old.get_parent() != null:
+			old.get_parent().remove_child(old)
+		old.queue_free()
+	var spec: Dictionary = _read_json(HAND_WEAPONS_PATH).get("seeker_launcher", {})
+	var r := Node3D.new()
+	r.name = "Launcher"
+	_j(body, "chest").add_child(r)
+	var model := LauncherLook.build(spec)
+	GunSights.add_to(model, spec, true)
+	r.add_child(model)
+	var g: Dictionary = spec.get("grips", {})
+	r.set_meta("grips", { "r": PlayerAvatar._v3(g.get("r", [0, -0.135, 0.2])), "l": PlayerAvatar._v3(g.get("l", [0, -0.125, 0.42])) })
+	r.set_meta("carry", "launcher")
+	r.set_meta("gun", "seeker_launcher")
+	body.set_meta("weapon", r)
+
+
 ## Issue #76: the marked officer's sidearm: the player's pistol model
 ## (hand_weapons.json "pistol_blaster"), darkened the same way. Held one-handed:
 ## aimed where the player's third-person pistol sits ("aim"), rested by the right
