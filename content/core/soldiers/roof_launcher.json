@@ -1,0 +1,7 @@
+{
+  "id": "roof_launcher",
+  "base": "roof_rifleman",
+  "label": "Roof launcher trooper",
+  "note": "One of the two seeker launcher troopers on the barracks hall roof at the home port (the west and east roof posts, port_round.json). A roof rifleman with the seeker launcher over his shoulder instead of the rifle ('launcher': NpcLauncher and content/core/weapons/npc_seeker.json): your ship off the ground in town is hostile to the garrison (ShipPilot.hostile_in_town), so as it lifts off he locks on and fires seekers at it, and your cockpit's seeker warning sounds. On foot he lobs slow seekers at you.",
+  "launcher": {}
+}

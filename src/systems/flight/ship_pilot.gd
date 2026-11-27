@@ -346,6 +346,7 @@ func add_berth(v: Node3D, id: String, box_id: String, key: String = "") -> int:
 	_disable_box(box_id)
 	b.hull = _build_hull(v, acc[0], box_id, b.clearance)
 	b.hull.on_damage = _on_hull_hit.bind(i)
+	b.hull.lock_check = _foot_lockable.bind(i)    # a barracks pad's interceptor: the seeker launcher locks on it
 	b.box_id = box_id
 	b.destroyed = false
 	b.key = key
@@ -1342,7 +1343,7 @@ func _engine_step() -> void:
 
 ## The seeker warning: while an enemy has a lock on her or a seeker in flight at her
 ## (in a space fight, or down on the planet from the Remnant interceptor, whether or
-## not the space dogfight is on), the alarm sounds for a few seconds, the text shows, and (in the cockpit
+## not the space dogfight is on, or a guard's seeker launcher), the alarm sounds for a few seconds, the text shows, and (in the cockpit
 ## view) the dash lamp flashes. SeekerWarning decides when; this plays it.
 func _seeker_step(dt: float) -> void:
 	var threat := false
@@ -1355,6 +1356,10 @@ func _seeker_step(dt: float) -> void:
 	if not threat and piloting and foe != null and foe.has_method("seekers_on_player"):
 		var on_her: Dictionary = foe.seekers_on_player()
 		threat = int(on_her.locks) + int(on_her.missiles) > 0
+	# A guard's seeker launcher (the port's roof, the outposts) locked on her or a
+	# seeker of theirs after her (NpcLauncher).
+	if not threat and piloting and hull != null and is_inside_tree():
+		threat = NpcLauncher.threat_on(hull, get_tree())
 	var was := seeker_warning.sounding
 	seeker_warning.update(dt, threat)
 	if seeker_warning.sounding != was:
@@ -2180,6 +2185,16 @@ func _parked_target(i: int, shooter: Node) -> bool:
 	if not (shooter is ShipHull) and not by_hand:
 		return false
 	return not (i == berth and (piloting or atmo.state != AtmoFlight.State.PARKED))
+
+
+## The seeker launcher may lock on berth `i`: a "foot_target" berth (hand weapons
+## hurt it) still standing, and not the one you fly.
+func _foot_lockable(i: int) -> bool:
+	if i >= berths.size():
+		return false
+	var b: Dictionary = berths[i]
+	return bool(b.get("foot_target", false)) and not bool(b.get("destroyed", false)) \
+		and not (i == berth and piloting)
 
 
 func _hit_parked(i: int, amount: float) -> void:
