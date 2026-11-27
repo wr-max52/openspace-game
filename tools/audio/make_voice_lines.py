@@ -47,6 +47,26 @@ FILL = re.compile(r"%[sd]|\{[a-z_]+\}")
 TAG = re.compile(r"\[[^\]]*\]\s*")
 
 
+KEYCAP = re.compile(r"\[(LMB|RMB|Shift|Space|Tab|Enter|Esc|Backspace|F\d{1,2}|[A-Z0-9])\]")
+
+
+def said(line):
+    """A line with HUD-style keys ("[E]", "[LMB]") as the game says it
+    (NpcVoice.spoken_keys): the bare key, the mouse buttons as words."""
+    out, at = "", 0
+    for m in KEYCAP.finditer(line):
+        out += line[at:m.start()]
+        k = m.group(1)
+        if k in ("LMB", "RMB"):
+            k = ("left" if k == "LMB" else "right") + " mouse"
+            before = out.rstrip()
+            if before == "" or before[-1] in ".!?":
+                k = k[0].upper() + k[1:]
+        out += k
+        at = m.end()
+    return out + line[at:]
+
+
 def shown(line):
     """The line as the game shows (and keys) it: audio tags taken out."""
     return TAG.sub("", line).strip()
@@ -70,7 +90,7 @@ def named(npc_id):
 def strings(node):
     """Every string under a JSON node (lists and dicts walked)."""
     if isinstance(node, str):
-        yield node
+        yield said(node)
     elif isinstance(node, list):
         for v in node:
             yield from strings(v)
@@ -98,7 +118,7 @@ def card_lines(card):
 # leader_lost and next_crew joined by a space. A crew's own line wins over the
 # shared one in racing/rules.json; {crew} is filled with the crew's label.
 RACE_SAID = ["challenge", "not_yet", "no_speeder", "slips_not_yours", "no_room", "slips_accept",
-             "too_poor", "accept", "rematch_accept", "taunts", "jeers", "leader_won"]
+             "too_poor", "accept", "comms", "rematch_accept", "taunts", "jeers", "leader_won", "no_show"]
 
 
 def race_lines():

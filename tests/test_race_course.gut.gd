@@ -276,6 +276,22 @@ func _gate_frame(sp: PlanetSphere, c: Dictionary, gi: int) -> Array:
 	return [at, fwd, fwd.cross((at - sp.center).normalized()).normalized()]
 
 
+## Riding straight from one gate at the next goes through it the right way: no
+## checkpoint lies ahead of the one before it with its back to you (a gate crossed
+## backwards counts nothing, so the Crooked Mile's c5, straight ahead of c4 and
+## facing the other way, only counted once you turned round and rode it again).
+func test_every_gate_is_reached_from_its_front() -> void:
+	var planet := PlanetGen.build(PlanetGen.home_id())
+	var sp := PlanetTerrain.for_planet(planet).sphere
+	for c in RaceCourse.courses_for("port_desert"):
+		var n: int = c.gates.size()
+		for gi in range(1, n + 1):
+			var from: Array = _gate_frame(sp, c, gi - 1)
+			var to: Array = _gate_frame(sp, c, gi % n)
+			var way := ((to[0] as Vector3) - (from[0] as Vector3)).normalized()
+			assert_gt(way.dot(to[1]), 0.0, "%s: from %s, %s is reached from its front" % [c.id, c.gates[gi - 1].id, c.gates[gi % n].id])
+
+
 ## Gates (and the start's grid) sit where the dunes are nearly level already, so the
 ## pad under them never cuts a notch through a crest.
 func test_every_gate_is_on_nearly_flat_sand() -> void:

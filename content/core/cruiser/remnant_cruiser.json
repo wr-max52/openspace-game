@@ -124,8 +124,8 @@
     "lines": { "wreck": "crash site", "here": "%s (here)" }
   },
   "lines": {
-    "dock_hint": "%s  ·  %.1f km  ·  Z to land in its bay",
-    "docking": "Bringing her into %s. Z to take back control.",
+    "dock_hint": "%s  ·  %.1f km  ·  [Z] to land in its bay",
+    "docking": "Bringing her into %s. [Z] to take back control.",
     "docked": "Down in the cruiser's bay. The fight outside goes on without you.",
     "escort_gone": "With the general dead, the Remnant's pilots turn and run.",
     "general_dead": "%s is dead. The cruiser is yours.",

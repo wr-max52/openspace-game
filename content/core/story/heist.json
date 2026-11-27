@@ -38,8 +38,8 @@
   },
   "lines": {
     "locked": "The vault is sealed. Nothing in it worth taking.",
-    "ready": "[Hold E]  Breach vault (%d s)",
-    "draw_welder": "Draw your plasma welder [7] to breach the vault",
+    "ready": "Hold [E]  Breach vault (%d s)",
+    "draw_welder": "Draw your plasma welder [8] to breach the vault",
     "need_welder": "You need a plasma welder to breach the vault",
     "hacking": "Breaching the vault...  %d%%",
     "started": "The breach is burning through. Stay within %d m of the vault for %d s. They're sending people.",

@@ -2,6 +2,20 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-27 — Laser droid settings move to the Ledger; E is its safety
+
+- **Two settings, not one cycle.** The rig used to be one value stepped by E (off,
+  rave, cantina, quiet). Now it is `lasers_on` and `laser_music` (a station id from
+  `upgrades.lasers.modes`), each a button on the droid's Ledger row. The off station
+  is the mode with no music, so "Off" is data like the others.
+- **E beside a laser droid is its safety,** the same as any armed droid. The rig's
+  settings are not something you need while standing next to it in a fight.
+- **Old saves read through, not migrated:** with no `laser_music`, lasers on plays
+  the saved `laser_mode` and lasers off plays nothing, which is what they did.
+- **The upgrade menu closes when nothing is left to buy,** instead of reopening to a
+  "nothing to upgrade" toast that wiped the fitted toast and the [I] tip queued
+  after it (`GearHud.toast` clears the queue).
+
 ## 2026-11-25 — Race pots paid at the finish; race quests are generated per crew
 
 - **A win pays your credits at once** (`WorldState.on_race_won`). Dorrin holding

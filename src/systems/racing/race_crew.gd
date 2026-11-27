@@ -20,12 +20,22 @@ extends Node3D
 ##                         (SpeederNode seats, #609) and cruise to the grid at
 ##                         cruise_pace; a crowd of locals gathers at the line, one
 ##                         body a tick.
+##   comms              -- the leader tells you they'll be on your comms; from
+##                         then on (the grid, the race, the drive home) the crew
+##                         talk over the radio (NpcVoice: flat, scratchy, as loud
+##                         wherever they are), captioned on the HUD. Not at the
+##                         line no_show_s after accepting and the leader asks
+##                         where you are (rules.json lines no_show, in order).
 ##   [Z] near the grid  -- your speeder drives itself onto your slot and holds.
 ##   3, 2, 1, GO        -- held until GO.
 ##   the race           -- laps through the gates in order (RaceLaps); the HUD
 ##                         shows your lap and place and the pointer the next gate.
-##                         From the crew's shoot_from_lap a racer with you in its
-##                         nose fires its lasers. Shoot them any time.
+##                         From the crew's shoot_from_lap (0: never) a racer with
+##                         you in its nose fires its lasers; with hold_fire_gates
+##                         it holds fire till it is through that many checkpoints.
+##                         Shoot them any time, but fire first (lasers, a seeker,
+##                         a mine) and every racer may shoot back from then on
+##                         (rules.json shoot_back).
 ##   crash out          -- hull gone mid-race: a speeder does not burst, it
 ##                         stops dead and smokes while it is patched up
 ##                         (crash_repair_s for yours, npc_crash_repair_s, a bit
@@ -37,7 +47,9 @@ extends Node3D
 ##                         where they stand. Their speeders stay parked.
 ##   rematch            -- while they head home, [Z] on your speeder near the line
 ##                         races them again for the same stake, if you can cover
-##                         it (credits, then what Dorrin holds for you). Short, and
+##                         it (credits, then what Dorrin holds for you). The racers
+##                         are set down on their speeders just behind the grid
+##                         (rematch_stage_m) and roll onto it as you line up. Short, and
 ##                         they just go home; the leader's menu then offers the
 ##                         same stake first. Never for pink slips.
 ##   race quests        -- optional quests (Quests, quests() below) offered when a
@@ -82,6 +94,7 @@ var winner := ""                      ## key of the winner, once the race is ove
 var player_out := ""                  ## why you are out ("" = still in)
 var lined_up := false
 var said := ""                        ## the last line spoken (tests)
+var said_on_comms := false            ## ... and whether it went over the comms (tests)
 var in_reach := false
 var menu: DroidMenu
 var races_run := 0
@@ -90,6 +103,8 @@ var pink := false                     ## issue #617: this race is for pink slips
 ## Issue #618: race feel.
 var race_t := 0.0                     ## seconds since GO
 var clean_gates := 0                  ## checkpoints you took dead centre (each a boost)
+var provoked := false                 ## you fired first this race: every racer may shoot back
+var _fire_at_go := 0                  ## your shots + seekers + mines at GO (more since = you fired)
 var finish_cam_on := false
 var _lap_t0 := -1.0                   ## race_t when your current lap began
 var _fc_end_ms := 0
@@ -119,6 +134,9 @@ var _beast_due := false               ## the track beast comes once the crowd is
 var _slips := ""                      ## issue #617: "won" / "lost" this race, settled once they are home
 var last_stake := 0                   ## the buy-in of your last money race with this crew (0 = none yet)
 var rematch_on := false               ## the race is over and [Z] races them again for last_stake
+var _comms_due := -1.0                ## grid seconds when the leader says they'll be on your comms (-1 = not due)
+var _no_show_t := 0.0                 ## seconds on the grid you have not lined up since the last no-show line
+var _no_show_n := 0                   ## no-show lines said this race
 
 
 # ------------------------------------------------------------------ data
@@ -394,10 +412,30 @@ func _gear():
 	return demo.get("gear") if demo != null else null
 
 
-func _say(body: NpcBody, text: String) -> void:
+## A crew member says `text`. Once a race is on (accepted, until they are home
+## and it is idle again) it goes over the comms: the scratchy radio voice and a
+## caption on the HUD, since they may be far off; `in_person` keeps it face to face.
+func _say(body: NpcBody, text: String, in_person := false) -> void:
 	said = text
-	if body != null and is_instance_valid(body) and not body.dead:
-		body.say(text, 3.0)
+	if body == null or not is_instance_valid(body) or body.dead:
+		return
+	var radio := phase != Phase.IDLE and not in_person
+	said_on_comms = radio
+	body.say(text, 3.0, false, radio)
+	if radio:
+		var g = _gear()
+		if g != null and g.hud != null:
+			var who := body.display_name if body.display_name != "" else str(crew.get("label", id))
+			g.hud.toast_after(str(rules().get("hud", {}).get("comms", "{name}: {line}")).format({ "name": who, "line": text }), 3.0)
+
+
+## The `i`th line of a list (a crew's own, else rules.json's), filled in; "" past its end.
+func line_at(key: String, i: int) -> String:
+	var v = crew.get("lines", {}).get(key, rules().get("lines", {}).get(key, []))
+	var list: Array = v if v is Array else [v]
+	if i < 0 or i >= list.size():
+		return ""
+	return str(list[i]).format({ "name": leader_name(), "crew": str(crew.get("label", id)) })
 
 
 func _toast(text: String, secs: float = 3.5) -> void:
@@ -460,7 +498,12 @@ func menu_options() -> Array:
 
 func menu_body() -> String:
 	var shoot := int(r("shoot_from_lap", 2))
-	var rule_line := line("rule_shoot", { "lap": shoot }) if shoot > 0 else line("rule_clean")
+	var hold := int(r("hold_fire_gates", 0))
+	var rule_line := line("rule_clean")
+	if shoot > 0:
+		rule_line = line("rule_gate", { "gates": hold }) if hold > 0 and shoot <= 1 else line("rule_shoot", { "lap": shoot })
+	if bool(rules().get("shoot_back", true)):
+		rule_line += " " + line("rule_shoot_back")
 	var best := best_lap()
 	return line("menu_body", { "course": course.label(), "laps": course.laps_total(), "rule": rule_line,
 		"multiple": int(r("multiple", 10)), "best": ("%.1f s" % best) if best > 0.0 else "none yet" })
@@ -535,7 +578,8 @@ func accept_slips() -> String:
 	stake = 0
 	pink = true
 	_start_grid()
-	_say(leader(), line("slips_accept"))
+	_say(leader(), line("slips_accept"), true)
+	_comms_due = rule("comms_after_s", 3.5)
 	return ""
 
 
@@ -599,7 +643,8 @@ func accept(amount: int) -> String:
 		return "speeder"
 	_pay(amount)
 	_start_grid()
-	_say(leader(), line("accept"))
+	_say(leader(), line("accept"), true)
+	_comms_due = rule("comms_after_s", 3.5)    # then: we'll be on your comms
 	return ""
 
 
@@ -785,9 +830,31 @@ func rematch() -> String:
 	var standing := crowd.size()
 	_start_grid()
 	_crowd_left = maxi(0, _crowd_left - standing)   # the crowd still at the line stay
+	_stage_for_rematch()
 	_say(leader(), line("rematch_accept"))
 	line_up()                               # already by the grid: straight onto your slot
 	return ""
+
+
+## A rematch: no walking back from the hangout one by one while you sit on the
+## grid. Every racer still in it is sat on their speeder now and set down
+## rematch_stage_m behind their slot, behind you at the line, and rolls onto it
+## while you line up. One already driving and near its slot keeps coming.
+func _stage_for_rematch() -> void:
+	var g: Dictionary = course.gates[0]
+	var back := rule("rematch_stage_m", 25.0)
+	for rc in racers:
+		if bool(rc.out) or rc.brain == null:
+			continue
+		var sp: SpeederNode = rc.speeder
+		var s: Dictionary = course.grid_slot(int(rc.slot))
+		var driving := sp.npc_driven()
+		if not driving or sp.model.position.distance_to(s.pos) > back * 1.5:
+			sp.place(course.to_world_near((s.pos as Vector3) - (g.fwd as Vector3) * back), float(s.yaw))
+		if not driving and not sp.seat_npc(rc.body, "driver"):
+			continue                             # left to _tick_set_off
+		rc.seated = true
+		rc.left_t = _grid_t
 
 
 ## While they head home: the [Z] prompt on your speeder near the line.
@@ -848,6 +915,9 @@ func _start_grid() -> void:
 	player_out = ""
 	lined_up = false
 	_grid_t = 0.0
+	_comms_due = -1.0
+	_no_show_t = 0.0
+	_no_show_n = 0
 	_slips = ""
 	laps = course.new_laps()
 	laps.add_racer(YOU)
@@ -1102,7 +1172,9 @@ func line_up() -> bool:
 	_lineup = SpeederBrain.new(sp.model)
 	_lineup.park(s0.pos, float(s0.yaw))
 	lined_up = true
-	_toast(line("taunts"), 2.5)
+	var by: Array = racers.filter(func(rc): return not bool(rc.out) and _body_ok(rc))
+	if not by.is_empty():
+		_say(by[_rng.randi() % by.size()].body, line("taunts"))
 	return true
 
 
@@ -1110,6 +1182,11 @@ func _tick_grid(dt: float) -> void:
 	_grid_t += dt
 	_tick_set_off()
 	_tick_spawns()
+	if _comms_due >= 0.0 and _grid_t >= _comms_due:
+		_comms_due = -1.0
+		_say(leader(), line("comms"), true)    # still by you: face to face, the last time
+	if not lined_up:
+		_tick_no_show(dt)
 	var p := _player()
 	if not lined_up:
 		var near: bool = p != null and p.piloting and p.vehicle is SpeederNode \
@@ -1140,6 +1217,21 @@ func _tick_grid(dt: float) -> void:
 				ready = false
 	if ready and _crowd_left <= 0:
 		_start_countdown()
+
+
+## You have not come to the line: every no_show_s the leader asks where you are
+## over the comms, each no_show line once, in order.
+func _tick_no_show(dt: float) -> void:
+	_no_show_t += dt
+	var every := rule("no_show_s", 20.0)
+	if every <= 0.0 or _no_show_t < every:
+		return
+	_no_show_t = 0.0
+	var text := line_at("no_show", _no_show_n)
+	if text == "":
+		return
+	_no_show_n += 1
+	_say(leader(), text)
 
 
 func _start_countdown() -> void:
@@ -1180,6 +1272,8 @@ func go() -> void:
 	race_t = 0.0
 	_lap_t0 = -1.0
 	clean_gates = 0
+	provoked = false
+	_fire_at_go = _your_fire()
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
 		_last[YOU] = _player_speeder.model.position
@@ -1212,7 +1306,10 @@ func _tick_racing(dt: float) -> void:
 			_last[YOU] = you_pos
 	race_t += dt
 	var shoot_lap := int(r("shoot_from_lap", 2))
+	var hold_gates := int(r("hold_fire_gates", 0))
 	_jeer_left -= dt
+	if not provoked and player_out == "" and bool(rules().get("shoot_back", true)) and _your_fire() > _fire_at_go:
+		_shot_first()
 	var beast_pts := _beast_points()
 	for rc in racers:
 		if bool(rc.out):
@@ -1232,10 +1329,13 @@ func _tick_racing(dt: float) -> void:
 				rc.finished = true
 				rc.brain.pace = 0.5
 		_last[rc.key] = at
-		# Lap `shoot_lap` on: you in their nose, in range: lasers.
+		# Lap `shoot_lap` on (and through `hold_gates` checkpoints), or since you
+		# fired first: you in their nose, in range: lasers.
 		var lap_now := laps.lap(rc.key) + 1
 		var crashed: bool = sp.repair_left > 0.0          # crashed out: no guns, no gear till patched up
-		var shoot := shoot_lap > 0 and lap_now >= shoot_lap and player_out == "" and you_pos != Vector3.INF \
+		var allowed := provoked or (shoot_lap > 0 and lap_now >= shoot_lap \
+			and (hold_gates <= 0 or laps.progress(rc.key) >= hold_gates))
+		var shoot := allowed and player_out == "" and you_pos != Vector3.INF \
 			and not bool(rc.finished) and not crashed
 		rc.brain.shoot_at = you_pos if shoot else Vector3.INF
 		if shoot:
@@ -1259,6 +1359,35 @@ func _tick_racing(dt: float) -> void:
 		Objective.race = { "text": _gate_text(), "target": "race:%s:%d" % [course.id, laps.next_gate(YOU)], "key": "race" }
 	if results.has(YOU) or player_out != "":
 		_end_race()
+
+
+## Everything you have fired off your speeder: laser shots, seekers, mines.
+func _your_fire() -> int:
+	if _player_speeder == null or not is_instance_valid(_player_speeder):
+		return 0
+	var n := _player_speeder.shots
+	if _player_speeder.gear != null:
+		n += _player_speeder.gear.fired + _player_speeder.gear.dropped
+	return n
+
+
+## You fired first: the gloves are off for the rest of this race, and the
+## nearest racer still in it says so.
+func _shot_first() -> void:
+	provoked = true
+	var you := _you_pos()
+	var best: Dictionary = {}
+	var best_d := INF
+	for rc in racers:
+		if bool(rc.out) or rc.speeder == null or not is_instance_valid(rc.speeder) or you == Vector3.INF:
+			continue
+		var d: float = rc.speeder.model.position.distance_to(you)
+		if d < best_d:
+			best_d = d
+			best = rc
+	if not best.is_empty():
+		_jeer_left = 6.0
+		_say(best.body, line("shot_first"))
 
 
 ## One of your crossings (RaceLaps events): the finish, the crowd's cheer, the

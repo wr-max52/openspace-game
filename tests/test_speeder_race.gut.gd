@@ -4,8 +4,9 @@ extends GutTest
 ## them one after another to their speeders and to the grid, and a crowd gathers;
 ## [Z] lines you up and the countdown holds you; win and Dorrin holds the pot (and
 ## Skrugs's job is done); lose your hull and you crash out, are patched up and race
-## on; get off and you are out; from the shooting lap
-## a racer with you in its nose fires; the tuned racers out-drive a stock speeder;
+## on; get off and you are out; from the shooting lap (past the first checkpoint
+## for the crews that shoot from lap 1, never for the yard crew) a racer with you
+## in its nose fires, and any racer fires back once you shoot first; the tuned racers out-drive a stock speeder;
 ## after the race they park again and the crowd goes.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
@@ -266,24 +267,82 @@ func test_get_off_and_you_are_out_with_no_prize() -> void:
 	assert_eq(Quests.state(RaceCrew.quest_id("slips", "yard")), "", "no pink slips offered")
 
 
-func test_from_the_shooting_lap_a_racer_with_you_in_its_nose_fires() -> void:
-	var t = await _town()
-	var crew := _crew(t)
-	var mine := await _race_to_go(t, crew)
-	var rc: Dictionary = crew.racers[0]
+## A racer with you 30 m in its nose; true if it fired in `frames` frames.
+func _fires_at_you(rc: Dictionary, mine: SpeederNode, frames: int = 20) -> bool:
 	var sp: SpeederNode = rc.speeder
-	rc.brain.pace = 0.0
-	mine.place(sp.model.position + sp.model.forward() * 30.0, sp.model.yaw)
-	await wait_physics_frames(3)
-	assert_eq(rc.brain.shoot_at, Vector3.INF, "lap 1: nobody shoots")
-	crew.laps.racers[rc.key].lap = 1        # on lap 2 now
 	var fired := false
-	for i in 20:
+	for i in frames:
 		mine.place(sp.model.position + sp.model.forward() * 30.0, sp.model.yaw)
 		await wait_physics_frames(1)
 		fired = fired or bool(rc.brain.command.get("fire", false))
-	assert_ne(rc.brain.shoot_at, Vector3.INF, "lap 2: you are the target")
+	return fired
+
+
+func test_the_yard_crew_never_fire_first_but_shoot_back() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	assert_eq(int(crew.r("shoot_from_lap", 2)), 0, "the first race: no guns")
+	var mine := await _race_to_go(t, crew)
+	var rc: Dictionary = crew.racers[0]
+	rc.brain.pace = 0.0
+	await _fires_at_you(rc, mine, 3)
+	assert_eq(rc.brain.shoot_at, Vector3.INF, "lap 1: nobody shoots")
+	crew.laps.racers[rc.key].lap = 1        # on lap 2 now
+	await _fires_at_you(rc, mine, 3)
+	assert_eq(rc.brain.shoot_at, Vector3.INF, "lap 2: still nobody shoots")
+	assert_false(crew.provoked, "you have not fired")
+	mine.shots += 1                          # you fire your lasers
+	var fired: bool = await _fires_at_you(rc, mine)
+	assert_true(crew.provoked, "you fired first")
+	assert_ne(rc.brain.shoot_at, Vector3.INF, "now you are the target")
 	assert_true(fired, "and it fires")
+	assert_true(crew.said != "", "and someone says so")
+
+
+func test_guns_from_lap_one_hold_fire_till_the_first_checkpoint_unless_you_shoot() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	crew.crew = crew.crew.duplicate(true)    # race 3-5 rules on the yard crew, this test only
+	crew.crew.rules["shoot_from_lap"] = 1
+	crew.crew.rules["hold_fire_gates"] = 1
+	var mine := await _race_to_go(t, crew)
+	var rc: Dictionary = crew.racers[0]
+	rc.brain.pace = 0.0
+	crew.laps.racers[rc.key].started = true  # off the line, the first checkpoint ahead
+	crew.laps.racers[rc.key].next = 1
+	await _fires_at_you(rc, mine, 3)
+	assert_eq(rc.brain.shoot_at, Vector3.INF, "before the first checkpoint: holding fire")
+	crew.laps.racers[rc.key].next = 2        # through the first checkpoint
+	var fired: bool = await _fires_at_you(rc, mine)
+	assert_ne(rc.brain.shoot_at, Vector3.INF, "past it: you are the target")
+	assert_true(fired, "and it fires")
+
+
+func test_shoot_before_the_first_checkpoint_and_they_shoot_back() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	crew.crew = crew.crew.duplicate(true)
+	crew.crew.rules["shoot_from_lap"] = 1
+	crew.crew.rules["hold_fire_gates"] = 1
+	var mine := await _race_to_go(t, crew)
+	var rc: Dictionary = crew.racers[0]
+	rc.brain.pace = 0.0
+	await _fires_at_you(rc, mine, 3)
+	assert_eq(rc.brain.shoot_at, Vector3.INF, "holding fire")
+	mine.gear.dropped += 1                   # a mine counts as firing first too
+	var fired: bool = await _fires_at_you(rc, mine)
+	assert_true(crew.provoked, "you fired first")
+	assert_true(fired, "they shoot back at once")
+
+
+func test_the_menu_says_how_rough_it_gets() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	assert_string_contains(crew.menu_body(), crew.line("rule_clean"), "the first race: clean")
+	assert_string_contains(crew.menu_body(), crew.line("rule_shoot_back"), "unless you shoot")
+	for c in t.race_crews:
+		if c.id == "crag":
+			assert_string_contains(c.menu_body(), c.line("rule_gate"), "race 4: rough past the first checkpoint")
 
 
 # ---- the rematch -------------------------------------------------------------------
@@ -314,6 +373,36 @@ func test_rematch_at_once_for_the_same_stake_paid_from_dorrins_hold_too() -> voi
 		await wait_physics_frames(1)
 	assert_eq(crew.phase, RaceCrew.Phase.COUNTDOWN, "everyone back on the grid: the countdown")
 	assert_between(crew.crowd.size(), 5, 10, "one crowd, not two")
+
+
+## Bug: a rematch once they were home had you held on the grid while they walked
+## back to their speeders one by one and drove over from the hangout. Now they are
+## set down on their speeders just behind the grid and are there as you line up.
+func test_rematch_once_they_are_home_sets_them_behind_the_line() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	await _race_to_go(t, crew)
+	crew._end_race()
+	for rc in crew.racers:
+		crew._settle_home(rc)                   # parked and off at the hangout, as if home
+	assert_eq(crew.rematch(), "", "[Z]: on again")
+	var g: Dictionary = crew.course.gates[0]
+	var back := RaceCrew.rule("rematch_stage_m", 25.0)
+	for rc in crew.racers:
+		if bool(rc.out):
+			continue
+		assert_true(rc.speeder.npc_driven(), "%s is on their speeder at once" % rc.key)
+		var s: Dictionary = crew.course.grid_slot(int(rc.slot))
+		assert_lt(rc.speeder.model.position.distance_to(s.pos), back + 3.0, "%s just behind their slot" % rc.key)
+		assert_lt(((rc.speeder.model.position - (g.pos as Vector3)).dot(g.fwd)), 0.0, "%s behind the line" % rc.key)
+	var frames := 0
+	for i in 5000:
+		if crew.phase == RaceCrew.Phase.COUNTDOWN:
+			break
+		frames += 1
+		await wait_physics_frames(1)
+	assert_eq(crew.phase, RaceCrew.Phase.COUNTDOWN, "everyone on the grid: the countdown")
+	assert_lt(frames * DT, 15.0, "in seconds, not a walk from the hangout (%.1f s)" % (frames * DT))
 
 
 func test_short_for_a_rematch_they_go_home_and_the_menu_offers_it_later() -> void:

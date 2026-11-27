@@ -103,7 +103,7 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 8)
 	_panel.add_child(v)
 	var title := Label.new()
-	title.text = "Settings  (F11)"
+	title.text = "Settings  [F11]"
 	title.add_theme_font_size_override("font_size", 18)
 	v.add_child(title)
 	tabs = TabContainer.new()
@@ -375,6 +375,25 @@ func _inventory_tab() -> Control:
 		inventory.set_primary = pilot.set_primary
 		inventory.call_ship = pilot.call_ship
 		inventory.call_state = pilot.call_state
+		inventory.on_called = close
+	# Your speeders: Call brings one to you (SpeederPost.call_speeder). Looked up
+	# when pressed: the post is built after this page, and only on the home planet.
+	inventory.call_speeder = func(slot: int) -> String:
+		var post = demo.get("speeder_post") if demo != null else null
+		return post.call_speeder(slot) if post != null else "call_away"
+	inventory.speeder_call_state = func(slot: int) -> Dictionary:
+		var post = demo.get("speeder_post") if demo != null else null
+		return post.call_state(slot) if post != null else { "ok": false, "text": SpeederPost.call_label("call_away") }
+	# A laser droid's Lasers and Music buttons (DroidController), looked up when pressed.
+	inventory.toggle_lasers = func(uid: int) -> bool:
+		var dc = demo.get("droids") if demo != null else null
+		return dc.toggle_lasers(uid) if dc != null else WorldState.droids.set_lasers(uid, not DroidRoster.lasers_on(WorldState.droids.find(uid)))
+	inventory.cycle_station = func(uid: int) -> String:
+		var dc = demo.get("droids") if demo != null else null
+		if dc != null:
+			return dc.cycle_station(uid)
+		return WorldState.droids.set_station(uid, DroidRoster.next_station(DroidRoster.laser_station(WorldState.droids.find(uid))))
+	if not inventory.on_called.is_valid():
 		inventory.on_called = close
 	_refreshers.append(inventory.refresh)
 	tabs.tab_changed.connect(func(i):
@@ -1372,7 +1391,7 @@ func _player_page(v: VBoxContainer) -> void:
 
 	_section(v, "Debug")
 	var npc_dbg: CheckBox = _cheat(CheckBox.new())
-	npc_dbg.text = "Guard senses (F4)"
+	npc_dbg.text = "Guard senses [F4]"
 	npc_dbg.toggled.connect(func(on): NpcBody.show_debug = on)
 	v.add_child(npc_dbg)
 	_refreshers.append(func():
@@ -1907,52 +1926,53 @@ func _llm_page(v: VBoxContainer) -> void:
 # ------------------------------------------------------------------ HUD (issue #52)
 
 ## Every bound control (project.godot), by when it applies. Keep it in step with the input map.
+## Keys are written as the HUD writes them: each one in brackets, "Hold [B]" for a hold.
 const KEYS := [
 	["On foot", [
-		["W A S D", "Walk (tap for steps, hold to run); arrows too"],
-		["Space", "Jump (hold for the jetpack)"],
-		["Right Shift", "Sprint: faster, gun down, spends stamina"],
-		["C", "Crouch"],
-		["V", "First / third person (mouse middle button too)"],
-		["E", "Interact: talk, board, ride, pick up"],
-		["G", "Put on / take off your gear"],
-		["Z", "Rest, at a tent"],
-		["I", "What you carry, the job log, and Call (your ship flies to you)"],
+		["[W] [A] [S] [D]", "Walk (tap for steps, hold to run); arrows too"],
+		["[Space]", "Jump (hold for the jetpack)"],
+		["[Right Shift]", "Sprint: faster, gun down, spends stamina"],
+		["[C]", "Crouch"],
+		["[V]", "First / third person (mouse middle button too)"],
+		["[E]", "Interact: talk, board, ride, pick up"],
+		["[G]", "Put on / take off your gear"],
+		["[Z]", "Rest, at a tent"],
+		["[I]", "What you carry, the job log, and Call (your ship flies to you)"],
 	]],
 	["Weapons", [
-		["1 / 2 / 3 / 8", "Blaster / rifle / sniper rifle / energy sword (same key again holsters)"],
-		["Q / H", "Last weapon / holster"],
-		["Tab or wheel", "Next weapon"],
-		["Left mouse", "Fire or swing"],
-		["Right mouse", "Aim (blaster) or block (sword), toggles; with the sniper a second click zooms in twice as far"],
-		["R", "Reload"],
-		["F (hold)", "Aim a grenade: a dotted arc shows where it lands; let go to throw"],
+		["[1] / [2] / [3] / [8]", "Blaster / rifle / sniper rifle / energy sword (same key again holsters)"],
+		["[Q] / [H]", "Last weapon / holster"],
+		["[Tab] or wheel", "Next weapon"],
+		["[LMB]", "Fire or swing"],
+		["[RMB]", "Aim (blaster) or block (sword), toggles; with the sniper a second click zooms in twice as far"],
+		["[R]", "Reload"],
+		["Hold [F]", "Aim a grenade: a dotted arc shows where it lands; let go to throw"],
 	]],
 	["Flying", [
-		["W / S", "Pitch (W pushes the nose down); the mouse steers too"],
-		["A / D", "Turn"],
-		["Q / E", "Roll"],
-		["R / F", "Throttle up / down"],
-		["Shift", "Boost"],
-		["C", "Take off, and land on what is below"],
-		["Z", "Land in the bay when near it (again to take her back)"],
-		["Space or left mouse", "Guns"],
-		["X or right mouse", "Seeker missile, once locked"],
-		["T", "Next target"],
-		["J", "Radio: next station, then off"],
-		["V", "Chase / cockpit view"],
-		["Hold B", "Eject, in the air"],
-		["E", "Get out, once landed"],
+		["[W] / [S]", "Pitch ([W] pushes the nose down); the mouse steers too"],
+		["[A] / [D]", "Turn"],
+		["[Q] / [E]", "Roll"],
+		["[R] / [F]", "Throttle up / down"],
+		["[Shift]", "Boost"],
+		["[C]", "Take off, and land on what is below"],
+		["[Z]", "Land in the bay when near it (again to take her back)"],
+		["[Space] or [LMB]", "Guns"],
+		["[X] or [RMB]", "Seeker missile, once locked"],
+		["[T]", "Next target"],
+		["[J]", "Radio: next station, then off"],
+		["[V]", "Chase / cockpit view"],
+		["Hold [B]", "Eject, in the air"],
+		["[E]", "Get out, once landed"],
 	]],
 	["Everywhere", [
-		["F1", "Info: planet, town, time, credits, standing"],
-		["F3", "AI debug overlay"],
-		["F4", "Guard debug (what each guard sees and hears; free roam only)"],
-		["F10", "AI model settings: the AI brain under Options here (Shift+F10: next model)"],
-		["F11", "These settings"],
-		["M", "The map: click a place for a waypoint"],
-		["L", "Cycle the lighting"],
-		["Esc", "Free the mouse, close a panel"],
+		["[F1]", "Info: planet, town, time, credits, standing"],
+		["[F3]", "AI debug overlay"],
+		["[F4]", "Guard debug (what each guard sees and hears; free roam only)"],
+		["[F10]", "AI model settings: the AI brain under Options here ([Shift]+[F10]: next model)"],
+		["[F11]", "These settings"],
+		["[M]", "The map: click a place for a waypoint"],
+		["[L]", "Cycle the lighting"],
+		["[Esc]", "Free the mouse, close a panel"],
 	]],
 ]
 
@@ -2007,7 +2027,7 @@ func _keys_page(v: VBoxContainer) -> void:
 		v.add_child(head)
 		for k in group[1]:
 			var l := Label.new()
-			l.text = "[%s]" % k[0]
+			l.text = k[0]
 			l.custom_minimum_size = Vector2(150, 0)
 			var h := _row(v, "", l)
 			h.get_child(0).custom_minimum_size = Vector2(0, 0)

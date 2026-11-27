@@ -141,9 +141,11 @@ func _ragdolled(dt: float) -> bool:
 		if not player.is_inside_tree():
 			return false
 		var cfg := Ragdoll.load_config()
-		var kick := Ragdoll.kick_for(player.global_position, player.last_hit_from, player.last_hit_amount, cfg)
+		var t = player.get("tilt")
+		var up: Vector3 = (t as Basis).y if t is Basis else Vector3.UP   # the ground's up, turned with the ball
+		var kick := Ragdoll.kick_for(player.global_position, player.last_hit_from, player.last_hit_amount, cfg, up)
 		ragdoll = Ragdoll.new(avatar.joints, cfg)
-		ragdoll.start(player.velocity, kick, player.get_world_3d().direct_space_state, [player.get_rid()])
+		ragdoll.start(player.velocity, kick, player.get_world_3d().direct_space_state, [player.get_rid()], up)
 		var w := avatar.weapon_node(avatar.current)
 		if w != null and avatar.drawn > 0.5 and w.visible:
 			_hidden_weapon = w

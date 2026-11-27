@@ -202,8 +202,8 @@
   "lights_within": 3000.0,
   "lines": {
     "label": "◇ %s",
-    "dock_hint": "%s  ·  %.1f km  ·  Z to land in its bay",
-    "docking": "Bringing her into %s. Z to take back control.",
+    "dock_hint": "%s  ·  %.1f km  ·  [Z] to land in its bay",
+    "docking": "Bringing her into %s. [Z] to take back control.",
     "docked": "Down in the station's bay.",
     "fell": "You were pulled back into the station.",
     "fell_clouds": "You dropped toward the clouds and the station's tractor pulled you back in.",

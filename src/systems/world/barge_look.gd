@@ -41,6 +41,7 @@ var engage_mat: StandardMaterial3D
 var _solar: StandardMaterial3D
 var _top := 0.0
 var _bow := 0.0
+var _deck_mat: Material                ## the top deck's planks (the prow's deck shares them)
 
 
 ## Issue #574: `st` (may be null) cuts the build into pieces over frames.
@@ -61,6 +62,7 @@ func build(b: PartyBarge, st: StagedBuild = null) -> void:
 	for f in mats:
 		if mats[f] is StandardMaterial3D and (mats[f] as StandardMaterial3D).uv1_world_triplanar:
 			mats[f] = ClubTextures.local(mats[f])
+	_deck_mat = mats["deck"]
 	for mi in await b.merged_sliced(mats, st):
 		b.look.add_child(mi)
 	await StagedBuild.slice_of(st)
@@ -119,21 +121,24 @@ func _skin() -> void:
 	var y1 := float(d.decks[1])
 	var gun := _top + 1.1
 	var prow := float(d.prow)
-	# Stations from the stern forward: [z, how far into the prow 0..1].
-	var stations: Array = [[L * 0.5 + 0.05, 0.0], [-L * 0.5, 0.0]]
-	for k in [0.2, 0.4, 0.6, 0.78, 0.92, 1.0]:
-		stations.append([-L * 0.5 - prow * k, k])
+	# The open bow: forward of the bow wall the skin stops just over the top deck
+	# (the prow's deck and railing stand on it) instead of at the gunwale.
+	var lip := _top + 0.12
+	# Stations from the stern forward: [z, how far into the prow 0..1, top edge].
+	var stations: Array = [[L * 0.5 + 0.05, 0.0, gun], [-L * 0.5, 0.0, gun], [-L * 0.5 - 0.02, 0.0, lip]]
+	for k in PartyBarge.PROW_KS.slice(1):
+		stations.append([-L * 0.5 - prow * float(k), float(k), lip])
 	var rings: Array = []
 	for s in stations:
 		var f := float(s[1])
-		var wf := pow(cos(f * PI * 0.5), 0.75)
+		var wf := pow(maxf(0.0, cos(f * PI * 0.5)), 0.75)
 		var keel := lerpf(h - 0.35, y1 + 0.6, pow(f, 1.4))
 		var bilge := lerpf(h - 0.02, (keel + gun) * 0.5, pow(f, 1.6))
 		rings.append([
 			Vector3(0.0, keel, float(s[0])),
 			Vector3(W * 0.4 * wf, keel, float(s[0])),
 			Vector3((W * 0.5 + 0.05) * wf, bilge, float(s[0])),
-			Vector3((W * 0.5 + 0.15) * wf, gun, float(s[0])),
+			Vector3(PartyBarge.prow_half(f, W), float(s[2]), float(s[0])),
 		])
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -145,8 +150,7 @@ func _skin() -> void:
 			for sx in [1.0, -1.0]:
 				var m := Vector3(sx, 1, 1)
 				_quad(st, (a[j] as Vector3) * m, (b[j] as Vector3) * m, (b[j + 1] as Vector3) * m, (a[j + 1] as Vector3) * m, sx < 0.0)
-	# The transom at the stern (up to the top deck: the gangplank goes over it) and
-	# the cap over the prow at the gunwale, flat.
+	# The transom at the stern (up to the top deck: the gangplank goes over it).
 	st.set_smooth_group(-1)
 	var stern: Array = rings[0]
 	var poly := PackedVector3Array()
@@ -157,13 +161,6 @@ func _skin() -> void:
 		var p: Vector3 = stern[j]
 		poly.append(Vector3(-p.x, minf(p.y, _top), p.z))
 	_fan(st, poly)
-	var cap := PackedVector3Array()
-	for i in range(1, rings.size()):
-		cap.append(rings[i][3])
-	for i in range(rings.size() - 1, 0, -1):
-		var p: Vector3 = rings[i][3]
-		cap.append(Vector3(-p.x, p.y, p.z))
-	_fan(st, cap)
 	st.generate_normals()
 	var mi := MeshInstance3D.new()
 	mi.name = "HullSkin"
@@ -172,10 +169,38 @@ func _skin() -> void:
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = m
 	barge.look.add_child(mi)
-	# A lamp at the tip of the prow, and a brass band round the gunwale's edge.
-	var tip: Vector3 = rings[rings.size() - 1][3]
-	jazz._sphere(jazz, 0.4, tip + Vector3(0, 0.5, 0), ClubTextures.glow(Color("#ffb860"), 4.0))
-	jazz._rod(jazz, tip, tip + Vector3(0, 0.5, 0), 0.06, ClubTextures.brushed(Color("#b08e50"), 0.9))
+	_prow_deck()
+	# A lamp on the railing's post at the tip of the prow.
+	var tip: Vector3 = barge.prow_edge()[PartyBarge.PROW_KS.size() - 1] + Vector3(0, 0, 0.22)
+	jazz._sphere(jazz, 0.22, tip + Vector3(0, PartyBarge.RAIL_H + 0.22, 0), ClubTextures.glow(Color("#ffb860"), 4.0))
+
+
+## The prow's deck: planks like the top deck's (in its own space, so the grain
+## matches), over the slab PartyBarge stands you on, out to the skin's edge.
+func _prow_deck() -> void:
+	var edge := barge.prow_edge()
+	var poly := PackedVector3Array()
+	for e in edge:
+		poly.append(Vector3(e.x, _top, e.z))
+	for i in range(edge.size() - 1, -1, -1):
+		poly.append(Vector3(-edge[i].x, _top, edge[i].z))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	var c := Vector3.ZERO
+	for p in poly:
+		c += p
+	c /= poly.size()
+	for i in poly.size():
+		# Wound so the face looks up.
+		st.add_vertex(c)
+		st.add_vertex(poly[(i + 1) % poly.size()])
+		st.add_vertex(poly[i])
+	var mi := MeshInstance3D.new()
+	mi.name = "ProwDeck"
+	mi.mesh = st.commit()
+	mi.material_override = _deck_mat
+	barge.look.add_child(mi)
 
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, flip: bool) -> void:
@@ -269,22 +294,22 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 		jazz._box(jazz, Vector3(0.06, 0.016, fz1 - fz0), Vector3(sx * fw * 0.5, top + 0.008, (fz0 + fz1) * 0.5), brass)
 	jazz._box(jazz, Vector3(W - 1.2, 0.03, 0.06), Vector3(0, top + 0.135, stage_end), brass)       # the stage's lip
 	await StagedBuild.slice_of(st)
-	# Behind the band: wainscot, a brass rail and a velvet drape on the bow wall.
-	var wall_z := _bow + 0.27
-	jazz._box(jazz, Vector3(W - 1.4, 1.3, 0.04), Vector3(0, top + 0.12 + 0.65, wall_z), ClubTextures.panels(Color("#3e2414"), 1.1))
-	jazz._box(jazz, Vector3(W - 1.4, 0.05, 0.08), Vector3(0, top + 0.12 + 1.32, wall_z + 0.02), brass)
-	var velvet := ClubTextures.velvet(Color("#5a1420"))
-	jazz._box(jazz, Vector3(W - 1.4, 1.9, 0.04), Vector3(0, top + 0.12 + 1.35 + 0.95, wall_z), velvet)
-	for k in 14:
-		jazz._box(jazz, Vector3(0.12, 1.9, 0.05), Vector3(-W * 0.5 + 1.1 + k * (W - 2.2) / 13.0, top + 0.12 + 1.35 + 0.95, wall_z + 0.03), velvet)
-	_sign(Vector3(0, top + 4.3, _bow + 0.12))
+	# Behind the band the bow is open (no wall): the club's sign rides high on two
+	# brass posts at the back of the stage, so you walk under it out onto the prow.
+	var sign_at := Vector3(0, top + 4.3, _bow + 0.3)
+	for sx in [-1.0, 1.0]:
+		jazz._rod(jazz, Vector3(sx * 2.1, top + 0.12, sign_at.z), Vector3(sx * 2.1, sign_at.y + 0.9, sign_at.z), 0.06, brass)
+	_sign(sign_at)
 	await StagedBuild.slice_of(st)
-	# Spots on the band from the awning's front edge, a blue wash from the corners.
+	# Spots on the band from the awning's front edge, a blue wash from the corners
+	# (each on its own brass pole now the wall is gone).
 	var band_at := Vector3(0, top + 1.2, _bow + 2.6)
 	for x in [-3.2, 0.0, 3.2]:
 		jazz.spot(Vector3(x, top + 4.25, stage_end + 0.5), band_at + Vector3(x * 0.4, 0, 0), Color("#ffb468"), 7.0)
 	for sx in [-1.0, 1.0]:
-		jazz.spot(Vector3(sx * (W * 0.5 - 0.8), top + 3.6, _bow + 0.6), band_at + Vector3(-sx * 1.0, -0.6, 1.0), Color("#3a6aff"), 5.0, 10.0)
+		var pole := Vector3(sx * (W * 0.5 - 0.8), top + 0.12, _bow + 0.6)
+		jazz._rod(jazz, pole, pole + Vector3(0, 3.4, 0), 0.04, brass)
+		jazz.spot(pole + Vector3(0, 3.48, 0), band_at + Vector3(-sx * 1.0, -0.6, 1.0), Color("#3a6aff"), 5.0, 10.0)
 	await StagedBuild.slice_of(st)
 	# Speaker stacks at the stage's front corners, facing aft.
 	for sx in [-1.0, 1.0]:
