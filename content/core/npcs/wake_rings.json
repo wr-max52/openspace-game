@@ -3,5 +3,15 @@
   "near_m": 60.0,
   "far_m": 320.0,
   "hysteresis_m": 20.0,
-  "think_every": 4
+  "think_every": 4,
+  "by_distance": {
+    "note": "Issue #715 (src/systems/npc/people_by_distance.gd): the town's people with these marker roles (the cantina's patrons and band, the merchants, the residents) are built only once the viewer (the camera) is within in_m of the town's middle, one body a tick, and freed past out_m, free_per_tick a tick. A handoff from the sky leaves them for later; who died stays dead, and the same marker builds the same person again. Never managed: the guards, the fence and the player-made stall keepers. Off on a LAN game. on: false turns it off.",
+    "on": true,
+    "in_m": 300.0,
+    "out_m": 900.0,
+    "free_per_tick": 4,
+    "roles": [
+      "ambient"
+    ]
+  }
 }

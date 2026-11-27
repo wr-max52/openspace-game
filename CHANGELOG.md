@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The town's people come in as you walk up (2026-11-27)
+
+- **The port's people are built when you come near, not on the way down.**
+  The cantina's patrons and band, the market's merchants and the residents
+  appear one at a time once you are within 300 m of town; from the sky the town
+  shows without them.
+- **They are let go when you leave** (past 900 m) and come back the same: the
+  same names, and anyone who died stays dead. The guards, the fence and the
+  player-made stall keepers stay as they were.
+- **Nobody out of view is posed:** a person behind you or off screen keeps their
+  last pose until they come into view, as a far one already did.
+- The distances are in `content/core/npcs/wake_rings.json` (`by_distance`).
+
 ## The racers drive the checkpoints, down the valleys (2026-11-27)
 
 - **NPC racers now drive exactly the course the checkpoints set:** a straight

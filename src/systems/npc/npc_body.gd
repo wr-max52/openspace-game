@@ -1190,7 +1190,7 @@ func _animate_lod(dt: float, move: Vector3) -> void:
 	if you() != null:
 		d = global_position.distance_to(you().global_position)
 	_anim_dist = d
-	if d > ANIM_FAR:
+	if d > ANIM_FAR or not _in_view(global_position):
 		_anim_acc = 0.0
 		return
 	_anim_acc += dt
@@ -1200,6 +1200,27 @@ func _animate_lod(dt: float, move: Vector3) -> void:
 	_animate(_anim_acc, move)
 	_anim_acc = 0.0
 	anim_frames += 1
+
+
+## Issue #715: a body out of the camera's view is not posed either: its pose
+## waits, as a far one's does, and picks up the tick it comes into view. One
+## frustum a tick for every body; a body is "in view" up to VIEW_MARGIN m past
+## an edge (its arms and a held gun). Always in view headless (nothing is drawn).
+const VIEW_MARGIN := 2.5
+static var _view_tick := -1
+static var _view_planes: Array = []
+
+
+func _in_view(p: Vector3) -> bool:
+	var f := Engine.get_physics_frames()
+	if f != _view_tick:
+		_view_tick = f
+		var cam := get_viewport().get_camera_3d() if is_inside_tree() and DisplayServer.get_name() != "headless" else null
+		_view_planes = cam.get_frustum() if cam != null else []
+	for pl in _view_planes:
+		if (pl as Plane).distance_to(p) > VIEW_MARGIN:
+			return false
+	return true
 
 
 func _animate(dt: float, move: Vector3) -> void:
