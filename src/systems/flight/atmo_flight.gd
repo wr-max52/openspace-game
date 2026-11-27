@@ -111,17 +111,23 @@ func up() -> Vector3:
 ## ground under its footprint (centre and four points around it), so a ship set
 ## down on a slope rests on it instead of sinking in.
 func agl() -> float:
+	return _footprint_agl(0.0)
+
+
+## agl() looking down from `reach` m over each point of the footprint, so ground
+## up to reach + 0.5 m over her belly counts (a step's edge under her middle).
+func _footprint_agl(reach: float) -> float:
 	if ground == null:
 		return flight.position.y - clearance
 	var u := up()
 	var belly: Vector3 = flight.position - u * clearance
-	var h := ground.height_above(belly)
+	var h := ground.height_above(belly + u * reach)
 	var b: Basis = flight.basis
 	var fx := (b.x - u * b.x.dot(u)).normalized() * body_radius
 	var fz := (b.z - u * b.z.dot(u)).normalized() * body_radius
 	for off in [fx, -fx, fz, -fz]:
-		h = minf(h, ground.height_above(belly + off))
-	return h
+		h = minf(h, ground.height_above(belly + off + u * reach))
+	return h - reach
 
 
 ## World y of the ground under the ship (flat-world readers; on the ball this is
@@ -458,8 +464,10 @@ func _sit_on_slope() -> void:
 	var down := (belly - pts[0]).dot(plane) / u.dot(plane)
 	flight.position = belly - u * down + n * clearance
 	# The plane misses her tail: on a dune crest it would sit in the sand. Lift her
-	# along up until no part of her footprint is under the ground.
-	var sunk := agl()
+	# along up until no part of her footprint is under the ground, looking from as
+	# high as the plane did: tilted as far as she goes across a mountain's step,
+	# its edge can be under her middle, more than agl()'s 0.5 m up.
+	var sunk := _footprint_agl(body_radius)
 	if sunk < 0.0:
 		flight.position -= u * sunk
 

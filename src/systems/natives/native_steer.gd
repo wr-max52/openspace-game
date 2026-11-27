@@ -29,7 +29,8 @@ static func from_ground(ground) -> NativeSteer:
 		if float(b.get("height", 0.0)) >= s.min_height:
 			s.add(b.center, float(b.radius))
 	for c in ground.columns:
-		s.add(c.center, float(c.get("radius", 0.0)))
+		if not c.has("no_hit"):       # a mountain's tops: its shelves' columns are the rock
+			s.add(c.center, float(c.get("radius", 0.0)))
 	return s
 
 

@@ -2,6 +2,22 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Ships land on the mountains' real rock (2026-11-26)
+
+- **A ship set down on a mountain stays on top of it.** The ship used to read
+  each shelf as a plain round cylinder a little smaller than the jagged rock, so
+  on about a quarter of a mountain it settled into the rock (and you got out on
+  the rock above it), and on another sixth it hung in the air over a lower
+  shelf. Now it reads the rock's own tops, the same shelves, ramps, stairs and
+  blocks you walk on: landing on 48 spots across six mountains, none ended in the
+  rock (15 did before) and the belly is 0.2 m off the rock on average (4.8 m
+  before).
+- **Landed on a step's edge**, a ship tilts as far as it goes and rests on the
+  higher shelf, not with the edge through its middle.
+- **No new load time:** the tops are worked out on a worker thread (about as
+  long as the mountains' meshes), and the old round shelves stand in until they
+  are ready. A ground check over the rock costs about a microsecond more.
+
 ## New version is 1.7.4 (2026-11-26)
 
 - Share builds are now **OpenSpace V1.7.4**. Everything below, down to "New

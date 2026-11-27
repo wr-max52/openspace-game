@@ -256,6 +256,10 @@ static func _box_contrib(b: Dictionary, p: Vector3, h: float) -> float:
 
 
 static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
+	if c.has("top_job") and (c.top_job as RockMountain.TopJob).done():
+		return _surface_contrib(c, p, h) if c.has("inv") else h
+	if c.has("inv"):
+		return h            # a mountain's tops, still being made: its tiers stand in
 	var up: Vector3 = c.get("up", Vector3.UP)
 	var rel: Vector3 = p - (c.center as Vector3)
 	var along := rel.dot(up)
@@ -265,6 +269,16 @@ static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
 	if top <= along + 0.5:
 		return minf(h, along - top)
 	return h
+
+
+## A mountain's rock tops (RockMountain.columns' `<id>_top`): the highest top under
+## p no more than 0.5 m above it, measured along the mountain's up.
+static func _surface_contrib(c: Dictionary, p: Vector3, h: float) -> float:
+	var lp: Vector3 = (c.inv as Transform3D) * p
+	if lp.x * lp.x + lp.z * lp.z > float(c.radius) * float(c.radius):
+		return h
+	var top := RockMountain.top_at((c.top_job as RockMountain.TopJob).surface, lp.x, lp.z, lp.y + 0.5)
+	return minf(h, lp.y - top) if top > -INF else h
 
 
 static func _boulder_contrib(bd: Dictionary, p: Vector3, h: float) -> float:
@@ -301,6 +315,9 @@ func _height_above_linear(p: Vector3, h_start: float) -> float:
 		if top <= lp.y + 0.5:
 			h = minf(h, lp.y - top)
 	for c in columns:
+		if c.has("top_job"):
+			h = _column_contrib(c, p, h)
+			continue
 		var up: Vector3 = c.get("up", Vector3.UP)
 		var rel: Vector3 = p - (c.center as Vector3)
 		var along := rel.dot(up)
@@ -909,6 +926,8 @@ static func _hit_boulder(bd: Dictionary, p: Vector3, r: float) -> String:
 
 
 static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
+	if c.has("no_hit"):
+		return ""
 	var cc: Vector3 = c.center
 	if c.has("up"):
 		var up: Vector3 = c.up
@@ -992,6 +1011,8 @@ func _hit_linear(p: Vector3, r: float) -> String:
 		if (rel - bu * along).length() <= float(bd.radius) * 0.8 + r:
 			return "boulder"
 	for c in columns:
+		if c.has("no_hit"):
+			continue
 		var cc: Vector3 = c.center
 		if c.has("up"):
 			var up: Vector3 = c.up
