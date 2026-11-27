@@ -621,7 +621,9 @@ func carry_out(b: GuardBrain, dt: float) -> void:
 
 
 ## A line over the guard's head for a few seconds (barks; the HUD may also show it).
-func say(text: String, seconds: float = 2.6, shout: bool = false) -> void:
+## `radio`: heard over the comms (a racer on the course): flat and scratchy, as
+## loud wherever they are (NpcVoice.speak).
+func say(text: String, seconds: float = 2.6, shout: bool = false, radio: bool = false) -> void:
 	if _speech == null or dead:
 		return
 	_speech.text = text
@@ -636,7 +638,7 @@ func say(text: String, seconds: float = 2.6, shout: bool = false) -> void:
 	var mood := str(profile.get("voice_mood", ""))
 	if mood == "":
 		mood = "angry" if hostile else ("wary" if faction == "imperial_remnant" else "warm")
-	_voice().speak(text, voice_profile, mood, self, shout)
+	_voice().speak(text, voice_profile, mood, self, shout, false, false, radio)
 
 
 func speaking() -> String:

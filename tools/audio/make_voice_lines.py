@@ -98,7 +98,7 @@ def card_lines(card):
 # leader_lost and next_crew joined by a space. A crew's own line wins over the
 # shared one in racing/rules.json; {crew} is filled with the crew's label.
 RACE_SAID = ["challenge", "not_yet", "no_speeder", "slips_not_yours", "no_room", "slips_accept",
-             "too_poor", "accept", "rematch_accept", "taunts", "jeers", "leader_won"]
+             "too_poor", "accept", "comms", "rematch_accept", "taunts", "jeers", "leader_won", "no_show"]
 
 
 def race_lines():

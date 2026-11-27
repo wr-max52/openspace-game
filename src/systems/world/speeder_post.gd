@@ -54,6 +54,10 @@ extends Node3D
 ##     price, or the one T-89 sold you, at T-89's buy-back price): his chat offers
 ##     it (offer_ship_buy), and only the player's click sells. A stolen one he
 ##     offers for the moment you talk to him (the spot's opener).
+##   - Call (the Ledger's button by each of your speeders, home planet only): it
+##     skips to clear sand 500 m out from you and drives itself the rest of the way
+##     to an open spot near you, nobody aboard (call_speeder; numbers and words in
+##     content/core/flow/speeder_call.json).
 ##   - issue #368: turn down his price for a stolen ship and he offers to clean it
 ##     up instead, for keep_rate times its list price: only your click pays, and
 ##     it is yours (Fleet: no longer hunted, T-89 upgrades it, it stays where you
@@ -62,6 +66,8 @@ extends Node3D
 const LANDMARK := "skrugs_post"         ## its location differs per layout (issue #295)
 const RAMP := "skrugs_ramp"
 const CARD_PATH := "res://content/core/npcs/skrugs_card.json"
+const CALL_PATH := "res://content/core/flow/speeder_call.json"
+static var _call_cfg: Dictionary = {}
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const RED := { "head": "local:red", "torso": "local:red", "legs": "local:red" }
 ## Issue #458: his lamps (HangingLamp). LAMP_DAY: the fraction of each lamp's
@@ -104,6 +110,11 @@ var ships_bought := 0                 ## issue #295: ships he bought this sessio
 var ships_kept := 0                   ## issue #368: stolen ships he cleaned up for you this session (tests, traces)
 var _offered: Dictionary = {}         ## the item on the card right now
 var _paint_scenes: Dictionary = {}    ## issue #82: path -> the paint's model, loaded in the background
+var called: Dictionary = {}           ## SpeederNode on its way to you -> { at, yaw, left } (call_speeder)
+var calls := 0                        ## speeders that pulled up for you this session (tests, traces)
+var last_route: Dictionary = {}       ## the last call's route (tests, traces)
+var _search_budget := 0.0             ## ms of route search a physics frame may take (0 = all at once)
+var _search_t0 := 0                   ## when this frame's share of it started (usec)
 
 
 func setup(town_demo, world_ground: WorldGround) -> void:
@@ -648,6 +659,306 @@ func _forget(s: SpeederNode) -> void:
 				o.set_meta("slot", int(o.get_meta("slot", 0)) - 1)
 
 
+# ------------------------------------------------------------------ calling a speeder
+
+static func call_cfg() -> Dictionary:
+	if _call_cfg.is_empty():
+		var f := FileAccess.open(CALL_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_call_cfg = d if d is Dictionary else {}
+	return _call_cfg
+
+
+static func call_label(key: String) -> String:
+	return str(call_cfg().get("labels", {}).get(key, key))
+
+
+static func _cv(key: String, fallback: float) -> float:
+	return float(call_cfg().get(key, fallback))
+
+
+## Your speeder in slot `slot` (WorldState.speeder_fits), here in the world, or null.
+func owned_speeder(slot: int) -> SpeederNode:
+	for s in speeders:
+		if is_instance_valid(s) and int(s.get_meta("slot", -1)) == slot:
+			return s
+	return null
+
+
+## What Call can do for speeder `slot` right now, for the Ledger: { ok, text }.
+func call_state(slot: int) -> Dictionary:
+	var why := _why_not(slot)
+	return { "ok": why == "", "text": call_label(why if why != "" else "call") }
+
+
+func _why_not(slot: int) -> String:
+	if GameFlow.current_planet_id() != PlanetGen.home_id():
+		return "call_away"
+	var s := owned_speeder(slot)
+	if s == null or not s.model.alive():
+		return "call_gone"
+	if s.riding:
+		return "call_riding"
+	if called.has(s) or not s.npc_seats.is_empty():
+		return "call_busy"
+	var p = demo.get("_player") if demo != null else null
+	if p != null and bool(p.get("piloting")):
+		return "call_seated"           # flying a ship, or on another speeder
+	return ""
+
+
+## Call: speeder `slot` comes to you. Further than skip_m (or with no clear run
+## from where it is), it skips to clear sand skip_m out from you, then drives
+## itself in (its autopilot, PARK) to an open spot near you: the nearest with a
+## straight, flat, wall-free run in, on the side it comes from. "" = on its way;
+## otherwise a label key for why not. The spot is looked for a little each
+## physics frame (search_ms), so a call from deep in town never hitches; the
+## speeder sets off once it is found.
+func call_speeder(slot: int) -> String:
+	var why := _why_not(slot)
+	if why != "":
+		return why
+	var p: CharacterBody3D = demo._player if demo != null and "_player" in demo else null
+	if p == null:
+		return "call_gone"
+	var s := owned_speeder(slot)
+	var near := p.global_position
+	var u := ground.up_at(near)
+	if _flat(s.model.position - near, u).length() <= _cv("near_m", 25.0):
+		return "call_here"
+	called[s] = { "searching": true }
+	_toast(call_label("call_inbound") % _speeder_name(s))
+	_send(s, slot, near)
+	return ""
+
+
+## Find the spot (over frames), then skip the speeder out and set it driving.
+func _send(s: SpeederNode, slot: int, near: Vector3) -> void:
+	var budget := _cv("search_ms", 2.0)
+	var route: Dictionary = await call_route(near, s.model.position, budget)
+	if not is_instance_valid(s) or not called.has(s):
+		return
+	if s.riding or not s.model.alive() or not s.npc_seats.is_empty():
+		called.erase(s)                # you climbed on it meanwhile
+		return
+	if route.is_empty():
+		called.erase(s)
+		_toast(call_label("call_nowhere"))
+		return
+	var at: Vector3 = route.at
+	var u := ground.up_at(at)
+	last_route = route
+	if _flat(s.model.position - at, u).length() <= _cv("near_m", 25.0):
+		called.erase(s)                # already where it would pull up (the row, in town)
+		_toast(call_label("call_waiting") % _speeder_name(s))
+		return
+	var skip := _cv("skip_m", 500.0)
+	var from_here := _flat(s.model.position - at, u).length() <= skip and not s.model.airborne
+	if from_here:
+		_search_budget = budget
+		_search_t0 = Time.get_ticks_usec()
+		from_here = await _run_from(at, s.model.position) != Vector3.INF
+		if not is_instance_valid(s) or not called.has(s) or s.riding:
+			called.erase(s)
+			return
+	if not from_here:
+		s.place(route.from, float(route.from_yaw))
+	route["skipped"] = not from_here
+	last_route = route
+	var brain := SpeederBrain.new(s.model, str(call_cfg().get("skill", "valet")), 7 + slot)
+	brain.park(at, float(route.yaw))
+	s.autopilot = brain
+	called[s] = { "at": at, "yaw": float(route.yaw), "left": _cv("timeout_s", 60.0) }
+	if not s.autopilot_done.is_connected(_on_called_arrived):
+		s.autopilot_done.connect(_on_called_arrived.bind(s))
+
+
+## Each frame of the calls: one you climbed on, or one gone, is off the list; one
+## still out when timeout_s runs out (stuck behind something) is set on its spot.
+func _tick_calls(dt: float) -> void:
+	for s in called.keys():
+		if not is_instance_valid(s) or not s.model.alive():
+			called.erase(s)
+			continue
+		if bool(called[s].get("searching", false)):
+			continue                   # still looking for its spot (_send)
+		if s.autopilot == null:
+			called.erase(s)            # you climbed on (or it is already parked)
+			continue
+		called[s].left -= dt
+		if float(called[s].left) <= 0.0:
+			s.stop_autopilot()
+			s.place(called[s].at, float(called[s].yaw))
+			_on_called_arrived(s)
+
+
+func _on_called_arrived(s: SpeederNode) -> void:
+	called.erase(s)
+	calls += 1
+	_toast(call_label("call_arrived") % _speeder_name(s))
+
+
+func _speeder_name(s: SpeederNode) -> String:
+	return str(s.cfg.get("label", "speeder"))
+
+
+## Where a called speeder parks near `near` and where it starts its run in:
+## { at, yaw (facing along the run), from (skip_m out), from_yaw, spent }, or {}.
+## The spot: open, flat sand from park_min_m out, ring by ring to park_max_m, each
+## ring from the side `toward` is on (where the speeder is now). Inside the town's
+## walls the streets are no place for one: it pulls up by the town's own speeder
+## spots outside (town_spots markers: the row by the back gate, the gate's), the
+## nearest to you first, within town_park_max_m of one. Its run: a straight line
+## skip_m out, flat underfoot step by step (no wall, roof or mesa edge) and clear
+## of every box and rock, tried round from the speeder's side (in town, from the
+## side away from the town). Each run is walked out from the spot, so a blocked
+## one fails within a few steps. `budget_ms`: see _share_spent.
+func call_route(near: Vector3, toward: Vector3, budget_ms: float = 0.0) -> Dictionary:
+	_search_budget = budget_ms
+	_search_t0 = Time.get_ticks_usec()
+	var spent := [0]
+	var town = demo.get("town") if demo != null else null
+	if town != null and TownNav.in_town(town, near, _cv("town_margin_m", 0.0)):
+		var mid := TownNav.town_bounds(town, 0.0).get_center()
+		var spots: Array = []
+		for role in call_cfg().get("town_spots", ["speeder_spot", "vehicle", "vehicle_chase"]):
+			for m in town.markers_with_role(str(role)):
+				spots.append(town.marker_pos(str(m.id)))
+		spots.sort_custom(func(a, b): return a.distance_squared_to(near) < b.distance_squared_to(near))
+		for c in spots:
+			var res: Dictionary = await _route_round(c, 0.0, _cv("town_park_max_m", 40.0), mid, true, spent)
+			if not res.is_empty() or spent[0] >= int(_cv("sample_budget", 40000.0)):
+				return res
+		return {}
+	return await _route_round(near, _cv("park_min_m", 10.0), _cv("park_max_m", 150.0), toward, false, spent)
+
+
+## The rings round `centre` from `r_min` to `r_max`: the first open spot with a
+## clear run in. The rings and runs start on the side of `aim` (away from it when
+## `away`). spent[0] counts the run steps walked (sample_budget caps them).
+func _route_round(centre: Vector3, r_min: float, r_max: float, aim: Vector3, away: bool, spent: Array) -> Dictionary:
+	var u := ground.up_at(centre)
+	var t1 := _tangent(u)
+	var t2 := u.cross(t1)
+	var to := _flat((centre - aim) if away else (aim - centre), u)
+	var a0 := atan2(to.dot(t2), to.dot(t1)) if to.length() > 1.0 else 0.0
+	var skip := _cv("skip_m", 500.0)
+	var tries := int(_cv("run_tries", 16.0))
+	var budget := int(_cv("sample_budget", 40000.0))
+	var step := _cv("park_step_m", 8.0)
+	var r := r_min
+	while r <= r_max and spent[0] < budget:
+		var n := 1 if r < 0.5 else clampi(int(TAU * r / step), 6, 32)
+		for k in n:
+			var a := a0 + _fan(k, n)
+			await _share_spent()
+			var foot := ground.surface_below(centre + (t1 * cos(a) + t2 * sin(a)) * r + u * _cv("lift_m", 200.0))
+			if not _open_spot(foot):
+				continue
+			var fu := ground.up_at(foot)
+			var f1 := _tangent(fu)
+			var f2 := fu.cross(f1)
+			var lean := _flat((foot - aim) if away else (aim - foot), fu)
+			var b0 := atan2(lean.dot(f2), lean.dot(f1)) if lean.length() > 1.0 else a
+			for j in tries:
+				var b := b0 + _fan(j, tries)
+				var dir := f1 * cos(b) + f2 * sin(b)
+				var res: Dictionary = await _run(foot, dir, skip)
+				spent[0] += int(res.steps)
+				if res.from != Vector3.INF:
+					var from: Vector3 = res.from
+					return { "at": foot, "yaw": _yaw_at(foot, -dir), "from": from,
+						"from_yaw": _yaw_at(from, foot - from), "spent": spent[0] }
+				if spent[0] >= budget:
+					return {}
+		r += step
+	return {}
+
+
+## This frame's share of the search is spent (search_ms): wait for the next one.
+func _share_spent() -> void:
+	if _search_budget > 0.0 and is_inside_tree() \
+			and (Time.get_ticks_usec() - _search_t0) * 0.001 >= _search_budget:
+		await get_tree().physics_frame
+		_search_t0 = Time.get_ticks_usec()
+
+
+## 0, +1, -1, +2, -2 ... steps of TAU / n round a circle.
+static func _fan(k: int, n: int) -> float:
+	var m := (k + 1) / 2
+	return (1.0 if k % 2 == 1 else -1.0) * float(m) * TAU / float(n)
+
+
+## Open, flat sand a speeder can sit on: in the desert, nothing within park_room_m,
+## no more than flat_m up or down across it.
+func _open_spot(foot: Vector3) -> bool:
+	if not ground.landable(foot.x, foot.z):
+		return false
+	var u := ground.up_at(foot)
+	var room := _cv("park_room_m", 4.0)
+	if ground.hit(foot + u * (room + 0.5), room) != "":
+		return false
+	var t1 := _tangent(u)
+	var t2 := u.cross(t1)
+	for off in [t1 * room, -t1 * room, t2 * room, -t2 * room]:
+		if absf((ground.surface_below(foot + off + u * 5.0) - foot).dot(u)) > _cv("flat_m", 1.0):
+			return false
+	return true
+
+
+## Walk a straight run out from `foot` along `dir` for `length` metres, a step at a
+## time: { from (its far end on the sand, INF if blocked), steps }.
+func _run(foot: Vector3, dir: Vector3, length: float) -> Dictionary:
+	var step := _cv("run_step_m", 4.0)
+	var rise := _cv("run_rise_m", 1.6)
+	var rad := _cv("run_radius_m", 1.8)
+	var lift := _cv("lift_m", 200.0)
+	var prev := foot
+	var d := step
+	var steps := 0
+	while true:
+		await _share_spent()
+		d = minf(d, length)
+		var p := foot + dir * d
+		var f := ground.surface_below(p + ground.up_at(p) * lift)
+		var fu := ground.up_at(f)
+		steps += 1
+		if absf((f - prev).dot(fu)) > rise or not ground.landable(f.x, f.z) \
+				or ground.hit(f + fu * (rad + 0.4), rad) != "":
+			return { "from": Vector3.INF, "steps": steps }
+		prev = f
+		if d >= length:
+			return { "from": f, "steps": steps }
+		d += step
+	return { "from": Vector3.INF, "steps": steps }
+
+
+## The run from the spot to `to` (a speeder already near enough): its end, INF if blocked.
+func _run_from(at: Vector3, to: Vector3) -> Vector3:
+	var u := ground.up_at(at)
+	var flat := _flat(to - at, u)
+	if flat.length() < 0.5:
+		return at
+	var res: Dictionary = await _run(at, flat.normalized(), flat.length())
+	return res.from
+
+
+## HoverModel yaw at `at` for a heading along `dir` (0 faces -Z on the plateau).
+func _yaw_at(at: Vector3, dir: Vector3) -> float:
+	var u := ground.up_at(at)
+	var local := PlanetSphere.tilt_to(u).inverse() * _flat(dir, u)
+	return atan2(-local.x, -local.z)
+
+
+static func _flat(v: Vector3, u: Vector3) -> Vector3:
+	return v - u * v.dot(u)
+
+
+static func _tangent(u: Vector3) -> Vector3:
+	var t := _flat(Vector3.RIGHT, u)
+	return (t if t.length() > 0.1 else _flat(Vector3.FORWARD, u)).normalized()
+
+
 # ------------------------------------------------------------------ his bench (issue #295)
 
 ## Free roam only: [E] at his garage bench is the mechanic's parts menu, on the
@@ -663,6 +974,8 @@ func _build_shop() -> void:
 
 func _physics_process(dt: float) -> void:
 	tick_wrath(dt)
+	if not called.is_empty():
+		_tick_calls(dt)
 	var p: CharacterBody3D = demo._player if demo != null and "_player" in demo else null
 	if shop == null or p == null or shop.busy():
 		return
