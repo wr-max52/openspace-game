@@ -25,6 +25,9 @@ static var _cfg: Dictionary = {}
 var owned: Array = []       ## [{ uid, kind, variant, cargo: { item id -> count }, up: { upgrade -> level }, lasers_on?, safety? }]
 var wrecks: Array = []      ## [{ uid, kind, variant, pos: [x, y, z] }]
 var wrecks_seeded := false  ## the home ball's starting field is generated once and saved
+## Saves before this had every runaway cargo droid kept for good (dozens of them):
+## loading one clears the desert and the field is seeded fresh.
+const WRECKS_V := 2
 var streak := 0             ## range remote bolts blocked in a row
 var next_uid := 1
 
@@ -388,10 +391,25 @@ func on_remote_hit_player() -> void:
 # ---- wrecks ---------------------------------------------------------------------
 
 func has_wreck_of(kind: String) -> bool:
+	return _field_count(kind) > 0
+
+
+## The random field's wrecks (not runaways) of `kind`, or of every kind with "".
+func _field_count(kind := "") -> int:
+	var n := 0
 	for w in wrecks:
-		if str(w.kind) == kind:
-			return true
-	return false
+		if not bool(w.get("runaway", false)) and (kind == "" or str(w.kind) == kind):
+			n += 1
+	return n
+
+
+## A runaway outpost cargo droid lies where it gave out only until the world is
+## built again: found by then it is yours to fix, otherwise it is gone. Returns
+## how many went.
+func drop_runaways() -> int:
+	var before := wrecks.size()
+	wrecks = wrecks.filter(func(w): return not bool(w.get("runaway", false)))
+	return before - wrecks.size()
 
 
 func find_wreck(uid: int) -> Dictionary:
@@ -411,13 +429,23 @@ func roll_wreck(rng: RandomNumberGenerator, center: Vector3, ground: Callable = 
 	var wc: Dictionary = config().get("wrecks", {})
 	var on_ball := sphere_radius > 0.0 and surface.is_valid()
 	var max_out := int(wc.get("ball_max_out", 12)) if on_ball else int(wc.get("max_out", 3))
-	if wrecks.size() >= max_out:
+	if _field_count() >= max_out:
 		return {}
 	if not force and rng.randf() >= float(wc.get("chance", 0.4)):
 		return {}
+	# On the ball the kinds with the fewest wrecks out, so the field always has
+	# all of them; flat worlds one of each.
 	var kinds: Array = []
+	var fewest := 1 << 30
 	for k in (config().get("kinds", {}) as Dictionary):
-		if on_ball or not has_wreck_of(str(k)):
+		var n := _field_count(str(k))
+		if on_ball:
+			if n < fewest:
+				fewest = n
+				kinds.clear()
+			if n == fewest:
+				kinds.append(str(k))
+		elif n == 0:
 			kinds.append(str(k))
 	if kinds.is_empty():
 		return {}
@@ -465,9 +493,10 @@ func roll_wreck(rng: RandomNumberGenerator, center: Vector3, ground: Callable = 
 
 
 ## Issue #76: a wreck at a given spot (an outpost's cargo droid that ran off and
-## broke down out there), whatever the random field holds.
+## broke down out there), whatever the random field holds. It is a runaway: it
+## does not count against the field and is dropped when the world is built again.
 func add_wreck(kind: String, variant: String, at: Vector3) -> Dictionary:
-	var w := { "uid": next_uid, "kind": kind, "variant": variant, "pos": [at.x, at.y, at.z] }
+	var w := { "uid": next_uid, "kind": kind, "variant": variant, "pos": [at.x, at.y, at.z], "runaway": true }
 	next_uid += 1
 	wrecks.append(w)
 	return w
@@ -487,7 +516,7 @@ func fix_wreck(uid: int) -> Dictionary:
 
 func to_save() -> Dictionary:
 	return { "owned": owned.duplicate(true), "wrecks": wrecks.duplicate(true), "wrecks_seeded": wrecks_seeded,
-		"streak": streak, "next_uid": next_uid }
+		"streak": streak, "next_uid": next_uid, "wrecks_v": WRECKS_V }
 
 
 func from_save(d: Dictionary) -> void:
@@ -507,10 +536,16 @@ func from_save(d: Dictionary) -> void:
 			owned.append(mine)
 	wrecks = []
 	for w in d.get("wrecks", []):
-		wrecks.append({ "uid": int(w.uid), "kind": str(w.kind), "variant": str(w.get("variant", "")),
-			"pos": (w.get("pos", [0, 0, 0]) as Array).duplicate() })
+		var keep := { "uid": int(w.uid), "kind": str(w.kind), "variant": str(w.get("variant", "")),
+			"pos": (w.get("pos", [0, 0, 0]) as Array).duplicate() }
+		if bool(w.get("runaway", false)):
+			keep["runaway"] = true
+		wrecks.append(keep)
 	streak = int(d.get("streak", 0))
 	wrecks_seeded = bool(d.get("wrecks_seeded", false))
+	if int(d.get("wrecks_v", 1)) < WRECKS_V:
+		wrecks = []
+		wrecks_seeded = false
 	next_uid = int(d.get("next_uid", 1))
 	for o in owned + wrecks:
 		next_uid = maxi(next_uid, int(o.uid) + 1)

@@ -161,6 +161,40 @@ func test_ball_wrecks_cover_both_sides_and_use_surface_spacing() -> void:
 			assert_gt(arc, sep - 0.01, "wrecks stay separated over the curved surface")
 	assert_gt(far_side, 0, "wrecks are not confined to the town-facing hemisphere")
 	assert_lt(kinds.size(), r.wrecks.size(), "the larger field allows multiple wrecks of a kind")
+	assert_eq(kinds.size(), 3, "all three kinds are out in the field")
+
+
+## A runaway outpost cargo droid is not part of the field: it does not fill the
+## field's cap, keeps its flag through a save and is gone when the world rebuilds.
+func test_runaway_wrecks_go_when_the_world_rebuilds() -> void:
+	for i in 3:
+		r.add_wreck("cargo", "remnant", Vector3(i * 10.0, 0, 0))
+	for i in 3:
+		assert_false(r.roll_wreck(rng, Vector3.ZERO, Callable(), true).is_empty(), "runaways leave the field room")
+	assert_eq(r.wrecks.size(), 6)
+	WorldState.from_save(JSON.parse_string(JSON.stringify(WorldState.to_save())))
+	r = WorldState.droids
+	assert_eq(r.wrecks.size(), 6, "found before the world rebuilds, it is still there")
+	assert_eq(r.drop_runaways(), 3)
+	assert_eq(r.wrecks.size(), 3, "the field stays")
+	for w in r.wrecks:
+		assert_false(w.has("runaway"))
+
+
+## Saves from before runaways went kept dozens of them: loading one clears the
+## desert and lets the field seed fresh.
+func test_old_save_clears_the_piled_up_wrecks() -> void:
+	for i in 30:
+		r.add_wreck("cargo", "remnant", Vector3(i * 10.0, 0, 0))
+	r.wrecks_seeded = true
+	var d := r.to_save()
+	d.erase("wrecks_v")
+	for w in d.wrecks:
+		w.erase("runaway")
+	var loaded := DroidRoster.new()
+	loaded.from_save(JSON.parse_string(JSON.stringify(d)))
+	assert_eq(loaded.wrecks.size(), 0)
+	assert_false(loaded.wrecks_seeded, "the field is seeded again")
 
 
 func test_fix_wreck_and_save_round_trip() -> void:

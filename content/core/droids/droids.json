@@ -352,7 +352,7 @@
     "max_radius": 520.0,
     "min_separation": 180.0,
     "reach": 3.0,
-    "note": "Broken droids stranded in the desert. On the home planet's ball the first visit seeds ball_starting_count wrecks across the whole sphere, then every check_seconds of play, with this chance, one more turns up until ball_max_out. They stay at least ball_min_radius from town and ball_min_separation apart along the surface. Flat worlds keep max_out and the ring radii. Fixing one takes fix_seconds; it resets and follows you."
+    "note": "Broken droids stranded in the desert. On the home planet's ball the first visit seeds ball_starting_count wrecks across the whole sphere, then every check_seconds of play, with this chance, one more turns up until ball_max_out. They stay at least ball_min_radius from town and ball_min_separation apart along the surface. The ball picks the kind with the fewest wrecks out, so all three are always in the field. Flat worlds keep max_out and the ring radii. An outpost cargo droid that runs off (issue #76) breaks down where it stops and is not part of the field: it is there to find until the world is built again, then gone. Fixing one takes fix_seconds; it resets and follows you."
   },
   "pit_hauler": {
     "variant": "tan",
