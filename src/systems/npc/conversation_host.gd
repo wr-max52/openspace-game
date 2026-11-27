@@ -344,11 +344,13 @@ func _on_llm_finished(turn_id: int, r: Dictionary) -> void:
 		_ai_ready()
 
 
-## Issue #328: AI characters on or off, and (save_now) written to the player's settings.
+## Issue #328: AI characters on or off, and (save_now) written to the player's
+## settings and every save file's preferences (SavePrefs).
 func set_ai_enabled(on: bool, save_now: bool = true) -> void:
 	llm.set_ai_enabled(on)
 	if save_now:
 		llm.config.save_user()
+		SavePrefs.write_saves()
 	if talking and active != null:
 		_refresh_menu(active)
 
@@ -668,9 +670,8 @@ func _load_save() -> void:
 		return
 	_loaded = true
 	if save.load_from(save_path):
-		# The save's graphics preferences win over this machine's (a save brought from another PC).
-		var g = save.get_prefs().get("graphics", {})
-		if g is Dictionary and GraphicsPrefs.from_save(g):
+		# The save's preferences (graphics, AI characters) win over this machine's.
+		if SavePrefs.from_save(save.get_prefs(), self):
 			GraphicsPrefs.show_on(demo)
 		if not _loaded_once and not save.get_world().is_empty():
 			var arrival := WorldState.to_save()     # keep what this session already did

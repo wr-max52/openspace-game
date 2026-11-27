@@ -2038,7 +2038,7 @@ func _graphics_page(v: VBoxContainer) -> void:
 			demo.look.set_indirect(x / 100.0)
 		else:
 			LookEnvironment.save_indirect_level(x / 100.0)
-		GraphicsPrefs.save_soon(get_tree()))
+		SavePrefs.save_soon(get_tree()))
 	_row(v, "Indirect light", s)
 	var note := Label.new()
 	note.text = "How strong the bounce light and the sky's fill are."
@@ -2054,7 +2054,7 @@ func _graphics_page(v: VBoxContainer) -> void:
 			demo.look.set_taa(on)
 		else:
 			LookEnvironment.save_taa(on)
-		GraphicsPrefs.save_soon(get_tree()))
+		SavePrefs.save_soon(get_tree()))
 	_row(v, "Temporal anti-aliasing", taa)
 	var taa_note := Label.new()
 	taa_note.text = "Smooth edges and a faster frame. Turn off if bolts or the sword leave trails."
@@ -2081,7 +2081,7 @@ func _graphics_page(v: VBoxContainer) -> void:
 		LookEnvironment.save_low_graphics(on)
 		show_now.call()
 		sync.call()
-		GraphicsPrefs.save_soon(get_tree()))
+		SavePrefs.save_soon(get_tree()))
 	_row(v, "Low graphics", low)
 	var low_note := Label.new()
 	low_note.text = "Faster on slower PCs."
@@ -2113,7 +2113,7 @@ func _graphics_page(v: VBoxContainer) -> void:
 			LookEnvironment.save_cut(id, on)
 			show_now.call()
 			sync.call()
-			GraphicsPrefs.save_soon(get_tree()))
+			SavePrefs.save_soon(get_tree()))
 		boxes[id] = b
 		_row(advanced, "    " + str(p.get("label", id)), b)
 	sync.call()

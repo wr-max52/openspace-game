@@ -877,6 +877,7 @@ func _on_first_run_ai(on: bool) -> void:
 	cfg.set_first_run_asked()
 	cfg.set_ai_enabled(on)
 	cfg.save_user()
+	SavePrefs.write_saves()     # every save file's preferences carry the answer
 
 
 var _mats: LookMaterials

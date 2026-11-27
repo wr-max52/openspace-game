@@ -8,7 +8,9 @@ extends CanvasLayer
 ##
 ## Issue #328: AI characters are off by default. On the first launch this asks
 ## whether to turn them on ("Play without AI" is the default and Enter's answer)
-## and emits ai_chosen; after that it shows only while they are on.
+## and emits ai_chosen. It is shown on the first start only: once this machine or
+## the save being played has the answer (SavePrefs.ai_asked) it never shows again,
+## on or off. The reminder at the top of every AI conversation stays.
 ##
 ## The graphics question (GraphicsChoiceOverlay) comes first: while it is up this
 ## waits, hidden, and opens when it is answered.
@@ -29,11 +31,10 @@ static func show_once(parent: Node) -> DisclaimerOverlay:
 	if Disclaimers.launch_shown or DisplayServer.get_name() == "headless":
 		return null
 	Disclaimers.launch_shown = true
-	var cfg := LLMConfig.new().load_all()
-	if cfg.first_run_asked() and not cfg.ai_enabled():
+	if SavePrefs.ai_asked():
 		return null
 	var o := DisclaimerOverlay.new()
-	o.asking = not cfg.first_run_asked()
+	o.asking = true
 	parent.add_child(o)
 	return o
 

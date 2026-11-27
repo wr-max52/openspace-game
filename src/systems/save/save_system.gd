@@ -112,7 +112,7 @@ func set_relationship(npc_id: String, r: Dictionary) -> void:
 	data["relationships"][npc_id] = r
 
 
-## The preferences block a save carries ({ "graphics": GraphicsPrefs.to_save() }).
+## The preferences block a save carries (SavePrefs.to_save(): graphics, ai).
 func get_prefs() -> Dictionary:
 	var p = data.get("prefs", {})
 	return p if p is Dictionary else {}
@@ -152,13 +152,13 @@ static func migrate(d: Dictionary) -> Dictionary:
 	return d
 
 
-## Every write carries the graphics choices as preferences ("prefs": { "graphics" }),
-## read back when the town loads the save (GraphicsPrefs.from_save).
+## Every write carries the preferences (SavePrefs: "prefs": { graphics, ai }),
+## read back when the town loads the save (SavePrefs.from_save).
 func save_to(path: String = save_path) -> bool:
 	var prefs = data.get("prefs", {})
 	if not (prefs is Dictionary):
 		prefs = {}
-	prefs["graphics"] = GraphicsPrefs.to_save()
+	prefs.merge(SavePrefs.to_save(), true)
 	data["prefs"] = prefs
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:

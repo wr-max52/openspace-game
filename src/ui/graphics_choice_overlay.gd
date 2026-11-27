@@ -1,8 +1,8 @@
 class_name GraphicsChoiceOverlay
 extends CanvasLayer
 ## The first launch's first question, before the AI notice (DisclaimerOverlay) and
-## New Game: Low graphics or Full graphics. Asked once per machine (GraphicsPrefs.
-## asked), never in a headless run. The game is paused behind it. Full is the lit
+## New Game: Low graphics or Full graphics. Asked only on the first start (SavePrefs.
+## ask_graphics), never in a headless run. The game is paused behind it. Full is the lit
 ## answer (Enter or Space picks the focused button; the arrows move between them).
 ## The answer is saved (GraphicsPrefs.choose), every save file gets it, and the
 ## town redraws at once. Text from time_of_day.json low_graphics.ask.
@@ -15,9 +15,9 @@ var _full_button: Button
 var _was_paused := false
 
 
-## Show it if this machine was never asked. Returns the overlay, or null.
+## Show it on the first start only. Returns the overlay, or null.
 static func show_if_unasked(parent: Node) -> GraphicsChoiceOverlay:
-	if DisplayServer.get_name() == "headless" or GraphicsPrefs.asked():
+	if DisplayServer.get_name() == "headless" or not SavePrefs.ask_graphics():
 		return null
 	var o := GraphicsChoiceOverlay.new()
 	parent.add_child(o)
@@ -99,7 +99,7 @@ func choose(low: bool) -> void:
 	if not is_inside_tree():
 		return
 	GraphicsPrefs.choose(low)
-	GraphicsPrefs.write_saves()
+	SavePrefs.write_saves()
 	chosen.emit(low)
 	get_tree().paused = _was_paused
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

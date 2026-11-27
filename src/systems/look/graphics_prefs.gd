@@ -8,13 +8,8 @@ extends RefCounted
 ##   asked() / set_asked()  -- the first launch's question (GraphicsChoiceOverlay) answered?
 ##   choose(low)            -- that answer: Low graphics or Full, saved, never asked again
 ##   to_save() / from_save  -- the block a save holds, and putting one back
-##   write_saves()          -- every save file updated now (F11 > Options changed one)
-##   save_soon(tree)        -- the same, once the player stops moving a slider
 ##   show_on(demo)          -- the live look redrawn with what is saved
-
-const SaveSystem := preload("res://src/systems/save/save_system.gd")
-
-static var _pending := false
+## The save's whole preferences block (graphics and AI) is SavePrefs'.
 
 
 static func asked() -> bool:
@@ -64,28 +59,6 @@ static func from_save(d: Dictionary) -> bool:
 	if bool(d.get("chosen", false)) and not asked():
 		set_asked()
 	return changed
-
-
-## Every save file there is (story and free roam) gets the choices now. Writing
-## a save stamps them anyway (SaveSystem.save_to); this only re-writes the files.
-static func write_saves() -> void:
-	_pending = false
-	for mode in SaveSlots.FILES:
-		var path := SaveSlots.path(mode)
-		var s := SaveSystem.new()
-		if FileAccess.file_exists(path) and s.load_from(path):
-			s.save_to(path)
-
-
-## write_saves, half a second after the last change (a slider sends one per step).
-static func save_soon(tree: SceneTree) -> void:
-	if tree == null:
-		write_saves()
-		return
-	if _pending:
-		return
-	_pending = true
-	tree.create_timer(0.5, true).timeout.connect(func(): if _pending: write_saves())
 
 
 ## Redraw the live look (sky, light, render scale, draw ranges) from what is saved.

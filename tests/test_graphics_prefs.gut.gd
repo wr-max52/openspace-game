@@ -1,8 +1,9 @@
 extends GutTest
-## The graphics choices as preferences in the save (GraphicsPrefs): every save file
-## carries them, a loaded save puts them back, a change in F11 > Options re-writes
-## the saves, and the first launch asks Low or Full before anything else. Runs in
-## its own save folder; the player's graphics.cfg is put back after each test.
+## The preferences in the save (SavePrefs: graphics and the AI answer): every save
+## file carries them, a loaded save puts them back, a change in F11 > Options
+## re-writes the saves, and the first start's questions (Low or Full, then AI
+## characters) are asked once only. Runs in its own save folder and AI settings
+## file; the player's graphics.cfg is put back after each test.
 
 const ROOT := "user://test_graphics_prefs/"
 const SaveSystem := preload("res://src/systems/save/save_system.gd")
@@ -19,9 +20,11 @@ func before_each() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(ROOT))
 	SaveSlots.root = ROOT
 	SaveSlots.active = ""
+	SavePrefs.ai_path = ROOT + "llm_config.json"
 
 
 func after_each() -> void:
+	SavePrefs.ai_path = LLMConfig.USER_PATH
 	SaveSlots.root = "user://"
 	SaveSlots.active = ""
 	_clear()
@@ -90,7 +93,7 @@ func test_a_change_rewrites_every_save_file() -> void:
 		s.save_to(SaveSlots.path(mode))
 		assert_false(bool(_prefs_in(SaveSlots.path(mode)).low))
 	LookEnvironment.save_low_graphics(true)
-	GraphicsPrefs.write_saves()
+	SavePrefs.write_saves()
 	for mode in SaveSlots.FILES:
 		assert_true(bool(_prefs_in(SaveSlots.path(mode)).low), str(mode) + " save updated")
 
@@ -123,3 +126,58 @@ func test_the_pieces_fold_under_advanced_graphics_settings() -> void:
 	assert_true(list.visible, "a click opens it")
 	fold.pressed.emit()
 	assert_false(list.visible, "another closes it")
+
+
+func _ai(asked: bool, on: bool) -> void:
+	var f := FileAccess.open(SavePrefs.ai_path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({ "first_run_asked": asked, "ai_enabled": on }))
+	f.close()
+
+
+func _save_with(prefs: Dictionary) -> void:
+	var s := SaveSystem.new()
+	s.new_game()
+	s.save_to(SaveSlots.current_path())
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SaveSlots.current_path()))
+	d["prefs"] = prefs
+	var f := FileAccess.open(SaveSlots.current_path(), FileAccess.WRITE)
+	f.store_string(JSON.stringify(d))
+	f.close()
+
+
+func test_every_save_carries_the_ai_answer() -> void:
+	_ai(true, true)
+	var s := SaveSystem.new()
+	s.new_game()
+	var path := ROOT + "two.json"
+	s.save_to(path)
+	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+	assert_eq(d.prefs.ai, { "asked": true, "on": true })
+	assert_true(d.prefs.has("graphics"), "the graphics beside it")
+
+
+func test_a_loaded_save_puts_the_ai_answer_back() -> void:
+	_ai(false, false)
+	SavePrefs.from_save({ "ai": { "asked": true, "on": true } })
+	assert_eq(SavePrefs.ai_to_save(), { "asked": true, "on": true }, "written to this machine's AI settings")
+
+
+func test_the_questions_are_for_the_first_start_only() -> void:
+	LookEnvironment._save_setting("first_run", "asked", false)
+	assert_true(SavePrefs.ask_graphics(), "a first start asks graphics")
+	assert_false(SavePrefs.ai_asked(), "and AI characters")
+	_ai(true, false)
+	assert_true(SavePrefs.ai_asked(), "AI answered: never again")
+	assert_false(SavePrefs.ask_graphics(), "a player from before the graphics question is not asked it")
+	_ai(false, false)
+	GraphicsPrefs.set_asked()
+	assert_false(SavePrefs.ask_graphics(), "graphics answered: never again")
+
+
+func test_a_save_with_the_answers_asks_nothing() -> void:
+	LookEnvironment._save_setting("first_run", "asked", false)
+	_ai(false, false)
+	_save_with({ "graphics": { "chosen": true }, "ai": { "asked": true, "on": false } })
+	assert_false(SavePrefs.ask_graphics(), "the save has the graphics answer")
+	assert_true(SavePrefs.ai_asked(), "the save has the AI answer")
+	assert_null(DisclaimerOverlay.show_once(self), "the AI question never shows (and never headless)")

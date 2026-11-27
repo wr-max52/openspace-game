@@ -197,6 +197,7 @@ func set_ai_enabled(on: bool) -> void:
 	else:
 		llm.set_ai_enabled(on)
 		llm.config.save_user()
+		SavePrefs.write_saves()
 	_result.text = "AI characters on. Local models load in the background." if on else "AI characters off."
 
 

@@ -2,14 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
-## Graphics is the first question, and your save keeps it (2026-11-26)
+## Graphics and AI are first-start questions, and your save keeps them (2026-11-26)
 
-- **A first launch asks Low graphics or Full graphics** before anything else,
-  ahead of the AI characters question and New Game. Full is the lit answer;
-  either one is shown at once and never asked again.
-- **The graphics choices are preferences in your save.** Every save file (story
-  and free roam) carries them, changing one in F11 > Options updates the saves
-  straight away, and loading a save puts its choices back.
+- **The first time you start the game it asks Low graphics or Full graphics,**
+  then whether to turn on AI characters, then New Game. Full and "Play without
+  AI" are the lit answers; each choice is shown at once.
+- **Neither question shows again after that first start,** whatever you
+  answered. The AI notice no longer comes back on every launch while AI is on;
+  the reminder at the top of each AI conversation stays.
+- **Your save keeps both answers as preferences.** Every save file (story and
+  free roam) carries the graphics choices and AI on or off. Changing one in
+  F11 > Options updates the saves straight away, and loading a save puts its
+  choices back (a save brought to another PC asks nothing and brings them).
 - **Low graphics' pieces are folded under "Advanced graphics settings"** in
   F11 > Options > Graphics. A click opens the list, another closes it.
 
