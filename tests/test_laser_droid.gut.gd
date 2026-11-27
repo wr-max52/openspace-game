@@ -1,8 +1,9 @@
 extends GutTest
 ## Issue #392: the moon rave's droid merchant sells a floating droid and the laser
-## rig, sold nowhere else. A rig is dark until E beside the droid turns it on; E
-## again turns it off. On or off is saved with the droid. Knocked out it goes
-## dark, and it comes back with the droid when it reboots.
+## rig, sold nowhere else. A rig is dark until E beside the droid turns it on.
+## Lasers on means music on: E steps off -> lasers with rave music -> with cantina
+## music -> no music -> off. The mode is saved with the droid. Knocked out it goes
+## dark and quiet, and it comes back with the droid when it reboots.
 
 
 class FakePlayer extends CharacterBody3D:
@@ -13,6 +14,17 @@ class FakePlayer extends CharacterBody3D:
 
 func before_each() -> void:
 	WorldState.reset()
+	_quiet()
+
+
+func after_each() -> void:
+	_quiet()
+
+
+## No droid music left over from another test (without making the library just for that).
+func _quiet() -> void:
+	if is_instance_valid(Sound._lib):
+		Sound.set_droid("", 0.0)
 
 
 func _scene() -> Array:
@@ -80,14 +92,15 @@ func test_e_turns_the_lasers_on_and_off_and_it_is_saved_and_reboots() -> void:
 	# Stand beside it, away from both merchants.
 	p.global_position = u.global_position + Vector3(0.8, 0, 0)
 	ctl.focus = {}
-	assert_eq(ctl.interact(), "lasers_on")
+	assert_eq(ctl.interact(), "lasers_rave")
 	assert_true(u.lasers.visible, "E: lasers on")
 	assert_true(DroidRoster.lasers_on(d))
+	for i in 3:
+		ctl.focus = {}
+		ctl.interact()
+	assert_false(u.lasers.visible, "round to off")
 	ctl.focus = {}
-	assert_eq(ctl.interact(), "lasers_off")
-	assert_false(u.lasers.visible, "E again: off")
-	ctl.focus = {}
-	assert_eq(ctl.interact(), "lasers_on")
+	assert_eq(ctl.interact(), "lasers_rave")
 	# Saved with the droid.
 	var loaded := DroidRoster.new()
 	loaded.from_save(JSON.parse_string(JSON.stringify(WorldState.droids.to_save())))
@@ -108,3 +121,114 @@ func test_e_turns_the_lasers_on_and_off_and_it_is_saved_and_reboots() -> void:
 	assert_ne(back, u, "a new body")
 	assert_false(back.dead)
 	assert_true(back.rig.visible and back.lasers.visible, "lasers back on when it reboots")
+
+
+
+## A droid of yours with the rig, bought at the rave and standing beside you.
+func _rigged() -> Array:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	var p: FakePlayer = s[1]
+	_sites(ctl)
+	ctl._select_vendor(1)
+	WorldState.credits = 1000
+	ctl.buy("floating")
+	var uid := int(WorldState.droids.owned[0].uid)
+	ctl.upgrade(uid, "lasers")
+	await wait_physics_frames(3)
+	var u = ctl.companions[uid]
+	p.global_position = u.global_position + Vector3(0.8, 0, 0)
+	return [ctl, p, uid, u]
+
+
+func test_e_steps_rave_cantina_quiet_off_and_the_music_follows() -> void:
+	var r = await _rigged()
+	var ctl: DroidController = r[0]
+	var uid: int = r[2]
+	var u = r[3]
+	var modes := DroidRoster.laser_modes()
+	assert_eq(modes.map(func(m): return str(m.id)), ["rave", "cantina", "quiet"], "the modes, from data")
+	assert_eq(str(modes[0].music), "salvage_rave", "rave: the moon rave mix")
+	assert_eq(str(modes[1].music), "dust_lounge", "cantina: the desert cantina mix")
+	assert_eq(str(modes[2].music), "", "quiet: lasers, no music")
+	var want := [["lasers_rave", "salvage_rave", true], ["lasers_cantina", "dust_lounge", true],
+		["lasers_quiet", "", true], ["lasers_off", "", false]]
+	for w in want:
+		ctl.focus = {}
+		assert_eq(ctl.interact(), w[0])
+		assert_eq(u.lasers.visible, w[2], "lasers lit for %s" % w[0])
+		await wait_physics_frames(2)
+		assert_eq(Sound.lib().droid, w[1], "the music for %s" % w[0])
+		if w[1] != "":
+			assert_almost_eq(Sound.lib().droid_near, 1.0, 0.001, "beside you: all of it")
+	# The prompt says what the next E does.
+	ctl.focus = { "kind": "lasers", "uid": uid }
+	assert_string_contains(ctl.prompt_text(), "rave music")
+
+
+func test_the_mode_is_saved_and_an_old_save_with_lasers_on_plays_music() -> void:
+	var r = await _rigged()
+	var ctl: DroidController = r[0]
+	var uid: int = r[2]
+	for i in 2:
+		ctl.focus = {}
+		ctl.interact()
+	var loaded := DroidRoster.new()
+	loaded.from_save(JSON.parse_string(JSON.stringify(WorldState.droids.to_save())))
+	assert_eq(DroidRoster.laser_mode(loaded.find(uid)), "cantina", "the mode survives a save")
+	var old := { "uid": 7, "kind": "floating", "variant": "rave", "cargo": {}, "up": { "lasers": 1 }, "lasers_on": true }
+	loaded.from_save({ "owned": [old] })
+	assert_eq(DroidRoster.laser_music(loaded.find(7)), "salvage_rave", "lasers on means music on")
+
+
+func test_knocked_out_or_walked_off_the_music_stops_or_fades() -> void:
+	var r = await _rigged()
+	var ctl: DroidController = r[0]
+	var p: FakePlayer = r[1]
+	var u = r[3]
+	ctl.focus = {}
+	ctl.interact()
+	await wait_physics_frames(2)
+	assert_eq(Sound.lib().droid, "salvage_rave")
+	var mc: Dictionary = DroidRoster.upgrade_cfg("lasers").music
+	ctl.set_physics_process(false)        # hold it where it is
+	p.global_position = u.global_position + Vector3((float(mc.full_m) + float(mc.hear_m)) / 2.0, 0, 0)
+	ctl._droid_music()
+	assert_between(Sound.lib().droid_near, 0.05, 0.95, "further off: quieter")
+	p.global_position = u.global_position + Vector3(float(mc.hear_m) + 5.0, 0, 0)
+	ctl._droid_music()
+	assert_eq(Sound.lib().droid, "", "out of earshot")
+	p.global_position = u.global_position + Vector3(0.8, 0, 0)
+	ctl._droid_music()
+	ctl._hurt_companion(u, 99999.0)
+	ctl._droid_music()
+	assert_eq(Sound.lib().droid, "", "knocked out: quiet")
+
+
+func test_the_droid_plays_on_the_club_layer_under_a_cantina_and_the_radio() -> void:
+	var s := Sound.lib()
+	var keep := [s.club, s.club_near, s.club_inside, s.radio, s.in_space]
+	s.club = ""
+	s.club_inside = false
+	s.in_space = false
+	s.set_radio("")
+	Sound.set_droid("salvage_rave", 1.0)
+	assert_true(s.droid_plays())
+	assert_eq(s.club_playlist(), "salvage_rave", "the droid's music on the club layer")
+	assert_eq(s.club_target(), 1.0, "all of it beside you, the score ducked")
+	s.club = "dust_lounge"
+	s.club_near = 1.0
+	assert_eq(s.club_playlist(), "salvage_rave", "louder than a cantina through its wall")
+	s.club_inside = true
+	assert_eq(s.club_playlist(), "dust_lounge", "inside a cantina its band plays")
+	s.club_inside = false
+	s.set_radio("dust_lounge")
+	assert_false(s.droid_plays(), "the ship's radio plays over it")
+	s.set_radio("")
+	Sound.set_droid("", 0.0)
+	assert_false(s.droid_plays())
+	s.club = keep[0]
+	s.club_near = keep[1]
+	s.club_inside = keep[2]
+	s.set_radio(keep[3])
+	s.in_space = keep[4]

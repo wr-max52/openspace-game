@@ -100,6 +100,8 @@ var _await_walk := false            ## you got out of a speeder or ship: no droi
 var _exit_at := Vector3.INF         ## ...from here (where you stood the first frame on foot)
 var _mats: LookMaterials
 var _was_locked := false
+var _music_id := ""                ## the playlist last told to Sound.set_droid ("" none)
+var _music_near := 0.0
 var net_copy := false               ## issue #402: the host's game runs this town's droids (see the top)
 var net_hit := Callable()           ## (u, amount, shooter, sweep): a hit on a copy, for the host's game
 
@@ -248,6 +250,13 @@ func _physics_process(dt: float) -> void:
 	_hauler_step(dt)
 	_tick_wrecks(dt)
 	_chirps(dt)
+	_droid_music()
+
+
+func _exit_tree() -> void:
+	if _music_id != "":
+		_music_id = ""
+		Sound.set_droid("", 0.0)       # a scene change: the droid's music goes with it
 
 
 func _tick_focus() -> void:
@@ -320,7 +329,8 @@ func prompt_text() -> String:
 			return _l("hold")
 		"lasers":
 			var d := roster().find(int(focus.uid))
-			return _l("lasers_off" if DroidRoster.lasers_on(d) else "lasers_on") % droid_name(d).to_lower()
+			var next := DroidRoster.next_laser_mode(DroidRoster.laser_mode(d))
+			return _l("lasers_to_" + next if next != "" else "lasers_off") % droid_name(d).to_lower()
 		"safety":
 			var d := roster().find(int(focus.uid))
 			return _l("safety_to_off" if DroidRoster.safety_on(d) else "safety_to_on") % droid_name(d).to_lower()
@@ -347,7 +357,8 @@ func interact() -> String:
 			_open_hold(int(focus.uid), opts)
 			return "menu"
 		"lasers":
-			return "lasers_on" if toggle_lasers(int(focus.uid)) else "lasers_off"
+			var mode := cycle_lasers(int(focus.uid))
+			return "lasers_" + mode if mode != "" else "lasers_off"
 		"safety":
 			return "safety_on" if toggle_safety(int(focus.uid)) else "safety_off"
 	return ""
@@ -1424,15 +1435,42 @@ func _paint_safety(u: DroidUnit, d: Dictionary) -> void:
 		m.emission = col
 
 
-func toggle_lasers(uid: int) -> bool:
+## E beside a droid with the laser rig: its next mode (off -> lasers with rave
+## music -> with cantina music -> no music -> off, droids.json upgrades.lasers.modes).
+## Returns the mode now on, "" for off. The music follows next frame (_droid_music).
+func cycle_lasers(uid: int) -> String:
 	var d := roster().find(uid)
-	var on := roster().set_lasers(uid, not DroidRoster.lasers_on(d))
+	var mode := roster().set_laser_mode(uid, DroidRoster.next_laser_mode(DroidRoster.laser_mode(d)))
 	var u: DroidUnit = companions.get(uid)
 	if u != null and u.lasers != null:
-		u.lasers.visible = on
-	_toast(_l("lasers_now_on" if on else "lasers_now_off"))
+		u.lasers.visible = mode != ""
+	_toast(_l("lasers_now_" + (mode if mode != "" else "off")))
 	_beep(u)
-	return on
+	return mode
+
+
+## Your laser droids' music: the playlist of the nearest one up and playing, as
+## loud as it is near you (upgrades.lasers.music), told to Sound when it changes.
+## None while they wait for you to fly, are knocked out or have their lasers off.
+func _droid_music() -> void:
+	var mc: Dictionary = DroidRoster.upgrade_cfg("lasers").get("music", {})
+	var full := float(mc.get("full_m", 6.0))
+	var hear := float(mc.get("hear_m", 30.0))
+	var id := ""
+	var near := 0.0
+	for uid in companions:
+		var u: DroidUnit = companions[uid]
+		var playlist := DroidRoster.laser_music(roster().find(uid))
+		if playlist == "" or u.dead:
+			continue
+		var n := ClubMusic.near(maxf(0.0, player.global_position.distance_to(u.global_position) - full), hear - full)
+		if n > near:
+			id = playlist
+			near = n
+	if id != _music_id or absf(near - _music_near) > 0.01:
+		_music_id = id
+		_music_near = near
+		Sound.set_droid(id, near)
 
 
 ## Where a droid left far behind rejoins: the oldest point of your trail at most
