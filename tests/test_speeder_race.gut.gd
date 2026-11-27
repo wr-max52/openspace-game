@@ -382,6 +382,36 @@ func test_rematch_at_once_for_the_same_stake_paid_from_dorrins_hold_too() -> voi
 	assert_between(crew.crowd.size(), 5, 10, "one crowd, not two")
 
 
+## Bug: a rematch once they were home had you held on the grid while they walked
+## back to their speeders one by one and drove over from the hangout. Now they are
+## set down on their speeders just behind the grid and are there as you line up.
+func test_rematch_once_they_are_home_sets_them_behind_the_line() -> void:
+	var t = await _town()
+	var crew := _crew(t)
+	await _race_to_go(t, crew)
+	crew._end_race()
+	for rc in crew.racers:
+		crew._settle_home(rc)                   # parked and off at the hangout, as if home
+	assert_eq(crew.rematch(), "", "[Z]: on again")
+	var g: Dictionary = crew.course.gates[0]
+	var back := RaceCrew.rule("rematch_stage_m", 25.0)
+	for rc in crew.racers:
+		if bool(rc.out):
+			continue
+		assert_true(rc.speeder.npc_driven(), "%s is on their speeder at once" % rc.key)
+		var s: Dictionary = crew.course.grid_slot(int(rc.slot))
+		assert_lt(rc.speeder.model.position.distance_to(s.pos), back + 3.0, "%s just behind their slot" % rc.key)
+		assert_lt(((rc.speeder.model.position - (g.pos as Vector3)).dot(g.fwd)), 0.0, "%s behind the line" % rc.key)
+	var frames := 0
+	for i in 5000:
+		if crew.phase == RaceCrew.Phase.COUNTDOWN:
+			break
+		frames += 1
+		await wait_physics_frames(1)
+	assert_eq(crew.phase, RaceCrew.Phase.COUNTDOWN, "everyone on the grid: the countdown")
+	assert_lt(frames * DT, 15.0, "in seconds, not a walk from the hangout (%.1f s)" % (frames * DT))
+
+
 func test_short_for_a_rematch_they_go_home_and_the_menu_offers_it_later() -> void:
 	var t = await _town()
 	var crew := _crew(t)

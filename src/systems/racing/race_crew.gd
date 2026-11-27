@@ -47,7 +47,9 @@ extends Node3D
 ##                         where they stand. Their speeders stay parked.
 ##   rematch            -- while they head home, [Z] on your speeder near the line
 ##                         races them again for the same stake, if you can cover
-##                         it (credits, then what Dorrin holds for you). Short, and
+##                         it (credits, then what Dorrin holds for you). The racers
+##                         are set down on their speeders just behind the grid
+##                         (rematch_stage_m) and roll onto it as you line up. Short, and
 ##                         they just go home; the leader's menu then offers the
 ##                         same stake first. Never for pink slips.
 ##   race quests        -- optional quests (Quests, quests() below) offered when a
@@ -828,9 +830,31 @@ func rematch() -> String:
 	var standing := crowd.size()
 	_start_grid()
 	_crowd_left = maxi(0, _crowd_left - standing)   # the crowd still at the line stay
+	_stage_for_rematch()
 	_say(leader(), line("rematch_accept"))
 	line_up()                               # already by the grid: straight onto your slot
 	return ""
+
+
+## A rematch: no walking back from the hangout one by one while you sit on the
+## grid. Every racer still in it is sat on their speeder now and set down
+## rematch_stage_m behind their slot, behind you at the line, and rolls onto it
+## while you line up. One already driving and near its slot keeps coming.
+func _stage_for_rematch() -> void:
+	var g: Dictionary = course.gates[0]
+	var back := rule("rematch_stage_m", 25.0)
+	for rc in racers:
+		if bool(rc.out) or rc.brain == null:
+			continue
+		var sp: SpeederNode = rc.speeder
+		var s: Dictionary = course.grid_slot(int(rc.slot))
+		var driving := sp.npc_driven()
+		if not driving or sp.model.position.distance_to(s.pos) > back * 1.5:
+			sp.place(course.to_world_near((s.pos as Vector3) - (g.fwd as Vector3) * back), float(s.yaw))
+		if not driving and not sp.seat_npc(rc.body, "driver"):
+			continue                             # left to _tick_set_off
+		rc.seated = true
+		rc.left_t = _grid_t
 
 
 ## While they head home: the [Z] prompt on your speeder near the line.
