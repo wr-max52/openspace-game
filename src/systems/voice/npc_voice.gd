@@ -136,6 +136,34 @@ static func speech_text(text: String, tags: PackedStringArray) -> String:
 	return " ".join(parts)
 
 
+## Keys are written as the HUD writes them: "[E]", "[Shift]", "[LMB]" (T-89's
+## tutorial, his welder gift). Said aloud they are the bare key ("E", "Shift"),
+## the mouse buttons as words ("left mouse", capital at a sentence's start), so
+## the brackets are never sent as an audio tag and the recorded clips, keyed by
+## the line as said, still match. Audio tags ("[scared]") are lower case: kept.
+## tools/audio/make_voice_lines.py does the same (said()).
+static var _keycap: RegEx
+
+static func spoken_keys(text: String) -> String:
+	if not text.contains("["):
+		return text
+	if _keycap == null:
+		_keycap = RegEx.create_from_string("\\[(LMB|RMB|Shift|Space|Tab|Enter|Esc|Backspace|F\\d{1,2}|[A-Z0-9])\\]")
+	var out := ""
+	var at := 0
+	for m in _keycap.search_all(text):
+		out += text.substr(at, m.get_start() - at)
+		var k := m.get_string(1)
+		if k == "LMB" or k == "RMB":
+			k = ("left" if k == "LMB" else "right") + " mouse"
+			var before := out.strip_edges(false, true)
+			if before == "" or before.ends_with(".") or before.ends_with("!") or before.ends_with("?"):
+				k = k.left(1).to_upper() + k.substr(1)
+		out += k
+		at = m.get_end()
+	return out + text.substr(at)
+
+
 static func cache_key(text: String, voice_id: String, model_id: String, speed_value: float,
 		stability_value: float = 0.55) -> String:
 	return "%s|%s|%s|%.2f|%.2f" % [
@@ -177,6 +205,7 @@ static func bundled_path(text: String, voice_id: String) -> String:
 ## static under it and a squelch at each end (npc_sounds.json "comms").
 func speak(text: String, profile_name: String, mood: String, target: Node3D, shout: bool = false,
 		live_line: bool = false, near: bool = false, radio: bool = false) -> void:
+	text = spoken_keys(text)
 	if text.strip_edges() == "" or target == null or not is_instance_valid(target):
 		return
 	# Avoid accidental web requests from headless tests and server processes.

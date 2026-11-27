@@ -106,7 +106,7 @@ func _ready() -> void:
 	_topics.visible = false
 	v.add_child(_topics)
 	_field = LineEdit.new()
-	_field.placeholder_text = "Say something, then Enter.  Esc leaves."
+	_field.placeholder_text = "Say something, then [Enter].  [Esc] leaves."
 	_field.add_theme_font_size_override("font_size", RetroUI.size("dialogue_field", 28))
 	_field.custom_minimum_size = Vector2(0, 44)
 	_field.max_length = 300
@@ -115,7 +115,7 @@ func _ready() -> void:
 	_hint = Label.new()
 	_hint.add_theme_font_size_override("font_size", RetroUI.size("dialogue_hint", 20))
 	_hint.add_theme_color_override("font_color", Color(0.65, 0.62, 0.58))
-	_hint.text = "F3 debug   F10 AI settings   Shift+F10 cycle local / cloud / auto"
+	_hint.text = "[F3] debug   [F10] AI settings   [Shift]+[F10] cycle local / cloud / auto"
 	v.add_child(_hint)
 	_build_job_card()
 	get_viewport().size_changed.connect(fit)
@@ -276,8 +276,8 @@ func set_topics(list: Array) -> void:
 		b.pressed.connect(func(): topic_picked.emit(str(t.id)))
 		_topics.add_child(b)
 	_topics.visible = not list.is_empty()
-	_field.placeholder_text = "Pick a topic or type, then Enter.  Esc leaves." if not list.is_empty() \
-		else "Say something, then Enter.  Esc leaves."
+	_field.placeholder_text = "Pick a topic or type, then [Enter].  [Esc] leaves." if not list.is_empty() \
+		else "Say something, then [Enter].  [Esc] leaves."
 
 
 func topic_ids() -> Array:

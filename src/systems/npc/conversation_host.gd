@@ -577,7 +577,7 @@ func _offline(s: TalkSpot, turn: Dictionary) -> void:
 		panel.post_notice(str(Disclaimers.data().get("still_loading", "The AI model is still loading: written lines for now.")))
 	else:
 		var why := llm.explain({ "fell_back_from": turn.get("fell_back_from", []), "error": turn.get("error", "") })
-		panel.post_notice(str(Disclaimers.data().get("offline", "AI offline: %s. Canned lines for now; F10 to fix.")) % why)
+		panel.post_notice(str(Disclaimers.data().get("offline", "AI offline: %s. Canned lines for now; [F10] to fix.")) % why)
 	_refresh_menu(s)
 
 

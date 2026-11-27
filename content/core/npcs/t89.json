@@ -29,7 +29,7 @@
   "weld_stand_m": 1.3,
   "weld_height_m": 1.9,
   "weld_job_note": "Issue #722: paid to rebuild or patch up your ship, he walks over at weld_walk_speed m/s (his walk clip, sped up to match), stands weld_stand_m out from her nearest side, raises his arm and welds her for weld_job_s (sparks off his torch and the hull at weld_height_m), then walks back to his marker. She looks wrecked and will not fly until he is done.",
-  "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key 8. Hold E with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
+  "welder_gift": "Before you go, pilot: take this plasma welder. It is on your wheel, key [8]. Hold [E] with it beside a speeder in a race, a broken droid, anything that sparks. And if you ever carry %d flasks of refined quantonium, you can weld your own ship back together instead of paying me. That is a lot of quantonium, mind you. My labour is cheaper!",
   "welder_gift_note": "Issue #722: what he says as he hands you the plasma welder, the first time you talk to him in a story save (or the next time, in a save from before the welder; the flag t89_welder_given). %d is the flasks a ship weld takes (the welder item's ship_flasks). Only he gives one: T-99 has no welder_gift.",
   "upgrades": {
     "shields": { "label": "Boosted shields", "short": "Shields+", "price": 1200, "mult": { "shield.max": 1.5, "shield.regen": 1.5 } },
@@ -55,14 +55,14 @@
   ],
   "offer_tutorial": "New in port? I can walk you through the basics. It only takes a minute.",
   "tutorial": [
-    "Walking first. W A S D to move, Shift to run, Space to jump, C to crouch. The mouse looks around; V swaps between first and third person.",
-    "You are already armed: I checked. 1 is your blaster pistol. Whatever else you pick up goes on its own key: 2 a rifle, 3 a sniper rifle, 4 a seeker launcher, 7 an energy blade. Tab steps to the next one, and after the last one your hands go empty. The mouse wheel cycles them too, Q goes back to the last one, H puts them away.",
-    "Left mouse fires the blasters, or swings the blade. Right mouse aims down a blaster's sights. With the blade out, right mouse blocks: block a bolt at the right moment and it goes back where it came from. R reloads.",
-    "A word of advice: the Remnant at the gate do not like drawn weapons. Holster with H before you walk past them, unless you want a fight.",
-    "E does most things here: talk, pick things up, trade, board a ship. The cantina owner will talk about anything. Market stalls buy and sell gear. I opens your inventory, G puts gear like a jetpack on or takes it off. With a jetpack on, hold Space in the air.",
-    "The ships in the pit are locked until somebody in this port trusts you with one; Oda Vell at the cantina will say when. Then E boards one, Space lifts off. W and S pitch, A and D turn, Q and E roll, R and F set the throttle, Shift is the ship's trick, left mouse the guns. C lands on whatever is below.",
+    "Walking first. [W] [A] [S] [D] to move, [Shift] to run, [Space] to jump, [C] to crouch. The mouse looks around; [V] swaps between first and third person.",
+    "You are already armed: I checked. [1] is your blaster pistol. Whatever else you pick up goes on its own key: [2] a rifle, [3] a sniper rifle, [4] a seeker launcher, [7] an energy blade. [Tab] steps to the next one, and after the last one your hands go empty. The mouse wheel cycles them too, [Q] goes back to the last one, [H] puts them away.",
+    "[LMB] fires the blasters, or swings the blade. [RMB] aims down a blaster's sights. With the blade out, [RMB] blocks: block a bolt at the right moment and it goes back where it came from. [R] reloads.",
+    "A word of advice: the Remnant at the gate do not like drawn weapons. Holster with [H] before you walk past them, unless you want a fight.",
+    "[E] does most things here: talk, pick things up, trade, board a ship. The cantina owner will talk about anything. Market stalls buy and sell gear. [I] opens your inventory, [G] puts gear like a jetpack on or takes it off. With a jetpack on, hold [Space] in the air.",
+    "The ships in the pit are locked until somebody in this port trusts you with one; Oda Vell at the cantina will say when. Then [E] boards one, [Space] lifts off. [W] and [S] pitch, [A] and [D] turn, [Q] and [E] roll, [R] and [F] set the throttle, [Shift] is the ship's trick, [LMB] the guns. [C] lands on whatever is below.",
     "Climb high enough and you leave the atmosphere. Raiders like to wait up there: fight them off for a payout, or dive back down to break away. Crash, and your ship is towed home.",
-    "F1 shows where you are, your credits and who likes you. F11 holds the settings. The droid merchant in the market sells companions, if you want one.",
+    "[F1] shows where you are, your credits and who likes you. [F11] holds the settings. The droid merchant in the market sells companions, if you want one.",
     "And when one ship is not enough, come and see me. That empty pad across the pit is yours: any ship I sell you lands right there. That is all. Good luck out there, pilot!"
   ],
   "remnant_story": [

@@ -9,18 +9,18 @@
   },
   "welder": {
     "note": "Issue #722: the plasma welder's prompts (src/systems/items/player_welder.gd). %s is what is being welded, %.0f the seconds to hold.",
-    "hold_e": "[Hold E]  Weld %s  (%.0f s)",
-    "hold_fire": "Welder out [8], hold fire: weld %s  (%.0f s)",
+    "hold_e": "Hold [E]  Weld %s  (%.0f s)",
+    "hold_fire": "Welder out [8], hold [LMB]: weld %s  (%.0f s)",
     "welding": "Welding %s...",
     "welded": "Welded: %s",
     "need_welder": "You need a plasma welder to fix %s",
     "blocked": "Weld %s: %s"
   },
   "labels": {
-    "move_hint": "WASD or arrow keys to move",
+    "move_hint": "[W] [A] [S] [D] or arrow keys to move",
     "pick_up": "[E]  Pick up %s",
     "picked_up": "Picked up: %s",
-    "attached": "%s attached.  Hold Space in the air to fly.  [G] takes it off",
+    "attached": "%s attached.  Hold [Space] in the air to fly.  [G] takes it off",
     "detached": "%s off.  [G] puts it back on",
     "nothing_to_attach": "No gear to put on",
     "trade": "[E]  Trade with the %s",
@@ -63,6 +63,6 @@
     "attached_armour": "%s on.  [G] takes it off",
     "detached_armour": "%s off.  [G] puts it back on",
     "new_equipment": "New equipment: %s.  Press [G] to put it on",
-    "weapon_tip": "Press [Tab] to change weapons - press & hold to see all weapons"
+    "weapon_tip": "Press [Tab] to change weapons - hold [Tab] to see all weapons"
   }
 }

@@ -1705,8 +1705,8 @@ func _build_hud() -> void:
 	help.size = Vector2(840, 28)
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var shift := "Drift" if model.ability() == "drift" else "Boost"     # issue #627: the box truck drifts
-	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter on/off (W/S tilt in the air)   [J] Radio   [E] Get off" \
-		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] %s   [Space / LMB] Lasers   [J] Radio   [E] Get off") % shift
+	help.text = ("[W]/[S] Throttle   [A]/[D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter on/off ([W]/[S] tilt in the air)   [J] Radio   [E] Get off" \
+		if model.has_lifter() else "[W]/[S] Throttle   [A]/[D] Steer   [Shift] %s   [Space]/[LMB] Lasers   [J] Radio   [E] Get off") % shift
 	help.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	help.add_theme_constant_override("outline_size", 4)
 	_hud.add_child(help)

@@ -69,7 +69,7 @@
     "crashed": "CRASHED!",
     "repairing": "Crashed out. Patching it up...",
     "repaired": "BACK IN IT!",
-    "weld_hint": "[Hold E] Weld it: back in at full hull",
+    "weld_hint": "Hold [E]  Weld it: back in at full hull",
     "no_welder": "No welder: back in at half hull",
     "comms": "{name} (comms): {line}"
   }

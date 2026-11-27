@@ -215,7 +215,7 @@
   "standing_names": { "imperial_remnant": "Remnant", "locals": "Locals" },
   "quest_news_note": "The big banner in the middle of the screen (src/systems/flow/quest_news.gd, src/ui/quest_banner.gd): a few words when a quest or job starts, moves on, or ends, with a sound (content/look/sound.json). Each key is what a system pushes: head (shown in capitals), sound, and an optional hint line under the subtitle.",
   "quest_news": {
-    "quest_new":          { "head": "New Quest", "sound": "quest_start", "hint": "Press \"I\" to see new quest" },
+    "quest_new":          { "head": "New Quest", "sound": "quest_start", "hint": "Press [I] to see new quest" },
     "quest_done":         { "head": "Quest Complete", "sound": "quest_success" },
     "quest_failed":       { "head": "Quest Failed", "sound": "quest_fail" },
     "job_taken":          { "head": "New Job", "sound": "quest_start" },
@@ -250,7 +250,7 @@
       "text": "Clear the local guards from the barracks of {town}. They still think you're on their side. Going back to Oda first breaks the oath." }
   ],
   "ship_locked": "Locked. The keys aren't yours to take yet.",
-  "opening_view": "Press V to switch views    Press J to change radio",
+  "opening_view": "Press [V] to switch views    Press [J] to change radio",
   "opening_radio": "dust_lounge",
   "opening_cinematic_secs": 8,
   "opening_exit": "E: get out",
