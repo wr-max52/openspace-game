@@ -244,9 +244,9 @@ func brain_report() -> Dictionary:
 		elif not providers.has(id):
 			why = "no such profile"
 		elif config != null and not bool(config.profile(id).get("enabled", true)):
-			why = "off" + (" (no key)" if config.api_key(id) == "" else "") + ". F10 to turn it on"
+			why = "off" + (" (no key)" if config.api_key(id) == "" else "") + ". [F10] to turn it on"
 		elif config != null and not config.usable(id):
-			why = "needs an API key. F10 or the DUNE_LLM_KEY env var"
+			why = "needs an API key. [F10] or the DUNE_LLM_KEY env var"
 		elif circuit_open(id):
 			why = "paused after repeated failures (retrying in under 2 min)"
 		elif id == "local" and sidecar != null and sidecar.state != LLMSidecar.State.READY and sidecar.state != LLMSidecar.State.REUSED:
@@ -256,12 +256,12 @@ func brain_report() -> Dictionary:
 		elif warming.has(id):
 			why = "loading its model"
 		elif config != null and config.key_mismatch(id) != "":
-			why = config.key_mismatch(id) + ". F10 to fix"
+			why = config.key_mismatch(id) + ". [F10] to fix"
 		elif chain.has(id):
 			why = "ready (%s)" % providers[id].model() if health.has(id) else "not checked yet"
 		lines.append("%s: %s" % [id, why])
 	if not ai_on():
-		return { "lines": Array(lines), "summary": "AI characters are off: authored lines. F10 to turn them on.", "any_up": false, "off": true }
+		return { "lines": Array(lines), "summary": "AI characters are off: authored lines. [F10] to turn them on.", "any_up": false, "off": true }
 	var any_up := not chain.is_empty()
 	var is_loading := loading()
 	var summary := ""

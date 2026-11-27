@@ -70,7 +70,7 @@ func _strip(preset: int) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(_on_click)
-	p.tooltip_text = "Info (F1)"
+	p.tooltip_text = "Info [F1]"
 	add_child(p)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE

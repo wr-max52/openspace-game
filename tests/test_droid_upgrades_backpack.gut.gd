@@ -277,7 +277,7 @@ func test_hold_stashes_one_or_the_whole_stack() -> void:
 	assert_eq(ids, ["stash:holocrystals", "stash_all:holocrystals"], "Stash one and Stash all buttons")
 	assert_false(_hold_row(ctl, "food").has("alt"), "a single item has no stash-all")
 	assert_eq((_hold_row(ctl, "food").get("buttons", []) as Array).size(), 1, "just a Stash button")
-	assert_true(ctl.menu.hint.text.contains("[A/D]"), "the key hint names the button keys")
+	assert_true(ctl.menu.hint.text.contains("[A]/[D]"), "the key hint names the button keys")
 
 	ctl.menu.choose("stash:holocrystals")
 	assert_eq(inv.count("holocrystals"), 2, "Enter stashes one")
