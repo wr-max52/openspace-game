@@ -993,10 +993,14 @@ func _apply_collider(p: Dictionary) -> void:
 	if true:
 		var step: float = p.step
 		var data: PackedFloat32Array = p.heights
-		var scaled := PackedFloat32Array()
-		scaled.resize(data.size())
-		for i in data.size():
-			scaled[i] = data[i] / step
+		# Issue #802: the heights are already in cells at the near ground's 1 m step:
+		# no 66,049-sample loop on the frame it swaps in (every 48 m you walk).
+		var scaled := data
+		if step != 1.0:
+			scaled = PackedFloat32Array()
+			scaled.resize(data.size())
+			for i in data.size():
+				scaled[i] = data[i] / step
 		var shape := HeightMapShape3D.new()
 		shape.map_width = int(p.cells) + 1
 		shape.map_depth = int(p.cells) + 1

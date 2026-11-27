@@ -2,6 +2,28 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-27 — The physics engine is Jolt (Godot's own), for the far side of the ball
+
+- **Why:** on foot on the far side (Cragfall, Farleap, any sand 9 km or more from
+  the world origin) the player snagged nearly every tick and made 0.4 to 3 m/s of
+  the 7 asked (issue #802). Godot's default physics engine loses its contacts that
+  far out: its motion test's recovery pushed the capsule backwards off a dead flat
+  floor. It is the engine, not the game: a bare capsule on a flat heightmap 9.5 km
+  out walks at 1.6 m/s with the 1 mm default margin, 0.2 m/s tilted as Cragfall
+  is, and a triangle mesh does no better. At the origin and at Saltpan (3.4 km) it
+  is 7.0. Under Jolt every case walks at 7.0.
+- **Alternatives:** a larger `safe_margin` (the plan in #802) tops out at 4.6 m/s
+  tilted even at 2 cm, a gap you would see; a floating origin fixes precision at
+  the root but every system assumes the port is the origin. Jolt is built into
+  Godot 4.7.2 (no plugin) and is one line in `project.godot`.
+- **What changes:** the player, NPCs and colliders are the same nodes. Jolt
+  builds its own height field when the near ground swaps in (every 48 m walked),
+  about 3 ms more than before. `areas_detect_static_bodies` is on so an Area3D
+  still sees walls and ground as it did (bolts use rays first anyway).
+- **The outpost ground sits 5 cm under the near ground** (`PlanetTerrain.TOWN_SINK`,
+  as the town collider does), with a uniform scale, so under a village the
+  player's near ground is the one underfoot, not whichever grid is a hair higher.
+
 ## 2026-11-27 — Laser droid settings move to the Ledger; E is its safety
 
 - **Two settings, not one cycle.** The rig used to be one value stepped by E (off,
