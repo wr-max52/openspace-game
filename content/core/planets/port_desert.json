@@ -24,7 +24,7 @@
     "pickups"
   ],
   "natives": {
-    "note": "Issue #96: the dune people in one friendly and one hostile pack, and sand pigs. Each pack has a camp (where it starts, a stop after route point 'stop_after', and where it sleeps). Routes and camps are map points (metres along the ground from the port). locals_say: what the port's locals, calm, say of the packs when you walk close by (src/systems/npc/townsfolk.gd); an [audio tag] is voiced, never shown. The packs roam 0.6 to 1.5 km out, past the Remnant's outposts: the Red Wind's loop goes by the near and west ones, the Bone Teeth's by the mid and south ones, about 200 m off (out of the troopers' sight, so no fighting yet).",
+    "note": "Issue #96: the dune people in one friendly and one hostile pack, and sand pigs. Each pack has a camp (where it starts, a stop after route point 'stop_after', and where it sleeps). Routes and camps are map points (metres along the ground from the port). locals_say: what the port's locals, calm, say of the packs when you walk close by (src/systems/npc/townsfolk.gd); an [audio tag] is voiced, never shown. The friendly Red Wind roam about 1 km out, by the near outpost. Planet layout spread: the hostile Bone Teeth were moved 7.6 km out north-north-east, into the open between two mountains, nearly 3 km from the nearest outpost (out of the troopers' sight, so no fighting yet); their loop kept its shape, turned round the ball. Sand pigs: three herds, one round the port, one round the racers' outpost on the Basin Run and one round the barge's mooring (20 in all, as before).",
     "species": "dune_nomads",
     "locals_say": [
       "I got a great deal from the Red Wind.",
@@ -73,55 +73,49 @@
         "style": "rust",
         "camp": {
           "at": [
-            180,
-            -1230
+            3800,
+            -6582
           ],
           "stop_after": 3
         },
         "route": [
           [
-            330,
-            -900
+            4032,
+            -6166
           ],
           [
-            800,
-            -740
+            4659,
+            -5794
           ],
           [
-            620,
-            -1250
+            4410,
+            -6445
           ],
           [
-            40,
-            -1480
+            3568,
+            -6899
           ]
         ]
       }
     ],
     "fauna": [
-      {
-        "species": "sand_pig",
-        "count": 20,
-        "around": [
-          0,
-          0
-        ],
-        "radius": 900
-      }
+      { "species": "sand_pig", "count": 8, "around": [0, 0], "radius": 900 },
+      { "species": "sand_pig", "count": 6, "around": [1461, 3616], "radius": 700 },
+      { "species": "sand_pig", "count": 6, "around": [5803, 3914], "radius": 700 }
     ]
   },
   "barge": {
-    "note": "Issue #269: this planet's party barge (content/core/barges/party_barge.json has the numbers every barge shares; any of them can be set here). name is the barge's, boss.name its owner's; home is a map point (metres along the ground from the port): 2.2 km out on the old bearing, about 2 km from the nearest edge of the town, so past the barge's draw_m from anywhere in it.",
+    "note": "Issue #269: this planet's party barge (content/core/barges/party_barge.json has the numbers every barge shares; any of them can be set here). name is the barge's, boss.name its owner's; home is a map point (metres along the ground from the port): planet layout spread: 7 km out south-east, on the open flats between the port and the far side, well past the barge's draw_m from the town.",
     "name": "the Gilded Wallow",
     "boss": { "name": "Grubba Vosk" },
-    "home": [-1382, 1712]
+    "home": [5803, 3914]
   },
   "beast": {
-    "note": "The home planet's beast (content/core/hazards/beast.json has the numbers every beast shares; any of them can be set here too). name is what the locals call it; home is a map point (metres along the ground from the port); lore is what the locals say of it, in passing and to anyone who asks.",
+    "note": "The home planet's beast (content/core/hazards/beast.json has the numbers every beast shares; any of them can be set here too). name is what the locals call it; home is a map point (metres along the ground from the port): planet layout spread: 8.8 km out west-north-west, the emptiest stretch of the planet, out where the locals' 'far flats' are; lore is what the locals say of it, in passing and to anyone who asks.",
     "name": "Old Murk",
     "home": [
-      520,
-      720
+      -7296,
+      -4921
     ],
     "lore": [
       "Stay off the far flats. Old Murk crawls out there.",
