@@ -129,12 +129,13 @@ static func current_key() -> String:
 
 static func _bounty() -> Dictionary:
 	var b := WorldState.bounty
-	if WorldState.bounty_collectable() and home():
+	var here := WorldState.bounty_town() == WorldState.current_town_id()   # its outposts and its fence are on this planet
+	if WorldState.bounty_collectable() and here:
 		var fence := fence_marker(true)
 		return { "text": line("collect") % str(b.name), "target": "marker:" + fence if fence != "" else "" }
 	if not WorldState.bounty_target().is_empty():
 		var where := Story.outpost_label(str(b.outpost))
-		if not home():
+		if not here:
 			return { "text": line("hunt_away") % [str(b.name), where], "target": "" }
 		var close := bounty_dist <= float(Story.bounty_cfg().get("mark_near_m", 200.0))
 		return { "text": line("hunt") % [str(b.name), where], "target": "npc:bounty" if close else "outpost:" + str(b.outpost) }
@@ -213,7 +214,13 @@ static func for_general() -> bool:
 
 ## A smuggling-run line, in the general's words ("general_<key>") while his run is on.
 static func run_line(key: String) -> String:
-	return line("general_" + key) if WorldState.smuggle_to() == "general" and cfg().has("general_" + key) else line(key)
+	return line("general_" + key) if WorldState.smuggle_to() == "general" and cfg().has("general_" + key) else away_line(key)
+
+
+## A smuggling-run line for a run off the port ("away_<key>": a moon's or the
+## station's, with no gate to slip past), else the port's.
+static func away_line(key: String) -> String:
+	return line("away_" + key) if str(WorldState.smuggle.get("location", "port_town")) != "port_town" and cfg().has("away_" + key) else line(key)
 
 
 ## The marker of the stall that buys contraband in this town (or, with
@@ -269,7 +276,7 @@ static func log_entries() -> Array:
 		out.append(heist)
 	var drop := WorldState.smuggle_drop()
 	if WorldState.carrying_contraband() and not Heist.holding():
-		out.append({ "title": run_line("log_smuggle"), "text": line("general_log_carry") if for_general() else line("log_carry"), "key": "smuggle" })
+		out.append({ "title": run_line("log_smuggle"), "text": line("general_log_carry") if for_general() else away_line("log_carry"), "key": "smuggle" })
 	elif not drop.is_empty():
 		out.append({ "title": run_line("log_smuggle"), "key": "smuggle",
 			"text": run_line("log_drop") % [WorldState.smuggle_goods_text(), str(WorldState.smuggle.get("hint", ""))] })

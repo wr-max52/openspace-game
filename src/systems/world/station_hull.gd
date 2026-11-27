@@ -34,6 +34,16 @@ const INNER_WALL := 0.4            ## room walls and dividers
 const GLASS := 0.3                 ## the shaft and the tube
 const RAIL_H := 1.1
 const MARGIN := 40.0               ## the gravity box past the outermost part
+## The top floor's cantina bar (StationFill._cantina), in the frame of the room's
+## side -1 wall: it starts BAR_IN metres in from the door and is BAR_LEN long; the
+## back bar stands BAR_BACK off the wall, the counter's middle BAR_COUNTER (0.7
+## deep), the stools BAR_STOOLS. cantina_bar() stands the owner between the back
+## bar and the counter, and the bar front just past the stools.
+const BAR_IN := 5.0
+const BAR_LEN := 16.0
+const BAR_BACK := 0.3
+const BAR_COUNTER := 2.2
+const BAR_STOOLS := 3.0
 
 static var _cache: Dictionary = {}     ## id -> StationHull
 
@@ -185,8 +195,9 @@ func frame_for(sp: PlanetSphere, lm: Dictionary, world: Dictionary = {}) -> Tran
 ## town box; the station's own deck is what you walk on). Issue #316: a "ship"
 ## box on every other pad that names a ship (the frigate; TownDecor parks it,
 ## ShipPilot makes it a berth, "free" if the pad says), the spare pad a bought
-## ship lands on, and the salesman's marker on its own plate. No wall, no deck,
-## no cantina: everything else is the station.
+## ship lands on, and the salesman's marker on its own plate, the cantina owner
+## behind the top floor's bar and the rooms smuggling drops lie in (markers on
+## hidden plates). No wall, no deck: everything else is the station.
 static func town_for(town_id: String, lm: Dictionary, sp: PlanetSphere, world: Dictionary = {}) -> Dictionary:
 	var h := for_id(str(lm.get("station", "")))
 	if h == null:
@@ -255,6 +266,32 @@ static func town_for(town_id: String, lm: Dictionary, sp: PlanetSphere, world: D
 		boxes.append({ "id": "plate_" + str(v.marker), "zone": "landing_bay", "kind": "pad", "standable": true, "hidden": true,
 			"min": [va.x - 0.5, va.y, va.z - 0.5], "max": [va.x + 0.5, vtop, va.z + 0.5] })
 		markers.append({ "id": str(v.marker), "pos": [va.x, vtop, va.z], "role": "interact" })
+	# The cantina owner behind the top floor's bar (cantina_bar), her bar front
+	# before it (ConversationHost's TalkSpot), and the rooms a smuggling drop can
+	# lie in (drop_rooms; content/core/pickups/<town>.json names them), each on a
+	# hidden plate (the validator's V7).
+	var bar := h.cantina_bar()
+	if not bar.is_empty():
+		var oa: Vector3 = xf * (bar.owner as Vector3)
+		var fa: Vector3 = xf * (bar.front as Vector3)
+		var cc: Dictionary = h.cfg.get("cantina", {})
+		for pair in [["cantina_owner", oa], ["bar_front", fa]]:
+			var q: Vector3 = pair[1]
+			boxes.append({ "id": "plate_" + str(pair[0]), "zone": "landing_bay", "kind": "pad", "standable": true, "hidden": true,
+				"min": [q.x - 0.5, q.y, q.z - 0.5], "max": [q.x + 0.5, q.y + 0.02, q.z + 0.5] })
+		var owner := { "id": "cantina_owner", "pos": [oa.x, oa.y + 0.02, oa.z], "role": "npc", "npc": "cantina_owner",
+			"face": [fa.x, oa.y + 0.02, fa.z] }
+		if cc.has("look"):
+			owner["look"] = str(cc.look)
+		if str(world.get("planet", "")) != "":
+			owner["planet"] = str(world.planet)       # issue #75: her own Oda (PlanetOwner)
+		markers.append(owner)
+		markers.append({ "id": "bar_front", "pos": [fa.x, fa.y + 0.02, fa.z], "role": "interact" })
+	for r in h.drop_rooms():
+		var ra: Vector3 = xf * (r.at as Vector3)
+		boxes.append({ "id": "plate_" + str(r.marker), "zone": "landing_bay", "kind": "pad", "standable": true, "hidden": true,
+			"min": [ra.x - 0.5, ra.y, ra.z - 0.5], "max": [ra.x + 0.5, ra.y + 0.02, ra.z + 0.5] })
+		markers.append({ "id": str(r.marker), "pos": [ra.x, ra.y + 0.02, ra.z], "role": "interact" })
 	var x0 := minf(c.x - hx, sp_at.x - 1.0) - 2.0
 	var x1 := maxf(c.x + hx, sp_at.x + 1.0) + 2.0
 	var z0 := minf(c.z - hz, sp_at.z - 1.0) - 2.0
@@ -454,6 +491,58 @@ func floor_rooms(t: Dictionary, i: int) -> Array:
 			use = str(uses[n % uses.size()]) if not uses.is_empty() else "suite"
 			n += 1
 		out.append({ "k": k, "a": float(room.a), "half": float(room.half), "r0": r0, "r1": r1, "open": open, "use": use })
+	return out
+
+
+## The cantina owner's spot behind the bar of the top floor's first cantina and
+## the bar front before it, in the station's frame: { owner, front } (owner and
+## front Vector3s on the floor), or {} with no cantina. The station config's
+## "cantina" block says which floor ("floor") and how far from the wall each
+## stands ("owner", "front": metres into the room from the wall, past the back
+## bar and the stools).
+func cantina_bar() -> Dictionary:
+	var cc: Dictionary = cfg.get("cantina", {})
+	if cc.is_empty():
+		return {}
+	for t in towers:
+		for i in (t.floors as Array).size():
+			var f: Dictionary = t.floors[i]
+			if str(f.id) != str(cc.get("floor", "top")):
+				continue
+			for room in floor_rooms(t, i):
+				if not bool(room.open) or str(room.use) != "cantina":
+					continue
+				var half := float(room.half)
+				var x := float(room.r0) + BAR_IN + BAR_LEN * cos(half) * 0.5
+				var wall_z := x * tan(half) - (INNER_WALL * 0.5) / cos(half)
+				var at := Transform3D(Basis(Vector3(cos(float(room.a)), 0, sin(float(room.a))), UP,
+					Vector3(cos(float(room.a)), 0, sin(float(room.a))).cross(UP)), Vector3(t.c.x, float(f.y), t.c.y))
+				var wall := at * Transform3D(Basis(UP, half), Vector3(x, 0, -wall_z))   # side -1's wall, z into the room
+				return { "owner": wall * Vector3(0, 0, float(cc.get("owner", 1.25))),
+					"front": wall * Vector3(0, 0, float(cc.get("front", 3.4))) }
+	return {}
+
+
+## The open rooms a smuggling drop can lie in, in the station's frame: a
+## spot `in_m` metres in from each one's door on its middle line, keyed
+## "room_<floor id>_<k>" (the town's markers: town_for), with its use. The
+## station config's "drop_rooms": { floor id: [the uses that take drops] }.
+func drop_rooms() -> Array:
+	var want: Dictionary = cfg.get("drop_rooms", {})
+	var in_m := float(want.get("in_m", 3.0))
+	var out: Array = []
+	for t in towers:
+		for i in (t.floors as Array).size():
+			var f: Dictionary = t.floors[i]
+			var uses: Array = want.get(str(f.id), [])
+			if uses.is_empty():
+				continue
+			for room in floor_rooms(t, i):
+				if not bool(room.open) or not uses.has(str(room.use)):
+					continue
+				var d := Vector3(cos(float(room.a)), 0, sin(float(room.a)))
+				out.append({ "marker": "room_%s_%d" % [f.id, int(room.k)], "use": str(room.use), "floor": str(f.id),
+					"at": Vector3(t.c.x, float(f.y), t.c.y) + d * (float(room.r0) + in_m) })
 	return out
 
 

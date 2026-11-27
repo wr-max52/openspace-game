@@ -1,0 +1,130 @@
+{
+  "id": "cinder_station_town",
+  "location": "cinder_station_town",
+  "pickups": [],
+  "note": "Smuggling drops for the lava moon's station (board/bar_board.json, j_cinder_smuggle_run). The station is sealed, so the drops lie on the open rock round the club, the landing pit and the two domes off it, all inside the ring the lava keeps clear of (types.json lava_moon surface.lava.keep_clear: 180 m from the station's middle; every spot is 70 to 160 m out), and clear of the ring, the pit and the domes. Spots are from the gate marker. surface: exactly on the ground. marked: far out, so each gets a beam of light.",
+  "drops": {
+    "areas": [
+      {
+        "id": "rock_past_pit",
+        "hint": "out on the rock past the landing pit",
+        "marker": "gate",
+        "ground": true,
+        "surface": true,
+        "marked": true,
+        "spots": [
+          [
+            100,
+            0,
+            10
+          ],
+          [
+            110,
+            0,
+            -16
+          ],
+          [
+            117,
+            0,
+            18
+          ],
+          [
+            123,
+            0,
+            -4
+          ]
+        ]
+      },
+      {
+        "id": "rock_behind_club",
+        "hint": "on the rock behind the club",
+        "marker": "gate",
+        "ground": true,
+        "surface": true,
+        "marked": true,
+        "spots": [
+          [
+            -105,
+            0,
+            10
+          ],
+          [
+            -133,
+            0,
+            -20
+          ],
+          [
+            -160,
+            0,
+            24
+          ],
+          [
+            -185,
+            0,
+            -6
+          ]
+        ]
+      },
+      {
+        "id": "rock_by_barracks",
+        "hint": "on the rock between the club and the barracks dome",
+        "marker": "gate",
+        "ground": true,
+        "surface": true,
+        "marked": true,
+        "spots": [
+          [
+            -35,
+            0,
+            90
+          ],
+          [
+            -57,
+            0,
+            108
+          ],
+          [
+            -23,
+            0,
+            135
+          ],
+          [
+            -75,
+            0,
+            140
+          ]
+        ]
+      },
+      {
+        "id": "rock_by_homes",
+        "hint": "on the rock between the club and the homes dome",
+        "marker": "gate",
+        "ground": true,
+        "surface": true,
+        "marked": true,
+        "spots": [
+          [
+            -35,
+            0,
+            -92
+          ],
+          [
+            -59,
+            0,
+            -110
+          ],
+          [
+            -25,
+            0,
+            -136
+          ],
+          [
+            -73,
+            0,
+            -142
+          ]
+        ]
+      }
+    ]
+  }
+}

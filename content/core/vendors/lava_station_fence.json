@@ -8,7 +8,7 @@
     "contraband",
     "*"
   ],
-  "bounties": false,
+  "bounties": true,
   "buy_rate": 2.0,
   "any_rate": 0.5,
   "resells": false,
@@ -18,5 +18,5 @@
   "endless": true,
   "prices": { "grenade": 40, "quantonium_armour": 500 },
   "pitch": "The %s pays well for things with no serial numbers",
-  "note": "The lava moon's merchant, in front of its station cantina: the moon's (station_fence.json) in another town. Buys Oda's rock drops at twice their value and asks no questions. It buys anything else you carry too ('*' in 'buys') at 'any_rate' of its value, the gear trader's rate, so nothing bought in town sells here at a profit. 'resells': false = what it buys is not sold on (it pays more than it would ask). Bounties stay at the port's fence: the Remnant officers are out in the home planet's desert. It sells quantonium armour from day 1, in a story save and in free play ('stock', 'endless': he never runs out, at the port fence's price, 'prices'): the lava moon's rock has no air, and the armour is what lets you walk it to the outposts."
+  "note": "The lava moon's merchant, in front of its station cantina: the moon's (station_fence.json) in another town. Buys Oda's rock drops at twice their value and asks no questions. It buys anything else you carry too ('*' in 'buys') at 'any_rate' of its value, the gear trader's rate, so nothing bought in town sells here at a profit. 'resells': false = what it buys is not sold on (it pays more than it would ask). He pays the contracts the cantina owner here sets on Remnant officers at this lava moon's own outposts ('bounties': WorldState.bounty_pays_at: only a contract set in his town). It sells quantonium armour from day 1, in a story save and in free play ('stock', 'endless': he never runs out, at the port fence's price, 'prices'): the lava moon's rock has no air, and the armour is what lets you walk it to the outposts."
 }

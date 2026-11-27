@@ -1,0 +1,318 @@
+{
+  "id": "ringed_giant_town",
+  "location": "ringed_giant_town",
+  "pickups": [],
+  "note": "Smuggling drops for the space station over the ringed giant (board/bar_board.json, j_orbital_smuggle_run): up on the Remnant's levels, in a room of their deck in the second tower or in the barracks or the bridge on the top floor. Each area's marker is a room's (room_<floor>_<k>, 3 m in from its door: StationHull.drop_rooms, from the station config's drop_rooms); spots are a step or two round it, on the room's floor. near_m: the pointer lands within 3 m (15 out in the open), so it never points into the next room. The fence in the favela (station_favela_fence.json, on the main tower's lower homes floor) buys the goods.",
+  "drops": {
+    "areas": [
+      {
+        "id": "top_0",
+        "hint": "in the Remnant's bridge on the top floor",
+        "marker": "room_top_0",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "top_2",
+        "hint": "in the Remnant barracks beside the cantina",
+        "marker": "room_top_2",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "top_6",
+        "hint": "in the Remnant barracks on the far side of the top floor, by the other cantina",
+        "marker": "room_top_6",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_0",
+        "hint": "in the Remnant control room on their deck in the second tower",
+        "marker": "room_outpost_0",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_1",
+        "hint": "in a Remnant bunk room on their deck in the second tower",
+        "marker": "room_outpost_1",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_2",
+        "hint": "in a Remnant armoury on their deck in the second tower",
+        "marker": "room_outpost_2",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_3",
+        "hint": "in the Remnant command room on their deck in the second tower",
+        "marker": "room_outpost_3",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_4",
+        "hint": "in a Remnant bunk room on their deck in the second tower, by the command room",
+        "marker": "room_outpost_4",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_5",
+        "hint": "in the Remnant mess on their deck in the second tower",
+        "marker": "room_outpost_5",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_6",
+        "hint": "in the other Remnant armoury on their deck in the second tower",
+        "marker": "room_outpost_6",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      },
+      {
+        "id": "outpost_7",
+        "hint": "in a Remnant bunk room on their deck in the second tower, by the control room",
+        "marker": "room_outpost_7",
+        "near_m": 3.0,
+        "spots": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.2,
+            0,
+            0.6
+          ],
+          [
+            -0.6,
+            0,
+            1.2
+          ],
+          [
+            0.6,
+            0,
+            -1.2
+          ]
+        ]
+      }
+    ]
+  }
+}

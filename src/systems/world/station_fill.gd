@@ -2645,6 +2645,15 @@ func _bridge(r0: float, r1: float, half: float) -> void:
 		kit._xf = was
 
 
+## The cantina's bar's measurements are StationHull's (BAR_*): StationHull.cantina_bar
+## puts the cantina owner behind this counter, and the bar front before it.
+const BAR_IN := StationHull.BAR_IN
+const BAR_LEN := StationHull.BAR_LEN
+const BAR_BACK := StationHull.BAR_BACK
+const BAR_COUNTER := StationHull.BAR_COUNTER
+const BAR_STOOLS := StationHull.BAR_STOOLS
+
+
 ## The cantina: a long bar down one wall (marble top, brass foot rail, stools, a
 ## back bar of lit bottles under a neon sign, taps and pendants over it), velvet
 ## booths down the other, veneer up the walls with a brass rail, chandeliers.
@@ -2658,10 +2667,10 @@ func _cantina(r0: float, r1: float, half: float) -> void:
 	# The bar along side -1, from 5 m in to 21 m.
 	var s := -1.0
 	var inn := -s
-	var bl := 16.0
+	var bl := BAR_LEN
 	var was := kit._xf
-	kit._xf = was * _wall_xf(s, half, r0 + 5.0 + bl * cos(half) * 0.5)
-	_p(kit.box(bl, 1.0, 0.6), wood, Vector3(0, 0.5, inn * 0.3), true)
+	kit._xf = was * _wall_xf(s, half, r0 + BAR_IN + bl * cos(half) * 0.5)
+	_p(kit.box(bl, 1.0, 0.6), wood, Vector3(0, 0.5, inn * BAR_BACK), true)
 	_p(kit.box(bl, 1.8, 0.03), black, Vector3(0, 2.0, inn * 0.02))
 	var bottles := [_glow(Color("#ffb46a"), 3.0), _glow(NEONS[1], 3.0), _glow(NEONS[0], 3.0)]
 	for y: float in [1.4, 1.95, 2.5]:
@@ -2674,16 +2683,16 @@ func _cantina(r0: float, r1: float, half: float) -> void:
 			q += 1
 	_p(kit.box(4.5, 0.14, 0.05), _glow(NEONS[0], 3.0), Vector3(0, 3.6, inn * 0.05))
 	_p(kit.box(3.2, 0.14, 0.05), _glow(NEONS[1], 3.0), Vector3(0, 3.15, inn * 0.05))
-	_p(kit.box(bl - 2.0, 1.05, 0.7), wood, Vector3(0, 0.525, inn * 2.2), true)
-	_p(kit.box(bl - 1.8, 0.06, 0.95), black, Vector3(0, 1.08, inn * 2.2))
+	_p(kit.box(bl - 2.0, 1.05, 0.7), wood, Vector3(0, 0.525, inn * BAR_COUNTER), true)
+	_p(kit.box(bl - 1.8, 0.06, 0.95), black, Vector3(0, 1.08, inn * BAR_COUNTER))
 	_p(kit.cyl(0.03, 0.03, bl - 2.0, 6), gold, Vector3(0, 0.25, inn * 2.65), false, TownBuildings.AXIS_X)
 	for j in 4:
 		_p(kit.cyl(0.03, 0.03, 0.4, 6), gold, Vector3(-1.5 + j * 1.0, 1.31, inn * 2.0))
 	var u2 := -bl * 0.5 + 1.6
 	while u2 < bl * 0.5 - 1.4:
-		_p(kit.cyl(0.2, 0.22, 0.03, 10), _m("trim"), Vector3(u2, 0.015, inn * 3.0))
-		_p(kit.cyl(0.04, 0.04, 0.7, 6), _m("trim"), Vector3(u2, 0.37, inn * 3.0))
-		_p(kit.cyl(0.22, 0.22, 0.08, 10), red, Vector3(u2, 0.75, inn * 3.0))
+		_p(kit.cyl(0.2, 0.22, 0.03, 10), _m("trim"), Vector3(u2, 0.015, inn * BAR_STOOLS))
+		_p(kit.cyl(0.04, 0.04, 0.7, 6), _m("trim"), Vector3(u2, 0.37, inn * BAR_STOOLS))
+		_p(kit.cyl(0.22, 0.22, 0.08, 10), red, Vector3(u2, 0.75, inn * BAR_STOOLS))
 		u2 += 1.0
 	for j in 4:
 		_pendant(Vector3(-5.0 + j * 3.3, 3.0, inn * 2.2), hull.floor_h, gold, 0.3)

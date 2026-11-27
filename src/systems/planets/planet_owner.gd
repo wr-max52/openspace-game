@@ -23,10 +23,19 @@ static func card_id(planet_id: String) -> String:
 	return "cantina_owner_" + planet_id
 
 
+## True for a planet whose town is a space station (its config's station_town).
+static func is_station(planet: Dictionary) -> bool:
+	return (planet.get("cfg", {}) as Dictionary).has("station_town") or str(planet.get("town", {}).get("kind", "")) == "station"
+
+
 ## Her card, ready for NpcBrain.
 static func card(planet: Dictionary, book: NameBook = null) -> Dictionary:
 	var b := book if book != null else WorldState.names
-	var cfg := TownGen._read(CFG)
+	var cfg := TownGen._read(CFG).duplicate(true)
+	# A station's cantina (the ringed giant's: its town is the station) has its
+	# own words: what she runs, the landmarks, the work. Laid over the moons'.
+	if is_station(planet):
+		cfg.merge(cfg.get("station", {}), true)
 	var c := TownGen._read(TEMPLATE).duplicate(true)
 	var pid := str(planet.get("id", "planet"))
 	var first := str(cfg.get("first_name", "Oda"))
@@ -41,6 +50,7 @@ static func card(planet: Dictionary, book: NameBook = null) -> Dictionary:
 		"kind": str(planet.get("type_cfg", {}).get("label", "planet")),
 	}
 	ctx["a_kind"] = ("an " if "aeiou".contains(str(ctx.kind).left(1).to_lower()) else "a ") + str(ctx.kind)
+	ctx["kind_note"] = str(cfg.get("kind_notes", {}).get(str(ctx.kind), ""))
 	if str(ctx.town) == "":
 		ctx.town = "the town"
 	c["id"] = card_id(pid)
@@ -62,7 +72,20 @@ static func card(planet: Dictionary, book: NameBook = null) -> Dictionary:
 	c["rules"] = rules
 	c["secrets"] = []               # the port's secrets are the port's
 	c["mood_rules"] = []
-	var acts: Array = c.get("actions", [])
+	c["hints"] = []                 # the port's hints point at the port's barracks
+	# Her own THE TOWN, and none of the port's town flags or weather in her briefing.
+	c["world_text"] = { "town": fill(str(cfg.get("town", "")), ctx).strip_edges(), "flags": {}, "time": {} }
+	# Her lines where the port's would be wrong here (sand on the floor, the gate).
+	var canned: Dictionary = c.get("canned", {})
+	for k in cfg.get("canned", {}):
+		canned[k] = (cfg.canned[k] as Array).map(func(l): return fill(str(l), ctx))
+	c["canned"] = canned
+	if cfg.get("greetings") is Dictionary:
+		var g: Dictionary = {}
+		for tier in cfg.greetings:
+			g[tier] = (cfg.greetings[tier] as Array).map(func(l): return fill(str(l), ctx))
+		c["greetings"] = g
+	var acts: Array = (c.get("actions", []) as Array).filter(func(x): return not (cfg.get("actions_drop", []) as Array).has(x))
 	if not acts.has("offer_job"):
 		acts.append("offer_job")
 	c["actions"] = acts
