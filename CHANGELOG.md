@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Rival racers sound dangerous (2026-11-26)
+
+- **The race crews have dark, aggressive voices of their own.** They used to
+  talk in the friendly townsfolk voices. Now every racer gets one of four
+  rough voices: a dark tough guy, a harsh gravelly one, a sneering menacing
+  one and a cold, cutting woman. Each racer keeps the same voice every time.
+- **Everything they say is delivered with menace**: the challenge, the buy-in
+  answers, the taunts at the line, the jeers mid-race, and what the leader says
+  when you win or lose. All five crews' fixed lines are recorded into the game
+  (160 clips), so they talk with no ElevenLabs key. The one line with your
+  stake in it ("250 credits, minimum") still goes through the live voice when
+  you have a key, in the same voice and tone.
+
 ## Seeker launcher (2026-11-26)
 
 - **A new hand weapon, key 4 (or the wheel's slot 4): the seeker launcher.** A

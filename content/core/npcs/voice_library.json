@@ -147,6 +147,34 @@
       "voice_id": "ZEcx3Wdpj4EvM8PltzHY",
       "stability": 0.8,
       "used_by": "T-89"
+    },
+    "man_dark_tough": {
+      "label": "Man (dark, tough)",
+      "name": "Adam - American, Dark and Tough",
+      "voice_id": "IRHApOXLvnW57QJPQH2P",
+      "stability": 0.45,
+      "used_by": "speeder racers"
+    },
+    "man_harsh": {
+      "label": "Man (harsh, gravelly)",
+      "name": "Villain - Harsh, Abrasive, and Volatile",
+      "voice_id": "TDTTIZEngvvWARkECefs",
+      "stability": 0.45,
+      "used_by": "speeder racers"
+    },
+    "man_menacing": {
+      "label": "Man (menacing, sneering)",
+      "name": "Tyrax - Sarcastic, Menacing & Dangerous",
+      "voice_id": "VvmLPzhPQHSqLOL9D1R7",
+      "stability": 0.45,
+      "used_by": "speeder racers"
+    },
+    "woman_cold": {
+      "label": "Woman (cold, cutting)",
+      "name": "Britney - Calm and Calculative Villain",
+      "voice_id": "esy0r39YPLQjOczyOib8",
+      "stability": 0.45,
+      "used_by": "speeder racers"
     }
   }
 }

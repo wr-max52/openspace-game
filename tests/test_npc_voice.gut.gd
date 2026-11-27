@@ -121,3 +121,31 @@ func test_scripted_lines_have_bundled_clips() -> void:
 				assert_true(load(path) is AudioStream, "%s loads as audio" % line)
 	assert_gt(recorded, 0, "the guards' barks are recorded")
 	assert_false(ResourceLoader.exists(VoiceScript.bundled_path("never a scripted line", guard)))
+
+
+## Rival racers talk in dark, aggressive voices of their own (the racer pool,
+## with a menacing delivery), not the townsfolk's, and every racer voice has the
+## crews' taunts and jeers recorded.
+func test_rival_racers_have_dark_voices_and_recorded_lines() -> void:
+	var voice = _voice()
+	var racer: Dictionary = VoiceScript._read_json("res://content/core/soldiers/local_racer.json")
+	assert_eq(str(racer.get("voice_role", "")), "racer")
+	assert_eq(str(racer.get("voice_mood", "")), "menacing")
+	var pool: Array = voice._profiles.get("role_profiles", {}).get("racer", [])
+	assert_eq(pool.size(), 4)
+	var locals: Array = voice._profiles.get("role_profiles", {}).get("local", [])
+	var picked := {}
+	for i in 20:
+		var p: String = voice.profile_for_npc("npc:racer-%d" % i, racer)
+		assert_true(p in pool, "%s is a racer voice" % p)
+		assert_false(p in locals, "racers do not share a townsfolk voice")
+		picked[p] = true
+	assert_gte(picked.size(), 2, "racers do not all share one voice")
+	assert_ne(str(voice._profiles.get("mood_tags", {}).get("menacing", "")), "")
+	for crew in ["yard", "basin", "salt", "crag", "leap"]:
+		var said: Dictionary = VoiceScript._read_json("res://content/core/racing/crews/%s.json" % crew).get("lines", {})
+		for key in ["taunts", "jeers"]:
+			for line in said.get(key, []):
+				for p in pool:
+					var path: String = VoiceScript.bundled_path(str(line), str(voice.voice_for(p).voice_id))
+					assert_true(ResourceLoader.exists(path), "%s %s: '%s' is recorded in %s" % [crew, key, line, p])
