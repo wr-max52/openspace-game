@@ -166,6 +166,17 @@ func update(dt: float, s: Dictionary) -> void:
 		noticed = false
 
 
+## The target got clean away (the alarm calmed on "fled"): start from nothing.
+## A body asleep far off runs no update, so without this a latched `noticed`
+## would outlive the fight and raise the alarm again on the garrison's memory.
+func forget() -> void:
+	awareness = 0.0
+	noticed = false
+	visible = false
+	in_cone = false
+	since_seen = INF
+
+
 ## Just the cone part of update, so the body knows whether to cast a ray before
 ## it calls update with the result.
 func cone_update(self_pos: Vector3, forward: Vector3, target_pos: Vector3, crouched: bool) -> void:

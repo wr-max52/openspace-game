@@ -250,7 +250,8 @@ func _handle(events: Array) -> void:
 				_say(_lead(_alive()), "alarm")
 				alarm_up.emit(alarm.last_known)
 			"standing":
-				if standing:
+				var cd := float(cfg.get("alarm", {}).get("standing_cooldown_s", 120.0))
+				if standing and WorldState.cooldown_ok("fled:locals", cd):
 					WorldState.change_standing("locals", int(e.delta), "Someone shot up the port's locals and got away.")
 			"flag":
 				if standing:
@@ -258,6 +259,8 @@ func _handle(events: Array) -> void:
 			"calm":
 				for g in _alive():
 					var b: GuardBrain = brains[g]
+					if str(e.why) == "fled":
+						g.perception.forget()      # you got away: nobody still "sees" you
 					if str(e.why) == "downed":
 						b.stand_down()
 					else:

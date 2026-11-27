@@ -64,6 +64,18 @@ func test_awareness_builds_then_notices() -> void:
 	assert_eq(p.last_seen_pos, Vector3(0, 0, 15))
 
 
+## The alarm calmed because the target got away: a guard asleep far off runs no
+## update, so forget() is what drops the latched "noticed".
+func test_forget_drops_what_was_noticed() -> void:
+	var p := _eye()
+	_tick(p, 2.0, Vector3(0, 0, 15))
+	assert_true(p.noticed)
+	p.forget()
+	assert_false(p.noticed, "nobody still sees you")
+	assert_eq(p.awareness, 0.0)
+	assert_false(p.visible)
+
+
 func test_closer_is_noticed_faster() -> void:
 	var near := _eye()
 	var far := _eye()

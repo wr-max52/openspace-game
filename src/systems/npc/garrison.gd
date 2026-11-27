@@ -722,9 +722,14 @@ func _handle(events: Array, post: Dictionary = {}) -> void:
 				_lock_left = float(e.seconds)
 			"standing":
 				var key := str(e.get("cooldown", ""))
+				var why_text := str(e.get("why", ""))
+				if key == "fled":
+					key = "fled:" + faction       # one hit per side, however many garrisons you slip
+					if not remnant():
+						why_text = "Someone shot it out with the locals' guards and got away."
 				var cd := float(profile.get("checkpoint", {}).get("standing_cooldown_s", 120.0))
 				if key == "" or WorldState.cooldown_ok(key, cd):
-					WorldState.change_standing(faction, int(e.delta), str(e.get("why", "")))
+					WorldState.change_standing(faction, int(e.delta), why_text)
 			"bribe":
 				WorldState.on_gate_bribe(int(e.price))
 				hud.toast("-%d cr" % int(e.price), 2.0)
@@ -761,6 +766,8 @@ func _handle(events: Array, post: Dictionary = {}) -> void:
 				_warn_left.clear()
 				for g in _alive():
 					var b: GuardBrain = brains[g]
+					if str(e.why) == "fled":
+						g.perception.forget()      # you got away: nobody still "sees" you
 					if str(e.why) == "downed":
 						b.stand_down()
 					else:
