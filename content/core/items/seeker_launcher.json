@@ -1,0 +1,8 @@
+{
+  "id": "seeker_launcher",
+  "label": "Seeker launcher",
+  "kind": "weapon",
+  "value": 900,
+  "look": "rifle_case",
+  "note": "The seeker launcher as something you own: in a story save it can be drawn once you carry it (WorldState.weapon_allowed); in free roam it is always there, as the rifle is. It fires your grenades as seekers (content/core/weapons/seeker_launcher.json). The gear trader sells it."
+}

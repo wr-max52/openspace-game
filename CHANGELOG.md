@@ -2,6 +2,25 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Seeker launcher (2026-11-26)
+
+- **A new hand weapon, key 4 (or the wheel's slot 4): the seeker launcher.** A
+  tube with a scope, carried over your right shoulder. It fires your grenades as
+  small seekers, one grenade a shot from the same stack you throw with F; with
+  no grenades it does not fire. The next one goes in over 1.3 s.
+- **Free fire or lock on.** From the hip (or aimed with nothing locked) a seeker
+  flies straight at the crosshair. Aim in (right-click) and hold a ship or a
+  speeder near the crosshair: amber brackets close on it and a ring fills, the
+  same lock the ship's seekers use (1.2 s, out to 450 m), and once it says
+  LOCKED the next seeker turns after it. Let it drift out and the lock bleeds off.
+- **What it hits:** a seeker goes up like a vehicle where it lands. One kills a
+  speeder; two bring down the Remnant interceptor in the air. It locks on
+  speeders, the interceptor in the air and the barracks pad's interceptor.
+- **Where to get it:** always there in free roam; in a story save the gear
+  traders (the port's and the station's) sell it for 900 cr.
+- For now the look is a plain tube with a scope, the rifle's scope, with the
+  range drawn on screen when you look through it.
+
 ## Ships land on and hit the mountains' real rock (2026-11-26)
 
 - **A ship set down on a mountain stays on top of it.** The ship used to read

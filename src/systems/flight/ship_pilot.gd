@@ -346,6 +346,7 @@ func add_berth(v: Node3D, id: String, box_id: String, key: String = "") -> int:
 	_disable_box(box_id)
 	b.hull = _build_hull(v, acc[0], box_id, b.clearance)
 	b.hull.on_damage = _on_hull_hit.bind(i)
+	b.hull.lock_check = _foot_lockable.bind(i)    # a barracks pad's interceptor: the seeker launcher locks on it
 	b.box_id = box_id
 	b.destroyed = false
 	b.key = key
@@ -2180,6 +2181,16 @@ func _parked_target(i: int, shooter: Node) -> bool:
 	if not (shooter is ShipHull) and not by_hand:
 		return false
 	return not (i == berth and (piloting or atmo.state != AtmoFlight.State.PARKED))
+
+
+## The seeker launcher may lock on berth `i`: a "foot_target" berth (hand weapons
+## hurt it) still standing, and not the one you fly.
+func _foot_lockable(i: int) -> bool:
+	if i >= berths.size():
+		return false
+	var b: Dictionary = berths[i]
+	return bool(b.get("foot_target", false)) and not bool(b.get("destroyed", false)) \
+		and not (i == berth and piloting)
 
 
 func _hit_parked(i: int, amount: float) -> void:

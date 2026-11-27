@@ -11,6 +11,20 @@ extends StaticBody3D
 var on_damage: Callable
 var damage_usec := 0             ## clock time of the last hit the owner counted
 var dead := false
+## The seeker launcher may lock on it while this says so (the owner sets it: a hull
+## whose hits from a hand weapon count). Unset: never.
+var lock_check: Callable
+
+const GROUP := "ship_hulls"
+
+
+func _enter_tree() -> void:
+	add_to_group(GROUP)
+
+
+## The seeker launcher may lock on it now.
+func lockable() -> bool:
+	return not dead and lock_check.is_valid() and bool(lock_check.call())
 
 
 func apply_damage(amount: float) -> void:

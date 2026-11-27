@@ -7,7 +7,12 @@ extends Node
 ##
 ## Controls (project.godot actions):
 ##   1 / 2 / 3 / 8 blaster / rifle / sniper rifle / energy sword (same key again holsters;
-##                 4 to 6 are free for guns to come)
+##                 5 and 6 are free for guns to come)
+##   4             the seeker launcher, over the shoulder: it fires your grenades
+##                 as seekers. Hip or aimed, a shot flies straight at the crosshair;
+##                 aimed in (right-click), holding a ship or speeder in its cone
+##                 locks on (SeekerAim, the ship seekers' MissileLock) and the
+##                 next seeker homes on it.
 ##   7             issue #722: the plasma welder, a tool held like the sword. Fire
 ##                 makes it spit sparks and arc; PlayerWelder does the welding.
 ##   Q             last weapon        mouse wheel   cycle        H   holster
@@ -50,9 +55,10 @@ var player: CharacterBody3D
 var avatar: PlayerAvatar
 var rig_node: Node3D                ## camera_rig_node.gd
 var bolt_parent: Node3D
-## Slot n is number key n and wheel slot n. 4 to 6 are left free for guns to come;
-## 7 is the plasma welder (issue #722), a tool, not a gun.
-var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", "", "", "", Welder.ITEM, "energy_blade"])
+## Slot n is number key n and wheel slot n. 4 is the seeker launcher; 5 and 6 are
+## left free for guns to come; 7 is the plasma welder (issue #722), a tool, not a gun.
+const LAUNCHER := "seeker_launcher"
+var holder := WeaponHolder.new(["pistol_blaster", "rifle_blaster", "sniper_rifle", LAUNCHER, "", "", Welder.ITEM, "energy_blade"])
 var guns: Dictionary = {}           ## id -> Weapon (ammo + timing)
 var combo: SwordCombo
 var wheel := WeaponWheel.new()      ## hold Tab (issue #410)
@@ -68,6 +74,9 @@ var in_range_zone: Callable = Callable()   ## (pos) -> bool: on the sanctioned r
 var off_record_zone: Callable = Callable() ## (pos) -> bool: nobody counts shots here (at the party barge)
 
 var grenade_cfg: Dictionary = {}    ## issue #372: content/core/weapons/grenade.json
+var seeker := SeekerAim.new()       ## the seeker launcher's lock, aimed in
+var seekers_fired := 0
+var last_seeker: Node               ## the last seeker fired
 var throw_aiming := false           ## the throw key is held with a grenade to throw
 var grenades_thrown := 0
 var last_arc: Dictionary = {}       ## the preview's GrenadeArc.trace, while aiming
@@ -98,6 +107,7 @@ var _hum: AudioStreamPlayer
 var _hud: CanvasLayer
 var _cross: Control
 var _scope_hud: Control             ## DigitalReticle: the sniper's scope, aimed in
+var _lock_view: SeekerLockView      ## the seeker launcher's lock box
 var _ammo: Label
 var _name: Label
 var _name_left := 0.0
@@ -124,6 +134,7 @@ func setup(p: CharacterBody3D, a: PlayerAvatar, rig: Node3D, bolts_into: Node3D)
 			guns[id] = Weapon.new(cfg[id])
 	combo = SwordCombo.new(cfg.get("energy_blade", {}))
 	grenade_cfg = CharacterKit._read_json(Grenade.CFG_PATH)
+	seeker.configure(cfg.get(LAUNCHER, {}))
 	holder.can_draw = func(id): return WorldState.weapon_allowed(id)      # issue #200: a story save starts with the pistol only
 	_setup_wheel()
 	avatar.build_weapons(holder.weapon_ids())
@@ -176,6 +187,7 @@ func refit() -> void:
 	for id in guns:
 		cfg[id] = GearUpgrades.apply(CharacterKit._read_json("res://content/core/weapons/%s.json" % id), id)
 		(guns[id] as Weapon).config = cfg[id]
+	seeker.configure(cfg.get(LAUNCHER, {}))
 
 
 ## Issue #703: a gun just sold goes back in its holster if it is out (or being
@@ -222,7 +234,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_release_cycle()
 	if event.is_action_pressed("holster"):
 		holder.request("")
-	if event.is_action_pressed("reload") and guns.has(holder.current):
+	if event.is_action_pressed("reload") and guns.has(holder.current) and (holder.current != LAUNCHER or seeker_rounds() > 0):
 		(guns[holder.current] as Weapon).start_reloading()
 	if wheel.is_open and (event.is_action_pressed("fire") or event.is_action_pressed("alt_fire")):
 		return          # choosing a weapon, not using one
@@ -488,10 +500,18 @@ func _physics_process(dt: float) -> void:
 		var g: Weapon = guns[id]
 		var trigger: bool = enabled and id == cur and holder.is_ready() and _fire_held and avatar.gun_up() \
 			and not sprinting and not throw_aiming and not (avatar != null and avatar.throwing())
+		if id == LAUNCHER and seeker_rounds() <= 0:
+			trigger = false                 # it loads your grenades: none, no shot
 		var r: int = g.start_firing(dt, trigger)
 		if r == Weapon.Result.SHOT:
-			_shoot(id)
+			if id == LAUNCHER:
+				fire_seeker()
+				if seeker_rounds() > 0:
+					g.start_reloading()     # the next one goes in now
+			else:
+				_shoot(id)
 	aiming = enabled and guns.has(cur) and holder.is_ready() and _alt_on and not sprinting
+	seeker.update(dt, aiming and cur == LAUNCHER, _view().origin, -_view().basis.z, get_tree() if is_inside_tree() else null)
 	if not _alt_on:
 		_zoom_step = 0
 	if rig_node != null:
@@ -541,7 +561,7 @@ func upper_mode() -> String:
 	match holder.current:
 		"pistol_blaster":
 			return BodyAnimator.UPPER_AIM
-		"rifle_blaster", "sniper_rifle":
+		"rifle_blaster", "sniper_rifle", LAUNCHER:
 			return BodyAnimator.UPPER_RIFLE
 		"energy_blade", "plasma_welder":
 			return BodyAnimator.UPPER_SWORD
@@ -661,6 +681,68 @@ func _shoot(id: String) -> void:
 	# Guards hear it (NoiseEvents). On the range it is "shot_range", which a brain can shrug off.
 	NoiseEvents.emit(avatar.global_position, float(c.get("noise_radius", 45.0)), "shot_range" if in_range else "shot")
 	fired.emit(id)
+
+
+## How many seekers the launcher can fire: the grenades you carry (its "item").
+func seeker_rounds() -> int:
+	return WorldState.inventory.count(str(cfg.get(LAUNCHER, {}).get("item", "grenade")))
+
+
+## One seeker off the tube (one grenade out of the inventory): at the crosshair,
+## homing on the locked target if there is one, straight if not. The ship
+## missile's bolt made small: it turns after `seek`, goes up like a vehicle where
+## it lands and hurts everything round it. Returns it, or null with no grenade.
+func fire_seeker() -> Node:
+	var c: Dictionary = cfg.get(LAUNCHER, {})
+	if not WorldState.inventory.remove(str(c.get("item", "grenade"))):
+		return null
+	var origin := avatar.muzzle_position()
+	var dir := (aim_point() - origin).normalized()
+	if dir == Vector3.ZERO:
+		dir = -_view().basis.z
+	var b = BoltScene.instantiate()
+	b.direction = dir
+	b.speed = float(c.get("bolt_speed", 70.0))
+	b.damage = float(c.get("damage", 90.0))
+	b.soft_damage = float(c.get("personnel_damage", 200.0))
+	b.range_m = float(c.get("range", 700.0))
+	b.shooter = player
+	b.stylize = true
+	b.sweep = true
+	b.color = Color.html(str(c.get("color", "#ffd28a")))
+	b.streak_length = float(c.get("length", 1.0))
+	b.streak_radius = float(c.get("width", 0.2)) * 0.5
+	b.seek = seeker.seek_node()
+	b.turn_rate = float(c.get("turn_rate", 2.4))
+	b.blast_size = float(c.get("blast_size", 0.6))
+	b.splash_radius = float(c.get("splash_radius", 5.0))
+	b.splash_damage = float(c.get("splash_damage", 120.0))
+	var sphere := PlanetSphere.current
+	if sphere != null:
+		# Round the ball, the ground far off has no collider: ask how high it is.
+		b.over_ground = func(p: Vector3) -> float: return sphere.height_above_ground(p)
+		b.ground_up = func(p: Vector3) -> Vector3: return sphere.up_at(p)
+	b.on_hit.connect(func(t): hit_something.emit(t, b.damage))
+	b.on_splash.connect(func(t): hit_something.emit(t, b.splash_damage))
+	if bolt_parent != null:
+		bolt_parent.add_child(b)
+		b.global_position = origin
+	bolt_fired.emit(origin, dir, b.range_m, b)
+	seekers_fired += 1
+	last_seeker = b
+	shots += 1
+	if rig_node != null:
+		rig_node.kick(float(c.get("recoil", 6.0)) * (0.5 if aiming else 1.0))
+		rig_node.shake(0.35)
+	Sound.play("ship_missile", origin)
+	_muzzle_flash(origin, dir, b.color)
+	avatar.fire_kick()
+	var in_range: bool = in_range_zone.is_valid() and bool(in_range_zone.call(player.global_position))
+	if not (off_record_zone.is_valid() and bool(off_record_zone.call(player.global_position))):
+		WorldState.on_player_fired(in_range)
+	NoiseEvents.emit(avatar.global_position, float(c.get("noise_radius", 90.0)), "shot_range" if in_range else "shot")
+	fired.emit(LAUNCHER)
+	return b
 
 
 ## A short orange light at the muzzle. At the muzzle itself it was ~0.35 m from
@@ -887,6 +969,8 @@ func _build_hud() -> void:
 		_cross.add_child(c)
 	_scope_hud = DigitalReticle.new()
 	_hud.add_child(_scope_hud)
+	_lock_view = SeekerLockView.new()
+	_hud.add_child(_lock_view)
 	_ammo = _label(Control.PRESET_BOTTOM_RIGHT, Vector2(-220, -114), 26)
 	_name = _label(Control.PRESET_BOTTOM_RIGHT, Vector2(-220, -148), 18)
 	_grenades = _label(Control.PRESET_BOTTOM_RIGHT, Vector2(-220, -80), 18)
@@ -904,7 +988,9 @@ func _wheel_info(id: String) -> Dictionary:
 	if not a.is_empty():
 		return a.info.call()
 	var detail := ""
-	if guns.has(id):
+	if id == LAUNCHER:
+		detail = "%d SEEKERS" % seeker_rounds() if seeker_rounds() > 0 else "NO GRENADES"
+	elif guns.has(id):
 		var g: Weapon = guns[id]
 		detail = "RELOADING" if g.is_reloading() else "%d / %d" % [g.ammo, int(g.config.get("mag", 0))]
 	return { "name": str(cfg.get(id, {}).get("label", id)), "detail": detail }
@@ -940,7 +1026,13 @@ func _update_hud(dt: float) -> void:
 		rig_node != null and (rig_node.is_overridden() or rig_node.has_method("is_cinematic") and rig_node.is_cinematic()),
 		avatar.first_person, avatar.ads_blend)
 	_update_scope_hud(cur)
-	if guns.has(cur):
+	_update_lock_view(cur)
+	if cur == LAUNCHER:
+		var n_s := seeker_rounds()
+		_ammo.text = "NO GRENADES" if n_s <= 0 else ("LOADING" if (guns[cur] as Weapon).is_reloading() else \
+			"%s %d" % [str(cfg.get(LAUNCHER, {}).get("hud", "SEEKERS")), n_s])
+		_ammo.visible = true
+	elif guns.has(cur):
 		var g: Weapon = guns[cur]
 		_ammo.text = "RELOADING" if g.is_reloading() else "%d / %d" % [g.ammo, int(g.config.get("mag", 0))]
 		_ammo.visible = true
@@ -952,6 +1044,20 @@ func _update_hud(dt: float) -> void:
 	_grenades.visible = n > 0
 	if n > 0:
 		_grenades.text = "%s  x%d" % [str(grenade_cfg.get("hud", "GRENADES")), n]
+
+
+## The seeker launcher's lock: a box on what it is locking, the ring filling round
+## it, LOCKED once it holds. Third person and first, while aimed in with it.
+func _update_lock_view(cur: String) -> void:
+	var t: Node3D = seeker.target if cur == LAUNCHER and aiming else null
+	_lock_view.visible = t != null and is_instance_valid(t)
+	if not _lock_view.visible:
+		return
+	_lock_view.target_pos = t.global_position
+	_lock_view.fraction = seeker.fraction()
+	_lock_view.locked = seeker.locked()
+	_lock_view.dist = _view().origin.distance_to(t.global_position)
+	_lock_view.queue_redraw()
 
 
 ## The sniper's digital reticle (its scope spec "digital"), fully aimed in first

@@ -22,6 +22,8 @@ const HOLD_S := 2.5            ## stay up this long after the last reason to aim
 const REST := {
 	"rifle": [Vector3(-0.14, -0.18, 0.25), Vector3(28, 64, 0)],
 	"pistol": [Vector3(-0.27, -0.5, 0.08), Vector3(78, 8, 0)],
+	# The seeker launcher stays on the right shoulder, the muzzle tipped up a little.
+	"launcher": [Vector3(-0.17, 0.0, 0.19), Vector3(-12, 0, 0)],
 }
 ## Issue #229: sprinting, a rifle at REST hung across the thighs, so a running leg
 ## swung through the barrel every stride. Port arms instead: diagonal across the
@@ -29,6 +31,7 @@ const REST := {
 ## A pistol keeps its rest (it hangs by the thigh, short of the knee).
 const SPRINT := {
 	"rifle": [Vector3(-0.1, -0.16, 0.34), Vector3(-45, 62, -25)],
+	"launcher": [Vector3(-0.17, 0.0, 0.17), Vector3(-25, 0, 0)],
 }
 
 ## Third person: how far aim_at() may turn a gun off where its pose points (a
