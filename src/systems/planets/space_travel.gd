@@ -239,7 +239,8 @@ var last_handoff: Dictionary = {}     ## what the last handoff carried (tests, w
 ## A handoff to `id` is close: start its scene's slow first-frame work now.
 ## Issue #693: heading for planet `id` from open space: the models it used last
 ## time (ModelCache.used_by) and the outfit textures start loading on worker
-## threads, long before its scene takes over and asks for them.
+## threads, long before its scene takes over and asks for them. Issue #714: so
+## does what it works out once a session (its rocks' meshes, its wrecks' parts).
 func _prepare(id: String) -> void:
 	if prepared.has(id):
 		return
@@ -247,6 +248,9 @@ func _prepare(id: String) -> void:
 	if pilot != null and bool(pilot.demo.get("use_look")):
 		ModelCache.prefetch_planet(id)
 		ModelCache.prefetch(CharacterKit.outfit_textures())
+		var planet := PlanetGen.build(id)
+		DesertLandforms.prepare(planet)            # issue #714: its rocks and wrecks, on workers
+		StarcruiserWreck.prepare(planet)
 
 
 func _prewarm(id: String) -> void:

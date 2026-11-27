@@ -165,6 +165,8 @@ func _ready() -> void:
 	if town.data.is_empty():
 		push_error("TownDemo: planet %s has no town" % str(planet.id))
 		return
+	if staged_handoff and str(GameFlow.arrival.get("mode", "")) == "handoff":
+		Garrison.prepare_spots(town)     # issue #714: the garrisons' cover, on a worker till they ask
 	var errs := TownCheck.errors(str(planet.id), town.data)   # issue #121: once per town per session
 	if not errs.is_empty():
 		for e in errs:
@@ -175,8 +177,11 @@ func _ready() -> void:
 	# planet) runs only the flight shell now and the rest over the next frames.
 	staging = staged_handoff and not lookdev_mode and str(GameFlow.arrival.get("mode", "")) == "handoff"
 	ClubTextures.async_paint = staging    # issue #693: textures painted on a worker, a stand-in till then
+	CampTextures.async_paint = staging    # issue #714: the natives' camps too
 	ModelCache.begin_planet(str(planet.get("id", "")))    # issue #693: what this planet loads, for next time
-	tree_exiting.connect(func(): ModelCache.save_use())
+	tree_exiting.connect(func():
+		ModelCache.save_use()
+		ShipHull.save_fits())       # issue #714: the hull fits, kept for the next run       # issue #714: the hull fits, kept for the next run
 	staged = StagedBuild.new()
 	staged.budget_ms = stage_budget_ms
 	for s in build_plan(staging):
@@ -323,10 +328,11 @@ func build_plan(staged_build: bool) -> Array:
 			if terrain != null:
 				_dress_desert()
 			return true)
-		add.call("landforms", LATER, func():
+		var landforms_step := func(st: StagedBuild) -> void:
+			await DesertLandforms.finish_prepared(st)      # issue #714: the rocks, made on a worker on the way in
 			if terrain != null:
-				_build_landforms()
-			return true)
+				await _build_landforms(st)
+		add.call("landforms", LATER, landforms_step, "sliced")
 		add.call("gas_ring", SHELL, func(): _dress_gas_ring(); return true)
 		add.call("dress_platform", SHELL, func():
 			if platform is AsteroidWorld:
@@ -2099,14 +2105,14 @@ func _hide_desert_floors() -> void:
 
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
-func _build_landforms() -> void:
+func _build_landforms(st: StagedBuild = null) -> void:
 	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty()):
 		return
 	if with_landforms:
 		landforms = DesertLandforms.new()
 		landforms.clear_circles = _landmark_clearings()
 		add_child(landforms)
-		landforms.build(terrain, _flat_mats(), desert_site().floor)
+		await landforms.build(terrain, _flat_mats(), desert_site().floor, st)
 		if terrain is PlanetTerrain:
 			for m in landforms.rock_materials():
 				look.track_material(m)       # the sun, for the dusk side (issue #77)

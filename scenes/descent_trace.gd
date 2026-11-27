@@ -13,6 +13,12 @@ extends Node
 ##
 ## Writes test_results/descent_trace.txt. Run it rendered as the main scene:
 ##   godot --rendering-driver vulkan --path . res://scenes/descent_trace.tscn
+## Warm-up (issue #714): by default every route's planet is built once first (a
+## session that has been everywhere). DESCENT_WARM=ringed_giant warms only the
+## planets listed: flying home from the giant, home loads fresh, the worst case.
+## DESCENT_COLD=1 warms nothing. DESCENT_OUT_M=6000 starts that far outside the
+## bubble instead of 400 m (time for what the approach starts on workers). DESCENT_PIECES=15 also names every piece of a
+## sliced step over that many ms (StagedBuild.piece_watch_ms) in the frame notes.
 ## It boots the real town (the bar loads and saves the save in play): back up
 ## user://save*.json first.
 
@@ -39,16 +45,29 @@ var _low_t := 0.0
 var _agl_err := 0.0
 var _crashes := 0
 var _pipes_seen := 0
+var _pieces_seen := 0
+var _added := {}                        ## DESCENT_PIECES: what joined the tree this frame, by script or class
+var _aim := Vector3.INF                 ## open space's frame: where to steer before the bubble (DESCENT_OUT_M)
+var PIECE_MS := float(OS.get_environment("DESCENT_PIECES")) if OS.get_environment("DESCENT_PIECES") != "" else 0.0
 
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS     # a first-start menu pauses the tree; the trace flies on
 	WorldState.reset()
 	WorldState.set_flag("ships_unlocked")
 	GameFlow.reset()
 	GameFlow.resumed = true
 	GameFlow.dogfight_override = false        # about the flight, not the fight
+	if PIECE_MS > 0.0:
+		get_tree().node_added.connect(_on_added)
 	_run.call_deferred()
+
+
+func _on_added(n: Node) -> void:
+	var sc: Script = n.get_script()
+	var k := sc.resource_path.get_file().get_basename() if sc != null else n.get_class()
+	_added[k] = int(_added.get(k, 0)) + 1
 
 
 func out(k: String, v) -> void:
@@ -57,14 +76,20 @@ func out(k: String, v) -> void:
 
 
 func _process(_dt: float) -> void:
+	if get_tree().paused:
+		get_tree().paused = false
 	var now := Time.get_ticks_usec()
 	var cur = get_tree().current_scene
 	if cur != null and cur != self and cur.get_instance_id() != _scene_id and "pilot" in cur:
 		_scene_id = cur.get_instance_id()
 		demo = cur
+		print("  scene: ", str(cur.planet.get("id", "")), " (", phase, ")")
 		_switched = true
 		_staged_seen = 0
 		_uploads_seen = 0
+		_pieces_seen = 0
+		if PIECE_MS > 0.0 and demo.staged != null:
+			demo.staged.piece_watch_ms = PIECE_MS
 	if _last > 0 and phase != "setup" and demo != null and is_instance_valid(demo):
 		var ms := (now - _last) / 1000.0
 		var note := PackedStringArray()
@@ -73,6 +98,10 @@ func _process(_dt: float) -> void:
 				if float(h.ms) >= 2.0:
 					note.append("%s:%.0f" % [h.name, h.ms])
 			_staged_seen = demo.staged.history.size()
+		if demo.staged != null and demo.staged.slow_pieces.size() > _pieces_seen:
+			for sp in demo.staged.slow_pieces.slice(_pieces_seen):
+				note.append("piece:%s@%s:%.0f" % [sp.step, sp.at, sp.ms])
+			_pieces_seen = demo.staged.slow_pieces.size()
 		if demo.terrain is PlanetTerrain:
 			var up: int = (demo.terrain as PlanetTerrain).perf_mesh_submit_count
 			if up > _uploads_seen:
@@ -98,6 +127,11 @@ func _process(_dt: float) -> void:
 			RenderingServer.get_frame_setup_time_cpu()])
 		if pipes > _pipes_seen:
 			note.append("pipelines:%d" % (pipes - _pipes_seen))
+		if ms > FRAME_BUDGET_MS and not _added.is_empty():
+			var ks: Array = _added.keys()
+			ks.sort_custom(func(a, b): return int(_added[a]) > int(_added[b]))
+			note.append("new:" + ",".join(ks.slice(0, 5).map(func(k): return "%s*%d" % [k, _added[k]])))
+		_added.clear()
 		_pipes_seen = pipes
 		_frames.append({ "route": route, "phase": ph, "ms": ms, "note": " ".join(note) })
 	_last = now
@@ -117,6 +151,12 @@ func _physics_process(dt: float) -> void:
 	flat = flat.normalized() if flat.length_squared() > 0.0001 else up.cross(Vector3.RIGHT).normalized()
 	var pitch := 0.0
 	var boost := false
+	if phase == "open" and _aim != Vector3.INF and str(demo.planet.get("id", "")) == PlanetGen.open_space_id():
+		# Started far out: head for a point on the bubble's edge, not straight down.
+		var to: Vector3 = (_aim - p.atmo.position()).normalized()
+		p.atmo.flight.face(to, Vector3.UP if absf(to.y) < 0.95 else Vector3.RIGHT)
+		p.set_external_command({ "throttle": 1.0, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "boost": false })
+		return
 	match phase:
 		"open", "descent":
 			var agl: float = p.atmo.agl()
@@ -154,11 +194,16 @@ func _start_outside(id: String) -> void:
 	var centre: Vector3 = PlanetGen.system_centre(id, cc) - PlanetGen.system_port(PlanetGen.open_space_id(), cc)   # in open space's frame
 	var r := PlanetGen.bubble_radius(id, false, cc)
 	var dir := Vector3(0.35, 1.0, 0.25).normalized()
-	var at := centre + dir * (r + 400.0)
+	var out_m := float(OS.get_environment("DESCENT_OUT_M")) if OS.get_environment("DESCENT_OUT_M") != "" else 400.0
+	var at := centre + dir * (r + out_m)
 	var to_ground := (centre - at).normalized()
 	var side := to_ground.cross(Vector3.UP).normalized()
 	var facing := (to_ground + side * 0.9).normalized()      # in at a slant, not straight down
 	var b := Basis.looking_at(facing, dir)
+	_aim = Vector3.INF
+	if out_m > 400.0:
+		_aim = centre + dir * (r - 200.0)          # just inside the bubble, where a 400 m start would be
+		b = Basis.looking_at((_aim - at).normalized(), Vector3.UP)
 	GameFlow.planet_id = PlanetGen.open_space_id()
 	GameFlow.arrival = { "mode": "handoff", "from": id, "to": GameFlow.planet_id, "ship": "", "name": "",
 		"handoff": { "position": at, "basis": b, "speed": 400.0, "throttle": 1.0 } }
@@ -174,19 +219,24 @@ func _start_outside(id: String) -> void:
 func _run() -> void:
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	await frames(5)
-	if OS.get_environment("DESCENT_COLD") != "1":
-		# A session that has been somewhere already: shaders compiled, models loaded.
-		for id in ROUTES:
-			GameFlow.planet_id = "" if str(id) == PlanetGen.home_id() else str(id)
-			GameFlow.arrival = {}
-			var old = get_tree().current_scene
-			var warm = (load("res://scenes/town_demo.tscn") as PackedScene).instantiate()
-			if old != null and old != self:
-				get_tree().root.remove_child(old)
-				old.queue_free()
-			get_tree().root.add_child(warm)
-			get_tree().current_scene = warm
-			await frames(90)
+	var warm_ids: Array = ROUTES
+	if OS.get_environment("DESCENT_WARM") != "":
+		warm_ids = Array(OS.get_environment("DESCENT_WARM").split(","))
+	if OS.get_environment("DESCENT_COLD") == "1":
+		warm_ids = []
+	out("WARMED", ",".join(warm_ids))
+	# A session that has been somewhere already: shaders compiled, models loaded.
+	for id in warm_ids:
+		GameFlow.planet_id = "" if str(id) == PlanetGen.home_id() else str(id)
+		GameFlow.arrival = {}
+		var old = get_tree().current_scene
+		var warm = (load("res://scenes/town_demo.tscn") as PackedScene).instantiate()
+		if old != null and old != self:
+			get_tree().root.remove_child(old)
+			old.queue_free()
+		get_tree().root.add_child(warm)
+		get_tree().current_scene = warm
+		await frames(90)
 	for id in ROUTES:
 		route = str(id)
 		phase = "setup"
@@ -198,6 +248,9 @@ func _run() -> void:
 		while (demo == null or str(demo.planet.get("id", "")) != route) and Time.get_ticks_msec() - t0 < 60000:
 			await get_tree().process_frame
 		out(route.to_upper() + "_ARRIVED", demo != null and str(demo.planet.get("id", "")) == route)
+		if demo == null or not is_instance_valid(demo):
+			out("NO_SCENE", str(get_tree().current_scene))
+			break
 		phase = "descent"
 		t0 = Time.get_ticks_msec()
 		while phase != "climb" and Time.get_ticks_msec() - t0 < 180000:

@@ -63,7 +63,8 @@ var _circle_dirs: Array = []         ## per clear circle: its direction when it 
 
 
 ## `keep_out` = the town's floor area (xz); nothing is placed on or near it.
-func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void:
+## Issue #714: `st` (a StagedBuild) spreads it over frames, a rock a slice.
+func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2, st: StagedBuild = null) -> void:
 	name = "Landforms"
 	data = load_data()
 	if data.is_empty():
@@ -77,11 +78,12 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	noise.seed = 31
 	noise.fractal_octaves = 3
 	_prep_circles((terrain as PlanetTerrain).sphere if terrain is PlanetTerrain else null)
+	await StagedBuild.slice_of(st)
 
 	# On the home ball, climbable mountains by latitude/longitude; flat worlds keep
 	# the original nearby beauty-corner mesas.
 	if terrain is PlanetTerrain and data.has("planet_mountains"):
-		_build_planet_mountains(terrain as PlanetTerrain, mats, clear, solid)
+		await _build_planet_mountains(terrain as PlanetTerrain, mats, clear, solid, st)
 	else:
 		_build_local_mesas(terrain, mats, clear, noise, rng, solid)
 
@@ -103,6 +105,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 			_solid_shape(mi, made.shape)
 		spires.append(s)
 		drawn_ids[str(s.id)] = true
+		await StagedBuild.slice_of(st)
 
 	# The original hoodoos, shorter: a fluted column under a cap stone, all round
 	# the ball (the old recipe, beside the tall new spires).
@@ -113,37 +116,25 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 		var h: float = hd.height
 		if _hits(clear, map.x, map.y, r) or _in_circles(map.x, map.y, r):
 			continue
-		noise.frequency = 1.4 / r
-		var base := _cyl(r * 0.55, r, h, 16)
-		base.rings = 10
 		var g := _ground(terrain, map.x, map.y)
 		var gy := snappedf(_ground_h(terrain, g, map.x, map.y), 1.0)
 		var mat := mats.rock(gy, 0.35)
-		var col := _add(_cached("hoodoo/%s/%s/%s" % [r, h, hd.seed], func(): return LookMeshKit.rock(base, noise, 0.28, 3.0, float(hd.seed), 0.4)),
-			mat, g, h * 0.45)
-		var cap := SphereMesh.new()
-		cap.radius = r * 0.9
-		cap.height = r * 0.8
-		cap.radial_segments = 12
-		cap.rings = 6
-		_add(_cached("hoodoo_cap/%s/%s" % [r, hd.seed], func(): return LookMeshKit.rock(cap, noise, 0.3, 0.0, float(hd.seed))), mat, g, h * 0.95,
-			Vector3(0, 0, rng.randf_range(-12, 12)))
+		for job in _hoodoo_jobs(hd):
+			if not _meshes.has(job.key):
+				_take(job, _make(job))
+		var col := _add(_meshes[_hoodoo_key(hd)], mat, g, h * 0.45)
+		_add(_meshes[_hoodoo_key(hd, true)], mat, g, h * 0.95, Vector3(0, 0, rng.randf_range(-12, 12)))
 		if solid:
 			_solid(col)
 		shorts.append(hd)
 		drawn_ids[str(hd.id)] = true
+		await StagedBuild.slice_of(st)
 
 	# Boulders, scattered with a MultiMesh: one draw call for hundreds.
 	var b: Dictionary = data.get("boulders", {})
 	var want := int(b.get("count", 0))
 	if want <= 0:
 		return
-	var boulder_src := BoxMesh.new()
-	boulder_src.size = Vector3(2.0, 1.6, 1.8)
-	boulder_src.subdivide_width = 2
-	boulder_src.subdivide_height = 2
-	boulder_src.subdivide_depth = 2
-	noise.frequency = 0.9
 	var xforms: Array[Transform3D] = []
 	var min_dist := float(b.get("min_dist", 165.0))
 	var spread := float(b.get("spread", 1500.0))
@@ -165,6 +156,8 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	for cb in on_courses:
 		want -= int(cb.get("count", 0))
 	for i in want:
+		if i % 60 == 59:
+			await StagedBuild.slice_of(st)
 		var x: float
 		var z: float
 		if planet_wide:
@@ -189,9 +182,12 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 		xforms.append_array(_course_boulders(terrain as PlanetTerrain, cb, anchors))
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _cached("boulder", func(): return LookMeshKit.rock(boulder_src, noise, 0.4, 0.0, 3.0))
+	if not _meshes.has("boulder"):
+		var bj := _boulder_job()
+		_take(bj, _make(bj))
+	mm.mesh = _meshes["boulder"]
 	if solid:
-		_solid_boulders(mm.mesh, xforms)
+		await _solid_boulders(xforms, st)
 	mm.instance_count = xforms.size()
 	for i in xforms.size():
 		mm.set_instance_transform(i, xforms[i])
@@ -205,6 +201,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 	add_child(mmi)
 	if terrain is PlanetTerrain:
 		_on_ball((terrain as PlanetTerrain).sphere)
+	_made_for[GameFlow.current_planet_id()] = true      # issue #714: nothing left to prepare
 
 
 ## Boulders moved onto a race course (a `boulders.courses` entry): { course, count,
@@ -381,12 +378,15 @@ func _build_local_mesas(terrain: DesertTerrain, mats: LookMaterials, clear: Rect
 			_solid(mi)
 
 
-func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2, solid: bool) -> void:
+func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear: Rect2, solid: bool,
+		st: StagedBuild = null) -> void:
 	var sp := terrain.sphere
 	mesa_spots = []
 	mesa_planet = GameFlow.current_planet_id()
 	var strata := float(data.get("mountain", {}).get("strata", 0.2))
-	for m in mountain_spots(data, sp):
+	var spots := mountain_spots(data, sp)
+	await StagedBuild.slice_of(st)
+	for m in spots:
 		var map: Vector2 = m.map
 		var p: Dictionary = m.plan
 		var radius := float(p.radius)
@@ -408,6 +408,7 @@ func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear:
 			mi.add_child(_runner_lights(p.tunnel, m.lights))
 		mesa_spots.append({ "map": map, "radius": radius, "height": float(p.height) })
 		drawn_ids[str(m.id)] = true
+		await StagedBuild.slice_of(st)
 
 
 ## A tunnel's runner lights: small glowing blocks low on both walls every
@@ -486,7 +487,7 @@ static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 ## portal faces that end of the path) }], lights }. Its frame is the map's at the
 ## path's middle, on the ball's own level there (directions only, so it is the
 ## same with or without the flat sites made): every peak and the path in it.
-static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: PlanetSphere) -> Dictionary:
+static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: PlanetSphere, cache := true) -> Dictionary:
 	# A point every 20 m of ground: far round the ball the map is stretched
 	# across, so the step on the map grows with it (else a far tunnel's path
 	# would carry several times the points every ground query walks).
@@ -526,7 +527,7 @@ static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: P
 				peak["cliff_toward"] = (path[-1] - at).angle()
 		peaks.append(peak)
 	return { "id": "mesa_%s" % str(e.get("id", e.get("course", "course"))), "map": mid, "variant": k,
-		"plan": RockMountain.range_plan(peaks, path, cfg), "course": str(e.get("course", "")),
+		"plan": RockMountain.range_plan(peaks, path, cfg, cache), "course": str(e.get("course", "")),
 		"lights": e.get("lights", {}), "map_path": mpath }
 
 
@@ -621,14 +622,10 @@ static func mountain_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 
 ## One mountain version's mesh and trimesh, built once a session.
 static func _mountain(p: Dictionary, k: int) -> Dictionary:
-	var key := "mountain/%d/%s" % [k, hash(p.height) + hash(p.radius)]
-	if not _meshes.has(key):
-		var built := RockMountain.build(p)
-		_meshes[key] = built.mesh
-		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(built.faces)
-		_shapes[built.mesh] = shape
-	var mesh: Mesh = _meshes[key]
+	var job := _mountain_job(p, k)
+	if not _meshes.has(job.key):
+		_take(job, _make(job))
+	var mesh: Mesh = _meshes[job.key]
 	return { "mesh": mesh, "shape": _shapes[mesh] }
 
 
@@ -704,28 +701,13 @@ func _in_circles(x: float, z: float, radius: float) -> bool:
 	return false
 
 
-func _cyl(top: float, bottom: float, h: float, seg: int) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
 ## One spire variation, built once a session: { mesh, shape }. The shape is a
 ## trimesh of the very triangles drawn, so what you climb is what you see.
 static func _spire(d: Dictionary, k: int) -> Dictionary:
-	var key := "spire/%d/%s" % [k, hash(d.get("spire_variants", [])[k])]
-	if not _meshes.has(key):
-		var built := spire_mesh(d.get("spire_variants", [])[k], d.get("spire_profile", []),
-			int(d.get("spire_segments", 40)), int(d.get("spire_rings", 46)), float(d.get("spire_bury", 3.0)))
-		_meshes[key] = built.mesh
-		var shape := ConcavePolygonShape3D.new()
-		shape.set_faces(built.faces)
-		_shapes[built.mesh] = shape
-	var mesh: Mesh = _meshes[key]
+	var job := _spire_job(d, k)
+	if not _meshes.has(job.key):
+		_take(job, _make(job))
+	var mesh: Mesh = _meshes[job.key]
 	return { "mesh": mesh, "shape": _shapes[mesh] }
 
 
@@ -735,6 +717,12 @@ static func _spire(d: Dictionary, k: int) -> Dictionary:
 ## foot is `bury` m under the ground. Returns { mesh, faces } (faces: the triangles,
 ## for the collider). Smooth normals: the stone is wind-polished, not faceted.
 static func spire_mesh(v: Dictionary, profile: Array, seg: int, rings: int, bury: float) -> Dictionary:
+	var d := spire_data(v, profile, seg, rings, bury)
+	return { "mesh": LookMeshKit.mesh_of(d.arrays), "faces": d.faces }
+
+
+## Issue #714: spire_mesh() without the mesh: { arrays, faces }, for a worker thread.
+static func spire_data(v: Dictionary, profile: Array, seg: int, rings: int, bury: float) -> Dictionary:
 	var h := float(v.height)
 	var r0 := float(v.radius)
 	var lean_xz: Array = v.get("lean", [0.0, 0.0])
@@ -814,7 +802,7 @@ static func spire_mesh(v: Dictionary, profile: Array, seg: int, rings: int, bury
 		tri.call(top, rows[-1][i], rows[-1][(i + 1) % seg], Vector3.UP)
 	st.index()
 	st.generate_normals()
-	return { "mesh": st.commit(), "faces": PackedVector3Array(faces) }
+	return { "arrays": st.commit_to_arrays(), "faces": PackedVector3Array(faces) }
 
 
 ## The spire's radius (fraction of the skirt's) at height fraction t.
@@ -919,16 +907,22 @@ func _add(mesh: Mesh, mat: Material, g: Transform3D, up: float, rot_deg: Vector3
 
 ## One static body per boulder: a convex hull of the very rock mesh drawn there (its
 ## points put through that boulder's transform), so what you stand on is what you see.
-func _solid_boulders(mesh: Mesh, xforms: Array[Transform3D]) -> void:
+func _solid_boulders(xforms: Array[Transform3D], st: StagedBuild = null) -> void:
 	var key := "%d/%s/%s" % [xforms.size(), xforms[0], xforms[-1]] if not xforms.is_empty() else ""
 	var made: Array = _boulder_hulls.get(key, [])      # [shape, top, rad] per rock
-	if made.size() != xforms.size():
-		made = _boulder_shapes(mesh, xforms)
-		_boulder_hulls[key] = made
+	var fresh := made.size() != xforms.size()
+	var pts := PackedVector3Array()
+	if fresh:
+		made = []
+		pts = _boulder_points(_boulder_verts)
 	var root := StaticBody3D.new()
 	root.name = "BoulderColliders"
 	add_child(root)
 	for k in xforms.size():
+		if k % 40 == 39:
+			await StagedBuild.slice_of(st)
+		if fresh:
+			made.append(_boulder_hull(pts, xforms[k]))
 		var xf := xforms[k]
 		var shape: Shape3D = made[k][0]
 		var top: float = made[k][1]
@@ -944,33 +938,39 @@ func _solid_boulders(mesh: Mesh, xforms: Array[Transform3D]) -> void:
 		# Measured from the rock's origin, a little under the sand; the ground under
 		# it counts wherever it is higher.
 		boulders.append({ "center": xf.origin, "up": up, "radius": rad * 0.85, "height": top })
+	if fresh:
+		_boulder_hulls[key] = made
 
 
-## One convex hull per boulder: the very rock mesh drawn there (its points put
-## through that boulder's transform), with its height and reach along its up.
-static func _boulder_shapes(mesh: Mesh, xforms: Array[Transform3D]) -> Array:
+## The rock's own vertices, each once (`verts`: kept when it was made, since
+## reading them back from the mesh waited on the GPU).
+static func _boulder_points(verts: PackedVector3Array) -> PackedVector3Array:
 	var pts := PackedVector3Array()
 	var seen := {}
-	for v in (mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+	for v in verts:
 		var key := v.snapped(Vector3.ONE * 0.01)
 		if not seen.has(key):
 			seen[key] = true
 			pts.append(v)
-	var out: Array = []
-	for xf in xforms:
-		var hull := PackedVector3Array()
-		hull.resize(pts.size())
-		var top := 0.0
-		var rad := 0.0
-		for i in pts.size():
-			var w: Vector3 = xf.basis * pts[i]
-			hull[i] = w
-			top = maxf(top, w.dot(xf.basis.y.normalized()))
-			rad = maxf(rad, (w - xf.basis.y.normalized() * w.dot(xf.basis.y.normalized())).length())
-		var shape := ConvexPolygonShape3D.new()
-		shape.points = hull
-		out.append([shape, top, rad])
-	return out
+	return pts
+
+
+## One boulder's convex hull: the very rock drawn there (its points put through
+## that boulder's transform), with its height and reach along its up: [shape, top, rad].
+static func _boulder_hull(pts: PackedVector3Array, xf: Transform3D) -> Array:
+	var hull := PackedVector3Array()
+	hull.resize(pts.size())
+	var top := 0.0
+	var rad := 0.0
+	var up := xf.basis.y.normalized()
+	for i in pts.size():
+		var w: Vector3 = xf.basis * pts[i]
+		hull[i] = w
+		top = maxf(top, w.dot(up))
+		rad = maxf(rad, (w - up * w.dot(up)).length())
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = hull
+	return [shape, top, rad]
 
 
 ## A static body with a shape made beforehand (a spire's, from its own triangles).
@@ -1001,3 +1001,219 @@ static func _cached(key: String, make: Callable) -> Mesh:
 	if not _meshes.has(key):
 		_meshes[key] = make.call()
 	return _meshes[key]
+
+
+# ------------------------------------------------- made ahead (issue #714)
+
+## Flying home from the gas giant, home's scene loads fresh, and its rocks were
+## the longest frame coming down: ~366 ms of noise, meshes and trimeshes in one
+## step. Now SpaceTravel._prepare starts them from 30 km out in open space: the
+## recipes are listed on the main thread (prepare), a worker thread makes their
+## data (surface arrays and collider faces, _make), and the landforms step on the
+## way down turns them into meshes and shapes a few a frame (finish_prepared)
+## before it builds. A rock made once stays made for the session (_meshes), so a
+## second arrival has nothing to prepare.
+##
+## A recipe ("job") is { key (its _meshes key), kind, ... the numbers }; _make is
+## pure data (nothing shared is written, so it is safe on a worker); _take turns
+## its result into the mesh and shape, on the main thread.
+
+static var _boulder_verts := PackedVector3Array()   ## the boulder rock's vertices, for the hulls
+static var _prep_jobs: Array = []        ## recipes the worker is making
+static var _prep_out: Array = []         ## per recipe, its data once made
+static var _prep_task := -1
+
+
+## Starts making `planet`'s rocks on a worker thread, unless they were made (or
+## started) this session already. True when it started. Only cheap listing here:
+## the mountains' plans (~0.5 s cold) are made on the worker too, without the
+## session's plan cache (the main thread may be using it).
+static func prepare(planet: Dictionary) -> bool:
+	var id := str(planet.get("id", ""))
+	if _prep_task >= 0 or _made_for.has(id) or not builds_on(planet):
+		return false
+	_made_for[id] = true
+	var d := load_data()
+	if d.is_empty():
+		return false
+	var sp := PlanetSphere.new(float(planet.get("world", {}).get("terrain", {}).get("sphere_radius", 0.0)))
+	var jobs: Array = []
+	var seen := {}
+	var want := func(job: Dictionary) -> void:
+		if not _meshes.has(job.key) and not seen.has(job.key):
+			seen[job.key] = true
+			jobs.append(job)
+	if d.has("planet_mountains"):
+		# The race courses' tunnel lines read shared course data: worked out here.
+		var mountains := d.duplicate(true)
+		var courses: Array = []
+		for e in d.get("course_mountains", []):
+			var e2: Dictionary = (e as Dictionary).duplicate(true)
+			if e2.has("gates"):
+				e2["path"] = RaceCourse.tunnel_path(str(e2.get("course", "")), e2.gates, e2.get("run_m", [0.0, 0.0]))
+				e2.erase("gates")
+			courses.append(e2)
+		mountains["course_mountains"] = courses
+		jobs.append({ "key": "", "kind": "mountains", "data": mountains, "sphere": sp, "have": _meshes.duplicate() })
+	for k in (d.get("spire_variants", []) as Array).size():
+		want.call(_spire_job(d, k))
+	for hd in short_spots(d, sp):
+		for job in _hoodoo_jobs(hd):
+			want.call(job)
+	if int(d.get("boulders", {}).get("count", 0)) > 0:
+		want.call(_boulder_job())
+	if jobs.is_empty():
+		return false
+	_prep_jobs = jobs
+	_prep_out = []
+	_prep_out.resize(jobs.size())
+	_prep_task = WorkerThreadPool.add_group_task(func(i: int): _prep_out[i] = _make(_prep_jobs[i]),
+		jobs.size(), -1, false, "landforms prepare")
+	return true
+
+
+static var _made_for := {}               ## planet id -> true: its rocks are made, or being made
+
+
+## A planet whose scene builds landforms: sand on a ball (not rock or gas).
+static func builds_on(planet: Dictionary) -> bool:
+	return str(planet.get("ground", "terrain")) == "terrain" \
+		and float(planet.get("world", {}).get("terrain", {}).get("sphere_radius", 0.0)) > 0.0
+
+
+## Waits (a frame at a time inside a staged build, else at once) for prepare()'s
+## worker, then makes its meshes and shapes, one a slice. Nothing to do when
+## nothing was prepared.
+static func finish_prepared(st: StagedBuild = null) -> void:
+	if _prep_task < 0:
+		return
+	while not WorkerThreadPool.is_group_task_completed(_prep_task):
+		if st == null or not st.slicing():
+			break
+		await st.slice()
+	WorkerThreadPool.wait_for_group_task_completion(_prep_task)
+	_prep_task = -1
+	var made: Array = []                     # [job, data] each
+	for i in _prep_jobs.size():
+		if str(_prep_jobs[i].kind) == "mountains":
+			made.append_array(_prep_out[i])
+		else:
+			made.append([_prep_jobs[i], _prep_out[i]])
+	for m in made:
+		if not _meshes.has(m[0].key):
+			_take(m[0], m[1])
+			await StagedBuild.slice_of(st)
+	_prep_jobs = []
+	_prep_out = []
+
+
+static func _mountain_job(p: Dictionary, k: int, copy := false) -> Dictionary:
+	# A copy for the worker: the main thread adds to a plan later (its top job).
+	return { "key": "mountain/%d/%s" % [k, hash(p.height) + hash(p.radius)], "kind": "mountain",
+		"plan": p.duplicate(true) if copy else p }
+
+
+static func _spire_job(d: Dictionary, k: int) -> Dictionary:
+	var v: Dictionary = d.get("spire_variants", [])[k]
+	return { "key": "spire/%d/%s" % [k, hash(v)], "kind": "spire", "v": v, "profile": d.get("spire_profile", []),
+		"seg": int(d.get("spire_segments", 40)), "rings": int(d.get("spire_rings", 46)), "bury": float(d.get("spire_bury", 3.0)) }
+
+
+static func _hoodoo_key(hd: Dictionary, cap := false) -> String:
+	if cap:
+		return "hoodoo_cap/%s/%s" % [hd.radius, hd.seed]
+	return "hoodoo/%s/%s/%s" % [hd.radius, hd.height, hd.seed]
+
+
+## A short hoodoo's column and cap stone: the primitives' own arrays (made here on
+## the main thread), displaced on the worker.
+static func _hoodoo_jobs(hd: Dictionary) -> Array:
+	var r := float(hd.radius)
+	var h := float(hd.height)
+	var base := CylinderMesh.new()
+	base.top_radius = r * 0.55
+	base.bottom_radius = r
+	base.height = h
+	base.radial_segments = 16
+	base.rings = 10
+	var cap := SphereMesh.new()
+	cap.radius = r * 0.9
+	cap.height = r * 0.8
+	cap.radial_segments = 12
+	cap.rings = 6
+	var freq := 1.4 / r
+	return [
+		{ "key": _hoodoo_key(hd), "kind": "rock", "base": base.get_mesh_arrays(), "freq": freq,
+			"amount": 0.28, "strata": 3.0, "seed": float(hd.seed), "squash": 0.4, "solid": true },
+		{ "key": _hoodoo_key(hd, true), "kind": "rock", "base": cap.get_mesh_arrays(), "freq": freq,
+			"amount": 0.3, "strata": 0.0, "seed": float(hd.seed), "squash": 1.0 },
+	]
+
+
+static func _boulder_job() -> Dictionary:
+	var src := BoxMesh.new()
+	src.size = Vector3(2.0, 1.6, 1.8)
+	src.subdivide_width = 2
+	src.subdivide_height = 2
+	src.subdivide_depth = 2
+	return { "key": "boulder", "kind": "rock", "base": src.get_mesh_arrays(), "freq": 0.9,
+		"amount": 0.4, "strata": 0.0, "seed": 3.0, "squash": 1.0, "boulder": true }
+
+
+## A recipe's data: { arrays, faces (collider triangles, or empty) }; for
+## "mountains", the list _mountains_made gives. Pure: safe on a worker.
+static func _make(job: Dictionary) -> Variant:
+	match str(job.kind):
+		"mountains":
+			return _mountains_made(job.data, job.sphere, job.have)
+		"mountain":
+			return RockMountain.build_data(job.plan)
+		"spire":
+			return spire_data(job.v, job.profile, int(job.seg), int(job.rings), float(job.bury))
+	var noise := FastNoiseLite.new()        # the landforms' rock noise (build()'s)
+	noise.seed = 31
+	noise.fractal_octaves = 3
+	noise.frequency = float(job.freq)
+	var arrays := LookMeshKit.rock_arrays(job.base, noise, float(job.amount), float(job.strata),
+		float(job.seed), float(job.squash))
+	var faces := PackedVector3Array()
+	if bool(job.get("solid", false)) or bool(job.get("boulder", false)):
+		faces = arrays[Mesh.ARRAY_VERTEX]        # unindexed triangles
+	return { "arrays": arrays, "faces": faces }
+
+
+## Every mountain version not in `have` (the meshes made already), planned and
+## made here: [[job, data], ...]. Plans without the shared cache: safe on a worker.
+static func _mountains_made(d: Dictionary, sp: PlanetSphere, have: Dictionary) -> Array:
+	var variants: Array = d.get("mountain_variants", [])
+	var cfg: Dictionary = d.get("mountain", {})
+	var out: Array = []
+	var seen := {}
+	if variants.is_empty():
+		return out
+	var plans: Array = []                    # [plan, version]
+	for e in d.get("planet_mountains", []):
+		var k := int(e[2]) % variants.size()
+		plans.append([RockMountain.plan(variants[k], cfg, {}, false), k])
+	for e in d.get("course_mountains", []):
+		var m := _course_range(e, variants, cfg, sp, false)
+		plans.append([m.plan, int(m.variant)])
+	for pk in plans:
+		var job := _mountain_job(pk[0], int(pk[1]))
+		if have.has(job.key) or seen.has(job.key):
+			continue
+		seen[job.key] = true
+		out.append([job, RockMountain.build_data(pk[0])])
+	return out
+
+
+## A recipe's mesh (and its trimesh shape, for the rocks you can climb), kept for the session.
+static func _take(job: Dictionary, made: Dictionary) -> void:
+	var mesh := LookMeshKit.mesh_of(made.arrays)
+	_meshes[job.key] = mesh
+	if bool(job.get("boulder", false)):
+		_boulder_verts = made.faces
+	elif not (made.faces as PackedVector3Array).is_empty():
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(made.faces)
+		_shapes[mesh] = shape
