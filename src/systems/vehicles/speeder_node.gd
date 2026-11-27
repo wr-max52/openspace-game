@@ -415,6 +415,7 @@ func _physics_process(dt: float) -> void:
 	if gear != null:
 		gear.step(dt)
 	_tick_boarding(dt)
+	model.parked = not riding and not npc_driven()     # at rest it sits on the slope (HoverModel._settle)
 	if riding or npc_driven():
 		_tick_tow(dt)
 	if riding:
@@ -564,11 +565,11 @@ func _aim_point(b: Basis) -> Vector3:
 func _sync() -> void:
 	global_transform = model.transform()
 	if visual != null:
-		# Lean into turns and pitch with the climb and the air tilt (W/S), for the eye only.
+		# Lean into turns and pitch with the climb and the W/S tilt (air or ground), for the eye only.
 		var steer_now := float(_npc_cmd.get("steer", 0.0)) if npc_driven() else float(_external.get("steer", 0.0))
 		var lean := clampf(model.speed / 40.0, -1.0, 1.0) * (_axis("move_left", "move_right") if riding and _external.is_empty() else steer_now)
 		_lean.y = lerpf(_lean.y, -lean * 0.25, 0.15)
-		_lean.x = lerpf(_lean.x, clampf(clampf(model.vy / 30.0, -0.35, 0.35) + model.air_pitch, -0.6, 0.6), 0.2)
+		_lean.x = lerpf(_lean.x, clampf(clampf(model.vy / 30.0, -0.35, 0.35) + model.air_pitch + model.ground_pitch, -0.6, 0.6), 0.2)
 		visual.transform = Transform3D(Basis.from_euler(Vector3(_lean.x, 0.0, _lean.y)), Vector3(0, 0.04 * sin(_t * 3.0), 0)) * _jolt_xf
 	if _fan != null:
 		_fan.rotation.z += 0.3 + absf(model.speed) * 0.02

@@ -263,7 +263,12 @@ func _quest_log(now: String) -> void:
 		return
 	job_rows.append(Objective.line("log_quests"))
 	_heading(jobs, job_rows[-1])
+	# Open quests on top, done or failed below; each half keeps its own order.
+	var open_qs: Array = []
+	var closed_qs: Array = []
 	for q in qs:
+		(closed_qs if (q.done or q.get("failed", false)) else open_qs).append(q)
+	for q in open_qs + closed_qs:
 		var closed: bool = q.done or q.get("failed", false)
 		var id := str(q.id)
 		var head := "%s   (%s)" % [str(q.title).to_upper(), Objective.line("quest_failed" if q.get("failed", false) else ("quest_done" if q.done else "quest_open"))]

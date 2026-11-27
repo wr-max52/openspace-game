@@ -11,8 +11,8 @@
     "seeker_alarm": { "note": "The cockpit's seeker warning (SeekerWarning, played by ShipPilot): a 1 s loop of two beeps, on for 5 s while an enemy has a lock or a seeker on you.", "stream": "res://assets/audio/sfx/seeker_alarm.wav", "volume_db": -8.0 },
     "ship_hit":     { "stream": "res://assets/audio/sfx/ship_hit.wav", "volume_db": -6.0, "pitch": [0.85, 1.1], "unit_size": 40.0, "max_distance": 800.0 },
     "vehicle_boom": {
-      "note": "Every ship, speeder, barge and seeker that goes up (ExplosionFx.big) plays this. CC0 (public domain, no attribution needed): 'explosions 4' by EZduzziteh on OpenGameArt.org, mixed to mono, lead-in silence trimmed, peaks at -1 dB.",
-      "source": "https://opengameart.org/content/explosions-4",
+      "note": "Every ship, speeder, barge and seeker that goes up (ExplosionFx.big) plays this. CC0 (public domain, no attribution needed): real explosion recordings from the USC Cinema / Sunset Editorial libraries on the Internet Archive. 1 'Heavy sharp explosion with reverb', 2 'Explosion with falling debris', 3 'R11-53 Explosive Blast', 4 'R09-53 Huge Explosion'. Mixed to mono, 30 Hz high-pass, trimmed to the blast, cut to 3 s with a fade, peaks at -1 dB.",
+      "source": ["https://archive.org/details/SSE_Library_EXPLOSIONS", "https://archive.org/details/Red_Library_Explosions"],
       "stream": [
         "res://assets/audio/sfx/vehicle_boom_1.wav",
         "res://assets/audio/sfx/vehicle_boom_2.wav",
