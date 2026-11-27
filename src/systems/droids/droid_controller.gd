@@ -15,7 +15,10 @@ extends Node3D
 ##   - broken droids turn up in the desert now and then; weld one with the plasma
 ##     welder (issue #722: its WeldSpot, hold E) and it follows you. With no
 ##     welder it stays broken. A knocked-out droid of yours can be welded back up
-##     at once the same way,
+##     at once the same way. With max_owned droids already, the menu also offers to
+##     sell the one you just woke to the nearest droid merchant (its resale price):
+##     it goes off to them (de-spawns) and you keep the three you have. A world
+##     with no merchant sells to the nearest planet's (the home planet's at worst),
 ##   - the range remote follows you once you block its bolts five times in a row,
 ##   - the Remnant's own two droids patrol the main street, call the alarm and
 ##     fight when the garrison would,
@@ -570,16 +573,19 @@ func sell(uid: int) -> int:
 
 
 ## At the cap: pick one droid to sell (merchant price) and then `then` runs.
-## Walking away runs `declined` instead.
-func _ask_make_room(then: Callable, declined := Callable()) -> void:
-	var opts := []
+## Walking away runs `declined` instead. `extra` rows go first (a welded wreck:
+## sell it on instead, "sell_wreck:<uid>").
+func _ask_make_room(then: Callable, declined := Callable(), extra: Array = []) -> void:
+	var opts := extra.duplicate()
 	for d in roster().owned:
 		opts.append({ "id": str(d.uid), "text": _l("sell") % [DroidRoster.label(str(d.kind)), DroidRoster.resale(str(d.kind))] })
 	_open_menu(_l("make_room") % DroidRoster.max_owned(), opts, _on_make_room.bind(then, declined))
 
 
 func _on_make_room(id: String, then: Callable, declined: Callable) -> void:
-	if id != "" and sell(int(id)) >= 0:
+	if id.begins_with("sell_wreck:"):
+		sell_wreck(int(id.substr(11)))
+	elif id != "" and sell(int(id)) >= 0:
 		then.call()
 	elif declined.is_valid():
 		declined.call()
@@ -701,10 +707,82 @@ func weld_wreck(uid: int) -> String:
 	if not wreck_nodes.has(uid):
 		return ""
 	if roster().is_full():
-		_ask_make_room(func(): _finish_fix(uid))
+		var kind := str(roster().find_wreck(uid).get("kind", ""))
+		var extra := [{ "id": "sell_wreck:%d" % uid, "text": _l("sell_wreck")
+			% [DroidRoster.label(kind).to_lower(), buyer_label(wreck_nodes[uid].global_position), DroidRoster.resale(kind)] }]
+		_ask_make_room(func(): _finish_fix(uid), Callable(), extra)
 		return "menu"
 	_finish_fix(uid)
 	return "fixed"
+
+
+## The droid merchant nearest `at` (a vendor_sites index), open or not, or -1 when
+## this world has none.
+func nearest_vendor(at: Vector3) -> int:
+	var best := -1
+	var best_d := INF
+	for i in vendor_sites.size():
+		var d := at.distance_to(vendor_sites[i].pos as Vector3)
+		if d < best_d:
+			best = i
+			best_d = d
+	return best
+
+
+## Who buys a welded droid you have no room for: the nearest droid merchant in
+## this world, or with none here, the one on the nearest planet that has one (the
+## home planet's market at worst). So you can always sell one on.
+func buyer_label(at: Vector3) -> String:
+	var site := nearest_vendor(at)
+	return _vendor_label(site) if site >= 0 else offworld_merchant()
+
+
+## No droid merchant in this world. The nearest other planet with one: the
+## home planet (its market stall, droids.json "vendor") or a planet whose club dome
+## has "droid_merchant" (the moon's rave, "club_vendor"), by distance between the
+## planets' ports. The home planet when this world's place is unknown.
+func offworld_merchant() -> String:
+	var cc = load("res://src/systems/dataload/core_content.gd").shared()
+	var here := _planet_id()
+	var home := PlanetGen.home_id()
+	var from := PlanetGen.system_port(here, cc) if here != "" else Vector3.INF
+	var best := home
+	var best_d := INF
+	for id in PlanetGen.ids(cc):
+		var pc: Dictionary = cc.planets.get(id, {})
+		if str(id) == here and str(id) != home:
+			continue
+		if str(id) != home and not bool((pc.get("club_dome", {}) as Dictionary).get("droid_merchant", false)):
+			continue
+		var to := PlanetGen.system_port(str(id), cc)
+		var d := from.distance_to(to) if from.is_finite() and to.is_finite() else (0.0 if str(id) == home else INF)
+		if d < best_d:
+			best = str(id)
+			best_d = d
+	var who: Dictionary = cfg.get("vendor" if best == home else "club_vendor", {})
+	return _l("offworld_merchant") % [str(who.get("label", "Droid Merchant")),
+		PlanetGen.display_name(PlanetGen.build(best, cc))]
+
+
+## Wreck `uid` welded with no room in your roster: it reboots and is sold to the
+## nearest droid merchant (buyer_label) at its resale price, then de-spawns.
+## Returns the price or -1.
+func sell_wreck(uid: int) -> int:
+	var n: DroidUnit = wreck_nodes.get(uid)
+	var w := roster().find_wreck(uid)
+	if n == null or w.is_empty():
+		return -1
+	var at := n.global_position
+	var buyer := buyer_label(at)
+	var price := roster().sell_wreck(uid)
+	WorldState.credits += price
+	wreck_nodes.erase(uid)
+	n.queue_free()
+	Sound.play("droid_wake", at)
+	var label := DroidRoster.label(str(w.kind)).to_lower()
+	WorldState.log_event(_l("event_found") % label)
+	_toast(_l("sold_wreck") % [label, buyer, price])
+	return price
 
 
 ## Issue #722: knocked-out droid `uid` of yours welded: it reboots now.
