@@ -171,6 +171,8 @@ func _ready() -> void:
 ## The wrecks, the patrols and the hauler. Issue #574: `st` (a StagedBuild) spreads
 ## them over frames on a handoff; with null (from _ready) all at once.
 func build_units(st: StagedBuild) -> void:
+	if not net_copy:
+		roster().drop_runaways()      # a runaway nobody found is gone when the world is built again
 	if _on_ball() and not roster().wrecks_seeded:
 		var starting_count := int(cfg.get("wrecks", {}).get("ball_starting_count", 8))
 		while roster().wrecks.size() < starting_count:
@@ -2136,8 +2138,9 @@ func _flee(u: DroidUnit, dt: float) -> void:
 	u.walk(dt, true, speed)
 
 
-## The runaway gives out where it stopped: a wreck there (saved; [E] fixes it and
-## it is yours), and the outpost gets a new one when its troopers come back.
+## The runaway gives out where it stopped: a wreck there (weld it and it is yours;
+## gone when the world is built again), and the outpost gets a new one when its
+## troopers come back.
 func _strand(u: DroidUnit) -> void:
 	var w := roster().add_wreck(u.kind, u.variant, u.global_position)
 	_build_wreck(w)
