@@ -359,7 +359,7 @@ func test_running_out_hands_it_to_the_locals_with_no_credit() -> void:
 	assert_eq(WorldState.count("outposts_taken"), taken, "and no count")
 	assert_eq(Quests.state(q), "failed", "the load didn't get there")
 	assert_true(WorldState.events.any(func(e): return str(e.text) == Territory.line("remnant_gave_up") % Story.outpost_label(id)))
-	assert_almost_eq(Territory.hold_left(id), Territory.n("hold_s", 900.0), 0.01, "the locals' own clock starts")
+	assert_eq(Territory.hold_frac(id), -1.0, "the locals keep it with no clock of their own")
 
 
 func test_clearing_a_short_one_fails_its_quest() -> void:

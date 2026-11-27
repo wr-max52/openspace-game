@@ -10,7 +10,10 @@ extends RefCounted
 ## time. When one runs out the locals move in on their own (give_up). A player
 ## the Remnant still deal with (remnant_friend) is offered a resupply quest for
 ## each one that runs short (resupply_remnant_<id>); walking up to it with that
-## quest's waypoint on fills its clock back up (deliver_remnant).
+## quest's waypoint on fills its clock back up (deliver_remnant). The locals'
+## own clocks stop then (locals_clocked): the Remnant are the ones running out,
+## so an outpost the locals hold stays theirs until their guards there are all
+## dead, as on the moon, and Oda's supply runs end.
 ##
 ##   an outpost    the Remnant's until every trooper there is dead (take), then the
 ##                 locals' for hold_s of play. A supply run from Oda (j_supply)
@@ -233,7 +236,16 @@ static func hold_left(id: String) -> float:
 
 ## The locals there are running short (a supply run would help).
 static func short(id: String) -> bool:
-	return front_of(id) == HOME and owner(id) == LOCALS and not WorldState.has_flag(DRIVEN_OFF) and hold_left(id) <= n("supply_warn_s", 420.0)
+	return front_of(id) == HOME and owner(id) == LOCALS and not WorldState.has_flag(DRIVEN_OFF) and locals_clocked() \
+		and hold_left(id) <= n("supply_warn_s", 420.0)
+
+
+## The locals' hold on front `f`'s outposts runs down: the port's only, and only
+## until the cruiser has fallen. After that the Remnant are cut off and it is
+## their clocks that run; the locals keep what they hold until their guards there
+## are all dead.
+static func locals_clocked(f: String = HOME) -> bool:
+	return bool(front(f).clock) and not Story.cruiser_taken()
 
 
 ## Issue #425: a number from territory.json "remnant" (the Remnant's clocks).
@@ -341,13 +353,14 @@ static func retake(id: String) -> void:
 static func guards_lost(id: String) -> void:
 	if owner(id) != LOCALS or not WorldState.control.get(id) is Dictionary:
 		return
-	if bool(front(front_of(id)).clock):
+	if locals_clocked(front_of(id)):
 		WorldState.control[id].hold = 0.0
 	else:
 		retake(id)
 
 
-## Seconds of play (WorldState.tick). The locals' hold on each outpost runs down.
+## Seconds of play (WorldState.tick). The locals' hold on each outpost runs down
+## (until the cruiser falls; then the Remnant's do).
 static func tick(dt: float) -> void:
 	for f in fronts():
 		_tick_front(f, dt)
@@ -359,16 +372,19 @@ static func tick(dt: float) -> void:
 		_drive_off()
 		_sync_flags()
 		return
-	var warn := n("supply_warn_s", 420.0)
-	for id in held():
-		var c: Dictionary = WorldState.control[id]
-		var was := float(c.hold)
-		c.hold = was - dt
-		if was > warn and float(c.hold) <= warn:
-			WorldState.log_event(line("warn") % Story.outpost_label(str(id)))
-			Quests.offer_again(quest_id(str(id)))
-		if float(c.hold) <= 0.0:
-			retake(str(id))
+	if locals_clocked():
+		var warn := n("supply_warn_s", 420.0)
+		for id in held():
+			var c: Dictionary = WorldState.control[id]
+			var was := float(c.hold)
+			c.hold = was - dt
+			if was > warn and float(c.hold) <= warn:
+				WorldState.log_event(line("warn") % Story.outpost_label(str(id)))
+				Quests.offer_again(quest_id(str(id)))
+			if float(c.hold) <= 0.0:
+				retake(str(id))
+	else:
+		_end_supply()
 	if remnant_cut_off():
 		_tick_remnant(dt)
 	_sync_flags()
@@ -661,17 +677,28 @@ static func quests() -> Array:
 
 
 ## Fraction of a full hold the holders have left at outpost `id` (0..1), or -1
-## when there is no clock (the Remnant's before the cruiser falls, or the
-## Remnant are gone).
+## when there is no clock (the Remnant's before the cruiser falls, the locals'
+## after it, or the Remnant are gone).
 static func hold_frac(id: String) -> float:
 	var f := front_of(id)
 	if driven_off(f) or not outposts(f).has(id):
 		return -1.0
 	if owner(id) == REMNANT:
 		return clampf(hold_left(id) / rn("hold_s", 6000.0), 0.0, 1.0) if remnant_clocked(f).has(id) else -1.0
-	if not bool(front(f).clock):
-		return -1.0                           # the moon's locals keep it with no clock
+	if not locals_clocked(f):
+		return -1.0                           # no clock: the moon's locals, or any once the cruiser has fallen
 	return clampf(hold_left(id) / n("hold_s", 900.0), 0.0, 1.0)
+
+
+## The locals' clocks have stopped (the cruiser has fallen): a supply run under
+## way is called off and any resupply quest still open is done (nothing left to
+## run short), as when the Remnant are driven off.
+static func _end_supply() -> void:
+	if supply_out() != "":
+		_cancel_supply()
+	for o in Story.OUTPOSTS:
+		if Quests.state(quest_id(str(o))) == "open":
+			Quests.complete(quest_id(str(o)))
 
 
 ## The job is open again (done, or its outpost is gone).
