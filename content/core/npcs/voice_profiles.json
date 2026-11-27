@@ -10,7 +10,8 @@
     "yard": ["man_serious", "man_gruff"],
     "merchant": ["man_laid_back"],
     "local": ["man_casual", "man_old", "man_southern", "woman_quirky", "woman_confident"],
-    "planet_owner": ["woman_sultry", "woman_warm", "woman_crisp", "woman_bright"]
+    "planet_owner": ["woman_sultry", "woman_warm", "woman_crisp", "woman_bright"],
+    "racer": ["man_dark_tough", "man_harsh", "man_menacing", "woman_cold"]
   },
   "npc_profiles": {
     "cantina_owner": "woman_relaxed",
@@ -26,6 +27,7 @@
     "hostile": "[angry, forceful delivery]",
     "sad": "[sad, subdued delivery]",
     "wary": "[cautious, restrained delivery]",
-    "concerned": "[concerned, gentle delivery]"
+    "concerned": "[concerned, gentle delivery]",
+    "menacing": "[menacing, aggressive delivery]"
   }
 }
