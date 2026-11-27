@@ -63,6 +63,8 @@ func test_getting_away() -> void:
 	assert_true(ev.any(func(e): return e.type == "calm" and e.why == "fled"))
 	assert_true(ev.any(func(e): return e.type == "flag" and e.name == "fled_gate_fight"))
 	assert_true(ev.any(func(e): return e.type == "standing" and int(e.delta) < 0))
+	assert_true(ev.any(func(e): return e.type == "standing" and str(e.cooldown) == "fled"),
+		"the get-away hit is on a cooldown, so slipping garrison after garrison does not drain standing")
 	assert_true(a.remembers())
 
 

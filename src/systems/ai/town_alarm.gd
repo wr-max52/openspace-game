@@ -15,6 +15,8 @@ extends RefCounted
 ##
 ## Events (drain `events`): { type: "alarm", why }, { type: "calm", why },
 ##   { type: "standing", delta, why, cooldown }, { type: "flag", name }
+## The "fled" standing hit carries cooldown "fled": the director keys it by its
+## faction, so getting away from several garrisons in a row costs it once.
 
 enum State { CALM, ALARM }
 
@@ -84,7 +86,7 @@ func update(dt: float, s: Dictionary) -> void:
 		state = State.CALM
 		memory_left = n("memory_s", 300.0)
 		events.append({ "type": "standing", "delta": int(cfg.get("fled_standing", -5)),
-			"why": "Someone shot it out with the Remnant and got away.", "cooldown": "" })
+			"why": "Someone shot it out with the Remnant and got away.", "cooldown": "fled" })
 		events.append({ "type": "flag", "name": "fled_gate_fight" })
 		events.append({ "type": "calm", "why": "fled" })
 
