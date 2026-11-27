@@ -181,6 +181,8 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 		world["landmarks"] = (world.get("landmarks", []) as Array) + (cfg.landmarks as Array)
 	world["ground"] = str(tcfg.get("ground", "terrain"))
 	world["planet"] = id
+	if world.ground != "none" and not (world.get("detail", {}) as Dictionary).has("sight"):
+		world["detail"] = with_sight(world.get("detail", {}), tcfg, cfg)
 	var style := str(cfg.get("style", tcfg.get("default_style", "desert")))
 	# Issue #96: its native people and wild animals, from its own config or its type.
 	var bd: Dictionary = town.get("bounds", {})
@@ -375,6 +377,20 @@ static func _cfg_port(cfg: Dictionary, cc) -> Vector3:
 		return Vector3.INF
 	var r := ball_radius(cfg, cc)
 	return (pc as Vector3) + Vector3(0, ball_radius(cc.planets[near], cc), 0) + GameFlow.vec(cfg.at) + Vector3(0, r, 0)
+
+
+## Issue #717: a world's "detail" with build by sight: the types' default
+## "sight" block, then the type's own ("sight" in types.json) and the planet
+## file's over it, key by key ("hold" replaced whole). A copy.
+static func with_sight(detail: Dictionary, tcfg: Dictionary, cfg: Dictionary) -> Dictionary:
+	var out := detail.duplicate(true)
+	var sight: Dictionary = (types().get("detail", {}).get("sight", {}) as Dictionary).duplicate(true)
+	for over in [tcfg.get("sight", {}), cfg.get("sight", {})]:
+		if over is Dictionary:
+			sight.merge(over, true)
+	if not sight.is_empty():
+		out["sight"] = sight
+	return out
 
 
 ## A world dict for a generated planet: the same shape as content/core/worlds.

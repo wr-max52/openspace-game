@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Build by sight on every planet (2026-11-27)
+
+- **Flying in to a moon, the gas giant or any generated planet builds nothing
+  over the horizon.** Their outposts come in one at a time as they could be
+  seen, as the home planet's already did; from a moon's far side only the
+  outposts on that side are built.
+- **The home planet's ranch villages wait for sight too,** and each one gets its
+  people's alarm, its stands and its droid stand when it comes in.
+- **Every planet gets it for free:** the numbers are a `sight` block in
+  `content/core/planets/types.json`, and a type or a planet file can change
+  them.
+
 ## The racers drive the checkpoints, down the valleys (2026-11-27)
 
 - **NPC racers now drive exactly the course the checkpoints set:** a straight
