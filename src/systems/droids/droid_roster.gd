@@ -483,6 +483,16 @@ func fix_wreck(uid: int) -> Dictionary:
 	return add(str(w.kind), str(w.variant))
 
 
+## A welded wreck the player has no room for, sold on to a droid merchant: it
+## leaves the desert and never joins the roster. Returns the credits paid, or -1.
+func sell_wreck(uid: int) -> int:
+	var w := find_wreck(uid)
+	if w.is_empty():
+		return -1
+	wrecks.erase(w)
+	return resale(str(w.kind))
+
+
 # ---- save -----------------------------------------------------------------------
 
 func to_save() -> Dictionary:

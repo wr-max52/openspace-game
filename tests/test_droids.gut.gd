@@ -344,6 +344,35 @@ func test_controller_make_room_then_weld_the_wreck() -> void:
 	assert_eq(WorldState.droids.wrecks.size(), 0)
 
 
+## Full roster: the droid you just welded can go to the nearest droid merchant
+## instead. It de-spawns, you get its resale price, and your three stay.
+func test_full_roster_sells_the_welded_wreck_to_the_nearest_merchant() -> void:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	for k in ["floating", "cargo", "cargo"]:
+		WorldState.droids.add(k, DroidRoster.pick_variant(k, rng))
+	var mine: Array = WorldState.droids.owned.map(func(d): return int(d.uid))
+	var wid := ctl.spawn_wreck(true)
+	var wn: Node3D = ctl.wreck_nodes[wid]
+	var kind := str(WorldState.droids.find_wreck(wid).kind)
+	ctl.vendor_sites = [
+		{ "id": "far", "label": "Far Merchant", "pos": wn.global_position + Vector3(900, 0, 0), "face": Vector3.ZERO },
+		{ "id": "near", "label": "Near Merchant", "pos": wn.global_position + Vector3(40, 0, 0), "face": Vector3.ZERO },
+	]
+	assert_eq(ctl.nearest_vendor(wn.global_position), 1)
+	assert_eq(ctl.weld_wreck(wid), "menu")
+	assert_eq(ctl.menu.options[0].id, "sell_wreck:%d" % wid, "selling the new one is the first choice")
+	assert_string_contains(str(ctl.menu.options[0].text), "Near Merchant")
+	var credits := WorldState.credits
+	ctl.menu.choose("sell_wreck:%d" % wid)
+	assert_eq(WorldState.credits, credits + DroidRoster.resale(kind), "paid its resale price")
+	assert_false(ctl.wreck_nodes.has(wid), "the wreck is gone")
+	assert_eq(WorldState.droids.wrecks.size(), 0)
+	assert_eq(WorldState.droids.owned.map(func(d): return int(d.uid)), mine, "your three droids stay")
+	await wait_process_frames(3)
+	assert_false(is_instance_valid(wn), "its body de-spawned")
+
+
 # ---- issue #64 ----------------------------------------------------------------
 
 func test_two_of_a_kind_do_not_stack() -> void:
