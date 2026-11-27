@@ -2,7 +2,7 @@
   "id": "ranch_farleap",
   "kind": "ranch",
   "label": "Farleap village",
-  "note": "Ranch villages: a Remnant outpost (its own location, remnant_outpost_farleap) with a few houses round it, one of them tall, four merchant stands and a walled yard with a gate toward the port. Set in the world as a landmark at the outpost's spot (content/core/worlds/port_desert.json), so ships and speeders collide with every building here ('visual': false); src/systems/world/ranches.gd dresses them (houses in the town's building kit by 'look' and 'face', the stands in the town's market kit), stands the armed locals at 'locals' round the fire, the keepers behind the stands, and adds the stands' vendors to the gear's (the port's own vendors, so the same stock and prices) and the droid stand to the droid merchants. Local frame: +x faces the port (the gate). 'pad_half' / 'pad_blend': the level ground under the yard (PlanetTerrain.outpost_flat_sites). Races 4 and 5: Cragfall and Farleap are the two ranch villages on the far side of the planet, each by the far mountains a race crew runs through; their gate faces that crew's start line, not the port (the port is half the planet away).",
+  "note": "Ranch villages: a Remnant outpost (its own location, remnant_outpost_farleap) with a few houses round it, one of them tall, four merchant stands and a walled yard with a gate toward the port. Set in the world as a landmark at the outpost's spot (content/core/worlds/port_desert.json), so ships and speeders collide with every building here ('visual': false); src/systems/world/ranches.gd dresses them (houses in the town's building kit by 'look' and 'face', the stands in the town's market kit), has 'locals', the guard spots round the fire and by the gate (whoever holds the outpost stands there: src/systems/world/remnant_outposts.gd stands 'remnant' troopers while the Remnant hold it, 'local' ranchers while the locals do), the keepers behind the stands, and adds the stands' vendors to the gear's (the port's own vendors, so the same stock and prices) and the droid stand to the droid merchants. Local frame: +x faces the port (the gate). 'pad_half' / 'pad_blend': the level ground under the yard (PlanetTerrain.outpost_flat_sites). Races 4 and 5: Cragfall and Farleap are the two ranch villages on the far side of the planet, each by the far mountains a race crew runs through; their gate faces that crew's start line, not the port (the port is half the planet away).",
   "outpost": "remnant_outpost_farleap",
   "pad_half": 46.0,
   "pad_blend": 30.0,
@@ -326,5 +326,6 @@
       ]
     ]
   },
-  "local": "ranch_local"
+  "local": "ranch_local",
+  "remnant": "outpost_trooper"
 }

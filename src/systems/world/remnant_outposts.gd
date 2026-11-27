@@ -33,6 +33,12 @@ extends Node3D
 ## Issue #425: once the cruiser has fallen the Remnant run short here too; a
 ## friend of theirs pointed at the outpost's resupply quest hands a load over
 ## on walking up (Territory.deliver_remnant).
+## A ranch village's outpost (its location's "village") also holds the village's
+## guard spots (the ranch's "points" "locals": round the fire and by the gate):
+## whoever holds the outpost stands there too, the ranch's "remnant" profile
+## (outpost troopers, in the outpost's Garrison) or its "local" one (armed
+## ranchers, in the locals' garrison there). They change hands with the outpost
+## and count toward taking it (or losing it).
 ##
 ## The moon has outposts of its own (Territory's "moon" front, landmarks in its
 ## planet file): the same building, people and rules, on the moon's ball.
@@ -214,6 +220,8 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 		else:
 			for p in TROOPER_POSTS:
 				parts.append(_add_guard.bind(o, p))
+		for i in village_spots(o).size():
+			parts.append(_add_village_guard.bind(o, i, str(o.side)))
 		if late:
 			_late_ready.append(o)          # issue #693: built after the town's brains: starts its own
 		_queue = parts + _queue          # this outpost's pieces next, then the others
@@ -261,9 +269,10 @@ func droid_specs() -> Array:
 
 const TROOPER_POSTS := ["guard_a", "guard_b", "guard_c"]
 
-func _add_guard(o: Dictionary, key: String) -> NpcBody:
-	var post := _post(o, key)
-	var g: NpcBody = demo.make_soldier("outpost_trooper", post[0], post[1],
+func _add_guard(o: Dictionary, key: String, post: Array = [], soldier := "outpost_trooper") -> NpcBody:
+	if post.is_empty():
+		post = _post(o, key)
+	var g: NpcBody = demo.make_soldier(soldier, post[0], post[1],
 		"%s/%s" % [o.id, key], "npc:%s/%s" % [o.id, key])
 	if g == null:
 		return null
@@ -273,8 +282,9 @@ func _add_guard(o: Dictionary, key: String) -> NpcBody:
 
 
 ## Issue #187: one of the locals' guards on an outpost post, facing out like a trooper.
-func _add_local(o: Dictionary, key: String, soldier: String) -> NpcBody:
-	var post := _post(o, key)
+func _add_local(o: Dictionary, key: String, soldier: String, post: Array = []) -> NpcBody:
+	if post.is_empty():
+		post = _post(o, key)
 	var g: NpcBody = demo.make_soldier(soldier, post[0], post[1],
 		"%s/%s" % [o.id, key], "npc:%s/locals/%s#%d" % [o.id, key, WorldState.count("outposts_taken")])
 	if g == null:
@@ -282,6 +292,45 @@ func _add_local(o: Dictionary, key: String, soldier: String) -> NpcBody:
 	adopt(g, str(o.id))
 	held_by.append(g)
 	return g
+
+
+## The ranch village round outpost `o` ({} = none): its "village" location,
+## laid out in the same frame as the outpost (both landmarks share a spot and yaw).
+func village(o: Dictionary) -> Dictionary:
+	if not o.cfg.has("village"):
+		return {}
+	if _cc == null:
+		_cc = CoreContent.shared()
+	return _cc.get_location(str(o.cfg.village))
+
+
+## The village's guard spots (its "points" "locals"): the outpost's holders stand there too.
+func village_spots(o: Dictionary) -> Array:
+	return village(o).get("points", {}).get("locals", [])
+
+
+## One of `side`'s guards on village spot `i`: the Remnant's trooper (the ranch's
+## "remnant" profile) or an armed rancher (its "local" one).
+func _add_village_guard(o: Dictionary, i: int, side: String) -> NpcBody:
+	var v := village(o)
+	var key := "village_%d" % i
+	var post := _village_post(o, i)
+	if side == Territory.LOCALS:
+		return _add_local(o, key, str(v.get("local", "ranch_local")), post)
+	return _add_guard(o, key, post, str(v.get("remnant", "outpost_trooper")))
+
+
+## Where village spot `i` is and the way its guard faces: at the fire, into it;
+## anywhere else (the gate, the back wall), out, away from the outpost.
+func _village_post(o: Dictionary, i: int) -> Array:
+	var pts: Dictionary = village(o).get("points", {})
+	var here := world_point(o, pts.locals[i])
+	var face: Vector3 = here + (here - (o.origin as Vector3)).normalized()
+	if pts.has("fire"):
+		var fire := world_point(o, pts.fire)
+		if here.distance_to(fire) <= 12.0:
+			face = fire
+	return [here, atan2(face.x - here.x, face.z - here.z)]
 
 
 ## Where someone on post `key` stands and the way they face: [position, yaw].
@@ -370,6 +419,10 @@ func swap(o: Dictionary, side: String) -> void:
 			var g := _add_local(o, str(k), str(posts[k]))
 			if g != null:
 				mine.append(g)
+		for i in village_spots(o).size():
+			var g := _add_village_guard(o, i, side)
+			if g != null:
+				mine.append(g)
 		var folk = folks.get(id, null)
 		if folk == null:
 			folks[id] = demo.make_locals_outpost_garrison(o, mine)
@@ -381,6 +434,10 @@ func swap(o: Dictionary, side: String) -> void:
 		var mine: Array = []
 		for k in TROOPER_POSTS:
 			var g := _add_guard(o, k)
+			if g != null:
+				mine.append(g)
+		for i in village_spots(o).size():
+			var g := _add_village_guard(o, i, side)
 			if g != null:
 				mine.append(g)
 		var gar = garrisons.get(id, null)
