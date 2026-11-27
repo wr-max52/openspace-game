@@ -711,14 +711,17 @@ func _build_ground(o: Dictionary) -> void:
 	body.name = "Ground_" + str(o.id)
 	var cs := CollisionShape3D.new()
 	cs.shape = hm
-	cs.scale = Vector3(GROUND_STEP, 1.0, GROUND_STEP)
 	body.add_child(cs)
 	add_child(body)
 	var sp := _ball(ground.terrain)
 	if sp != null:
+		# Issue #802: a uniform scale with the heights in cells, as the near ground
+		# does (_ground_heights divides them by the step).
+		cs.scale = Vector3(GROUND_STEP, GROUND_STEP, GROUND_STEP)
 		var m := sp.world_to_map(c)
 		body.global_transform = sp.patch_frame(m.x, m.y)   # on the ball's own up there (see _ground_heights)
 	else:
+		cs.scale = Vector3(GROUND_STEP, 1.0, GROUND_STEP)
 		body.global_position = Vector3(c.x, 0.0, c.z)
 
 
@@ -731,12 +734,20 @@ var _heights := {}                  ## issue #693: outpost id -> { at, task, out
 ## ground is built: far round the ball "up" is nowhere near the world's +y (on the
 ## far side it points nearly down), and a world-vertical heightmap of an outpost
 ## out there stood on the other side of the planet, so its people fell through.
+## Issue #802: on a ball it sits PlanetTerrain.TOWN_SINK under the true sand, as
+## the town's collider does, so wherever the player's near ground is (it reaches
+## 128 m round them) its exact heights are the ones underfoot, not whichever of
+## the two grids is a hair higher. Heights in cells (divided by the step), for a
+## uniform scale.
 static func _ground_heights(terrain: WorldTerrain, c: Vector3) -> PackedFloat32Array:
 	var n := int(GROUND_HALF * 2.0 / GROUND_STEP) + 1
 	var sp := _ball(terrain)
 	if sp != null:
 		var m := sp.world_to_map(c)
-		return sp.patch_rows(m.x, m.y, n - 1, GROUND_STEP, 2.0, 0, n).heights   # 2.0: height_at's own grow
+		var hs: PackedFloat32Array = sp.patch_rows(m.x, m.y, n - 1, GROUND_STEP, 2.0, 0, n).heights   # 2.0: height_at's own grow
+		for i in hs.size():
+			hs[i] = (hs[i] - PlanetTerrain.TOWN_SINK) / GROUND_STEP
+		return hs
 	var heights := PackedFloat32Array()
 	heights.resize(n * n)
 	for j in n:
