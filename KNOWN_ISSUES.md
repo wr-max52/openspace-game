@@ -121,7 +121,10 @@ each PR checked and measured, are in the archive under "The per-PR log".
     just vanishes); the pad's orbital fight still starts at the old edge with its
     "Contact!" toast; the interceptor only fights in the air and goes home if you
     land. The ALT read-out jumps at a switch (it is the true number for where
-    you are). *(2026-10-27 to 2026-10-29)*
+    you are). Landed across a mountain's step, a ship tilts at most 15° onto
+    the higher shelf; for the first moment after the planet loads (the rock's
+    shape is still being worked out) a ship reads the old round shelves.
+    *(2026-10-27 to 2026-10-29; mountain rock, 2026-11-26)*
 14. **Small ones:** speeders past the fourth park on top of the first spots;
     Skrugs's bench box is there in story too (only its menu is free roam);
     shelter from "no air" is a plan-view check, and a speeder counts as shelter;

@@ -256,6 +256,10 @@ static func _box_contrib(b: Dictionary, p: Vector3, h: float) -> float:
 
 
 static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
+	if c.has("top_job") and (c.top_job as RockMountain.TopJob).done():
+		return _surface_contrib(c, p, h) if c.has("inv") else h
+	if c.has("inv"):
+		return h            # a mountain's tops, still being made: its tiers stand in
 	var up: Vector3 = c.get("up", Vector3.UP)
 	var rel: Vector3 = p - (c.center as Vector3)
 	var along := rel.dot(up)
@@ -265,6 +269,16 @@ static func _column_contrib(c: Dictionary, p: Vector3, h: float) -> float:
 	if top <= along + 0.5:
 		return minf(h, along - top)
 	return h
+
+
+## A mountain's rock tops (RockMountain.columns' `<id>_top`): the highest top under
+## p no more than 0.5 m above it, measured along the mountain's up.
+static func _surface_contrib(c: Dictionary, p: Vector3, h: float) -> float:
+	var lp: Vector3 = (c.inv as Transform3D) * p
+	if lp.x * lp.x + lp.z * lp.z > float(c.radius) * float(c.radius):
+		return h
+	var top := RockMountain.top_at((c.top_job as RockMountain.TopJob).surface, lp.x, lp.z, lp.y + 0.5)
+	return minf(h, lp.y - top) if top > -INF else h
 
 
 static func _boulder_contrib(bd: Dictionary, p: Vector3, h: float) -> float:
@@ -301,6 +315,9 @@ func _height_above_linear(p: Vector3, h_start: float) -> float:
 		if top <= lp.y + 0.5:
 			h = minf(h, lp.y - top)
 	for c in columns:
+		if c.has("top_job"):
+			h = _column_contrib(c, p, h)
+			continue
 		var up: Vector3 = c.get("up", Vector3.UP)
 		var rel: Vector3 = p - (c.center as Vector3)
 		var along := rel.dot(up)
@@ -606,10 +623,14 @@ static func _rise_local(rise: String, yaw: float) -> String:
 ## margin), so the columns are exactly the rocks on screen. Sizes follow its meshes:
 ##   mesa   -- tapered shelf, its feet buried 2 m under the ground
 ##   hoodoo -- a spire (DesertLandforms.spire_spots): its body's column, its height tall
-func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
+##
+## `drawn` (DesertLandforms.drawn_ids, on the ball): only the mountains, spires and
+## short hoodoos the look built; it also leaves out those in a landmark's or a
+## racing line's clearing. Empty: every one outside keep_out.
+func add_landforms(data: Dictionary, keep_out: Rect2, drawn: Dictionary = {}) -> void:
 	var clear := keep_out.grow(float(data.get("keep_out_margin", 25.0)))
 	if sphere() != null:
-		_add_landforms_on_ball(data, clear)
+		_add_landforms_on_ball(data, clear, drawn)
 		return
 	for m in data.get("mesas", []):
 		if not clear.grow(float(m[2])).has_point(Vector2(m[0], m[1])):
@@ -627,12 +648,13 @@ func add_landforms(data: Dictionary, keep_out: Rect2) -> void:
 
 ## Issue #77: the same columns, standing along the ball's up at their map spot
 ## (where DesertLandforms puts them).
-func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
+func _add_landforms_on_ball(data: Dictionary, clear: Rect2, drawn: Dictionary = {}) -> void:
 	var sp := sphere()
+	var shown := func(id) -> bool: return drawn.is_empty() or drawn.has(str(id))
 	var mountains := DesertLandforms.mountain_spots(data, sp)
 	for m in mountains:
 		var map: Vector2 = m.map
-		if not clear.grow(float(m.plan.radius)).has_point(map):
+		if not clear.grow(float(m.plan.radius)).has_point(map) and shown.call(m.id):
 			columns.append_array(RockMountain.columns(sp, map, m.plan, str(m.id)))
 	if mountains.is_empty():
 		for m in data.get("mesas", []):
@@ -644,14 +666,14 @@ func _add_landforms_on_ball(data: Dictionary, clear: Rect2) -> void:
 					"radius": float(m[2]) * 0.9, "up": sp.up_at(base), "h": h, "top": base.y + h })
 	for s in DesertLandforms.spire_spots(data, sp):
 		var map: Vector2 = s.map
-		if not clear.grow(float(s.radius)).has_point(map):
+		if not clear.grow(float(s.radius)).has_point(map) and shown.call(s.id):
 			var base := sp.surface_at(map.x, map.y)
 			var h := float(s.height)
 			columns.append({ "id": s.id, "kind": "hoodoo", "center": base,
 				"radius": float(s.column), "up": sp.up_at(base), "h": h, "top": base.y + h })
 	for hd in DesertLandforms.short_spots(data, sp):
 		var map: Vector2 = hd.map
-		if not clear.grow(float(hd.radius)).has_point(map):
+		if not clear.grow(float(hd.radius)).has_point(map) and shown.call(hd.id):
 			var base := sp.surface_at(map.x, map.y)
 			# Column 0.55r..r, h tall, centred 0.45h up, capped by a 0.9r stone.
 			var h := float(hd.height) * 0.95 + float(hd.radius) * 0.4
@@ -865,7 +887,7 @@ func hit(p: Vector3, r: float) -> String:
 				id = _hit_box(boxes[i], p, r)
 			elif i < nb + nc:
 				rank = nb + _ix_nbd + (i - nb)
-				id = _hit_column(columns[i - nb], p, r)
+				id = _hit_column_or_rock(columns[i - nb], p, r)
 			else:
 				rank = nb + (i - nb - nc)
 				id = _hit_boulder(boulders[i - nb - nc], p, r)
@@ -906,6 +928,37 @@ static func _hit_boulder(bd: Dictionary, p: Vector3, r: float) -> String:
 	if along - r * 0.5 >= float(bd.height) * 0.85 or along + r < 0.0:
 		return ""
 	return "boulder" if (rel - bu * along).length() <= float(bd.radius) * 0.8 + r else ""
+
+
+## A column, or a mountain's rock once its tops are made (RockMountain.columns:
+## its shelves' columns stand in until then, and stand down after).
+func _hit_column_or_rock(c: Dictionary, p: Vector3, r: float) -> String:
+	if c.has("top_job"):
+		var ready := (c.top_job as RockMountain.TopJob).done()
+		if c.has("inv"):
+			return _hit_rock(c, p, r) if ready else ""
+		if ready:
+			return ""
+	return _hit_column(c, p, r)
+
+
+## A sphere of radius r at p against a mountain's rock (its `<id>_top` column,
+## RockMountain.sphere_hits): its centre inside the rock, or its middle against a
+## wall, where a wall is rock standing more than 0.75 r over the ground under the
+## centre (a ramp's slope or a stair's step is not) and over the sphere's lower
+## half (above it is landing, not hitting, as with a box). The rock's prisms
+## reach down to their bottoms, so the tunnel and the caves are open.
+func _hit_rock(c: Dictionary, p: Vector3, r: float) -> String:
+	var lp: Vector3 = (c.inv as Transform3D) * p
+	var s: Dictionary = (c.top_job as RockMountain.TopJob).surface
+	var rr := float(c.radius) + r
+	if lp.x * lp.x + lp.z * lp.z > rr * rr or lp.y - r * 0.5 >= float(s.height):
+		return ""
+	var under := RockMountain.top_at(s, lp.x, lp.z, lp.y + 0.5)
+	var sp := sphere()
+	if sp != null:
+		under = maxf(under, lp.y - sp.height_above_ground(p))
+	return str(c.id) if RockMountain.sphere_hits(s, lp.x, lp.y, lp.z, r, under + r * 0.75) else ""
 
 
 static func _hit_column(c: Dictionary, p: Vector3, r: float) -> String:
@@ -992,6 +1045,11 @@ func _hit_linear(p: Vector3, r: float) -> String:
 		if (rel - bu * along).length() <= float(bd.radius) * 0.8 + r:
 			return "boulder"
 	for c in columns:
+		if c.has("top_job"):
+			var rid := _hit_column_or_rock(c, p, r)
+			if rid != "":
+				return rid
+			continue
 		var cc: Vector3 = c.center
 		if c.has("up"):
 			var up: Vector3 = c.up

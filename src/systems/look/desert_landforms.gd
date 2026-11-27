@@ -25,6 +25,10 @@ var boulder_spots := PackedVector3Array()   ## where they went (the renderer may
 var boulders: Array = []
 ## The spires placed (spire_spots entries), for tests and the boulder fields.
 var spires: Array = []
+## The ids of every mountain, spire and short hoodoo built (id -> true): a rock in
+## a landmark's or a racing line's clearing is not, and WorldGround.add_landforms
+## leaves out the same ones (else a ship hits a rock nobody can see).
+var drawn_ids := {}
 ## The short hoodoos placed (short_spots entries).
 var shorts: Array = []
 ## The ball's mesas where they went, { map: Vector2, radius, height } each, and
@@ -98,6 +102,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 		if solid:
 			_solid_shape(mi, made.shape)
 		spires.append(s)
+		drawn_ids[str(s.id)] = true
 
 	# The original hoodoos, shorter: a fluted column under a cap stone, all round
 	# the ball (the old recipe, beside the tall new spires).
@@ -126,6 +131,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 		if solid:
 			_solid(col)
 		shorts.append(hd)
+		drawn_ids[str(hd.id)] = true
 
 	# Boulders, scattered with a MultiMesh: one draw call for hundreds.
 	var b: Dictionary = data.get("boulders", {})
@@ -401,6 +407,7 @@ func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear:
 		if p.has("tunnel") and not (m.get("lights", {}) as Dictionary).is_empty():
 			mi.add_child(_runner_lights(p.tunnel, m.lights))
 		mesa_spots.append({ "map": map, "radius": radius, "height": float(p.height) })
+		drawn_ids[str(m.id)] = true
 
 
 ## A tunnel's runner lights: small glowing blocks low on both walls every
