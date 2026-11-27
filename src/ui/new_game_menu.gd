@@ -1,7 +1,8 @@
 class_name NewGameMenu
 extends CanvasLayer
 ## Issue #200: New Game asks Story or Free Roam. Shown once, on a first launch
-## (no save yet), after the AI notice (DisclaimerOverlay) is accepted; never in a
+## (no save yet), after the graphics question (GraphicsChoiceOverlay) and the AI
+## notice (DisclaimerOverlay) are answered; never in a
 ## headless run. Picking one starts that game in its own save slot
 ## (DevSettingsPanel.new_game) and the town reloads. Later new games, and playing
 ## the other save, are in F11 > Game.
@@ -38,6 +39,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 	var notice := get_parent().get_node_or_null("DisclaimerOverlay")
+	if notice == null or notice.is_queued_for_deletion():
+		notice = get_parent().get_node_or_null("GraphicsChoice")    # no AI notice: after the graphics question
 	if notice != null and not notice.is_queued_for_deletion():
 		notice.accepted.connect(_open)
 	else:
