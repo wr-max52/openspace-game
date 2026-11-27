@@ -1,7 +1,7 @@
 {
   "id": "crooked_mile",
   "label": "Crooked Mile",
-  "note": "Races 4 and 5: the crag crew's course (the fourth rung), on the far side of the planet out of Cragfall village. From the start it runs up the west side and through a tunnel under two peaks (course_mountains crooked_mile in content/look/desert_landforms.json, moved there from round the planet; c1 at the west portal, c2 halfway, c3 at the east portal), then down into a dry wash and seven switchback legs, back and forth, a checkpoint on every leg (c4 to c10) so there is no cutting across. The wash is choked with rock: four tall spires and six short hoodoos moved here from round the planet stand between the legs and inside the hairpins, and boulders moved off the rest of the planet are strewn on and round the track (the boulders' `courses` block), leaving a lane down the racing line itself. clear_m is smaller than the other courses' so the rocks crowd the track. `floors`: the wash and the start straight are level ground (RaceCourse.floor_sites). Same shape as hoodoo_run.json (read its note); everything is plateau x,z (the far side's map is stretched across several times over, so these numbers were laid out in metres on the ground and converted); no track beast.",
+  "note": "Races 4 and 5: the crag crew's course (the fourth rung), on the far side of the planet out of Cragfall village. From the start it runs up the west side and through a tunnel under two peaks (course_mountains crooked_mile in content/look/desert_landforms.json, moved there from round the planet; c1 at the west portal, c2 halfway, c3 at the east portal), then down into a dry wash and seven switchback legs, back and forth, a checkpoint on every leg (c4 to c10) so there is no cutting across. c4 stands at the far (west) end of its leg, past c5: from c4 the next gate is then behind you and you come through it the right way round the hairpin (with c4 at the leg's east end, c5 lay straight ahead with its back to you and riding at it counted nothing; test_race_course checks every gate is reached from the front). The wash is choked with rock: four tall spires and six short hoodoos moved here from round the planet stand between the legs and inside the hairpins, and boulders moved off the rest of the planet are strewn on and round the track (the boulders' `courses` block), leaving a lane down the racing line itself. clear_m is smaller than the other courses' so the rocks crowd the track. `floors`: the wash and the start straight are level ground (RaceCourse.floor_sites). Same shape as hoodoo_run.json (read its note); everything is plateau x,z (the far side's map is stretched across several times over, so these numbers were laid out in metres on the ground and converted); no track beast.",
   "world": "port_desert",
   "near": "ranch_cragfall",
   "laps": 2,
@@ -24,7 +24,7 @@
     { "id": "c1", "at": [-7846.6, 9953.9] },
     { "id": "c2", "at": [-7290.8, 10241.4] },
     { "id": "c3", "at": [-6727.1, 10505.5] },
-    { "id": "c4", "at": [-7100.9, 9906.8] },
+    { "id": "c4", "at": [-7910.2, 9473.0] },
     { "id": "c5", "at": [-7632.1, 9547.3] },
     { "id": "c6", "at": [-7978.8, 9255.2] },
     { "id": "c7", "at": [-7761.0, 9299.4] },

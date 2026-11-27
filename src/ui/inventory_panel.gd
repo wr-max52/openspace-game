@@ -50,6 +50,9 @@ var call_state: Callable          ## issue #368: -> { ok, text } for the Call bu
 var on_called: Callable           ## issue #368: after a call went out (the settings panel closes); optional
 var primary_buttons: Dictionary = {}  ## issue #368: Fleet key -> its Set primary button (tests)
 var call_button: Button           ## issue #368: the primary's Call button (tests), or null
+var call_speeder: Callable        ## slot -> "" (on its way) or a label key why not (SpeederPost.call_speeder); optional
+var speeder_call_state: Callable  ## slot -> { ok, text } for a speeder's Call button (SpeederPost.call_state); optional
+var speeder_call_buttons: Dictionary = {}  ## slot -> its speeder's Call button (tests)
 var title: Label
 var credits_label: Label
 var backpack_label: Label
@@ -263,7 +266,12 @@ func _quest_log(now: String) -> void:
 		return
 	job_rows.append(Objective.line("log_quests"))
 	_heading(jobs, job_rows[-1])
+	# Open quests on top, done or failed below; each half keeps its own order.
+	var open_qs: Array = []
+	var closed_qs: Array = []
 	for q in qs:
+		(closed_qs if (q.done or q.get("failed", false)) else open_qs).append(q)
+	for q in open_qs + closed_qs:
 		var closed: bool = q.done or q.get("failed", false)
 		var id := str(q.id)
 		var head := "%s   (%s)" % [str(q.title).to_upper(), Objective.line("quest_failed" if q.get("failed", false) else ("quest_done" if q.done else "quest_open"))]
@@ -391,8 +399,10 @@ func _owned_rows() -> void:
 ## Your speeders (WorldState "speeders_owned", one fit each in speeder_fits; a fit
 ## names its model, none = the Sand-boxer): the model's name and class, its paint
 ## and parts, what Dorrin pays for it as scrap. They wait in the row outside the
-## back gate, so there is no planet to show.
+## back gate, so there is no planet to show. Call by each brings it to you (home
+## planet only).
 func _speeder_rows() -> void:
+	speeder_call_buttons.clear()
 	var n := WorldState.count("speeders_owned")
 	if n <= 0:
 		return
@@ -415,7 +425,20 @@ func _speeder_rows() -> void:
 		var detail := (", ".join(PackedStringArray(bits)) if not bits.is_empty() else Objective.line("ledger_stock"))
 		detail += "    %d cr" % SpeederUpgrades.scrap_value(fit)
 		owned_rows.append("%s: %s" % [shown, detail])
-		_icon(_line(list, shown, detail, INK), str(cfg.get("icon", SPEEDER_FALLBACK)), INK)
+		var h := _line(list, shown, detail, INK)
+		_icon(h, str(cfg.get("icon", SPEEDER_FALLBACK)), INK)
+		if call_speeder.is_valid():
+			var slot := i
+			var st: Dictionary = speeder_call_state.call(slot) if speeder_call_state.is_valid() else { "ok": true, "text": "Call" }
+			var b := _row_button(h, str(st.get("text", "Call")), func():
+				var why: String = call_speeder.call(slot)
+				if why == "" and on_called.is_valid():
+					on_called.call()
+				elif why != "":
+					owned_rows.append(SpeederPost.call_label(why))
+				refresh())
+			b.disabled = not bool(st.get("ok", true))
+			speeder_call_buttons[slot] = b
 
 
 ## Issue #368: one of your ships: its name (PRIMARY on the one that wakes with you),

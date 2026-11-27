@@ -2,7 +2,8 @@ extends GutTest
 ## Issue #616: race gear. A seeker locks on to a speeder in your nose and hits it;
 ## with nobody in the cone there is no lock; a deflector soaks the first hit and
 ## not the second; a mine goes off under a speeder that drives over it; nitro
-## lasts longer than stock; gear comes from the parts fitted and starts full.
+## lasts longer than stock; gear comes from the parts fitted and starts full; the
+## HUD and the shop name the key that drops a mine.
 
 const DT := 1.0 / 60.0
 
@@ -124,3 +125,13 @@ func test_nitro_lasts_longer_than_stock() -> void:
 	var mods: Dictionary = SpeederUpgrades.part("nitro_2").mods
 	assert_almost_eq(float(nitro.boost_time), float(stock.boost_time) * float(mods.boost_time), 0.01, "a bigger tank by the configured amount")
 	assert_gt(float(nitro.boost_recharge), float(stock.boost_recharge), "and a faster refill")
+
+
+func test_the_hud_and_shop_name_the_key_that_drops_a_mine() -> void:
+	# SpeederNode drops a mine on the "throw" action; the HUD and Dorrin's menu
+	# once said G (the gear toggle), which does nothing on a speeder.
+	var key := SpeederGear.key_of("throw", "?")
+	assert_eq(key, "F", "the throw key is F in project.godot")
+	var gear := SpeederGear.new(SpeederUpgrades.apply(HoverModel.load_config("speeder"), { "parts": ["mines"] }))
+	assert_string_contains(gear.hud_text(), "MINES   3/3 [%s]" % key, "the HUD names the throw key")
+	assert_string_contains(str(SpeederUpgrades.part("mines").get("label", "")), ", %s)" % key, "so does the shop")

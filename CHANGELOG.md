@@ -12,6 +12,32 @@ Plain English, newest on top. One entry per milestone.
   fire under it.
 - Same cost as before: the same puffs and the same noise, no new shader.
 
+## Speeder racers talk over the comms (2026-11-27)
+
+- **You can now hear the racers once a race is on.** Their taunts and threats
+  come over your comms: a scratchy, crackly radio version of their voice, as
+  loud wherever they are on the course, with their words captioned on the HUD.
+  Before, the lines were spoken from the racer like any other NPC, so a racer
+  more than about 55 m off made no sound at all.
+- **When you accept, each crew's leader tells you they'll be on your comms**
+  (a line of their own for each of the five crews), face to face, before they
+  head for their speeders.
+- **Don't keep them waiting.** Not at the start line 20 s after accepting and
+  the leader asks over the comms: "The crowd is waiting for your defeat. Where
+  are you?", then 20 s later "So you're a coward then? Line up when you're
+  ready to race."
+- All the new lines are recorded in the four racer voices, so they play with
+  no ElevenLabs key.
+
+## Heavier explosion sounds (2026-11-27)
+
+- **Every ship, speeder, grenade and blast now goes up with a deeper, heavier
+  boom.** The four explosion sounds are swapped for real recorded blasts from
+  the USC film sound libraries on the Internet Archive (CC0, nothing to
+  license or credit). The old set was thin and two of its four were short pops.
+  Same key (`vehicle_boom`), same four files, same volume; nothing else
+  changed.
+
 ## New version is 1.7.5 (2026-11-27)
 
 - Share builds are now **OpenSpace V1.7.5**. Everything below, down to "New

@@ -376,6 +376,16 @@ func _inventory_tab() -> Control:
 		inventory.call_ship = pilot.call_ship
 		inventory.call_state = pilot.call_state
 		inventory.on_called = close
+	# Your speeders: Call brings one to you (SpeederPost.call_speeder). Looked up
+	# when pressed: the post is built after this page, and only on the home planet.
+	inventory.call_speeder = func(slot: int) -> String:
+		var post = demo.get("speeder_post") if demo != null else null
+		return post.call_speeder(slot) if post != null else "call_away"
+	inventory.speeder_call_state = func(slot: int) -> Dictionary:
+		var post = demo.get("speeder_post") if demo != null else null
+		return post.call_state(slot) if post != null else { "ok": false, "text": SpeederPost.call_label("call_away") }
+	if not inventory.on_called.is_valid():
+		inventory.on_called = close
 	_refreshers.append(inventory.refresh)
 	tabs.tab_changed.connect(func(i):
 		if tabs.get_tab_control(i) == inventory:

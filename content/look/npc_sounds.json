@@ -20,5 +20,6 @@
     "volume_db": -4.0, "shout_db": 0.0, "unit_size": 5.0, "max_distance": 45.0
   },
   "shout_keys": ["halt_hostile", "warn", "contact", "man_down", "hit", "reload", "alarm", "run_found"],
+  "comms": { "note": "Speeder racers talk over the comms once you accept a race (src/systems/voice/npc_voice.gd _play_comms): heard flat, as loud wherever the racer is, on its own bus (made at start if the layout has none, sending to send): cut below high_pass_hz, overdriven (drive 0..1, pre_gain_db, post_gain_db), cut above low_pass_hz. Static under the voice (hiss_s loop, crackle pops a second, made in code at mix_rate) and a squelch click_s long at each end (dying away at click_decay a second). Volumes in dB.", "bus": "Comms", "send": "SFX", "bus_db": 0.0, "high_pass_hz": 500.0, "low_pass_hz": 2800.0, "drive": 0.55, "pre_gain_db": 8.0, "post_gain_db": 6.0, "voice_db": 2.0, "hiss_db": -22.0, "click_db": -12.0, "mix_rate": 22050, "hiss_s": 1.5, "crackle": 6.0, "click_s": 0.12, "click_decay": 30.0 },
   "alarm": { "stream": "res://assets/audio/npc/klaxon_loop.wav", "volume_db": -16.0, "unit_size": 18.0, "max_distance": 220.0, "seconds": 8.0, "note": "issue #80: was -2 dB, far too loud; now a saw-wave beep beep beep pause" }
 }

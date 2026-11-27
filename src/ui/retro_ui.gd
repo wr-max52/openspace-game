@@ -88,6 +88,21 @@ static func apply_scale(tree: SceneTree) -> void:
 	tree.root.content_scale_factor = text_scale
 
 
+## The biggest font size, at most `base`, at which `l`'s text fits in `room`
+## (logical px, what text_scale leaves of the window). A big HUD line shrinks
+## instead of running off a small window or a big text size.
+static func fit_size(l: Label, base: int, room: Vector2) -> int:
+	var f := l.get_theme_font("font")
+	var pad := 2.0 * maxi(l.get_theme_constant("outline_size"), l.get_theme_constant("shadow_outline_size"))
+	var s := base
+	while s > 10:
+		var need := f.get_multiline_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, s) + Vector2(pad, pad)
+		if need.x <= room.x and need.y <= room.y:
+			break
+		s = maxi(10, mini(s - 1, int(s * minf(room.x / need.x, room.y / need.y))))
+	return s
+
+
 static func set_text_scale(tree: SceneTree, v: float) -> void:
 	load_settings()
 	text_scale = clamp_scale(v)
