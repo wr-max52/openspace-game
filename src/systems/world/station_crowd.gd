@@ -433,12 +433,30 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float, cover := 
 	var net: Dictionary = fill.nets.get(key, {}) if fill != null else {}
 	var path: Array = []
 	var face := INF
+	var stop_id := ""
 	if not net.is_empty() and not (net.stops as Array).is_empty():
-		var st: Dictionary = net.stops[_rng.randi() % (net.stops as Array).size()]
-		if cover:                           # issue #605: the nearest, not any
-			for s2 in net.stops:
-				if absf(wrapf(float(s2.a) - a, -PI, PI)) < absf(wrapf(float(st.a) - a, -PI, PI)):
-					st = s2
+		# One person a stop: two at one spot facing one way are one body in two
+		# outfits, flickering through each other. A stop is held from the walk there
+		# until the walk back starts (its id rides on the wait or hide leg).
+		var held := _held_stops(p)
+		var all: Array = net.stops
+		var si := -1
+		if cover:                           # issue #605: the nearest free one, not any
+			for k in all.size():
+				if held.has("%s/%d" % [key, k]):
+					continue
+				if si < 0 or absf(wrapf(float(all[k].a) - a, -PI, PI)) < absf(wrapf(float(all[si].a) - a, -PI, PI)):
+					si = k
+		else:
+			for tries in int(cfg.get("stop_tries", 8)):
+				var k := _rng.randi() % all.size()
+				if not held.has("%s/%d" % [key, k]):
+					si = k
+					break
+		if si < 0:
+			return false                    # every stop tried is someone's: stroll on (or crouch where they are)
+		var st: Dictionary = all[si]
+		stop_id = "%s/%d" % [key, si]
 		var alley := _nearest(net.alleys, float(st.a))
 		if alley == INF:
 			return false
@@ -460,16 +478,25 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float, cover := 
 		var ra := float(room.a)
 		var x := Vector3(cos(ra), 0, sin(ra))
 		var z := x.cross(UP)
-		var side := _rng.randf_range(1.2, 2.8) * (1.0 if _rng.randf() < 0.5 else -1.0)
 		var o := Vector3(c.x, y, c.y)
-		var reach := r0 + _rng.randf_range(1.5, maxf(1.6, deep))
+		# A spot in the room nobody else is standing on (or the roomiest tried).
+		var picks: Array = []
+		var cands: Array = []
+		for tries in int(cfg.get("stop_tries", 8)):
+			var sd := _rng.randf_range(1.2, 2.8) * (1.0 if _rng.randf() < 0.5 else -1.0)
+			var rc := r0 + _rng.randf_range(1.5, maxf(1.6, deep))
+			picks.append(Vector2(sd, rc))
+			cands.append(o + x * rc + z * sd)
+		var pk: Vector2 = picks[_free_spot(cands, _held_points(p, "spot"))]
+		var side := pk.x
+		var reach := pk.y
 		path = [o + x * (rw), o + x * (r0 - 0.6), o + x * (r0 + 1.0), o + x * (r0 + 1.0) + z * side, o + x * reach + z * side]
 		face = atan2(x.x, x.z)
 	if cover:
 		var sc := Scatter.cfg()
 		p.legs.append({ "kind": "go", "pts": [_pt(c, y, rw, a)] + _arc(c, y, rw, a, _angle(c, path[0])) + path,
 			"run": float(sc.get("run_mult", 2.4)) })
-		p.legs.append({ "kind": "hide", "t": Scatter.quiet_s(), "face": face })
+		p.legs.append({ "kind": "hide", "t": Scatter.quiet_s(), "face": face, "stop": stop_id, "spot": path[-1] })
 		var out := path.duplicate()
 		out.reverse()
 		p.legs.append({ "kind": "go", "pts": out })
@@ -477,7 +504,7 @@ func _plan_stop(p: Dictionary, t: Dictionary, f: Dictionary, a: float, cover := 
 	p.legs.append({ "kind": "go", "pts": [_pt(c, y, rw, a)] + _arc(c, y, rw, a, _angle(c, path[0])) + path })
 	var stand_s: Array = cfg.get("stop_s", [4.0, 12.0])
 	p.legs.append({ "kind": "stood" })
-	p.legs.append({ "kind": "wait", "t": _rng.randf_range(float(stand_s[0]), float(stand_s[1])), "face": face })
+	p.legs.append({ "kind": "wait", "t": _rng.randf_range(float(stand_s[0]), float(stand_s[1])), "face": face, "stop": stop_id, "spot": path[-1] })
 	var back := path.duplicate()
 	back.reverse()
 	p.legs.append({ "kind": "go", "pts": back })
@@ -519,12 +546,87 @@ func _plan_lift(p: Dictionary, t: Dictionary, fi: int, a: float) -> bool:
 	var y := float(floors[fi].y)
 	var rw := float(p.rw)
 	var b := _nearest(StationHull.bridge_angles(fi), a)
-	var wait_at := _pt(c, y, hull.shaft_r + 0.8, b)
-	var in_at := _pt(c, y, _rng.randf_range(0.8, 2.6), b + _rng.randf_range(-0.6, 0.6))
+	var wait_at := _lift_spot(p, ci, fi, c, y, b)
+	# Where they stand in the car, clear of everyone else on it or boarding it (at
+	# any floor: they ride at the car's height together).
+	var cands: Array = []
+	for tries in int(cfg.get("stop_tries", 8)):
+		cands.append(_pt(c, y, _rng.randf_range(0.8, 2.6), b + _rng.randf_range(-0.6, 0.6)))
+	var in_at: Vector3 = cands[_free_spot(cands, _held_points(p, "in_at", func(l): return int(l.get("car", -1)) == ci), true)]
 	p.legs.append({ "kind": "go", "pts": [_pt(c, y, rw, a)] + _arc(c, y, rw, a, b) + [_pt(c, y, hull.gap_r + 0.3, b), wait_at] })
 	p.legs.append({ "kind": "board", "car": ci, "fi": fi, "wait_at": wait_at, "in_at": in_at })
-	p.legs.append({ "kind": "ride", "car": ci, "to": to })
+	p.legs.append({ "kind": "ride", "car": ci, "to": to, "in_at": in_at })
 	return true
+
+
+## The stops ("<tower>/<floor>/<index>") someone other than `p` is walking to or
+## standing or crouching at: the id on a wait or hide leg still to come. A leg is
+## gone once done, and the dead and the fighters have none, so nothing to let go.
+func _held_stops(p: Dictionary) -> Dictionary:
+	var out := {}
+	for q in people:
+		if is_same(q, p):
+			continue
+		for l in q.legs:
+			var id := str((l as Dictionary).get("stop", ""))
+			if id != "":
+				out[id] = true
+	return out
+
+
+## Where `p` waits for car `ci` on floor `fi`, on the bridge at angle `b`: a spot
+## of the queue (the config's "lift_queue": from and to metres past the shaft,
+## half_w either side of the bridge's middle) at least spot_gap from everyone else
+## waiting for it there, or the roomiest of the spots tried. All on one point,
+## the queue was one body in several outfits.
+func _lift_spot(p: Dictionary, ci: int, fi: int, c: Vector2, y: float, b: float) -> Vector3:
+	var q: Dictionary = cfg.get("lift_queue", {})
+	var r0 := hull.shaft_r + float(q.get("from", 0.8))
+	var r1 := maxf(r0, hull.shaft_r + float(q.get("to", 3.2)))
+	var hw := float(q.get("half_w", 1.0))
+	var x := Vector3(cos(b), 0.0, sin(b))
+	var side := Vector3(-x.z, 0.0, x.x)
+	var o0 := Vector3(c.x, y, c.y)
+	var cands: Array = []
+	for tries in int(cfg.get("stop_tries", 8)):
+		cands.append(o0 + x * _rng.randf_range(r0, r1) + side * _rng.randf_range(-hw, hw))
+	var others := _held_points(p, "wait_at", func(l): return int(l.get("car", -1)) == ci and int(l.get("fi", -1)) == fi)
+	return cands[_free_spot(cands, others)]
+
+
+## The points under `field` on the legs still to come of everyone but `p`
+## (where they will stand: a room's spot, a lift queue's, a car's), of the legs
+## `keep` passes when given.
+func _held_points(p: Dictionary, field: String, keep: Callable = Callable()) -> Array:
+	var out: Array = []
+	for q in people:
+		if is_same(q, p):
+			continue
+		for l in q.legs:
+			if (l as Dictionary).has(field) and (not keep.is_valid() or keep.call(l)):
+				out.append(l[field])
+	return out
+
+
+## The first of `cands` at least spot_gap (on the floor's plane) from every one of
+## `others` on its level (or at any height, `any_height`: riders share the car's),
+## else the roomiest of them.
+func _free_spot(cands: Array, others: Array, any_height := false) -> int:
+	var gap := float(cfg.get("spot_gap", 0.8))
+	var best := 0
+	var roomiest := -1.0
+	for i in cands.size():
+		var at: Vector3 = cands[i]
+		var room := INF
+		for w: Vector3 in others:
+			if any_height or absf(w.y - at.y) < 1.0:
+				room = minf(room, Vector2(at.x - w.x, at.z - w.z).length())
+		if room >= gap:
+			return i
+		if room > roomiest:
+			roomiest = room
+			best = i
+	return best
 
 
 ## Out along a tunnel's lane, through the tunnel to the other tower, in to its

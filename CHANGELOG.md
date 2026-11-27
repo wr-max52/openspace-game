@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## No more patchwork people on the station (2026-11-26)
+
+- **Station locals no longer stand inside each other.** Everyone waiting for
+  an elevator was sent to the very same point by the shaft door, facing the
+  same way, so two or three waiters merged into one body: a jacket with
+  someone else's hood showing through it, white gloves on one hand, trousers
+  flickering between two colours. The same happened when two people picked the
+  same stall stop, and often in a fight, when everyone near ran to the nearest
+  stall to hide.
+- Now a stall stop is one person's until they walk away (the next picks
+  another, or strolls on; the scared take the nearest free one), and the
+  elevator queue spreads over the bridge, at least 0.8 m apart.
+
 ## Ships land on and hit the mountains' real rock (2026-11-26)
 
 - **A ship set down on a mountain stays on top of it.** The ship used to read
