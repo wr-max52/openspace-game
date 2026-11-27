@@ -170,6 +170,9 @@ var fog_height_density := 0.0        ## the preset's height density (fog.ball_he
 var _shadow_level := 1.0             ## the sun's shadow opacity now, fading to _shadow_target
 var _shadow_target := 1.0
 var _tracked: Array[ShaderMaterial] = []
+## The look in the tree (the last one in, if a probe builds two). ExplosionFx reads
+## its sun and ambient to light smoke.
+static var active: LookEnvironment = null
 var _lamps: Array[Light3D] = []
 var _lamp_mats: Array[StandardMaterial3D] = []
 ## Issue #537: the art bible's grade and vignette. The grade is a 1D LUT (blacks,
@@ -414,7 +417,13 @@ func apply_low() -> void:
 
 
 func _enter_tree() -> void:
+	active = self
 	_apply_render_scale()
+
+
+func _exit_tree() -> void:
+	if active == self:
+		active = null
 
 
 ## Set (and save) the Temporal anti-aliasing setting, and show it at once.
