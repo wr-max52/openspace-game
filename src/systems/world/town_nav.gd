@@ -225,12 +225,16 @@ static func terrain_source(terrain: DesertTerrain, center: Vector3, half_extent:
 			# Recast treats the walkable top as a solid when it is closed. The
 			# buried underside and edge skirts are never walkable, but keep this
 			# small terrain patch bakeable as a bounded volume.
-			# Positive local Y winding (the terrain frame's ground-up axis).
-			faces.append_array(PackedVector3Array([verts[a], verts[c], verts[b],
-				verts[b], verts[c], verts[d]]))
+			# Godot's winding: clockwise seen from the side a face faces, as
+			# box_faces does. Wound the other way the bake took the sand for a
+			# ceiling and the buried underside (79 m down) for the floor, and
+			# outpost troopers walked paths down there that, on the ball, ran
+			# off sideways (they ducked and ran for another outpost).
+			faces.append_array(PackedVector3Array([verts[a], verts[b], verts[c],
+				verts[b], verts[d], verts[c]]))
 			# The underside faces down.
-			faces.append_array(PackedVector3Array([bottom[a], bottom[b], bottom[c],
-				bottom[b], bottom[d], bottom[c]]))
+			faces.append_array(PackedVector3Array([bottom[a], bottom[c], bottom[b],
+				bottom[b], bottom[c], bottom[d]]))
 	# Close the volume around its boundary with vertical, non-walkable skirts.
 	for i in cells:
 		var a := i
@@ -238,21 +242,21 @@ static func terrain_source(terrain: DesertTerrain, center: Vector3, half_extent:
 		var c := cells * (cells + 1) + i
 		var d := c + 1
 		# z = -half_extent (outward -Z)
-		faces.append_array(PackedVector3Array([verts[a], verts[b], bottom[a],
-			verts[b], bottom[b], bottom[a]]))
+		faces.append_array(PackedVector3Array([verts[a], bottom[a], verts[b],
+			verts[b], bottom[a], bottom[b]]))
 		# z = +half_extent (outward +Z)
-		faces.append_array(PackedVector3Array([verts[c], bottom[c], verts[d],
-			verts[d], bottom[c], bottom[d]]))
+		faces.append_array(PackedVector3Array([verts[c], verts[d], bottom[c],
+			verts[d], bottom[d], bottom[c]]))
 		var left_a := i * (cells + 1)
 		var left_c := left_a + cells + 1
 		var right_a := left_a + cells
 		var right_c := left_c + cells
 		# x = -half_extent (outward -X)
-		faces.append_array(PackedVector3Array([verts[left_a], bottom[left_a], verts[left_c],
-			verts[left_c], bottom[left_a], bottom[left_c]]))
+		faces.append_array(PackedVector3Array([verts[left_a], verts[left_c], bottom[left_a],
+			verts[left_c], bottom[left_c], bottom[left_a]]))
 		# x = +half_extent (outward +X)
-		faces.append_array(PackedVector3Array([verts[right_a], verts[right_c], bottom[right_a],
-			verts[right_c], bottom[right_c], bottom[right_a]]))
+		faces.append_array(PackedVector3Array([verts[right_a], bottom[right_a], verts[right_c],
+			verts[right_c], bottom[right_a], bottom[right_c]]))
 	src.add_faces(faces, Transform3D.IDENTITY)
 	for obstruction in obstructions:
 		src.add_projected_obstruction(obstruction.outline, float(obstruction.bottom),
