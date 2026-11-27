@@ -158,7 +158,13 @@ var _repath_s := 1.5
 var _repath_move := 1.5
 var _repath_clock := 0.0
 var _path_goal := Vector3.INF
-var _backoff_t := 0.0                 ## s left stepping back off whatever pinned us
+## The ground's frame the path was handed to the locomotion in (its points and the
+## body's position go through its inverse): the walk is measured along the ground
+## as the controller walks it, not in world x/z, which round the ball's far side
+## is nothing like the ground (troopers there walked off and never arrived).
+var _path_tilt := Basis.IDENTITY
+var _path_origin := Vector3.ZERO      ## ... about this point (small numbers, and a frame kept per goal)
+var _backoff_t := 0.0                ## s left stepping back off whatever pinned us
 var _backoff_dir := Vector3.ZERO
 ## Issue #701: free walk's own stuck check (no path to measure): where the body was
 ## at the start of the window, the window's clock, and the way out once pinned:
@@ -487,7 +493,7 @@ func arrived() -> bool:
 		var d: Vector3 = tilt.inverse() * (command.go_to - global_position)
 		return Vector2(d.x, d.z).length() < 1.0
 	return command.go_to == Vector3.INF or (locomotion.arrived and _path_goal != Vector3.INF \
-		and NpcLocomotion._flat(global_position - _path_goal).length() <= locomotion.arrive_radius + 0.25)
+		and NpcLocomotion._flat(tilt.inverse() * (global_position - _path_goal)).length() <= locomotion.arrive_radius + 0.25)
 
 
 func forward() -> Vector3:
@@ -715,7 +721,11 @@ func _walk(dt: float) -> Vector3:
 		if _backoff_t <= 0.0:
 			_repath(goal)
 		return _backoff_dir * 0.5
-	var out: Dictionary = locomotion.update(dt, global_position, Vector2(velocity.x, velocity.z).length())
+	# In the path's ground frame (_path_tilt): the move comes back in it, which is
+	# the frame the controller walks in (as _free_walk's does).
+	var to_ground := _path_tilt.inverse()
+	var v := tilt.inverse() * velocity
+	var out: Dictionary = locomotion.update(dt, to_ground * (global_position - _path_origin), Vector2(v.x, v.z).length())
 	if out.stuck:
 		stuck_events += 1
 		var m: Vector3 = out.move
@@ -770,14 +780,23 @@ func _repath(goal: Vector3) -> void:
 	var p := nav.path(global_position, goal)
 	repaths += 1
 	_repath_clock = _repath_s
+	# The same goal keeps its frame (the locomotion's stuck window compares goals),
+	# unless the ground has turned under the body by more than a degree or so.
+	if _path_goal == Vector3.INF or goal.distance_to(_path_goal) > _repath_move or tilt.y.dot(_path_tilt.y) < 0.9998:
+		_path_tilt = tilt
+		_path_origin = global_position if tilt != Basis.IDENTITY else Vector3.ZERO   # flat ground: world coordinates, as ever
 	_path_goal = goal
-	last_path_ok = p.size() >= 2 and NpcLocomotion._flat(p[p.size() - 1] - goal).length() < 1.5
+	var to_ground := _path_tilt.inverse()
+	last_path_ok = p.size() >= 2 and NpcLocomotion._flat(to_ground * (p[p.size() - 1] - goal)).length() < 1.5
 	if p.size() < 2:
 		path_failures += 1
 		locomotion.clear()
 		return
 	if not last_path_ok:
 		path_failures += 1      # walk as close as the mesh allows, but say so
+	if _path_tilt != Basis.IDENTITY:
+		for i in p.size():
+			p[i] = to_ground * (p[i] - _path_origin)
 	locomotion.set_path(p)
 
 
@@ -797,7 +816,8 @@ func _stand_on_ground() -> void:
 func _turn(dt: float, move: Vector3) -> void:
 	var want := facing
 	if command.face != Vector3.INF:
-		want = NpcLocomotion.facing_toward(global_position, command.face)
+		var d: Vector3 = tilt.inverse() * (command.face - global_position)   # along the ground, as the yaw turns
+		want = atan2(d.x, d.z)
 	elif move.length() > 0.05:
 		want = atan2(move.x, move.z)
 	elif command.go_to == Vector3.INF:
