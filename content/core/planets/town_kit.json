@@ -31,12 +31,12 @@
       [[-12.0, -8.0], [0.0, -8.0], [0.0, -14.0], [-12.0, -14.0], [-12.0, -8.0]],
       [[-24.0, -4.0], [-14.0, -4.0], [-14.0, 5.0], [-24.0, 5.0], [-24.0, -4.0]]
     ],
-    "bar_note": "Issue #392: the bar is across the dance floor from the stage. 'at' is the counter's centre, 'length' along x and 'depth' along z (metres); its front faces the dance floor. Oda stands 'owner' metres behind its back edge, bar_front is 'front' metres out from its front edge, and the lit canopy covers the counter and Oda's side.",
-    "bar": { "at": [2.0, 15.0], "length": 12.0, "depth": 3.0, "height": 1.1, "owner": 2.0, "front": 2.5 },
+    "bar_note": "Issue #392: the bar is across the dance floor from the stage. 'at' is the counter's centre, 'length' along x and 'depth' along z (metres); its front faces the dance floor. Oda stands 'owner' metres behind its back edge, bar_front is 'front' metres out from its front edge, and the lit canopy covers the counter and Oda's side. Slim (1.2 m deep, its back edge where it always was, so Oda and the back bar stay put) with bar_front 1.2 m off it: standing at the counter you are in reach of her, and the stools and the patrons along it are 1.8 m nearer her than when it was 3 m deep.",
+    "bar": { "at": [2.0, 15.9], "length": 12.0, "depth": 1.2, "height": 1.1, "owner": 2.0, "front": 1.2 },
     "patrons_note": "Armed patrons (local_patron: bottle in hand, holdout pistol, the town's brain) round the bar, scattered along it: [x, z, face x, face z].",
     "patrons": [
-      [-2.6, 12.5, -1.4, 12.2], [-1.4, 12.2, -2.6, 12.5], [4.6, 12.6, 4.6, 14.0],
-      [6.8, 12.2, 7.8, 12.9], [7.8, 12.9, 6.8, 12.2], [-5.4, 15.2, -3.0, 15.0], [9.4, 16.0, 8.0, 15.0]
+      [-2.6, 14.3, -1.4, 14.0], [-1.4, 14.0, -2.6, 14.3], [4.6, 14.4, 4.6, 15.8],
+      [6.8, 14.0, 7.8, 14.6], [7.8, 14.6, 6.8, 14.0], [-4.8, 15.9, -3.0, 15.9], [8.8, 15.6, 7.0, 15.6]
     ],
     "lounge_note": "The lounge round the bar: the port club's leather booths ('face' is the way the seat looks, its back to the other side; 'length' along the back) each with a low table 'table_at' metres in front, and high cocktail tables. Each table has 'people' patrons standing round it 'stand' metres from its middle, facing it, starting 'turn' degrees round. Booths and tables are boxes (they block), drawn in rave colours by ClubDressing.",
     "lounge": {

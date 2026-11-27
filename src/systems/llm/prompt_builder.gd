@@ -48,6 +48,13 @@ var extra_actions: Array = []         ## for a while only (the general's verdict
 func _init(persona_card: Dictionary = {}, briefing_text: Dictionary = {}, reply_schema: Dictionary = {}) -> void:
 	card = persona_card
 	world_text = briefing_text
+	# A card may replace parts of the world briefing ("world_text": the town's
+	# landmarks, which flags it hears of, the time-of-day lines): a moon's or the
+	# station's cantina owner is not in the port and does not see its gate.
+	var own: Dictionary = persona_card.get("world_text", {})
+	if not own.is_empty():
+		world_text = briefing_text.duplicate()
+		world_text.merge(own, true)
 	schema = intify(reply_schema)
 
 

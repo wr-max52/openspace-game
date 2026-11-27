@@ -281,7 +281,8 @@ Players never see these.
 Stubs and fakes: things a player might expect that aren't there.
 
 - **The ring station:** the top floor (cantina, barracks, bridge) and the outpost
-  floor are empty (#314); no cantina, Oda, board or merchant on the giant; the
+  floor are empty (#314); the top floor's cantina has its Oda (smuggling runs
+  from the Remnant's levels to the favela fence) but no contracts; the
   drop hatch is sealed (#317); stalls have no keepers and sell nothing; four pads
   are empty; NPCs can't ride the elevator; the roof hatches need the jetpack; the
   glass middle means you can't drop over the railing; the locals hold it for

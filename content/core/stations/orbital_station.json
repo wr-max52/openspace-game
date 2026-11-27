@@ -105,6 +105,9 @@
     "home_pull": 0.5,
     "calm_back_s": 20.0
   },
+  "cantina_note": "The cantina owner (a new Oda of the planet the station hangs over: PlanetOwner, content/core/npcs/planet_owner.json 'station') behind the bar of the top floor's first cantina (StationHull.cantina_bar; the bar is StationFill._cantina's): 'owner' and 'front' are metres into the room from the bar's wall, she between the back bar (0.3) and the counter (1.85 to 2.55), the bar front where you stand to talk, past the stools (3.0). 'look': hers. She offers this station's smuggling run (content/core/board/bar_board.json j_orbital_smuggle_run). 'drop_rooms': the open rooms a drop can lie in, by floor and use (StationHull.drop_rooms: a marker room_<floor>_<k> in_m metres in from each one's door; content/core/pickups/<town>.json names them): the Remnant's levels, their deck in the second tower and the top floor's barracks and bridge.",
+  "cantina": { "floor": "top", "owner": 1.25, "front": 3.4, "look": "cantina_owner_station" },
+  "drop_rooms": { "in_m": 3.0, "outpost": ["armoury", "bunks", "mess", "control", "command"], "top": ["barracks", "bridge"] },
   "remnant_note": "Issue #314: the Remnant's deck (src/systems/world/station_remnant.gd; its look is the fill's use 'remnant'). One whole floor ('tower', 'floor') whose rooms are by turn 'rooms': control (the cruiser's control room with the planet map over its holo table), bunks, armoury, command, mess; its walkway in their colours with a barricade and a checkpoint at its tunnel. Their troopers ('trooper', the commander 'commander') take their posts once the camera is within wake_within metres and sleep past sleep_m. Kill every one and the locals hold the deck for good (Territory place 'station_<landmark id>', saved with the world): the red is painted over in the locals' colours and, locals_after_s seconds later, guard_share of the posts get the locals' guards ('guard').",
   "remnant": {
     "tower": "second",

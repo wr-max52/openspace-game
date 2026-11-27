@@ -467,7 +467,7 @@ func prompt_text() -> String:
 		return said if said != "" else _l("closed") % str(v.get("label", "vendor")).to_lower()
 	if bool(v.get("bounties", false)) and Heist.collectable("fence"):
 		return Heist.line("collect") % int(Heist.pay("fence", Heist.carrying()).net)     # issue #310
-	if bool(v.get("bounties", false)) and WorldState.bounty_collectable():
+	if WorldState.bounty_pays_at(v):
 		return str(Story.bounty_cfg().get("collect", "%s %d")) % [str(WorldState.bounty.name), int(WorldState.bounty.pay)]
 	var opts := trade_options(v)
 	if (opts.size() == 1 and str(opts[0].id) == "talk") or talks_first(v):
@@ -647,8 +647,8 @@ func _trade(v: Dictionary) -> String:
 		if hud != null:
 			hud.toast(Heist.line("paid") % [int(p.net), crew, int(p.cut)], 5.0)
 		return "heist"
-	if bool(v.get("bounties", false)) and WorldState.bounty_collectable():
-		# Issue #64: the fence pays Oda's bounties.
+	if WorldState.bounty_pays_at(v):
+		# Issue #64: the fence pays Oda's bounties (the contract's own town's fence).
 		var who := str(WorldState.bounty.name)
 		var pay := WorldState.collect_bounty()
 		if hud != null:

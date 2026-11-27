@@ -408,8 +408,10 @@ static func job(id: String) -> Dictionary:
 ## Jobs the cantina owner can offer at this trust tier, not yet taken.
 ##
 ## A smuggling job belongs to its town: the port's drop is offered at the port,
-## the station's on the station. Contracts stay global: off the home planet they
-## are always on the board, without waiting on the port's story.
+## each moon's on that moon, the space station's on the station. A contract is
+## on this planet's own outposts (local_outposts): off the home planet it is
+## always on the board, without waiting on the port's story, and a planet with
+## no outposts of its own (the ringed giant's station) has none.
 static func open_jobs(tier: String) -> Array:
 	var out: Array = []
 	var away := always_jobs_here()
@@ -418,9 +420,11 @@ static func open_jobs(tier: String) -> Array:
 		if jobs_taken.has(str(j.id)):
 			continue
 		var kind := str(j.get("kind", ""))
+		if kind == "" and away:
+			continue                       # the plain jobs are the port's (its range, its pad, its droid merchant)
 		if kind == "smuggle" and (not smuggle_ready() or str(j.get("location", "")) != here):
 			continue
-		if kind == "bounty" and not (bounty_ready() and (away or Story.bounties_open())):
+		if kind == "bounty" and not (bounty_ready() and not local_outposts().is_empty() and (away or Story.bounties_open())):
 			continue
 		if kind == "supply" and (away or Territory.supply_target() == "" or Territory.supplier()):
 			continue
@@ -628,7 +632,8 @@ static func smuggle_goods_text(j: Dictionary = {}, s: Dictionary = {}) -> String
 
 ## Pick job `j`'s next drop: goods from the job, a hiding place from its areas of
 ## the location's drops (never the area of the last drop put out), and where the
-## pointer goes ("near": within DROP_NEAR of it, so there is still a search).
+## pointer goes ("near": within DROP_NEAR of it, or the area's "near_m", so there
+## is still a search).
 ## {} when it has nothing to offer.
 static func _roll_smuggle(j: Dictionary) -> Dictionary:
 	var goods: Array = j.get("goods", [])
@@ -658,7 +663,8 @@ static func _roll_smuggle(j: Dictionary) -> Dictionary:
 	var spots: Array = a.spots
 	var span: Array = g.get("count", [1, 1])
 	var turn := rng.randf() * TAU
-	var r := rng.randf_range(DROP_NEAR * 0.3, DROP_NEAR)
+	var near_m := float(a.get("near_m", DROP_NEAR))     # an area may keep the pointer closer (a room on the station)
+	var r := rng.randf_range(near_m * 0.3, near_m)
 	return {
 		"job": str(j.get("id", "")), "to": str(j.get("deliver_to", "fence")), "item": str(g.item),
 		"count": rng.randi_range(int(span[0]), int(span[1])),
@@ -752,9 +758,32 @@ static func _item(id: String) -> Dictionary:
 # ------------------------------------------------------------------ bounties (issue #64)
 
 ## Oda's other repeating job (kind "bounty"): a named Remnant officer at one of
-## the desert outposts (Story.OUTPOSTS). Taking it puts them there
-## (RemnantOutposts spawns whoever bounty_target() names); killing them makes the
-## bounty collectable at the fence. One at a time.
+## the outposts of the planet it was set on (local_outposts: the port's desert
+## outposts, Story.OUTPOSTS, or a moon's own, Territory's front for that moon).
+## Taking it puts them there (RemnantOutposts spawns whoever bounty_target()
+## names); killing them makes the bounty collectable at that town's fence
+## (bounty_pays_at). One at a time.
+
+
+## The outposts a contract set here can send you to: the planet's own front's.
+## None on a planet with no front of its own (the ringed giant's station): its
+## cantina owner offers no contract rather than one on another planet.
+static func local_outposts() -> Array:
+	var f := Territory.here()
+	if f == Territory.HOME and GameFlow.current_planet_id() != PlanetGen.home_id():
+		return []
+	return Territory.outposts(f)
+
+
+## The town whose fence pays the contract (the port's for a contract from before
+## contracts were local).
+static func bounty_town() -> String:
+	return str(bounty.get("town", "port_town"))
+
+
+## Vendor `v` pays the contract: a fence that pays bounties, in the contract's town.
+static func bounty_pays_at(v: Dictionary) -> bool:
+	return bounty_collectable() and bool(v.get("bounties", false)) and str(v.get("location", "")) == bounty_town()
 
 ## No contract out and none waiting to be paid.
 static func bounty_ready() -> bool:
@@ -797,7 +826,8 @@ static func on_bounty_killed() -> void:
 		set_flag("general_dead")          # issue #213: the general is gone for good
 	change_standing("imperial_remnant", -5)
 	change_standing("locals", 3)
-	log_event(str(Story.bounty_cfg().get("event_killed", "%s was found dead.")) % str(bounty.name))
+	var killed := "event_killed" if bounty_town() == "port_town" else "event_killed_away"
+	log_event(str(Story.bounty_cfg().get(killed, Story.bounty_cfg().get("event_killed", "%s was found dead."))) % str(bounty.name))
 	QuestNews.push("target_killed", str(bounty.name))
 
 
@@ -894,8 +924,11 @@ static func collect_bounty() -> int:
 
 
 static func _bounty_job(j: Dictionary) -> Dictionary:
-	if str(bounty.get("state", "")) == "":
-		_roll_bounty()
+	var st := str(bounty.get("state", ""))
+	if st == "" or (st == "rolled" and bounty_town() != current_town_id()):
+		_roll_bounty()                     # one rolled on another planet and not taken: a fresh one here
+	if not bounty.has("name"):
+		return j.duplicate()               # nowhere here to send anyone (open_jobs never offers it)
 	var out := j.duplicate()
 	var cfg := Story.bounty_cfg()
 	out["text"] = str(cfg.get("offer", "%s %s %s %d")) % [str(bounty.name), Story.outpost_label(str(bounty.outpost)),
@@ -906,8 +939,10 @@ static func _bounty_job(j: Dictionary) -> Dictionary:
 	return out
 
 
-## The next contract: a fresh name, a crime, one of the outposts (the first
-## one is the nearest), and the pay (the story's first bounty pays less).
+## The next contract: a fresh name, a crime, one of this planet's outposts (the
+## first one is the nearest), and the pay (the story's first bounty pays less).
+## It remembers its town: its fence pays it. Only the port's run on a speeder or
+## go on the general.
 static func _roll_bounty() -> void:
 	var cfg := Story.bounty_cfg()
 	var rng := RandomNumberGenerator.new()
@@ -918,26 +953,34 @@ static func _roll_bounty() -> void:
 	var span: Array = cfg.get("pay", [1800, 3200])
 	var first := count("bounties_paid") == 0
 	var last := str(bounty.get("outpost", ""))
-	var choices := Story.OUTPOSTS.filter(func(o): return o != last)
-	if first and general_target():
+	var mine := local_outposts()
+	if mine.is_empty():
+		return
+	var town := current_town_id()
+	var at_home := not always_jobs_here()
+	var choices := mine.filter(func(o): return o != last)
+	if choices.is_empty():
+		choices = mine
+	if first and at_home and general_target():
 		# Issue #213: the man who's been giving you jobs is your first assassination.
 		bounty = {
 			"run": run, "key": "npc:general", "name": str(NpcBrain._read(GENERAL_CARD).get("name", "the general")),
 			"crime": str(cfg.get("general_crime", "He runs this port for the Remnant.")),
 			"outpost": Story.OUTPOSTS[0], "pay": int(cfg.get("first_pay", 1200)), "state": "rolled", "general": true,
+			"town": town,
 		}
 		return
 	var who := NameHooks.person(Story.target_naming(), key)
 	bounty = {
 		"run": run, "key": key, "name": who if who != "" else "the officer",
 		"crime": str(crimes[rng.randi() % crimes.size()]),
-		"outpost": Story.OUTPOSTS[0] if first else str(choices[rng.randi() % choices.size()]),
+		"outpost": str(mine[0]) if first else str(choices[rng.randi() % choices.size()]),
 		"pay": int(cfg.get("first_pay", 1200)) if first else rng.randi_range(int(span[0]), int(span[1])),
-		"state": "rolled",
+		"state": "rolled", "town": town,
 	}
 	# Issue #614: some repeat contracts run for it on a speeder. Never the story's
 	# bounty (its chapter, the general, or any before the first is paid).
-	if runner_allowed() and rng.randf() < float(cfg.get("runner", {}).get("chance", 0.33)):
+	if at_home and runner_allowed() and rng.randf() < float(cfg.get("runner", {}).get("chance", 0.33)):
 		bounty["runner"] = true
 
 
@@ -960,15 +1003,25 @@ static func all_rumors() -> Array:
 				if f.ends_with(".json"):
 					var d = _read_json(RUMOR_DIR + "/" + f)
 					if d is Dictionary and d.has("rumors"):
+						# The town they are about: the file's "location", else its name
+						# (rumors/port_town.json: the port's gate, pit and range).
+						var town := str(d.get("location", f.get_basename()))
+						for r in d.rumors:
+							if r is Dictionary and not r.has("town"):
+								r["town"] = town
 						_rumors.append_array(d.rumors)
 	return _rumors
 
 
 ## Rumors whose conditions hold right now, for a trust tier. Unknown ones first,
-## then by weight, at most `limit`.
+## then by weight, at most `limit`. Only this town's: the port's talk of its gate
+## and its pit is not heard in a moon's club or on the station.
 static func rumors(tier: String, known: Array = [], limit: int = 4) -> Array:
 	var ok: Array = []
+	var here := current_town_id()
 	for r in all_rumors():
+		if str(r.get("town", here)) != here:
+			continue
 		if _conditions_hold(r.get("requires", {}), tier):
 			ok.append(r)
 	ok.sort_custom(func(a, b):

@@ -68,7 +68,7 @@ func test_the_offer_names_the_rock_and_the_station_merchant() -> void:
 	assert_false(j.is_empty())
 	assert_false(str(j.text).contains("%"), "the text is filled in")
 	assert_true(str(j.text).contains("rock"), "it says the drop is out on the rock")
-	assert_true(str(j.text).to_lower().contains("merchant"), "and who buys it")
+	assert_true(str(j.text).to_lower().contains("fence"), "and who buys it")
 
 
 func test_accepting_puts_it_outside_on_the_rock() -> void:
@@ -127,7 +127,7 @@ func test_the_station_merchant_buys_the_goods() -> void:
 	assert_eq(str(fence.location), "grit_station_town")
 	assert_eq(str(fence.marker), "vendor_1", "the merchant in front of the cantina")
 	assert_false(town.get_marker(str(fence.marker)).is_empty())
-	assert_false(bool(fence.get("bounties", true)), "the port's fence still handles bounties")
+	assert_true(bool(fence.get("bounties", false)), "he pays the contracts set on this moon's outposts")
 	var job: Dictionary = WorldState.board().filter(func(j): return str(j.id) == JOB)[0]
 	for g in job.goods:
 		var it: Dictionary = content.get_item(str(g.item))

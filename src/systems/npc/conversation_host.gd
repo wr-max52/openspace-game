@@ -143,6 +143,8 @@ func _build_cantina_owner() -> void:
 	body.global_position = frame * Vector3(stand_x, local.y, local.z)
 	var lf := frame.affine_inverse() * front
 	var face := frame.basis * Vector3(signf(lf.x - stand_x) if lf.x != stand_x else 1.0, 0.0, 0.0)
+	if counter.is_empty() and Vector2(front.x - marker.x, front.z - marker.z).length() > 0.01:
+		face = Vector3(front.x - marker.x, 0.0, front.z - marker.z).normalized()   # a bar with no counter box (the station's): face the bar front
 	body.rotation.y = atan2(face.x, face.z)
 	body.look_at_target = demo._player
 	if demo.use_look:
