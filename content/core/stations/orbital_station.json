@@ -75,10 +75,13 @@
       "top": { "use": "top", "rooms": ["bridge", "cantina", "barracks", "lounge", "garden", "cantina", "barracks", "lounge"] }
     }
   },
-  "crowd_note": "Issue #315: the people aboard (src/systems/world/station_crowd.gd). floors: how many live on each floor (their home: where they start and come back after respawn_s). They walk the walkway at speed m/s, and by turn (stop_share, elevator_share, tunnel_share, else a stroll) go down an alley to stand stop_s seconds at a stall, booth or shack door (the fill's walking net) or into an open room (room_deep metres in), ride an elevator to another floor that has people (by how many live there, and home_pull of the time home), or cross a tunnel to the other tower's floor. Puppets, like the barge's crowd: built one a frame once the camera is within build_within metres, drawn within people_m and show_dy of the camera, posed from one sampled walk cycle at most anim_budget a frame (every frame within anim_near_m, every fourth out to anim_far_m), shadows within shadow_m. Hurt one and the nearest of the armed_share on your floor within rouse_m (no more than rouse_max at once) become the fighter profile where they stand, rouse_per_tick a tick, back to walking calm_back_s after the alarm is down. One person a stall stop at a time (stop_tries random picks, else a stroll; the scared take the nearest free one), and those waiting for an elevator spread over its bridge (lift_queue: from and to metres past the shaft, half_w either side), at least spot_gap metres apart: two people on one spot facing one way read as one body in two outfits. looks: content/look/characters.json.",
+  "crowd_note": "Issue #315: the people aboard (src/systems/world/station_crowd.gd). floors: how many live on each floor (their home: where they start and come back after respawn_s). They walk the walkway at speed m/s, and by turn (stop_share, elevator_share, tunnel_share, else a stroll) go down an alley to stand stop_s seconds at a stall, booth or shack door (the fill's walking net) or into an open room (room_deep metres in), ride an elevator to another floor that has people (by how many live there, and home_pull of the time home), or cross a tunnel to the other tower's floor. Puppets, like the barge's crowd: built one a frame once the camera is within build_within metres, drawn within people_m and show_dy of the camera, posed from one sampled walk cycle at most anim_budget a frame (every frame within anim_near_m, every fourth out to anim_far_m), shadows within shadow_m. Hurt one and the nearest of the armed_share on your floor within rouse_m (no more than rouse_max at once) become the fighter profile where they stand, rouse_per_tick a tick, back to walking calm_back_s after the alarm is down. One person a stall stop at a time (stop_tries random picks, else a stroll; the scared take the nearest free one), and those waiting for an elevator spread over its bridge (lift_queue: from and to metres past the shaft, half_w either side), at least spot_gap metres apart: two people on one spot facing one way read as one body in two outfits. looks: content/look/characters.json. floor_crowd: a floor's own people, instead of the crowd's: the looks they wear and their armed_share, and private (they stay home, never riding the elevators or crossing the tunnels, and nobody from another floor goes there). The suites (homes_2, the rich floor) are the barge bosses' kind: five variations of the barge duke (suite_boss_*), unarmed, who only hide when shooting starts.",
   "crowd": {
     "floors": { "markets": 20, "markets_2": 12, "homes": 24, "homes_2": 10, "engines": 6, "top": 8 },
     "looks": ["station_local"],
+    "floor_crowd": {
+      "homes_2": { "looks": ["suite_boss_gilt", "suite_boss_ruby", "suite_boss_jade", "suite_boss_violet", "suite_boss_frost"], "armed_share": 0.0, "private": true }
+    },
     "speed": [1.1, 1.6],
     "stop_share": 0.45,
     "elevator_share": 0.2,
@@ -199,8 +202,8 @@
   "lights_within": 3000.0,
   "lines": {
     "label": "◇ %s",
-    "dock_hint": "%s  ·  %.1f km  ·  Z to land in its bay",
-    "docking": "Bringing her into %s. Z to take back control.",
+    "dock_hint": "%s  ·  %.1f km  ·  [Z] to land in its bay",
+    "docking": "Bringing her into %s. [Z] to take back control.",
     "docked": "Down in the station's bay.",
     "fell": "You were pulled back into the station.",
     "fell_clouds": "You dropped toward the clouds and the station's tractor pulled you back in.",

@@ -105,7 +105,7 @@ func test_armour_from_the_fence_toasts_to_press_g() -> void:
 func test_a_weapon_pickup_toasts_how_to_change_weapons() -> void:
 	gear._tips_for("rifle_blaster")
 	assert_string_contains(gear.hud.toast_label.text, "[Tab]")
-	assert_string_contains(gear.hud.toast_label.text, "press & hold to see all weapons")
+	assert_string_contains(gear.hud.toast_label.text, "hold [Tab] to see all weapons")
 
 
 func test_tips_wait_for_the_pickup_toast_and_a_new_toast_drops_them() -> void:
@@ -169,7 +169,7 @@ func test_the_move_hint_shows_once_when_you_are_free() -> void:
 	assert_true(GearController.move_hint_shown)
 	assert_eq(gear.hud.toast_label.text, "The general's hint", "it waits for the toast already up")
 	gear.hud._process(5.1)
-	assert_eq(gear.hud.toast_label.text, "WASD or arrow keys to move")
+	assert_eq(gear.hud.toast_label.text, "[W] [A] [S] [D] or arrow keys to move")
 	assert_eq(gear.hud._toast_left, GearController.MOVE_HINT_SECS, "for 5 seconds")
 	gear.hud.toast_label.text = ""
 	gear._tick_move_hint(1.0)

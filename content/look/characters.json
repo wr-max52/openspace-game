@@ -146,6 +146,7 @@
         }
       }
     },
+    "barge_vagabond": {"note": "The party barge's crowd (content/core/barges/party_barge.json crowd_looks): drifters and vagabonds out for the night, made only of the kit's older pieces, no new render and none of the nomad heads. The port's local body (base: local), a little taller; each body picks one of each part at random, so no two match: the brass goggle mask on a hood (goggles, in its teal, oxblood, sand and violet), the player's bandana and goggles, the locals' head scarf or the cantina owner's breather; the player's coat in its colours, the cantina owner's tunic or a local's robe; the player's trousers, the cantina owner's legs or a local's.", "base": "local", "height": 1.82, "model": {"maps": {"cantina_owner_madder": {"orm": "res://assets/characters/kit/colors/cantina_owner_paint_orm.png"}, "cantina_owner_teal": {"orm": "res://assets/characters/kit/colors/cantina_owner_paint_orm.png"}, "cantina_owner_slate": {"orm": "res://assets/characters/kit/colors/cantina_owner_paint_orm.png"}, "cantina_owner_sand": {"orm": "res://assets/characters/kit/colors/cantina_owner_paint_orm.png"}}, "parts": {"head": ["goggles", "goggles:oxblood", "goggles:sand", "goggles:violet", "player", "player", "local", "local:red", "local:blue", "cantina_owner:madder", "cantina_owner:teal"], "torso": ["player", "player:rust", "player:dusk", "player:black", "player:olive", "player:sand", "cantina_owner:madder", "cantina_owner:teal", "local:red", "local:blue", "local:yellow"], "legs": ["player:black", "player:dusk", "player:rust", "player:olive", "player", "cantina_owner:slate", "cantina_owner:madder", "cantina_owner:sand", "local:darker", "local:blue"]}}},
     "cantina_dancer": {
       "note": "Cantina Dancer Patch: the player's body (torso), the cantina owner's legs and a guard's pale head, all pieces of the one kit model (parts.glb) on one skeleton. Only what differs from the player is listed.",
       "base": "player_smuggler",
@@ -196,6 +197,31 @@
       "base": "remnant_trooper",
       "under": "#1c2638", "trim": "#2f5f8a", "cloth": "#1f2f5a", "visor": "#8fd0ff",
       "model": { "parts": { "head": ["guard:navy"], "torso": ["guard:navy"], "legs": ["guard:navy"] } }
+    },
+    "suite_boss_gilt": {
+      "note": "The station's rich floor (orbital_station.json crowd.floor_crowd homes_2): barge bosses at home in their suites. Five variations of the barge duke (base: barge_duke), its one model with no new render: each a cast over the dark metal ('albedo' multiplies every colour) and its tank glowing another colour ('emission'), a little taller or shorter, fatter or thinner, and none carries the locals' props (no_local_props). This one the fattest, brass-warm, its tank amber.",
+      "base": "barge_duke", "height": 1.94, "bulk": 1.15, "no_local_props": true,
+      "model": { "tint": { "albedo": "#ffc860", "emission": "#ffa020" } }
+    },
+    "suite_boss_ruby": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): short and round, a red cast, its tank glowing ruby.",
+      "base": "barge_duke", "height": 1.84, "bulk": 1.08, "no_local_props": true,
+      "model": { "tint": { "albedo": "#ff7a70", "emission": "#ff3a50" } }
+    },
+    "suite_boss_jade": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): the tallest and thinnest, a green cast, its tank glowing jade.",
+      "base": "barge_duke", "height": 2.04, "bulk": 0.94, "no_local_props": true,
+      "model": { "tint": { "albedo": "#78e0a0", "emission": "#3cff94" } }
+    },
+    "suite_boss_violet": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): a violet cast, its tank glowing purple.",
+      "base": "barge_duke", "height": 1.9, "bulk": 1.1, "no_local_props": true,
+      "model": { "tint": { "albedo": "#b890ff", "emission": "#b060ff" } }
+    },
+    "suite_boss_frost": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): a steel-blue cast like the station's cantina owner, its tank glowing cyan.",
+      "base": "barge_duke", "height": 1.98, "bulk": 1.0, "no_local_props": true,
+      "model": { "tint": { "albedo": "#80b4ff", "emission": "#4fe3ff" } }
     }
   }
 }

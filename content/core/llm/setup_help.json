@@ -37,7 +37,7 @@
         "- Ollama URL: http:// plus the host and port, ending in /v1, with no /chat/completions and no trailing slash. Use 127.0.0.1 or localhost, and port 11434 unless OLLAMA_HOST changed it. Use another machine's address (for example http://192.168.1.20:11434/v1) only if I asked for that.",
         "- Ollama model: the tag exactly as ollama list prints it, name:tag. A name with no tag means :latest. Examples: gemma3:4b, gemma3:12b, qwen3:30b-a3b-instruct-2507-q4_K_M.",
         "",
-        "Then tell me to open the game, press F10, paste the two values into Ollama URL and Ollama model, turn on \"AI characters\", set Mode to ollama, and press Save and then Test."
+        "Then tell me to open the game, press [F10], paste the two values into Ollama URL and Ollama model, turn on \"AI characters\", set Mode to ollama, and press Save and then Test."
       ]
     },
     "local": {
@@ -84,7 +84,7 @@
         "- Local URL: http:// plus the host and port, ending in /v1, with no /chat/completions and no trailing slash. Use 127.0.0.1 or localhost. Use another machine's address only if I asked for that. Examples: http://127.0.0.1:8088/v1, http://localhost:8080/v1.",
         "- Local model: the --alias you set, exactly as /v1/models lists it. Examples: cantina-owner, qwen3-4b, qwen3-30b-a3b.",
         "",
-        "Then tell me to open the game, press F10, paste the two values into Local URL and Local model, turn on \"AI characters\", set Mode to local, and press Save and then Test."
+        "Then tell me to open the game, press [F10], paste the two values into Local URL and Local model, turn on \"AI characters\", set Mode to local, and press Save and then Test."
       ]
     },
     "cloud": {
@@ -115,7 +115,7 @@
         "- Cloud URL: https://api.anthropic.com/v1 for the Claude API, with no /messages and no trailing slash. An OpenAI-compatible service also works: https://openrouter.ai/api/v1 with type openai_compat, its own key (sk-or-...) and its model ids (for example anthropic/claude-haiku-4.5). Use that only if I ask.",
         "- Cloud model: an exact API model id. Examples: claude-haiku-5-5, claude-sonnet-5-5.",
         "",
-        "Then tell me to open the game, press F10, and paste the key into Cloud key. Pasting an sk-ant- key fills in the URL, type and model by itself, so I only check them against your values. Then turn on \"AI characters\", tick \"Cloud enabled\", set Mode to cloud, and press Save and then Test. The game keeps the key in its own settings folder, never in the project."
+        "Then tell me to open the game, press [F10], and paste the key into Cloud key. Pasting an sk-ant- key fills in the URL, type and model by itself, so I only check them against your values. Then turn on \"AI characters\", tick \"Cloud enabled\", set Mode to cloud, and press Save and then Test. The game keeps the key in its own settings folder, never in the project."
       ]
     }
   }

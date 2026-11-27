@@ -2,6 +2,20 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-27 — Laser droid settings move to the Ledger; E is its safety
+
+- **Two settings, not one cycle.** The rig used to be one value stepped by E (off,
+  rave, cantina, quiet). Now it is `lasers_on` and `laser_music` (a station id from
+  `upgrades.lasers.modes`), each a button on the droid's Ledger row. The off station
+  is the mode with no music, so "Off" is data like the others.
+- **E beside a laser droid is its safety,** the same as any armed droid. The rig's
+  settings are not something you need while standing next to it in a fight.
+- **Old saves read through, not migrated:** with no `laser_music`, lasers on plays
+  the saved `laser_mode` and lasers off plays nothing, which is what they did.
+- **The upgrade menu closes when nothing is left to buy,** instead of reopening to a
+  "nothing to upgrade" toast that wiped the fitted toast and the [I] tip queued
+  after it (`GearHud.toast` clears the queue).
+
 ## 2026-11-25 — Race pots paid at the finish; race quests are generated per crew
 
 - **A win pays your credits at once** (`WorldState.on_race_won`). Dorrin holding
@@ -2040,3 +2054,37 @@ there; between planets, past every bubble, it is open space, its own place.)
 - Alternative: a `reweight` radius like the long coat's in `prep_character.gd`.
   Rejected: nothing on the legs piece should ever move with the arms, so there
   is no radius to tune. The torso keeps its arm weights (sleeves, gloves).
+
+## A race course is its gates: straight legs, no racing line in the file (2026-11-27)
+
+- **The racers' route and the checkpoints were two lists that drifted apart.**
+  Each course file had its gates and, separately, a hand-drawn smooth racing
+  line the NPC racers followed, swinging 20 m to 1 km outside the gate polygon
+  (the Crooked Mile's switchback hairpins and the Far Leaps' ramps sat entirely
+  off the gate-to-gate legs). Now the file holds only the gates.
+  `RaceCourse.load_course` builds the line from them (`gate_line`: a point every
+  25 m of ground on a straight leg from gate to gate), NPC racers drive straight
+  at the gates (`race_route`, with a first point just past the start line so
+  the grid crosses it square), and the boulders, gate facing, pads and ramps all
+  read that line. Moving a gate moves everything.
+- **Straight on the ground, not on the map.** Far round the ball the map is
+  stretched up to 8 times across, so a straight line on the map is up to 150 m
+  off a straight leg on the Far Leaps. Legs are great circles on the world's
+  ball (`sphere_radius` from the world file; straight on the map on a flat world).
+- **Tunnels are cut along the course's own legs.** A `course_mountains` entry
+  names the course's gate ids it runs through and `run_m` before and after
+  (`RaceCourse.tunnel_path`) instead of its own curved centre line, so a tunnel
+  bends a little at its middle gates and racers never clip its walls. The gate
+  before each tunnel sits on the tunnel's line so you go in straight.
+- **Laid out on the valleys.** Every course was redesigned on the real dune
+  heights (sampled headless, scored by climb, steep faces, side slope and how
+  low each leg sits): long runs down interdune valleys, ridges crossed only at
+  saddles and square on. Courses gained gates where the valleys bend (6-11 gates
+  became 9-13). Hoodoo Run's towers and the Crooked Mile's spires moved beside
+  the new legs; the Salt Flats runs the other way round, so the playa's edge by
+  the tunnel is a drop into the north basin, not a 30 m climb out of it.
+- **A 180 degree hairpin is two gates.** A gate faces the way its two legs run
+  through it, so at a very sharp turn its beam lies along the legs and a racer
+  turning early can miss it. The Crooked Mile's switchbacks turn on two square
+  corners each. An NPC probe (rookie, default and pro drivers, two laps of every
+  course) passed every gate with none missed.

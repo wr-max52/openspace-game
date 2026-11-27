@@ -2,6 +2,90 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The racers drive the checkpoints, down the valleys (2026-11-27)
+
+- **NPC racers now drive exactly the course the checkpoints set:** a straight
+  run from each gate to the next. Before, they followed their own smooth line
+  that swung wide of the gates (on the Crooked Mile and the Far Leaps by
+  hundreds of metres), so the course you raced was not the one they raced.
+- **Every course is re-laid on the dunes.** The legs run down the valleys
+  between the dunes and cross a ridge only at a low saddle, so the tracks read
+  as natural runs instead of a loop drawn over the crests. Courses have a few
+  more checkpoints where the valleys bend (9 to 13 each).
+- **The Salt Flats runs the other way round** now: you come out of the tunnel
+  and drop off the edge of the salt pan into the basin below.
+- **The Crooked Mile's switchbacks are square U-turns** with the rock towers
+  between the rows; Hoodoo Run's towers stand beside its new legs.
+- **Tunnels follow the checkpoints:** each one is cut along the course's own
+  legs, and you line up on it before you go in.
+## Laser droid settings in the Ledger (2026-11-27)
+
+- **Your laser droid's settings are two buttons on its row in the Ledger (I):**
+  **Lasers** turns the lasers on or off, and **Music** steps through Cantina,
+  Rave and Off. They are separate now: music with the lasers dark, or lasers
+  with no music. Both are saved with the droid.
+- **E next to a laser droid is its safety,** like any armed droid of yours.
+- **Buying the laser rig says where to find them:** "Press [I] to change laser
+  droid settings" follows the fitted message.
+- A new rig is dark and quiet. Older saves keep what they had: lasers on still
+  plays its music, lasers off stays quiet.
+
+## Smoke looks like smoke (2026-11-27)
+
+- **Smoke is lit by the sun.** Each puff shades like a lumpy ball: bright on
+  the side facing the sun, dark in its creases and underneath, with a thin
+  glowing rim when the sun is behind it. It follows the time of day.
+- **Explosion and wreck smoke is black soot** that greys as it thins, in place
+  of the flat light-grey puffs. The bottom of fresh smoke glows orange from the
+  fire under it.
+- Same cost as before: the same puffs and the same noise, no new shader.
+
+## Speeder racers talk over the comms (2026-11-27)
+
+- **You can now hear the racers once a race is on.** Their taunts and threats
+  come over your comms: a scratchy, crackly radio version of their voice, as
+  loud wherever they are on the course, with their words captioned on the HUD.
+  Before, the lines were spoken from the racer like any other NPC, so a racer
+  more than about 55 m off made no sound at all.
+- **When you accept, each crew's leader tells you they'll be on your comms**
+  (a line of their own for each of the five crews), face to face, before they
+  head for their speeders.
+- **Don't keep them waiting.** Not at the start line 20 s after accepting and
+  the leader asks over the comms: "The crowd is waiting for your defeat. Where
+  are you?", then 20 s later "So you're a coward then? Line up when you're
+  ready to race."
+- All the new lines are recorded in the four racer voices, so they play with
+  no ElevenLabs key.
+
+## Heavier explosion sounds (2026-11-27)
+
+- **Every ship, speeder, grenade and blast now goes up with a deeper, heavier
+  boom.** The four explosion sounds are swapped for real recorded blasts from
+  the USC film sound libraries on the Internet Archive (CC0, nothing to
+  license or credit). The old set was thin and two of its four were short pops.
+  Same key (`vehicle_boom`), same four files, same volume; nothing else
+  changed.
+
+## New version is 1.7.5 (2026-11-27)
+
+- Share builds are now **OpenSpace V1.7.5**. Everything below, down to "New
+  version is 1.7.4", is in it.
+
+## Graphics and AI are first-start questions, and your save keeps them (2026-11-26)
+
+- **The first time you start the game it asks Low graphics or Full graphics,**
+  then whether to turn on AI characters, then New Game. Full and "Play without
+  AI" are the lit answers; each choice is shown at once.
+- **Neither question shows again after that first start,** whatever you
+  answered. The AI notice no longer comes back on every launch while AI is on;
+  the reminder at the top of each AI conversation stays.
+- **Your save keeps both answers as preferences.** Every save file (story and
+  free roam) carries the graphics choices and AI on or off. Changing one in
+  F11 > Options updates the saves straight away, and loading a save puts its
+  choices back (a save brought to another PC asks nothing and brings them).
+- **Low graphics' pieces are folded under "Advanced graphics settings"** in
+  F11 > Options > Graphics. A click opens the list, another closes it.
+
 ## The seeker launcher gets a digital sight (2026-11-26)
 
 - **The launcher's round scope is now a square blue display** on a bracket on

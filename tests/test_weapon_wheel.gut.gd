@@ -187,19 +187,21 @@ func test_the_wheel_slots_are_the_number_keys() -> void:
 	assert_eq(pw.wheel.id_at(0), "pistol_blaster")
 	assert_eq(pw.wheel.id_at(1), "rifle_blaster")
 	assert_eq(pw.wheel.id_at(2), "sniper_rifle")
-	for i in [3, 4, 5, 6]:
-		assert_eq(pw.wheel.id_at(i), "", "4 to 7 are free for guns to come")
-	assert_eq(pw.wheel.id_at(7), "energy_blade", "the sword is key 8")
+	assert_eq(pw.wheel.id_at(3), "seeker_launcher", "the launcher is key 4")
+	for i in [4, 5]:
+		assert_eq(pw.wheel.id_at(i), "", "5 and 6 are free for guns to come")
+	assert_eq(pw.wheel.id_at(6), "energy_blade", "the sword is key 7")
+	assert_eq(pw.wheel.id_at(7), "plasma_welder", "the welder is key 8, after the sword")
 	assert_eq(pw.wheel.id_at(8), "droid_safety", "and 9 is the droids' safety")
 	assert_almost_eq(pw.wheel.hold_time, 0.2, 0.0001, "read from hand_weapons.json")
 
 
-func test_hold_tab_point_at_slot_8_let_go_draws_the_sword() -> void:
+func test_hold_tab_point_at_slot_7_let_go_draws_the_sword() -> void:
 	var pw: PlayerWeapons = _kit()[0]
 	_tab(pw, true)
 	_frames(pw, 0.3)
 	assert_true(pw.wheel.is_open)
-	_point(pw, WeaponWheel.slot_dir(7))
+	_point(pw, WeaponWheel.slot_dir(6))
 	_tab(pw, false)
 	_frames(pw, 0.6)
 	assert_false(pw.wheel.is_open)

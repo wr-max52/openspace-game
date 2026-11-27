@@ -123,6 +123,25 @@ func test_scripted_lines_have_bundled_clips() -> void:
 	assert_false(ResourceLoader.exists(VoiceScript.bundled_path("never a scripted line", guard)))
 
 
+## Keys are written "[E]", "[LMB]" on the HUD and T-89's tutorial pages; said
+## aloud they are the bare key, the mouse buttons as words, so no bracket reaches
+## the TTS as an audio tag and the tutorial still plays its recorded clips.
+func test_bracketed_keys_are_said_bare() -> void:
+	assert_eq(VoiceScript.spoken_keys("[W] [A] [S] [D] to move, [Shift] to run. [F11] holds the settings."),
+		"W A S D to move, Shift to run. F11 holds the settings.")
+	assert_eq(VoiceScript.spoken_keys("[LMB] fires. With the blade out, [RMB] blocks."),
+		"Left mouse fires. With the blade out, right mouse blocks.")
+	assert_eq(VoiceScript.spoken_keys("[scared] Hold [E]."), "[scared] Hold E.", "audio tags stay")
+	var voice = _voice()
+	var t89 := str(voice.voice_for(voice.profile_for_npc("t89", {})).voice_id)
+	var pages: Array = VoiceScript._read_json("res://content/core/npcs/t89.json").get("tutorial", [])
+	for i in [0, 2, 4, 5, 7]:      # pages with keys that were recorded before they had brackets
+		var page := str(pages[i])
+		assert_true(page.contains("["), "page %d writes its keys in brackets" % i)
+		assert_true(ResourceLoader.exists(VoiceScript.bundled_path(VoiceScript.spoken_keys(page), t89)),
+			"page %d, said aloud, still finds its recorded clip" % i)
+
+
 ## Rival racers talk in dark, aggressive voices of their own (the racer pool,
 ## with a menacing delivery), not the townsfolk's, and every racer voice has the
 ## crews' taunts and jeers recorded.

@@ -109,6 +109,54 @@ func test_buildings_stop_it_but_never_hurt_it() -> void:
 	assert_eq(m.hp, m.max_hp, "no crash damage")
 
 
+## Two rocks with a 2 m slot between them, narrower than the speeder (its body is
+## 2.6 m across), the speeder sitting in it: how it ends up after a Grav Lifter
+## hop down between two crag pillars on the Crooked Mile.
+func _slot() -> HoverModel:
+	var g := WorldGround.new()
+	g.setup({ "terrain": { "extent": 2000.0 } })
+	g.add_box("rock_l", "solid", Vector3(-6, 0, -10), Vector3(-1, 12, 10))
+	g.add_box("rock_r", "solid", Vector3(1, 0, -10), Vector3(6, 12, 10))
+	var m := HoverModel.new(cfg, g)
+	m.place(Vector3.ZERO, 0.0)
+	return m
+
+
+func test_wedged_in_a_slot_it_hops_out_when_you_drive() -> void:
+	var m := _slot()
+	var r := float(cfg.body_radius)
+	assert_ne(m.ground.hit(m.position, r), "", "the slot is narrower than the speeder: it starts wedged")
+	var ev := _drive(m, 0.3, 1.0)
+	assert_false(ev.map(func(e): return str(e.type)).has("unwedged"), "not on the first bump")
+	ev = _drive(m, 1.0, 1.0)
+	var out: Array = ev.filter(func(e): return str(e.type) == "unwedged")
+	assert_eq(out.size(), 1, "pushed at for unwedge_s, it hops out")
+	assert_eq(m.ground.hit(m.position, r), "", "clear of both rocks")
+	assert_almost_eq(m.position.y, float(cfg.hover_height), 0.05, "on the sand at its hover height, not on a rock")
+	assert_lt(m.position.distance_to(Vector3(0, float(cfg.hover_height), 0)), float(cfg.unwedge_m), "near where it was")
+	m.yaw = PI * 0.5 if m.position.x < 0.0 else -PI * 0.5       # face away from the rocks
+	var x0 := m.position.x
+	_drive(m, 1.0, 1.0)
+	assert_gt(absf(m.position.x - x0), 5.0, "and drives off")
+
+
+func test_parked_in_a_slot_it_stays_put() -> void:
+	var m := _slot()
+	var ev := _drive(m, 2.0, 0.0)
+	assert_false(ev.map(func(e): return str(e.type)).has("unwedged"), "nobody driving: it does not move itself")
+	assert_almost_eq(m.position.x, 0.0, 0.01)
+
+
+func test_a_wall_ahead_is_only_a_bump() -> void:
+	var m := _model()
+	m.yaw = -PI * 0.5                # face +x, at the wall
+	var ev := _drive(m, 4.0, 1.0)
+	var types := ev.map(func(e): return str(e.type))
+	assert_has(types, "bump")
+	assert_false(types.has("unwedged"), "clear where it sits: no hop through the wall")
+	assert_lt(m.position.x, 40.0)
+
+
 func test_gunfire_hurts_it_and_can_destroy_it() -> void:
 	var m := _model()
 	assert_false(m.apply_damage(30.0))

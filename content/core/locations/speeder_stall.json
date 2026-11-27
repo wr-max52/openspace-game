@@ -2,10 +2,12 @@
   "id": "speeder_stall",
   "kind": "stall",
   "label": "a speeder mechanic's stall",
-  "note": "A speeder mechanic's stall at a race crew's hangout: Dorrin's shop (SpeederShop) out where the racers hang out, kept by one of his cousins (speeder_upgrades.json 'shops': torrin at the basin crew's, jorrin at the salt crew's). Placed by a crew file's 'shop' block (content/core/racing/crews/), at 'at' in the hangout's frame turned by 'yaw_deg'; built by src/systems/world/speeder_stall.gd. Local frame: +x is the customer's side. 'buildings' are the boxes you bump into (the counter, the parts rack behind it); the awning, crates and the lift pad are looks only. 'points': where the mechanic stands behind his counter, where you stand to talk, and the bay (a lift pad on the sand) where your speeder has to be parked (within the shop's bay_radius) for him to work on it.",
+  "note": "A speeder mechanic's stall at a race crew's hangout: Dorrin's shop (SpeederShop) out where the racers hang out, kept by one of his cousins (speeder_upgrades.json 'shops': torrin at the basin crew's, jorrin at the salt crew's). Placed by a crew file's 'shop' block (content/core/racing/crews/), at 'at' in the hangout's frame turned by 'yaw_deg'; built by src/systems/world/speeder_stall.gd. Local frame: +x is the customer's side. 'buildings' are the boxes you bump into (the counter, the parts rack behind it, and the two walls of patched scrap sheet behind and beside him, the favela's painted metal); the awning, crates, generator, gantry, engine stand and the lift pad are looks only. 'points': where the mechanic stands behind his counter, where you stand to talk, and the bay (a lift pad on the sand) where your speeder has to be parked (within the shop's bay_radius) for him to work on it.",
   "buildings": [
     { "id": "counter", "shape": "box", "size": [1.0, 1.0, 2.8], "position": [0, 0, 0] },
-    { "id": "rack", "shape": "box", "size": [0.7, 1.9, 2.2], "position": [-2.4, 0, 0] }
+    { "id": "rack", "shape": "box", "size": [0.7, 1.9, 2.2], "position": [-2.4, 0, 0] },
+    { "id": "back_wall", "shape": "box", "size": [0.08, 2.6, 3.9], "position": [-3.02, 0, 0] },
+    { "id": "side_wall", "shape": "box", "size": [2.1, 2.4, 0.08], "position": [-1.95, 0, -1.92] }
   ],
   "points": {
     "mechanic": [-1.2, 0, 0],

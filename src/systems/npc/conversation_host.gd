@@ -344,11 +344,13 @@ func _on_llm_finished(turn_id: int, r: Dictionary) -> void:
 		_ai_ready()
 
 
-## Issue #328: AI characters on or off, and (save_now) written to the player's settings.
+## Issue #328: AI characters on or off, and (save_now) written to the player's
+## settings and every save file's preferences (SavePrefs).
 func set_ai_enabled(on: bool, save_now: bool = true) -> void:
 	llm.set_ai_enabled(on)
 	if save_now:
 		llm.config.save_user()
+		SavePrefs.write_saves()
 	if talking and active != null:
 		_refresh_menu(active)
 
@@ -575,7 +577,7 @@ func _offline(s: TalkSpot, turn: Dictionary) -> void:
 		panel.post_notice(str(Disclaimers.data().get("still_loading", "The AI model is still loading: written lines for now.")))
 	else:
 		var why := llm.explain({ "fell_back_from": turn.get("fell_back_from", []), "error": turn.get("error", "") })
-		panel.post_notice(str(Disclaimers.data().get("offline", "AI offline: %s. Canned lines for now; F10 to fix.")) % why)
+		panel.post_notice(str(Disclaimers.data().get("offline", "AI offline: %s. Canned lines for now; [F10] to fix.")) % why)
 	_refresh_menu(s)
 
 
@@ -668,6 +670,9 @@ func _load_save() -> void:
 		return
 	_loaded = true
 	if save.load_from(save_path):
+		# The save's preferences (graphics, AI characters) win over this machine's.
+		if SavePrefs.from_save(save.get_prefs(), self):
+			GraphicsPrefs.show_on(demo)
 		if not _loaded_once and not save.get_world().is_empty():
 			var arrival := WorldState.to_save()     # keep what this session already did
 			WorldState.from_save(save.get_world())

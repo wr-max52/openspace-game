@@ -621,7 +621,9 @@ func carry_out(b: GuardBrain, dt: float) -> void:
 
 
 ## A line over the guard's head for a few seconds (barks; the HUD may also show it).
-func say(text: String, seconds: float = 2.6, shout: bool = false) -> void:
+## `radio`: heard over the comms (a racer on the course): flat and scratchy, as
+## loud wherever they are (NpcVoice.speak).
+func say(text: String, seconds: float = 2.6, shout: bool = false, radio: bool = false) -> void:
 	if _speech == null or dead:
 		return
 	_speech.text = text
@@ -636,7 +638,7 @@ func say(text: String, seconds: float = 2.6, shout: bool = false) -> void:
 	var mood := str(profile.get("voice_mood", ""))
 	if mood == "":
 		mood = "angry" if hostile else ("wary" if faction == "imperial_remnant" else "warm")
-	_voice().speak(text, voice_profile, mood, self, shout)
+	_voice().speak(text, voice_profile, mood, self, shout, false, false, radio)
 
 
 func speaking() -> String:
@@ -1122,15 +1124,17 @@ func _go_limp(was_moving: Vector3) -> void:
 	if look_body == null or joints.is_empty() or not is_inside_tree():
 		return
 	var cfg := Ragdoll.load_config()
-	var kick := Ragdoll.kick_for(global_position, last_hit_from, _last_damage, cfg)
+	var kick := Ragdoll.kick_for(global_position, last_hit_from, _last_damage, cfg, tilt.y)
 	if _blade_sweep != Vector3.ZERO:
 		# Cut down by the sword: the whole body goes flying sideways along the blade.
 		was_moving += _blade_sweep * float(cfg.get("blade_fling", 8.0)) \
-			+ Vector3.UP * float(cfg.get("blade_fling_up", 5.5))
+			+ tilt.y * float(cfg.get("blade_fling_up", 5.5))
 	if _blast_from != Vector3.INF:
 		was_moving += Ragdoll.blast_fling(global_position, _blast_from, _blast_reach, tilt.y, cfg)
 	ragdoll = Ragdoll.new(joints, cfg)
-	ragdoll.start(was_moving, kick, get_world_3d().direct_space_state, [get_rid()])
+	# Falls along the ground's own down: far round the ball (the Blue Basin) world
+	# down runs into the slope and the body slid away.
+	ragdoll.start(was_moving, kick, get_world_3d().direct_space_state, [get_rid()], tilt.y)
 	if look_body.has_meta("skin"):
 		(look_body.get_meta("skin") as SkinnedBody).holds.clear()   # issue #324: the hands let go
 	if look_body.has_meta("weapon"):
@@ -1448,11 +1452,19 @@ static func _gun_of(w: Node3D) -> String:
 ## closes (the carry holds the gun past the kit's left arm). Before the skin's sync.
 ## False (and the gun hands let go) when nothing is held.
 func _close_on_gun(w: Node3D) -> bool:
-	var skin: SkinnedBody = look_body.get_meta("skin")
+	return close_on_gun(kit, look_body, w, blade == null)
+
+
+## _close_on_gun for any kit body with a skin (the party barge's guards hold their
+## rifles this way too). `free_r`: let go of the right hand when nothing is held
+## (false while it holds a blade).
+static func close_on_gun(kit: CharacterKit, body: Node3D, w: Node3D, free_r := true) -> bool:
+	var skin: SkinnedBody = body.get_meta("skin")
+	var joints: Dictionary = body.get_meta("joints")
 	var hold := hold_3p(_gun_of(w) if w != null else "rifle_blaster")
 	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
 	if w == null or not w.visible or r.is_empty() or not skin.bone_of.has("r_wrist"):
-		if blade == null:
+		if free_r:
 			skin.set_hold("r", {})
 		skin.set_hold("l", {})
 		return false
@@ -1464,7 +1476,7 @@ func _close_on_gun(w: Node3D) -> bool:
 		if spec.is_empty() or not spec.has("bar") or not skin.bone_of.has(side + "_wrist"):
 			continue
 		var g := w.transform * _gun_pt(w, spec.get("grip", [0, 0, 0]))
-		if side == "l" and (g - kit.chest_space(look_body, joints.l_shoulder).origin).length() > reach + 0.02:
+		if side == "l" and (g - kit.chest_space(body, joints.l_shoulder).origin).length() > reach + 0.02:
 			continue
 		var z := (w.transform.basis * _v3(spec.bar)).normalized()
 		var p := w.transform.basis * _v3(spec.get("palm", [0, 1, 0]))
@@ -1475,14 +1487,14 @@ func _close_on_gun(w: Node3D) -> bool:
 	# The arms re-aimed so the fists' middles, not the wrists, come to the grips; then
 	# once more by how far the skin's wrist lands from the kit's (its arm is not the
 	# kit's length): one extra sync.
-	_reach_seats(seats, {})
+	_reach_seats(kit, body, seats, {})
 	var err := {}
 	if not seats.is_empty():
-		skin.sync(look_body)
-		var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
+		skin.sync(body)
+		var to_chest := SkinnedBody._rel(body, joints.chest).affine_inverse()
 		for side in seats:
-			err[side] = (to_chest * skin.joint_xf(side + "_wrist")).origin - kit.chest_space(look_body, joints[side + "_wrist"]).origin
-		_reach_seats(seats, err)
+			err[side] = (to_chest * skin.joint_xf(side + "_wrist")).origin - kit.chest_space(body, joints[side + "_wrist"]).origin
+		_reach_seats(kit, body, seats, err)
 	skin.set_hold("r", r, 1.0)
 	var l: Dictionary = (hold.get("hands", {}) as Dictionary).get("l", {})
 	skin.set_hold("l", l, 1.0 if seats.has("l") else HALF_GRIP)
@@ -1492,14 +1504,15 @@ func _close_on_gun(w: Node3D) -> bool:
 const SEAT_POLES := { "r": Vector3(-0.5, -0.7, -0.5), "l": Vector3(0.6, -0.7, -0.4) }
 
 
-func _reach_seats(seats: Dictionary, err: Dictionary) -> void:
+static func _reach_seats(kit: CharacterKit, body: Node3D, seats: Dictionary, err: Dictionary) -> void:
+	var joints: Dictionary = body.get_meta("joints")
 	for side in seats:
 		var hand: Basis = seats[side].hand
 		var elbow: Node3D = joints[side + "_elbow"]
-		var fdir := -kit.chest_space(look_body, elbow).basis.y.normalized()
+		var fdir := -kit.chest_space(body, elbow).basis.y.normalized()
 		var at: Vector3 = seats[side].wrist - (err.get(side, Vector3.ZERO) as Vector3)
-		kit.reach(look_body, side, at + fdir * CharacterKit.HAND_REACH, SEAT_POLES[side])
-		var el := kit.chest_space(look_body, elbow)
+		kit.reach(body, side, at + fdir * CharacterKit.HAND_REACH, SEAT_POLES[side])
+		var el := kit.chest_space(body, elbow)
 		(joints[side + "_wrist"] as Node3D).basis = (el.basis.orthonormalized().inverse() * hand).orthonormalized()
 
 
@@ -1507,10 +1520,15 @@ func _reach_seats(seats: Dictionary, err: Dictionary) -> void:
 ## skin's fist (the skin's arm is not the kit's length, so the kit's IK leaves its
 ## hand beside the grip). The gun keeps its turn, so its aim does not change.
 func _gun_into_fist(w: Node3D) -> void:
-	var skin: SkinnedBody = look_body.get_meta("skin")
+	gun_into_fist(look_body, w)
+
+
+static func gun_into_fist(body: Node3D, w: Node3D) -> void:
+	var skin: SkinnedBody = body.get_meta("skin")
+	var joints: Dictionary = body.get_meta("joints")
 	var hold := hold_3p(_gun_of(w))
 	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
-	var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
+	var to_chest := SkinnedBody._rel(body, joints.chest).affine_inverse()
 	var fist: Vector3 = to_chest * (skin.joint_xf("r_wrist") * skin.grip_frame("r", r).origin)
 	var g := w.transform * _gun_pt(w, r.get("grip", [0, 0, 0]))
 	var miss := fist - g

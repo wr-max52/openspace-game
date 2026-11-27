@@ -39,9 +39,9 @@ const BTN_GAP := 4.0
 const BTN_COL := BTN_W * 2.0 + BTN_GAP
 const LINE_GAP := 6.0
 const HEAD_ICON := Vector2(22, 22)   ## a section heading's icon
-const HINT := "[W/S]  Move    [Enter]  Choose    [Esc]  Walk away"
-const HINT_ALT := "[W/S]  Move    [Enter]  Choose    [Shift+Enter]  %s    [Esc]  Walk away"
-const HINT_BUTTONS := "[W/S]  Move    [A/D]  Button    [Enter]  Choose    [Esc]  Walk away"
+const HINT := "[W]/[S]  Move    [Enter]  Choose    [Esc]  Walk away"
+const HINT_ALT := "[W]/[S]  Move    [Enter]  Choose    [Shift]+[Enter]  %s    [Esc]  Walk away"
+const HINT_BUTTONS := "[W]/[S]  Move    [A]/[D]  Button    [Enter]  Choose    [Esc]  Walk away"
 
 var panel: PanelContainer
 var title_label: Label

@@ -8,7 +8,12 @@ extends CanvasLayer
 ##
 ## Issue #328: AI characters are off by default. On the first launch this asks
 ## whether to turn them on ("Play without AI" is the default and Enter's answer)
-## and emits ai_chosen; after that it shows only while they are on.
+## and emits ai_chosen. It is shown on the first start only: once this machine or
+## the save being played has the answer (SavePrefs.ai_asked) it never shows again,
+## on or off. The reminder at the top of every AI conversation stays.
+##
+## The graphics question (GraphicsChoiceOverlay) comes first: while it is up this
+## waits, hidden, and opens when it is answered.
 
 signal accepted
 signal ai_chosen(on: bool)
@@ -26,11 +31,10 @@ static func show_once(parent: Node) -> DisclaimerOverlay:
 	if Disclaimers.launch_shown or DisplayServer.get_name() == "headless":
 		return null
 	Disclaimers.launch_shown = true
-	var cfg := LLMConfig.new().load_all()
-	if cfg.first_run_asked() and not cfg.ai_enabled():
+	if SavePrefs.ai_asked():
 		return null
 	var o := DisclaimerOverlay.new()
-	o.asking = not cfg.first_run_asked()
+	o.asking = true
 	parent.add_child(o)
 	return o
 
@@ -39,6 +43,14 @@ func _ready() -> void:
 	name = "DisclaimerOverlay"
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var first := get_parent().get_node_or_null("GraphicsChoice")
+	if first != null and not first.is_queued_for_deletion():
+		first.accepted.connect(_build)
+	else:
+		_build()
+
+
+func _build() -> void:
 	var d := Disclaimers.launch()
 	if asking:
 		# The question, then the launch notice's advice (its last paragraph).
@@ -103,6 +115,8 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _button == null:
+		return                  # still waiting on the graphics question
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 		get_viewport().set_input_as_handled()

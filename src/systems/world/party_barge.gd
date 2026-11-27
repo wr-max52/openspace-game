@@ -27,8 +27,9 @@ extends AnimatableBody3D
 ## a late stage (with_barge).
 ##
 ## Three decks, all walkable (box colliders, so what you see is what you stand on):
-##   top       open deck: the band's stage at the bow, a checker dance floor under
-##             an awning, two masts of solar sails, a bar, the boss's dais, the
+##   top       open deck: the band's stage at the bow and, past it, the prow's deck
+##             behind a brass railing (no wall: the bow is part of the party), a
+##             checker dance floor under an awning, two masts of solar sails, a bar, the boss's dais, the
 ##             control panel at the stern; a gangplank down to the sand
 ##   lower     the DJ and a small rave at the bow, a lounge aft, down a ramp from
 ##             the top deck (port side)
@@ -70,7 +71,7 @@ var home := Vector3.ZERO
 var travelled := 0.0
 var boss_hp := 400.0
 var party_frames := 0                 ## frames the crowd and band were animated (traces)
-var people: Array = []                ## { node, body, look, hit, deck, kind, perform, spot, yaw, off, hp, dead, back_at, fall, ragdoll, fighter, armed }
+var people: Array = []                ## { node, body, look, hit, deck, kind, perform, spot, yaw, off, hp, dead, back_at, fall, ragdoll, fighter, armed, groove }
 var band: Array = []                  ## the performers: the band on top, the DJ below
 var boss: Node3D
 var console_spot := Vector3.ZERO      ## local: where you stand at the panel
@@ -103,6 +104,7 @@ var _shapes: Array = []               ## every CollisionShape3D on the body
 var _plank_shapes: Array = []         ## the gangplank's
 var _boss_home := Vector3.ZERO
 var _prompt: Label
+var _keys: Label                     ## the panel's keys, a smaller line under the prompt
 var _music: ClubMusic
 var party_built := false              ## the people on board exist (built near, see party_m)
 var _pending: Array = []              ## people still to build: { look, at, deck, kind, yaw, perform }
@@ -278,6 +280,8 @@ func deck_of(p: Vector3) -> String:
 	if wrecked:
 		return ""
 	var l := global_transform.affine_inverse() * p
+	if _over_prow(l) and l.y >= _y[2] - 0.6 and l.y <= _y[2] + 4.0:
+		return "top"                       # the open bow
 	if absf(l.x) > _W * 0.5 or absf(l.z) > _L * 0.5:
 		return ""
 	if l.y < _y[0] - 0.6 or l.y > _y[2] + 4.0:
@@ -312,15 +316,21 @@ func _box(size: Vector3, at: Vector3, finish: String, solid := true, rot := Basi
 	bm.size = size
 	_part(bm, Transform3D(rot, at), finish, group)
 	if solid:
-		var cs := CollisionShape3D.new()
-		var sh := BoxShape3D.new()
-		sh.size = size
-		cs.shape = sh
-		cs.transform = Transform3D(rot, at)
-		add_child(cs)
-		_shapes.append(cs)
+		var cs := _solid(size, at, rot)
 		if group == "gangplank":
 			_plank_shapes.append(cs)
+
+
+## A box collider with nothing drawn (the railing is drawn thinner than it stops you).
+func _solid(size: Vector3, at: Vector3, rot := Basis.IDENTITY) -> CollisionShape3D:
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = size
+	cs.shape = sh
+	cs.transform = Transform3D(rot, at)
+	add_child(cs)
+	_shapes.append(cs)
+	return cs
 
 
 func _cyl(r: float, h: float, at: Vector3, finish: String, solid := false, rot := Basis.IDENTITY, group := "") -> void:
@@ -414,7 +424,9 @@ func _build_hull() -> void:
 	for sx in [-1.0, 1.0]:
 		_box(Vector3(0.4, wall_h, _L), Vector3(sx * (_W * 0.5 - 0.2), h + wall_h * 0.5, 0), "hull")
 		_box(Vector3(0.5, 0.18, _L + 0.2), Vector3(sx * (_W * 0.5 - 0.2), top + 1.19, 0), "trim", false)   # gunwale
-	_box(Vector3(_W - 0.8, wall_h, 0.4), Vector3(0, h + wall_h * 0.5, -_L * 0.5 + 0.2), "hull")
+	# The bow wall stops at the top deck: past it the deck runs on over the prow
+	# (_build_prow), so the bow is open, behind a railing.
+	_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, -_L * 0.5 + 0.2), "hull")
 	# The stern: solid up to the top deck, a bulwark either side of the gangplank.
 	_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, _L * 0.5 - 0.2), "hull")
 	for sx in [-1.0, 1.0]:
@@ -457,10 +469,11 @@ func _build_top() -> void:
 			_box(Vector3(w + 0.3, 0.16, 0.16), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.85 - 0.5 * hgt * sin(0.16)), "trim", false)   # yard
 			_box(Vector3(w + 0.3, 0.12, 0.12), Vector3(0, y - hgt * 0.5 - 0.06, mz + 0.85 + 0.5 * hgt * sin(0.16)), "trim", false)
 			_box(Vector3(0.12, 0.12, 0.85), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.42 - 0.5 * hgt * sin(0.16)), "trim", false)    # to the mast
-	# The band's stage at the bow (low enough to step up) and its back wall.
+	# The band's stage at the bow (low enough to step up). No wall behind it: the
+	# open prow is past it.
 	var sz := bow + STAGE_D * 0.5
 	_box(Vector3(_W - 1.2, 0.12, STAGE_D), Vector3(0, top + 0.06, sz), "stage")
-	_box(Vector3(_W - 1.2, 3.4, 0.2), Vector3(0, top + 1.7, bow + 0.15), "hull", false)
+	_build_prow()
 	# The awning over the dance floor, on brass poles.
 	var a0 := bow + STAGE_D + 0.4
 	var a1 := -6.6
@@ -487,6 +500,73 @@ func _build_top() -> void:
 	# The control panel near the stern, starboard: you stand aft of it, facing the bow.
 	console_spot = Vector3(3.6, top + 0.05, 17.1)
 	_box(Vector3(1.8, 1.0, 0.8), Vector3(3.6, top + 0.5, 16.1), "console")
+
+
+## Stations along the prow, 0 at the bow wall to 1 at its tip (BargeLook's hull
+## skin is drawn through the same ones).
+const PROW_KS := [0.0, 0.2, 0.4, 0.6, 0.78, 0.92, 1.0]
+const RAIL_H := 1.05                               ## the bow railing's top, over the deck
+
+
+## Half the hull's width at the gunwale, `k` of the way out along the prow.
+static func prow_half(k: float, width: float) -> float:
+	return (width * 0.5 + 0.15) * pow(maxf(0.0, cos(k * PI * 0.5)), 0.75)
+
+
+## The prow's edge at the top deck's height, port side, bow wall to tip (local).
+func prow_edge() -> PackedVector3Array:
+	var prow := float(cfg.get("prow_m", 6.0))
+	var out := PackedVector3Array()
+	for k in PROW_KS:
+		out.append(Vector3(prow_half(k, _W), _y[2], -_L * 0.5 - prow * k))
+	return out
+
+
+## Whether a local point is over the prow's deck (ahead of the bow wall).
+func _over_prow(l: Vector3) -> bool:
+	var prow := float(cfg.get("prow_m", 6.0))
+	if l.z >= -_L * 0.5 or l.z < -_L * 0.5 - prow:
+		return false
+	return absf(l.x) <= prow_half((-_L * 0.5 - l.z) / prow, _W)
+
+
+## The open bow: the top deck runs on over the prow to its tip (one convex slab to
+## stand on; BargeLook lays the planks over it), behind a brass railing that stops
+## you at its edge.
+func _build_prow() -> void:
+	var top := float(_y[2])
+	var edge := prow_edge()
+	var pts := PackedVector3Array()
+	for e in edge:
+		for sx in [-1.0, 1.0]:
+			pts.append(Vector3(e.x * sx, top, e.z))
+			pts.append(Vector3(e.x * sx, top - 0.3, e.z))
+	var cs := CollisionShape3D.new()
+	var sh := ConvexPolygonShape3D.new()
+	sh.points = pts
+	cs.shape = sh
+	add_child(cs)
+	_shapes.append(cs)
+	# The railing: posts just inside the edge, from the end of each side's bulwark
+	# round the tip, a top rail and a middle one.
+	var rail := PackedVector3Array()
+	for i in edge.size() - 1:
+		rail.append(Vector3(minf(edge[i].x - 0.15, _W * 0.5 - 0.2), top, edge[i].z))
+	rail.append(Vector3(0.0, top, edge[edge.size() - 1].z + 0.22))
+	for i in range(edge.size() - 2, -1, -1):
+		rail.append(Vector3(-rail[i].x, top, rail[i].z))
+	for i in rail.size():
+		_cyl(0.045, RAIL_H, rail[i] + Vector3(0, RAIL_H * 0.5, 0), "brass")
+		if i == rail.size() - 1:
+			break
+		var a: Vector3 = rail[i]
+		var b: Vector3 = rail[i + 1]
+		var rot := Basis.looking_at(b - a, Vector3.UP)
+		var mid := (a + b) * 0.5
+		var length := a.distance_to(b)
+		_box(Vector3(0.06, 0.06, length + 0.04), mid + Vector3(0, RAIL_H, 0), "brass", false, rot)
+		_box(Vector3(0.04, 0.04, length), mid + Vector3(0, RAIL_H * 0.5, 0), "brass", false, rot)
+		_solid(Vector3(0.12, RAIL_H + 0.1, length + 0.06), mid + Vector3(0, (RAIL_H + 0.1) * 0.5, 0), rot)
 
 
 func _build_below() -> void:
@@ -607,18 +687,35 @@ func _plan_people() -> void:
 	# keep dancing when a fight starts (_provoke).
 	var share := clampf(float(cfg.get("armed_share", 1.0)), 0.0, 1.0)
 	var dancers := [0]
-	var add := func(look_id: String, at: Vector3, deck: String, kind: String, yaw: float, perform: String) -> void:
+	var add := func(look_id: String, at: Vector3, deck: String, kind: String, yaw: float, perform: String, groove := false) -> void:
 		var armed := true
 		if kind == "dancer":
 			armed = floori((dancers[0] + 1) * share) > floori(dancers[0] * share)
 			dancers[0] += 1
-		_pending.append({ "look": look_id, "at": at, "deck": deck, "kind": kind, "yaw": yaw, "perform": perform, "armed": armed })
-	for i in int(crowd.get("top", 12)):
-		add.call(looks[i % looks.size()], _free_spot("top"), "top", "dancer", INF, "")
-	for i in int(crowd.get("lower", 7)):
-		add.call(looks[(i + 1) % looks.size()], _free_spot("lower"), "lower", "dancer", INF, "")
-	for i in int(crowd.get("steerage", 9)):
-		add.call(looks[(i + 2) % looks.size()], _free_spot("steerage"), "steerage", "dancer", INF, "")
+		_pending.append({ "look": look_id, "at": at, "deck": deck, "kind": kind, "yaw": yaw, "perform": perform, "armed": armed, "groove": groove })
+	# The crowd stands where 'crowd_spots' puts them (on both dance floors, round
+	# every table, at the bow), each facing what it names; "groove" ones dance in
+	# place like the guards, the rest dance the cantina's dance. Without spots, a
+	# count a deck at random clear spots ('crowd').
+	var spots: Array = cfg.get("crowd_spots", [])
+	for i in spots.size():
+		var s: Dictionary = spots[i]
+		var deck := str(s.get("deck", "top"))
+		var y: float = _y[2] if deck == "top" else (_y[1] if deck == "lower" else _y[0])
+		var a: Array = s.get("at", [0, 0])
+		var at := Vector3(float(a[0]), y, float(a[1]))
+		var yaw := INF
+		if s.has("face"):
+			var f: Array = s.face
+			yaw = atan2(float(f[0]) - at.x, float(f[1]) - at.z)
+		add.call(str(looks[i % looks.size()]), at, deck, "dancer", yaw, "", str(s.get("move", "dance")) == "groove")
+	if spots.is_empty():
+		for i in int(crowd.get("top", 12)):
+			add.call(looks[i % looks.size()], _free_spot("top"), "top", "dancer", INF, "")
+		for i in int(crowd.get("lower", 7)):
+			add.call(looks[(i + 1) % looks.size()], _free_spot("lower"), "lower", "dancer", INF, "")
+		for i in int(crowd.get("steerage", 9)):
+			add.call(looks[(i + 2) % looks.size()], _free_spot("steerage"), "steerage", "dancer", INF, "")
 	# The cantina's band on the stage at the bow, facing aft over the dance floor.
 	var bz := -_L * 0.5 + 0.4 + STAGE_D * 0.45
 	var kinds: Array = cfg.get("band", ["drum", "bass"])
@@ -644,6 +741,7 @@ func _build_party() -> void:
 	var s: Dictionary = _pending.pop_front()
 	var p := _add_person(s.look, s.at, s.deck, s.kind, s.yaw)
 	p.armed = s.armed
+	p.groove = s.groove
 	if s.perform != "":
 		p.perform = s.perform
 		band.append(p)
@@ -698,7 +796,7 @@ func _add_person(look_id: String, at: Vector3, deck: String, kind: String, yaw :
 		holder.add_child(body)
 	var p := { "node": holder, "body": body, "look": look_id, "deck": deck, "kind": kind, "perform": "", "off": _rng.randf() * 30.0,
 		"spot": at, "yaw": holder.rotation.y, "beat": 0.0, "hp": float(cfg.get("person_hp", 60)), "dead": false,
-		"back_at": 0.0, "fall": 0.0, "rest": body.transform, "ragdoll": null, "fighter": null, "armed": true }
+		"back_at": 0.0, "fall": 0.0, "rest": body.transform, "ragdoll": null, "fighter": null, "armed": true, "groove": false }
 	p.hit = _hit_for(p)
 	people.append(p)
 	return p
@@ -841,7 +939,7 @@ func _animate(dt: float) -> void:
 			if joints.has("pelvis"):
 				(joints.pelvis as Node3D).position = Vector3(0.0, float(cp.pelvis_y), 0.0)
 			body.rotation.y = 0.0
-		elif p.kind == "dancer":
+		elif p.kind == "dancer" and not p.groove:
 			var pose: Dictionary = BodyAnimatorT.dance_pose(t)
 			for jn in pose.joints:
 				if joints.has(jn):
@@ -853,7 +951,7 @@ func _animate(dt: float) -> void:
 		elif p.kind == "band" and p.perform != "":
 			_perform(p, joints, _t, bpm, kit)
 		else:
-			# Guards and the boss: a nod, a sway and a bounce on the beat.
+			# Guards, the boss and the crowd's groovers: a nod, a sway and a bounce on the beat.
 			var b := t * TAU * 2.0
 			var k := 1.6 if p.kind == "boss" else 1.0
 			if joints.has("head"):
@@ -866,7 +964,30 @@ func _animate(dt: float) -> void:
 				(joints.l_knee as Node3D).rotation_degrees.x = 10.0 * absf(sin(b * 0.5))
 			if joints.has("r_knee"):
 				(joints.r_knee as Node3D).rotation_degrees.x = 10.0 * absf(sin(b * 0.5 + PI * 0.5))
+			if _rest_gun(body, kit):
+				continue
 		_sync_skins(body)
+
+
+## A guard's rifle slung where a town guard's rests between shots (WeaponCarry
+## "rifle": low across the belly, muzzle down and left), both hands on it and the
+## fists closed on the grips the way NpcBody holds it. True when it synced the skin.
+func _rest_gun(body: Node3D, kit) -> bool:
+	if kit == null or not body.has_meta("weapon"):
+		return false
+	var w: Node3D = body.get_meta("weapon")
+	var grips: Dictionary = w.get_meta("grips", {})
+	w.transform = WeaponCarry.rest_xf(str(w.get_meta("carry", "rifle")), grips.get("r", Vector3.ZERO))
+	for side in ["r", "l"]:
+		if grips.has(side):
+			kit.reach(body, side, w.transform * (grips[side] as Vector3), NpcBody.SEAT_POLES[side])
+	if not body.has_meta("skin"):
+		return false
+	var gun := NpcBody.close_on_gun(kit, body, w)
+	_sync_skins(body)
+	if gun:
+		NpcBody.gun_into_fist(body, w)
+	return true
 
 
 ## A performer's set (ClubMoves), hands put on the instrument with the kit's arm IK
@@ -979,7 +1100,8 @@ func _go_limp(p: Dictionary, amount: float, by: Node, sweep: Vector3) -> void:
 	elif by is Node3D and is_instance_valid(by):
 		from = (by as Node3D).global_position
 	var rd := Ragdoll.new(body.get_meta("joints"), rc)
-	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc), get_world_3d().direct_space_state, [(p.hit as PartyHit).get_rid()])
+	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc, _up(at)), get_world_3d().direct_space_state,
+		[(p.hit as PartyHit).get_rid()], _up(at))
 	p.ragdoll = rd
 
 
@@ -1151,7 +1273,7 @@ func hurt_boss(amount: float) -> void:
 func buy() -> bool:
 	if owned:
 		return false
-	var price := int(cfg.get("boss", {}).get("price", 1500))
+	var price := int(cfg.get("boss", {}).get("price", 5000))
 	if WorldState.credits < price:
 		return false
 	WorldState.credits -= price
@@ -1187,7 +1309,7 @@ func line(key: String) -> String:
 	if v is Array:
 		v = v[_rng.randi() % v.size()] if not (v as Array).is_empty() else ""
 	return str(v).replace("{name}", barge_name).replace("{boss}", boss_name) \
-		.replace("{price}", str(int(cfg.get("boss", {}).get("price", 1500))))
+		.replace("{price}", str(int(cfg.get("boss", {}).get("price", 5000))))
 
 
 func _toast(text: String) -> void:
@@ -1337,6 +1459,7 @@ func _read_input(dt: float) -> void:
 		return
 	var e := InputMap.has_action("interact") and Input.is_action_just_pressed("interact")
 	var text := ""
+	var keys := ""
 	var gear = demo.get("gear") if demo != null else null
 	var gear_busy: bool = gear != null and not (gear.focus as Dictionary).is_empty()
 	if at_console:
@@ -1359,6 +1482,7 @@ func _read_input(dt: float) -> void:
 			elif halt:
 				all_stop()
 			text = line("console_under_way" if autopilot else "console").replace("{course}", course_text())
+			keys = line("console_keys_under_way" if autopilot else "console_keys")
 	elif not player.locked and not bool(player.get("piloting")) and not gear_busy:
 		if near_console():
 			text = line("console_prompt")
@@ -1368,7 +1492,7 @@ func _read_input(dt: float) -> void:
 				else:
 					_toast(line("console_locked"))
 		elif near_boss():
-			var can_buy := WorldState.credits >= int(cfg.get("boss", {}).get("price", 1500))
+			var can_buy := WorldState.credits >= int(cfg.get("boss", {}).get("price", 5000))
 			text = line("buy_prompt" if can_buy else "talk_prompt")
 			if e:
 				if can_buy:
@@ -1378,6 +1502,9 @@ func _read_input(dt: float) -> void:
 	if _prompt != null:
 		_prompt.text = text
 		_prompt.visible = text != ""
+	if _keys != null:
+		_keys.text = keys
+		_keys.visible = keys != ""
 
 
 func _axis(neg: String, pos: String) -> float:
@@ -1557,6 +1684,8 @@ func explode() -> void:
 	_party_changed()
 	if _prompt != null:
 		_prompt.visible = false
+	if _keys != null:
+		_keys.visible = false
 	_toast(line("exploded"))
 	exploded.emit()
 
@@ -1597,3 +1726,14 @@ func _build_prompt() -> void:
 	_prompt.visible = false
 	RetroUI.prompt(_prompt)
 	layer.add_child(_prompt)
+	# The panel's keys: a smaller line under the status, like the speeder's help
+	# line, so the whole thing fits on screen.
+	_keys = Label.new()
+	_keys.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_keys.position = Vector2(-420, -120)
+	_keys.size = Vector2(840, 28)
+	_keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_keys.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_keys.add_theme_constant_override("outline_size", 4)
+	_keys.visible = false
+	layer.add_child(_keys)

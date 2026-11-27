@@ -123,6 +123,48 @@ func flush(parent: Node3D) -> int:
 	for key in _groups:
 		n += _flush_group(parent, _groups[key])
 	_groups.clear()
+	_flush_solids(parent)
+	return n
+
+
+## flush() for a small place dressed in many little pieces (a speeder stall):
+## every box, cylinder, sphere and torus merged into one mesh a material
+## (PrimBatch, nothing read back from the GPU), so forty piece sizes cost a draw a
+## material, not a MultiMesh each. The mesh is laid out in `frame` (the place's
+## own, in `parent`'s space), so a triplanar finish keeps its metre tiles and its
+## precision far from the origin. Any other mesh stays a MultiMesh.
+func flush_merged(parent: Node3D, frame: Transform3D) -> int:
+	var n := 0
+	var inv := frame.affine_inverse()
+	var batches := {}                 # material id -> [material, PrimBatch]
+	for key in _groups:
+		var g: Array = _groups[key]
+		if not PrimBatch.can_flat(g[0]):
+			n += _flush_group(parent, g)
+			continue
+		var id: int = (g[1] as Material).get_instance_id()
+		if not batches.has(id):
+			batches[id] = [g[1], PrimBatch.new()]
+		var b: PrimBatch = batches[id][1]
+		for w: Transform3D in g[2]:
+			b.add(g[0], inv * w)
+		n += (g[2] as Array).size()
+	_groups.clear()
+	for id in batches:
+		var mi := MeshInstance3D.new()
+		mi.mesh = (batches[id][1] as PrimBatch).commit()
+		var mat: Material = batches[id][0]
+		mi.material_override = mat
+		if mat is BaseMaterial3D and (mat as BaseMaterial3D).emission_enabled:
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.transform = frame
+		parent.add_child(mi)
+	_flush_solids(parent)
+	return n
+
+
+## The colliders queued with solid parts, as one Props body under `parent`.
+func _flush_solids(parent: Node3D) -> void:
 	solids = _solids.size() + _cyls.size()
 	if not _solids.is_empty() or not _cyls.is_empty():
 		var body := _props_body()
@@ -133,7 +175,6 @@ func flush(parent: Node3D) -> int:
 		parent.add_child(body)
 		_solids.clear()
 		_cyls.clear()
-	return n
 
 
 ## Issue #574: flush() over frames (`st`, may be null): a multimesh a slice, and the

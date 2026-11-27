@@ -11,7 +11,8 @@ extends RefCounted
 ## ramps and crests do the jumping, and low gravity makes it float like the light
 ## sled it is.
 ##
-## Buildings stop it (WorldGround.hit) with a small bounce. Nothing it does to
+## Buildings stop it (WorldGround.hit) with a small bounce. Wedged inside rock,
+## where every way out is a bump, pushing at it hops it to clear ground (_unwedge). Nothing it does to
 ## itself hurts it: no fall or crash damage. Only gunfire does, through
 ## apply_damage(), which the node's hull passes on from bolts.
 ##
@@ -35,6 +36,9 @@ extends RefCounted
 ## boost_speed, at air_boost_scale of its accel, with no throttle needed (W is the
 ## tilt up there). Boosting under the lifter climbs or sinks boost_climb times as
 ## fast. Without the lifter the tilt is only for the eye: gravity has the height.
+## On the ground W/S tip the nose a little too (`ground_pitch`, up to
+## ground_pitch_deg at ground_pitch_rate_deg a second), for the eye only, so the
+## tilt shows without a jump or the lifter.
 ##
 ## Issue #77: on the home planet's ball "up" turns with the ground. The heading is
 ## a direction slid along the ground as it drives (so straight stays straight round
@@ -71,14 +75,23 @@ var top_height := 0.0                ## highest clearance over the ground on the
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
 var air_pitch := 0.0                 ## radians, nose up +, in the air only (W/S tilt it); 0 on the ground
+var ground_pitch := 0.0              ## radians, nose up +, the small W/S tip on the ground (for the eye only); eases to 0 in the air
 var _float_used := 0.0               ## seconds the lifter has been on this lift (sets the recharge)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
+var parked := false                  ## its node: nobody is driving it (at rest it sits on the slope)
 
 var _pending: Array = []             ## events from between steps (lift), for the next step()
 var _cmd := { "throttle": 0.0, "steer": 0.0, "boost": false }
 var _last_ride := NAN                ## the ride height last step (NAN: none yet)
 var _ground_rate := 0.0              ## how fast the ground under it was rising, m/s
+var _wedged := 0.0                   ## seconds pushed at while stuck inside something (see _unwedge)
+var _rest_basis := Basis.IDENTITY    ## parked: its tilt to the ground under its footprint (world)
+var _rest_lift := 0.0                ## parked: how far it is raised so no end is in the sand
+var _rest_w := 0.0                   ## 0..1: how far that rest pose is blended in
+var _rest_done := false              ## the rest pose is measured for this stop
+
+const REST_BLEND := 3.0              ## per second, in and out
 
 
 func _init(config: Dictionary = {}, world_ground: WorldGround = null) -> void:
@@ -116,7 +129,11 @@ func _tilt() -> Basis:
 
 
 func transform() -> Transform3D:
-	return Transform3D(Basis.looking_at(_fwd, up()), position)
+	var b := Basis.looking_at(_fwd, up())
+	if _rest_w <= 0.0:
+		return Transform3D(b, position)
+	var t := Basis(Quaternion.IDENTITY.slerp(Quaternion(_rest_basis), _rest_w))
+	return Transform3D(t * b, position + up() * _rest_lift * _rest_w)
 
 
 ## How high a point is, measured along up: y on a flat world, the distance from
@@ -218,6 +235,8 @@ func place(at: Vector3, yaw_rad: float) -> void:
 	_lift(ground_height() + p("hover_height", 1.05) - _level(position))
 	_last_ride = NAN
 	_ground_rate = 0.0
+	_settle()
+	_rest_w = 1.0
 
 
 ## throttle -1..1 (back..forward), steer -1..1 (left..right).
@@ -289,7 +308,55 @@ func step(dt: float) -> Array:
 	_drive(dt)
 	_move(dt)
 	_hover(dt)
+	_rest(dt)
 	return events
+
+
+## Parked and stopped on the ground: blend into the rest pose (measured once per
+## stop); driven, moving or in the air: blend back out to riding level.
+func _rest(dt: float) -> void:
+	var at_rest := parked and not airborne and absf(speed) < 0.05
+	if at_rest and not _rest_done:
+		_settle()
+	_rest_w = move_toward(_rest_w, 1.0 if at_rest else 0.0, dt * REST_BLEND)
+	if not at_rest and _rest_w <= 0.0:
+		_rest_done = false
+
+
+## A speeder hovers level, measured at its middle only, so parked on a dune curve
+## its nose or tail sat in the sand. Once, as it comes to rest: sample the ground
+## along its length (nose, quarters, tail) and either side (body_radius), tilt to
+## it (at most park_tilt_max_deg, like a landed ship) and raise it until no sample
+## is nearer the sand than rest_clearance of its hover height. Nothing per frame.
+func _settle() -> void:
+	_rest_done = true
+	_rest_basis = Basis.IDENTITY
+	_rest_lift = 0.0
+	if ground == null:
+		return
+	var u := up()
+	var f := (_fwd - u * _fwd.dot(u)).normalized()
+	var r := f.cross(u).normalized()
+	var hover := p("hover_height", 1.05)
+	var half := float(cfg.get("look", {}).get("length", 5.0)) * 0.5
+	var side := p("body_radius", 1.3)
+	var offs: Array[Vector3] = [f * half, f * half * 0.5, -f * half * 0.5, -f * half, r * side, -r * side]
+	var base := ground_height()
+	var rise: Array[float] = []          # the ground there, above the ground under the middle
+	for o: Vector3 in offs:
+		var q := position + o            # on the hover line: sand above it reads below zero; an awning overhead is not ground
+		var h := ground.height_above(q)
+		if not is_finite(h):
+			return
+		rise.append(_level(q) - h - base)
+	var cap := deg_to_rad(p("park_tilt_max_deg", 15.0))
+	var pitch := clampf(atan2(rise[0] - rise[3], half * 2.0), -cap, cap)     # nose up +
+	var roll := clampf(atan2(rise[5] - rise[4], side * 2.0), -cap, cap)      # left side up +
+	_rest_basis = (Basis(r, pitch) * Basis(f, roll)).orthonormalized()
+	var clear := hover * p("rest_clearance", 0.75)
+	for i in offs.size():
+		var over := (_rest_basis * offs[i]).dot(u) + hover - rise[i]
+		_rest_lift = maxf(_rest_lift, clear - over)
 
 
 func _drive(dt: float) -> void:
@@ -333,6 +400,8 @@ func _drive(dt: float) -> void:
 				speed = move_toward(speed, 0.0, push)                 # nose up: it bleeds off
 	else:
 		air_pitch = 0.0
+	var gp := 0.0 if airborne else -throttle * deg_to_rad(p("ground_pitch_deg", 6.0))
+	ground_pitch = move_toward(ground_pitch, gp, deg_to_rad(p("ground_pitch_rate_deg", 40.0)) * dt)
 	# Turning: quicker when slow, a little in the air, faster in a drift.
 	var k := clampf(absf(speed) / maxf(p("max_speed", 36.0), 1.0), 0.0, 1.0)
 	var turn := deg_to_rad(lerpf(p("turn_rate_deg", 110.0), p("turn_rate_fast_deg", 62.0), k))
@@ -358,7 +427,9 @@ func _move(dt: float) -> void:
 		if hit_id != "":
 			events.append({ "type": "bump", "what": hit_id, "speed": speed })
 			speed = -speed * p("bump_bounce", 0.25)        # bounced off: no damage
+			_unwedge(dt)
 			return
+	_wedged = 0.0
 	var lv := _level(position)
 	position = to
 	_lift(lv - _level(position))       # along the ground: the hover settles the height
@@ -367,6 +438,67 @@ func _move(dt: float) -> void:
 	_fwd = (_fwd - u * _fwd.dot(u)).normalized()
 	if drift_dir != Vector3.ZERO:
 		drift_dir = (drift_dir - u * drift_dir.dot(u)).normalized()
+
+
+## Wedged: the move was blocked and the spot it is on already touches rock (it
+## came down into a slot narrower than itself off a Grav Lifter hop, or a rock's
+## shape changed round it), so every way it turns is a bump and it can never
+## drive out. Pushed at (throttle held) for unwedge_s, it hops to the nearest
+## clear ground instead. A parked one stays where it is; a wall ahead of a clear
+## spot is only a bump.
+func _unwedge(dt: float) -> void:
+	var r := p("body_radius", 1.3)
+	if absf(float(_cmd.throttle)) < 0.1 or ground.hit(position, r) == "":
+		_wedged = 0.0
+		return
+	_wedged += dt
+	if _wedged < p("unwedge_s", 0.5):
+		return
+	_wedged = 0.0
+	var spot := _clear_spot(r)
+	if not spot.is_finite():
+		return                         # nowhere near: try again in unwedge_s
+	var from := position
+	position = spot
+	speed = 0.0
+	vy = 0.0
+	airborne = false
+	air_pitch = 0.0
+	drift_dir = Vector3.ZERO
+	drop_lift(true)
+	_last_ride = NAN
+	_ground_rate = 0.0
+	var u := up()
+	_fwd = (_fwd - u * _fwd.dot(u)).normalized()
+	events.append({ "type": "unwedged", "from": from, "to": spot })
+
+
+## The nearest ground (rings `r` apart, out to unwedge_m) where a speeder sits
+## clear of everything with a little room, at its hover height there and no
+## more than unwedge_climb metres above the ground it is on now (beside a spire,
+## not on top of it). Behind it first in each ring: the way it came is open.
+## Vector3(INF, INF, INF) when there is none.
+func _clear_spot(r: float) -> Vector3:
+	var u := up()
+	var back := -_fwd
+	var side := _fwd.cross(u).normalized()
+	var hh := p("hover_height", 1.05)
+	var here := ground_height()
+	var climb := p("unwedge_climb", 3.0)
+	var rings := int(ceil(p("unwedge_m", 30.0) / r))
+	for ring in range(1, rings + 1):
+		var d := r * float(ring)
+		for k in 12:
+			var a := PI / 6.0 * floorf((k + 1) * 0.5) * (1.0 if k % 2 == 1 else -1.0)
+			var c := position + (back * cos(a) + side * sin(a)) * d
+			var lc := _level(c)
+			var g := lc - ground.height_above(c)
+			if g - here > climb:
+				continue
+			c += ground.up_at(c) * (g + hh - lc)
+			if ground.hit(c, r + 0.3) == "":
+				return c
+	return Vector3(INF, INF, INF)
 
 
 func _hover(dt: float) -> void:

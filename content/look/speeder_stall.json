@@ -1,5 +1,5 @@
 {
-  "note": "The look of a speeder mechanic's stall at a race crew's hangout (src/systems/world/speeder_stall.gd; layout: content/core/locations/speeder_stall.json). Dorrin's yard colours, so his cousins' stalls read as the same family business: oily steel counter, a rusty top, a striped canvas awning with a string of bulbs, a pegboard rack, a lift pad with hazard edges.",
+  "note": "The look of a speeder mechanic's stall at a race crew's hangout (src/systems/world/speeder_stall.gd; layout: content/core/locations/speeder_stall.json). Dorrin's yard colours, so his cousins' stalls read as the same family business: oily steel counter, a rusty top, a striped canvas awning with a string of bulbs, a pegboard rack, a lift pad with hazard edges. Every metal is the favela's painted metal (LookMaterials.painted: panels, rivets, chipped paint, grime), the wood is the market's planks and the awning the market's canvas. 'scrap' are the walls' and roof patches' sheets (the favela's paints, sun-faded), 'neon' the gear sign on the back wall, 'screen' the diagnostic screen and the lift's buttons.",
   "steel": "#4a4c52",
   "rust": "#8e4a26",
   "dark": "#2a2622",
@@ -10,5 +10,13 @@
   "stripe": "#e0c890",
   "bulb": "#ffd27a",
   "fuel": "#b03a26",
-  "coolant": "#3a8a8a"
+  "coolant": "#3a8a8a",
+  "scrap": [
+    "#7a4a36",
+    "#55606a",
+    "#3c665c",
+    "#8a7038"
+  ],
+  "neon": "#38e1ff",
+  "screen": "#7dff6a"
 }

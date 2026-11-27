@@ -476,8 +476,12 @@ static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 	return out
 
 
-## A range over a race course: { course, path: map [[x, z], ...] (the tunnel's
-## centre line, the racing line's way through, smoothed), peaks: [{ along (m from
+## A range over a race course: { course, gates: the course's gate ids the tunnel
+## runs through, in order, and run_m: [m of tunnel before the first, m after the
+## last] (its centre line is the course's own straight legs between those gates,
+## carried on straight past both ends: RaceCourse.tunnel_path, so the tunnel and
+## the racing line can never part), or path: map [[x, z], ...] (a centre line of
+## its own), smoothed; peaks: [{ along (m from
 ## the path's start), variant, seed, portal ("start" or "end": its sheer side's
 ## portal faces that end of the path) }], lights }. Its frame is the map's at the
 ## path's middle, on the ball's own level there (directions only, so it is the
@@ -487,10 +491,13 @@ static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: P
 	# across, so the step on the map grows with it (else a far tunnel's path
 	# would carry several times the points every ground query walks).
 	var step := 20.0
-	var p0 := Vector2(float(e.path[0][0]), float(e.path[0][1])) if not (e.path as Array).is_empty() else Vector2.ZERO
+	var pts: Array = e.get("path", [])
+	if e.has("gates"):
+		pts = RaceCourse.tunnel_path(str(e.get("course", "")), e.gates, e.get("run_m", [0.0, 0.0]))
+	var p0 := Vector2(float(pts[0][0]), float(pts[0][1])) if not pts.is_empty() else Vector2.ZERO
 	if sp.map_stretch(p0) > RaceCourse.FAR_STRETCH:
 		step *= sp.map_stretch(p0)
-	var mpath := smooth_path(e.path, step)
+	var mpath := smooth_path(pts, step)
 	var total := 0.0
 	for i in mpath.size() - 1:
 		total += mpath[i].distance_to(mpath[i + 1])

@@ -60,7 +60,7 @@ const REJOIN_LAG_S := 5.0           ## a lost droid turns up where you were this
 const REJOIN_MAX := 25.0            ## ...or nearer, if that is further back than this (m)
 const BLOCK_PROBE_H := 0.5          ## an engaged droid looks for walls this high off the ground (m)...
 const BLOCK_PROBE_R := 0.4          ## ...this far past its next step (about half a body)
-const TOGGLE_REACH := 2.4           ## a droid of yours this near shows its [E] prompt (hold, safety, lasers)
+const TOGGLE_REACH := 2.4           ## a droid of yours this near shows its [E] prompt (hold, safety)
 const KEEP_OFF_MIN := 3.2           ## a following droid never walks nearer you than this (m); its kind's follow.keep_off can push it out
 const EXIT_WALK_M := 1.5            ## out of a speeder or ship, your droids turn up once you have walked this far from where you got out
 
@@ -87,7 +87,7 @@ var remnant: Array = []             ## DroidUnit (the Remnant's patrol, and issu
 var vendor_pos := Vector3.INF
 var vendor_face := Vector3.ZERO     ## issue #80: the way the droid merchant faces (the aisle); behind = the other way
 var vendor_sites: Array = []        ## town stall plus independent planet relays
-var focus: Dictionary = {}          ## what E would act on: { kind: "vendor"|"wreck"|"cargo"|"lasers", uid }
+var focus: Dictionary = {}          ## what E would act on: { kind: "vendor"|"cargo"|"safety", uid }
 var site_i := -1                    ## issue #392: the stall whose menu is open (vendor_sites index)
 var rng := RandomNumberGenerator.new()
 var shots_fired := 0
@@ -293,12 +293,7 @@ func _find_focus() -> Dictionary:
 		if bool(DroidRoster.kind_cfg(str(d.get("kind", ""))).get("carries", false)) \
 				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "cargo", "uid": uid }
-	for uid in companions:              # issue #392: a droid of yours with the laser rig
-		var d := roster().find(uid)
-		if DroidRoster.has_lasers(d) and not companions[uid].dead \
-				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
-			return { "kind": "lasers", "uid": uid }
-	for uid in companions:              # a droid of yours with a gun: its safety
+	for uid in companions:              # a droid of yours with a gun (a laser droid too): its safety
 		var d := roster().find(uid)
 		if DroidRoster.armed_kind(str(d.get("kind", ""))) and not companions[uid].dead \
 				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
@@ -327,10 +322,6 @@ func prompt_text() -> String:
 			return _l("trade") % _vendor_label(int(focus.get("site", -1))).to_lower()
 		"cargo":
 			return _l("hold")
-		"lasers":
-			var d := roster().find(int(focus.uid))
-			var next := DroidRoster.next_laser_mode(DroidRoster.laser_mode(d))
-			return _l("lasers_to_" + next if next != "" else "lasers_off") % droid_name(d).to_lower()
 		"safety":
 			var d := roster().find(int(focus.uid))
 			return _l("safety_to_off" if DroidRoster.safety_on(d) else "safety_to_on") % droid_name(d).to_lower()
@@ -356,9 +347,6 @@ func interact() -> String:
 				return ""
 			_open_hold(int(focus.uid), opts)
 			return "menu"
-		"lasers":
-			var mode := cycle_lasers(int(focus.uid))
-			return "lasers_" + mode if mode != "" else "lasers_off"
 		"safety":
 			return "safety_on" if toggle_safety(int(focus.uid)) else "safety_off"
 	return ""
@@ -473,8 +461,10 @@ func open_upgrades() -> void:
 	_open_menu(_l("menu_upgrades") % WorldState.credits, opts, func(id: String):
 		if id.begins_with("up:"):
 			var parts := id.split(":")
-			if upgrade(int(parts[1]), parts[2]) == "upgraded":
-				open_upgrades())         # buy another without walking off and back
+			# Buy another without walking off and back. With none left the menu just
+			# closes: "nothing to upgrade" would wipe the fitted toast and its tip.
+			if upgrade(int(parts[1]), parts[2]) == "upgraded" and not upgrade_options().is_empty():
+				open_upgrades())
 
 
 ## Fit the next level of `key` to droid `uid`. Returns "upgraded", "cant_afford",
@@ -505,6 +495,8 @@ func upgrade(uid: int, key: String) -> String:
 		u.max_hp = DroidRoster.health(d)
 		u.hp += u.max_hp - was
 	_toast(_l("upgraded") % [droid_name(d), DroidRoster.upgrade_label(key)])
+	if key == "lasers" and gear != null and gear.hud != null:
+		gear.hud.toast_after(_l("lasers_tip"))     # where its two buttons are
 	_beep(u)
 	return "upgraded"
 
@@ -1365,7 +1357,6 @@ func _fit_rig(u: DroidUnit, on: bool) -> void:
 	u.lasers = lasers
 
 
-## Turn droid `uid`'s lasers on or off (E beside it). Returns the new state.
 ## The weapon wheel's slot 9 (and key 9): every droid's safety at once.
 func _hook_wheel() -> void:
 	var kit = demo.get("player_kit") if demo != null else null
@@ -1435,23 +1426,31 @@ func _paint_safety(u: DroidUnit, d: Dictionary) -> void:
 		m.emission = col
 
 
-## E beside a droid with the laser rig: its next mode (off -> lasers with rave
-## music -> with cantina music -> no music -> off, droids.json upgrades.lasers.modes).
-## Returns the mode now on, "" for off. The music follows next frame (_droid_music).
-func cycle_lasers(uid: int) -> String:
+## The Ledger's Lasers button (I): droid `uid`'s lasers on or off. Returns the new
+## state. The music is its own setting (cycle_station).
+func toggle_lasers(uid: int) -> bool:
 	var d := roster().find(uid)
-	var mode := roster().set_laser_mode(uid, DroidRoster.next_laser_mode(DroidRoster.laser_mode(d)))
+	var on := roster().set_lasers(uid, not DroidRoster.lasers_on(d))
 	var u: DroidUnit = companions.get(uid)
 	if u != null and u.lasers != null:
-		u.lasers.visible = mode != ""
-	_toast(_l("lasers_now_" + (mode if mode != "" else "off")))
+		u.lasers.visible = on
 	_beep(u)
-	return mode
+	return on
+
+
+## The Ledger's Music button (I): droid `uid`'s next station (cantina -> rave ->
+## off, droids.json upgrades.lasers.modes). Returns the station now on. The music
+## follows next frame (_droid_music).
+func cycle_station(uid: int) -> String:
+	var d := roster().find(uid)
+	var id := roster().set_station(uid, DroidRoster.next_station(DroidRoster.laser_station(d)))
+	_beep(companions.get(uid))
+	return id
 
 
 ## Your laser droids' music: the playlist of the nearest one up and playing, as
 ## loud as it is near you (upgrades.lasers.music), told to Sound when it changes.
-## None while they wait for you to fly, are knocked out or have their lasers off.
+## None while they wait for you to fly, are knocked out or are on the off station.
 func _droid_music() -> void:
 	var mc: Dictionary = DroidRoster.upgrade_cfg("lasers").get("music", {})
 	var full := float(mc.get("full_m", 6.0))
