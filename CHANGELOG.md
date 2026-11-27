@@ -2,6 +2,17 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Graphics is the first question, and your save keeps it (2026-11-26)
+
+- **A first launch asks Low graphics or Full graphics** before anything else,
+  ahead of the AI characters question and New Game. Full is the lit answer;
+  either one is shown at once and never asked again.
+- **The graphics choices are preferences in your save.** Every save file (story
+  and free roam) carries them, changing one in F11 > Options updates the saves
+  straight away, and loading a save puts its choices back.
+- **Low graphics' pieces are folded under "Advanced graphics settings"** in
+  F11 > Options > Graphics. A click opens the list, another closes it.
+
 ## The seeker launcher gets a digital sight (2026-11-26)
 
 - **The launcher's round scope is now a square blue display** on a bracket on

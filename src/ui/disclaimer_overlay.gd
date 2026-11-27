@@ -9,6 +9,9 @@ extends CanvasLayer
 ## Issue #328: AI characters are off by default. On the first launch this asks
 ## whether to turn them on ("Play without AI" is the default and Enter's answer)
 ## and emits ai_chosen; after that it shows only while they are on.
+##
+## The graphics question (GraphicsChoiceOverlay) comes first: while it is up this
+## waits, hidden, and opens when it is answered.
 
 signal accepted
 signal ai_chosen(on: bool)
@@ -39,6 +42,14 @@ func _ready() -> void:
 	name = "DisclaimerOverlay"
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var first := get_parent().get_node_or_null("GraphicsChoice")
+	if first != null and not first.is_queued_for_deletion():
+		first.accepted.connect(_build)
+	else:
+		_build()
+
+
+func _build() -> void:
 	var d := Disclaimers.launch()
 	if asking:
 		# The question, then the launch notice's advice (its last paragraph).
@@ -103,6 +114,8 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _button == null:
+		return                  # still waiting on the graphics question
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 		get_viewport().set_input_as_handled()

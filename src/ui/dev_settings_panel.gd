@@ -2037,7 +2037,8 @@ func _graphics_page(v: VBoxContainer) -> void:
 		if demo != null and demo.look != null:
 			demo.look.set_indirect(x / 100.0)
 		else:
-			LookEnvironment.save_indirect_level(x / 100.0))
+			LookEnvironment.save_indirect_level(x / 100.0)
+		GraphicsPrefs.save_soon(get_tree()))
 	_row(v, "Indirect light", s)
 	var note := Label.new()
 	note.text = "How strong the bounce light and the sky's fill are."
@@ -2052,7 +2053,8 @@ func _graphics_page(v: VBoxContainer) -> void:
 		if demo != null and demo.look != null:
 			demo.look.set_taa(on)
 		else:
-			LookEnvironment.save_taa(on))
+			LookEnvironment.save_taa(on)
+		GraphicsPrefs.save_soon(get_tree()))
 	_row(v, "Temporal anti-aliasing", taa)
 	var taa_note := Label.new()
 	taa_note.text = "Smooth edges and a faster frame. Turn off if bolts or the sword leave trails."
@@ -2060,7 +2062,9 @@ func _graphics_page(v: VBoxContainer) -> void:
 	v.add_child(taa_note)
 	_refreshers.append(func(): taa.set_pressed_no_signal(LookEnvironment.taa()))
 	# For slower PCs (LookEnvironment.low_graphics): what it turns off is in time_of_day.json.
-	# Its pieces have a checkbox each below it, to try one at a time.
+	# Its pieces have a checkbox each, folded under "Advanced graphics settings" (a
+	# click opens the list, another closes it), to try one at a time. Every change
+	# is saved per machine and in every save file (GraphicsPrefs).
 	var low := CheckBox.new()
 	var boxes := {}
 	var sync := func():
@@ -2073,23 +2077,45 @@ func _graphics_page(v: VBoxContainer) -> void:
 			if demo.draw_distance != null:
 				demo.draw_distance.apply_low_graphics()
 	low.toggled.connect(func(on):
+		GraphicsPrefs.set_asked()
 		LookEnvironment.save_low_graphics(on)
 		show_now.call()
-		sync.call())
+		sync.call()
+		GraphicsPrefs.save_soon(get_tree()))
 	_row(v, "Low graphics", low)
 	var low_note := Label.new()
-	low_note.text = "Faster on slower PCs. The same, one piece at a time (to find what causes a glare):"
+	low_note.text = "Faster on slower PCs."
 	low_note.add_theme_font_size_override("font_size", 12)
 	v.add_child(low_note)
+	var fold := Button.new()
+	fold.name = "AdvancedGraphics"
+	fold.flat = true
+	fold.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(fold)
+	var advanced := VBoxContainer.new()
+	advanced.name = "AdvancedGraphicsList"
+	advanced.add_theme_constant_override("separation", 6)
+	v.add_child(advanced)
+	var adv_note := Label.new()
+	adv_note.text = "Low graphics one piece at a time (to find what causes a glare):"
+	adv_note.add_theme_font_size_override("font_size", 12)
+	advanced.add_child(adv_note)
+	var show_fold := func(open: bool):
+		fold.text = ("[-] " if open else "[+] ") + "Advanced graphics settings"
+		advanced.visible = open
+	fold.pressed.connect(func(): show_fold.call(not advanced.visible))
+	show_fold.call(false)
 	for p in LookEnvironment.pieces():
 		var id := str(p.id)
 		var b := CheckBox.new()
 		b.toggled.connect(func(on):
+			GraphicsPrefs.set_asked()
 			LookEnvironment.save_cut(id, on)
 			show_now.call()
-			sync.call())
+			sync.call()
+			GraphicsPrefs.save_soon(get_tree()))
 		boxes[id] = b
-		_row(v, "    " + str(p.get("label", id)), b)
+		_row(advanced, "    " + str(p.get("label", id)), b)
 	sync.call()
 	_refreshers.append(sync)
 

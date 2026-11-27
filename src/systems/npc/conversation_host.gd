@@ -668,6 +668,10 @@ func _load_save() -> void:
 		return
 	_loaded = true
 	if save.load_from(save_path):
+		# The save's graphics preferences win over this machine's (a save brought from another PC).
+		var g = save.get_prefs().get("graphics", {})
+		if g is Dictionary and GraphicsPrefs.from_save(g):
+			GraphicsPrefs.show_on(demo)
 		if not _loaded_once and not save.get_world().is_empty():
 			var arrival := WorldState.to_save()     # keep what this session already did
 			WorldState.from_save(save.get_world())

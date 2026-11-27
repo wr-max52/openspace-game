@@ -486,7 +486,10 @@ func build_plan(staged_build: bool) -> Array:
 			retro_hud = RetroHud.new()
 			retro_hud.demo = self
 			add_child(retro_hud)
-			var notice := DisclaimerOverlay.show_once(self)   # issue #29: AI characters are not real people
+			var graphics := GraphicsChoiceOverlay.show_if_unasked(self)   # the first launch's first question
+			if graphics != null:
+				graphics.chosen.connect(func(_low): GraphicsPrefs.show_on(self))
+			var notice := DisclaimerOverlay.show_once(self)   # issue #29: AI characters are not real people (after the graphics question)
 			if notice != null:
 				notice.ai_chosen.connect(_on_first_run_ai)   # issue #328: the first launch asks
 			return true)
