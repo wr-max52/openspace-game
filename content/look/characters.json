@@ -196,6 +196,31 @@
       "base": "remnant_trooper",
       "under": "#1c2638", "trim": "#2f5f8a", "cloth": "#1f2f5a", "visor": "#8fd0ff",
       "model": { "parts": { "head": ["guard:navy"], "torso": ["guard:navy"], "legs": ["guard:navy"] } }
+    },
+    "suite_boss_gilt": {
+      "note": "The station's rich floor (orbital_station.json crowd.floor_crowd homes_2): barge bosses at home in their suites. Five variations of the barge duke (base: barge_duke), its one model with no new render: each a cast over the dark metal ('albedo' multiplies every colour) and its tank glowing another colour ('emission'), a little taller or shorter, fatter or thinner. This one the fattest, brass-warm, its tank amber.",
+      "base": "barge_duke", "height": 1.94, "bulk": 1.15,
+      "model": { "tint": { "albedo": "#ffd890", "emission": "#ffa020" } }
+    },
+    "suite_boss_ruby": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): short and round, a red cast, its tank glowing ruby.",
+      "base": "barge_duke", "height": 1.84, "bulk": 1.08,
+      "model": { "tint": { "albedo": "#e8a0a0", "emission": "#ff3a50" } }
+    },
+    "suite_boss_jade": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): the tallest and thinnest, a green cast, its tank glowing jade.",
+      "base": "barge_duke", "height": 2.04, "bulk": 0.94,
+      "model": { "tint": { "albedo": "#a8d8b4", "emission": "#3cff94" } }
+    },
+    "suite_boss_violet": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): a violet cast, its tank glowing purple.",
+      "base": "barge_duke", "height": 1.9, "bulk": 1.1,
+      "model": { "tint": { "albedo": "#c8b0e8", "emission": "#b060ff" } }
+    },
+    "suite_boss_frost": {
+      "note": "A barge boss at home on the station's rich floor (see suite_boss_gilt): a steel-blue cast like the station's cantina owner, its tank glowing cyan.",
+      "base": "barge_duke", "height": 1.98, "bulk": 1.0,
+      "model": { "tint": { "albedo": "#a6b6c8", "emission": "#4fe3ff" } }
     }
   }
 }

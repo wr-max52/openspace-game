@@ -94,6 +94,45 @@ func test_a_fight_aboard_has_nobody_stuck_on_the_stalls() -> void:
 	assert_lte(worst, 3.0, "nobody is pinned on a stall for more than 3 s (worst %.1f s)" % worst)
 
 
+## The rich floor (the suites, homes_2) is the barge bosses': everyone who lives
+## there wears a variation of the barge duke, carries nothing, and stays home, and
+## nobody from the other floors goes up there.
+func test_the_suites_are_the_barge_bosses_and_theirs_alone() -> void:
+	var t = _host()
+	var s = await _station(t)
+	assert_not_null(s, "the giant's scene builds the station")
+	if s == null or s.crowd == null:
+		return
+	var crowd = s.crowd
+	for i in 300:
+		if crowd.built:
+			break
+		await wait_physics_frames(1)
+	assert_true(crowd.built, "the crowd is aboard")
+	var rich: Array = crowd.people.filter(func(p): return str(p.home) == "homes_2")
+	var looks: Array = crowd.floor_cfg("homes_2").get("looks", [])
+	assert_eq(rich.size(), int(crowd.cfg.floors.homes_2), "the suites' people are aboard")
+	assert_gte(looks.size(), 3, "a few variations of the boss")
+	var kit := CharacterKit.new(LookMaterials.new())
+	for a in looks:
+		assert_true(kit.archetypes().has(a), "%s is a look (content/look/characters.json)" % a)
+		assert_eq(str(kit.palettes[a].get("base", "")), "barge_duke", "%s is a variation of the barge duke" % a)
+	var worn := {}
+	for p in rich:
+		assert_true(looks.has(p.look), "%s on the suites is a boss" % p.look)
+		assert_false(p.armed, "the bosses carry nothing")
+		worn[p.look] = true
+	assert_gt(worn.size(), 1, "more than one variation walks the suites")
+	assert_false(crowd.people.any(func(p): return str(p.home) != "homes_2" and looks.has(p.look)), "the bosses live only on the suites")
+	var on_suites := func(p) -> bool: return str((p.tower as Dictionary).floors[int(p.fi)].id) == "homes_2"
+	for k in 40:              # 40 s of walking, elevators and tunnels
+		await wait_physics_frames(60)
+		for p in crowd.people:
+			assert_eq(on_suites.call(p), str(p.home) == "homes_2", "%s (home %s) keeps to its own side of the suites' door" % [p.look, p.home])
+			if on_suites.call(p) != (str(p.home) == "homes_2"):
+				return
+
+
 ## The real body that replaces a puppet is dressed in the puppet's pieces.
 func test_a_roused_local_wears_its_puppets_outfit() -> void:
 	var kit := CharacterKit.new(LookMaterials.new())

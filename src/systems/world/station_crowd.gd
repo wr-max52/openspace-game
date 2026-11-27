@@ -14,6 +14,9 @@ extends Node3D
 ## Issue #605: shooting near them (any noise Scatter counts, on their floor) and
 ## those on the walkway run to the nearest stall or open room and crouch there; the
 ## rest crouch where they are. Quiet for quiet_s, they stand and go on.
+## The suites (the rich floor) are the barge bosses' kind: a floor in "floor_crowd"
+## dresses its own people in its own looks, unarmed if it says so, and a private
+## one keeps them home and everyone else out (floor_cfg).
 ##
 ## The render rules (docs/station/STATION_FILL.md) for people:
 ##   - built one a frame, once the camera first comes within build_within
@@ -126,7 +129,8 @@ func _add(floor_id: String) -> void:
 	if fi < 0:
 		return
 	var f: Dictionary = t.floors[fi]
-	var looks: Array = cfg.get("looks", ["station_local"])
+	var own := floor_cfg(floor_id)
+	var looks: Array = own.get("looks", cfg.get("looks", ["station_local"]))
 	var look := str(looks[_rng.randi() % looks.size()])
 	var holder := Node3D.new()
 	holder.name = "Person_%d" % people.size()
@@ -147,11 +151,22 @@ func _add(floor_id: String) -> void:
 		"pos": Vector3(c.x + cos(a) * rw, float(f.y), c.y + sin(a) * rw), "yaw": _rng.randf() * TAU,
 		"speed": _rng.randf_range(float(sp[0]), float(sp[1])), "phase": _rng.randf() * TAU, "moving": false,
 		"legs": [], "hp": float(cfg.get("person_hp", 60)), "dead": false, "back_at": 0.0, "fighter": null,
-		"ragdoll": null, "armed": _rng.randf() < float(cfg.get("armed_share", 0.5)), "shown": false, "shadow": true,
+		"ragdoll": null, "armed": _rng.randf() < float(own.get("armed_share", cfg.get("armed_share", 0.5))), "shown": false, "shadow": true,
 		"meshes": body.find_children("*", "GeometryInstance3D", true, false), "home": floor_id, "rest": body.transform }
 	p.hit = _hit_for(p)
 	people.append(p)
 	_place(p)
+
+
+## A floor's own crowd settings (the config's "floor_crowd" block): the looks
+## those who live there wear and their armed_share instead of the crowd's, and
+## whether the floor is private (its people stay home and nobody else goes up).
+func floor_cfg(floor_id: String) -> Dictionary:
+	return (cfg.get("floor_crowd", {}) as Dictionary).get(floor_id, {})
+
+
+func _private(floor_id: String) -> bool:
+	return bool(floor_cfg(floor_id).get("private", false))
 
 
 ## Something bolts and blades find: a capsule where the person stands.
@@ -518,7 +533,7 @@ func _plan_lift(p: Dictionary, t: Dictionary, fi: int, a: float) -> bool:
 		if str(station.cars[k].tower) == str(t.id):
 			ci = k
 	var floors: Array = t.floors
-	if ci < 0 or floors.size() < 2:
+	if ci < 0 or floors.size() < 2 or _private(str(p.home)):
 		return false
 	# Another floor of this tower that has people, by how many live there (so the
 	# crowd stays spread the way the config has it).
@@ -526,7 +541,7 @@ func _plan_lift(p: Dictionary, t: Dictionary, fi: int, a: float) -> bool:
 	var allowed: Array = []
 	var total := 0.0
 	for j in floors.size():
-		if j != fi and counts.has(str(floors[j].id)):
+		if j != fi and counts.has(str(floors[j].id)) and not _private(str(floors[j].id)):
 			allowed.append(j)
 			total += float(counts[str(floors[j].id)])
 	if allowed.is_empty():
@@ -634,6 +649,8 @@ func _free_spot(cands: Array, others: Array, any_height := false) -> int:
 func _plan_tunnel(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool:
 	var y := float(f.y)
 	var options: Array = []
+	if _private(str(p.home)):
+		return false
 	for tn in hull.tunnels:
 		if str(tn.to) == "bay" or absf(float(tn.y) - y) > 1.0:
 			continue
@@ -646,7 +663,7 @@ func _plan_tunnel(p: Dictionary, t: Dictionary, f: Dictionary, a: float) -> bool
 			continue
 		var ot := hull.tower(other)
 		var of := StationHull.floor_at(ot, y)
-		if of.is_empty() or not (cfg.get("floors", {}) as Dictionary).has(str(of.id)):
+		if of.is_empty() or not (cfg.get("floors", {}) as Dictionary).has(str(of.id)) or _private(str(of.id)):
 			continue
 		options.append([tn, ot, of])
 	if options.is_empty():
