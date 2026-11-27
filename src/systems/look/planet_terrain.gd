@@ -313,18 +313,22 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		if lava:
 			half = maxf(half, LAVA_PAD_HALF)     # the lava moon's outposts: a raised basalt mound
 		var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
-		if sp.map_stretch(Vector2(at.x, at.z)) > RaceCourse.FAR_STRETCH and not lava:
+		if sp.map_stretch(Vector2(at.x, at.z)) > RaceCourse.FAR_STRETCH:
 			# Far round the ball the map is stretched across: the yard's pad is a
 			# square on the ground in the landmark's own frame (as its walls are).
+			# The moons' outposts spread round their balls stand out here too.
 			var base := sp.surface_at(at.x, at.z)
 			var xf := Transform3D(PlanetSphere.tilt_to(sp.up_at(base)) * Basis(Vector3.UP, deg_to_rad(float(lm.get("yaw_deg", 0.0)))), base)
 			var fsum := 0.0
 			for i in 3:
 				for j in 3:
 					fsum += sp.elevation(((xf * Vector3((i - 1) * half, 0.0, (j - 1) * half)) - sp.center).normalized())
-			var fmid := sp.center + (base - sp.center).normalized() * (sp.radius + fsum / 9.0)
+			var fy := fsum / 9.0
+			if lava:
+				fy = maxf(fy, (sp as AsteroidSphere).lava_level() + LAVA_PAD_LIFT)
+			var fmid := sp.center + (base - sp.center).normalized() * (sp.radius + fy)
 			sites.append(sp.framed_site(base, xf.basis.x, Vector2(half, half), blend,
-				{ "y": fsum / 9.0, "plane_c": fmid, "plane_u": sp.up_at(fmid) }))
+				{ "y": fy, "plane_c": fmid, "plane_u": sp.up_at(fmid) }))
 			continue
 		var sum := 0.0
 		for i in 3:

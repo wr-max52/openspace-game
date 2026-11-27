@@ -13,12 +13,12 @@
     { "id": "homes", "side": "-z", "fill": "homes", "note": "The locals' gray homes, down a third tunnel." }
   ],
   "landmarks": [
-    { "id": "remnant_outpost_lava_caldera", "kind": "location", "location": "remnant_outpost_lava_caldera", "at": [499, 0, 35], "yaw_deg": 176, "clear": 45,
-      "note": "The lava moon's five Remnant outposts (Territory's 'lava_moon' front), 500 to 560 m out on the highest ground found on each bearing, each on a raised basalt pad above the lava, its door (+x) toward the station. No air out here: armour on."  },
-    { "id": "remnant_outpost_lava_ridge", "kind": "location", "location": "remnant_outpost_lava_ridge", "at": [-167, 0, 514], "yaw_deg": 72, "clear": 45 },
-    { "id": "remnant_outpost_lava_cinder", "kind": "location", "location": "remnant_outpost_lava_cinder", "at": [-526, 0, 192], "yaw_deg": 20, "clear": 45 },
-    { "id": "remnant_outpost_lava_basalt", "kind": "location", "location": "remnant_outpost_lava_basalt", "at": [-271, 0, -347], "yaw_deg": 308, "clear": 45 },
-    { "id": "remnant_outpost_lava_glow", "kind": "location", "location": "remnant_outpost_lava_glow", "at": [219, 0, -449], "yaw_deg": 244, "clear": 45 }
+    { "id": "remnant_outpost_lava_caldera", "kind": "location", "location": "remnant_outpost_lava_caldera", "at": [1780, 0, 830], "yaw_deg": 155, "clear": 45,
+      "note": "The lava moon's five Remnant outposts (Territory's 'lava_moon' front), spread round the whole ball, 1.8 to 3.2 km out along the ground (two past the equator, on the far side; at least 74 degrees apart and from the station), each on the highest ground found near its spot, each on a raised basalt pad above the lava, its door (+x) toward the station. No air out here: armour on."  },
+    { "id": "remnant_outpost_lava_ridge", "kind": "location", "location": "remnant_outpost_lava_ridge", "at": [283, 0, 3234], "yaw_deg": 95, "clear": 45 },
+    { "id": "remnant_outpost_lava_cinder", "kind": "location", "location": "remnant_outpost_lava_cinder", "at": [-1773, 0, 903], "yaw_deg": 27, "clear": 45 },
+    { "id": "remnant_outpost_lava_basalt", "kind": "location", "location": "remnant_outpost_lava_basalt", "at": [-1202, 0, -1383], "yaw_deg": 311, "clear": 45 },
+    { "id": "remnant_outpost_lava_glow", "kind": "location", "location": "remnant_outpost_lava_glow", "at": [2278, 0, -2125], "yaw_deg": 223, "clear": 45 }
   ],
   "body": {
     "note": "How this moon looks from far off (a neighbour's sky, past types.json space.real_ball_within): a smooth ball with the moon baked onto it as paint, its rock, craters, lava and the station's domes, tunnels, landing pit and outposts, instead of a lumpy low-poly rock. paint: its colours and glow, relief: its ground's normals (tools/planets/bake_moon_paint.gd writes both; re-run when its rock, station or outposts change). Up close it is still its real coarse ball.",
