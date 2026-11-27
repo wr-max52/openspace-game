@@ -50,6 +50,8 @@ extends Node3D
 ##                         race ends: win and you are offered the next crew up the
 ##                         ladder (pointing at where they hang out) and a pink-slip
 ##                         rematch with this crew; lose and a rematch with them.
+##                         One line per crew in the job log: its name, its
+##                         difficulty and where you stand (Race, Rematch, Pink slip).
 ##
 ## The headless test drives accept(), line_up() and the frame directly.
 
@@ -104,8 +106,11 @@ var _fc_hidden: Array = []            ## the HUD layers the finish cam hid
 var _hud: CanvasLayer
 var _hud_lap: Label
 var _hud_big: Label
+var _hud_hint: Label                 ## the smaller line under the big one (the crash-out's weld hint)
 var _hud_list: Label
+var _big_fit := ""                   ## what _hud_big was last fitted for (text, hint, window)
 var _big_left := 0.0
+var _list_fade: Tween                 ## the results list's hold-then-fade (results_s)
 var _count := 0
 var _count_left := 0.0
 var _grid_t := 0.0
@@ -227,6 +232,7 @@ func build(st: StagedBuild = null) -> void:
 		await StagedBuild.slice_of(st)
 	if not bodies.is_empty() and demo.has_method("make_townsfolk"):
 		folk = demo.make_townsfolk("RaceFolk_" + id, bodies, TownAlarm.place_name("race_crew", str(crew.get("label", id))))
+		folk.chatty = false     # walk up and only the leader speaks (the challenge on [E])
 	menu = DroidMenu.new()
 	add_child(menu)
 	_build_hud()
@@ -677,6 +683,7 @@ static func crew_name(c: Dictionary) -> String:
 
 static func _quest_words(c: Dictionary) -> Dictionary:
 	return { "crew": str(c.get("label", c.get("id", ""))), "Crew": crew_name(c),
+		"difficulty": str(c.get("difficulty", "")),
 		"course": str(RaceCourse.load_course(str(c.get("course", ""))).get("label", "course")) }
 
 
@@ -709,22 +716,73 @@ static func quests() -> Array:
 
 ## A race with `crew_id` is over: settle and offer its quests. Won: the rematch
 ## and (after a pink-slip race) the slips quest are done, and you are offered the
-## next crew up (unless you have beaten them) and a pink-slip rematch here. Lost:
-## you are offered a rematch only. Any pink-slip race, won or lost, does the
-## slips quest.
+## next crew up (unless you have beaten them or already have their line) and a
+## pink-slip rematch here. Lost: you are offered a rematch only. Any pink-slip
+## race, won or lost, does the slips quest. One line per crew: offering a crew's
+## quest clears its others (_offer).
 static func settle_quests(crew_id: String, won: bool, was_pink: bool) -> void:
 	if was_pink:
 		_finish(quest_id("slips", crew_id))
 	if not won:
-		Quests.offer_again(quest_id("rematch", crew_id))
+		_offer("rematch", crew_id)
 		return
 	_finish(quest_id("rematch", crew_id))
 	_finish(quest_id("next", crew_id))
-	var up := next_crew(crew_id)
-	if not up.is_empty() and not WorldState.has_flag("crew_beaten_" + str(up.get("id", ""))):
-		Quests.offer_again(quest_id("next", str(up.get("id", ""))))
+	var up := str(next_crew(crew_id).get("id", ""))
+	if up != "" and not WorldState.has_flag("crew_beaten_" + up) and _open_kind(up) == "":
+		_offer("next", up)
 	if bool(rules().get("pink_slips", true)):
-		Quests.offer_again(quest_id("slips", crew_id))
+		_offer("slips", crew_id)
+
+
+const KINDS := ["rematch", "slips", "next"]   ## which one an old save keeps when it has more than one open
+
+
+## The kind of race quest open with `crew_id` ("" if none).
+static func _open_kind(crew_id: String) -> String:
+	for kind in KINDS:
+		if Quests.state(quest_id(kind, crew_id)) == "open":
+			return kind
+	return ""
+
+
+## Offer `kind` with `crew_id`, clearing the crew's other race quests (open or
+## done) so the job log shows one line for them. A waypoint on the old line
+## moves to the new one (they point at the same hangout).
+static func _offer(kind: String, crew_id: String) -> void:
+	var waypoint := _clear_others(kind, crew_id)
+	var qid := quest_id(kind, crew_id)
+	Quests.offer_again(qid)
+	if waypoint and Quests.state(qid) == "open":
+		Quests.toggle_waypoint(qid)
+
+
+## Drop every race quest with `crew_id` but `keep`. True if one had the waypoint.
+static func _clear_others(keep: String, crew_id: String) -> bool:
+	var had := false
+	for kind in KINDS:
+		var qid := quest_id(kind, crew_id)
+		if kind == keep or not WorldState.quests.has(qid):
+			continue
+		had = had or bool(WorldState.quests[qid].get("waypoint", false))
+		WorldState.quests.erase(qid)
+	return had
+
+
+## A save from before one line per crew: keep the newest-looking line for each
+## crew (a rematch, then pink slips, then the first race; else the done one).
+static func tidy_quests() -> void:
+	for cid in ids():
+		var keep := _open_kind(cid)
+		if keep == "":
+			for kind in KINDS:
+				if WorldState.quests.has(quest_id(kind, cid)):
+					keep = kind
+					break
+		if keep != "" and _clear_others(keep, cid):
+			var qid := quest_id(keep, cid)
+			if Quests.can_point(qid):
+				WorldState.quests[qid].waypoint = true    # the one that had it is gone; no other is on
 
 
 ## Done, if it was offered (Quests.complete would also mark one never offered as
@@ -753,8 +811,7 @@ func rematch() -> String:
 		if not bool(rc.home) and not (_speeder_ok(rc) and rc.speeder.npc_driven()):
 			_settle_home(rc)
 	_remove_beast()                         # it was crawling off: a fresh one comes in
-	if _hud_list != null:
-		_hud_list.visible = false
+	_hide_results()
 	stake = last_stake
 	_pay(stake)
 	var standing := crowd.size()
@@ -1657,8 +1714,7 @@ func _put_away() -> void:
 	_remove_beast()
 	_player_speeder = null
 	phase = Phase.IDLE
-	if _hud_list != null:
-		_hud_list.visible = false
+	_hide_results()
 	if _hud_lap != null:
 		_hud_lap.visible = false
 
@@ -1743,6 +1799,7 @@ func _physics_process(dt: float) -> void:
 		_big_left -= dt
 		if _big_left <= 0.0 and _hud_big != null:
 			_hud_big.visible = false
+			_hud_hint.visible = false
 
 
 ## Speeder race lag: the crew and the crowd think by distance, on the town's own
@@ -1797,17 +1854,37 @@ func _build_hud() -> void:
 	_hud.layer = 5
 	add_child(_hud)
 	_hud_lap = _hud_label(28, Vector2(-260, 90), HORIZONTAL_ALIGNMENT_RIGHT)
-	_hud_big = _hud_label(84, Vector2(-200, -120), HORIZONTAL_ALIGNMENT_CENTER)
 	_hud_list = _hud_label(22, Vector2(-200, -40), HORIZONTAL_ALIGNMENT_CENTER)
+	# The countdown, GO and the crash-out: the window's width, centred, the big
+	# line on top and the hint under it. _big fits both to the window.
+	var col := VBoxContainer.new()
+	col.anchor_left = 0.0
+	col.anchor_right = 1.0
+	col.anchor_top = 0.5
+	col.anchor_bottom = 0.5
+	col.offset_left = BIG_MARGIN
+	col.offset_right = -BIG_MARGIN
+	col.offset_top = -120.0
+	col.grow_vertical = Control.GROW_DIRECTION_END
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud.add_child(col)
+	_hud_big = _hud_label(RetroUI.size("race_big", 84), Vector2.ZERO, HORIZONTAL_ALIGNMENT_CENTER, col)
+	_hud_hint = _hud_label(RetroUI.size("race_hint", 30), Vector2.ZERO, HORIZONTAL_ALIGNMENT_CENTER, col)
 
 
-func _hud_label(size: int, at: Vector2, align: HorizontalAlignment) -> Label:
+## In `col` (a container) it is laid out there; else it is placed at `at`.
+func _hud_label(size: int, at: Vector2, align: HorizontalAlignment, col: Container = null) -> Label:
 	var l := Label.new()
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", Color("#ffe6b0"))
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 6)
 	l.horizontal_alignment = align
+	l.visible = false
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if col != null:
+		col.add_child(l)
+		return l
 	l.size = Vector2(400, 200)
 	if align == HORIZONTAL_ALIGNMENT_RIGHT:
 		l.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -1815,17 +1892,29 @@ func _hud_label(size: int, at: Vector2, align: HorizontalAlignment) -> Label:
 	else:
 		l.set_anchors_preset(Control.PRESET_CENTER)
 		l.position = at
-	l.visible = false
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_child(l)
 	return l
 
 
-func _big(text: String, secs: float) -> void:
+const BIG_MARGIN := 40.0             ## px kept clear each side of the big race text
+
+
+## The big race line ("3", "GO!", "CRASHED!") and an optional smaller line under
+## it, for `secs`. Both shrink to fit the window, whatever the text size (F11 > HUD).
+func _big(text: String, secs: float, hint: String = "") -> void:
 	if _hud_big == null:
 		return
-	_hud_big.text = text
+	var room := _hud.get_viewport().get_visible_rect().size if _hud.is_inside_tree() else Vector2(1920, 1080)
+	var key := "%s|%s|%s" % [text, hint, room]
+	if key != _big_fit:
+		_big_fit = key
+		_hud_big.text = text
+		_hud_hint.text = hint
+		var w := room.x - BIG_MARGIN * 2.0
+		_hud_big.add_theme_font_size_override("font_size", RetroUI.fit_size(_hud_big, RetroUI.size("race_big", 84), Vector2(w, room.y * 0.35)))
+		_hud_hint.add_theme_font_size_override("font_size", RetroUI.fit_size(_hud_hint, RetroUI.size("race_hint", 30), Vector2(w, room.y * 0.15)))
 	_hud_big.visible = true
+	_hud_hint.visible = hint != ""
 	_big_left = secs
 
 
@@ -1846,7 +1935,7 @@ func _update_hud() -> void:
 	if _player_speeder != null and is_instance_valid(_player_speeder) and _player_speeder.repair_left > 0.0:
 		# Issue #722: hold E with a welder for full hull; without one it is half.
 		var hint := str(h.get("weld_hint" if Welder.owned() else "no_welder", ""))
-		_big("%s\n%d%s" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left), "\n" + hint if hint != "" else ""], 0.2)
+		_big("%s\n%d" % [str(h.get("crashed", "CRASHED!")), ceili(_player_speeder.repair_left)], 0.2, hint)
 
 
 func _show_results(order: Array) -> void:
@@ -1858,6 +1947,24 @@ func _show_results(order: Array) -> void:
 		rows.append(str(h.get("results", "%d. %s")) % [i + 1, _name_of(str(order[i]))])
 	_hud_list.text = "\n".join(rows)
 	_hud_list.visible = true
+	# Up for results_s, then faded out over results_fade_s (real seconds, so the
+	# finish cam's slow motion does not stretch it).
+	if _list_fade != null:
+		_list_fade.kill()
+	_hud_list.modulate.a = 1.0
+	_list_fade = _hud_list.create_tween().set_ignore_time_scale(true)
+	_list_fade.tween_interval(rule("results_s", 5.0))
+	_list_fade.tween_property(_hud_list, "modulate:a", 0.0, rule("results_fade_s", 0.6))
+	_list_fade.tween_callback(_hide_results)
+
+
+func _hide_results() -> void:
+	if _list_fade != null:
+		_list_fade.kill()
+		_list_fade = null
+	if _hud_list != null:
+		_hud_list.visible = false
+		_hud_list.modulate.a = 1.0
 
 
 ## The crews on a world (their course's world).

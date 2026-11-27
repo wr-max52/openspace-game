@@ -3,6 +3,7 @@
   "label": "the basin crew",
   "note": "Issue #615: the second rung of the race ladder: three locals who race out of the old outpost they took over (the racers' outpost, content/core/locations/outpost.json), in the Basin Run's infield south of the port, on the Basin Run. They stand and park outside its gate, Torrin's stall beside them, the start line about 135 m off. They only race you once you have beaten the yard crew (`after`). Same shape as yard.json (read its note); `rung` orders the ladder, `after` is the crew you must beat first, and `rules.gear` the race gear they may use (issue #616). Speeder classes: the second racer drives a box truck with a racing engine (`model`), the fastest thing here on a straight; the others ride tuned Sand-boxers; they bring seekers and mines.",
   "rung": 2,
+  "difficulty": "Easy",
   "after": "yard",
   "course": "basin_run",
   "profile": "local_racer",

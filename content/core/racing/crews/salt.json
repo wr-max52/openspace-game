@@ -3,6 +3,7 @@
   "label": "the salt crew",
   "note": "Issue #615: the top rung of the race ladder: three locals who race out of the salt-pan village on the Salt Flats, a long fast oval. They only race you once you have beaten the basin crew (`after`). They shoot from lap 1 and may use all the race gear (issue #616). Speeder classes: the leader rides a fully stacked Sand-boxer, the second a fully stacked box truck (on the long oval nothing catches it flat out), the third a racer with first-tier parts. Same shape as yard.json (read its note).",
   "rung": 3,
+  "difficulty": "Medium",
   "after": "basin",
   "course": "salt_flats",
   "profile": "local_racer",

@@ -3,6 +3,7 @@
   "label": "the crag crew",
   "note": "Races 4 and 5: the fourth rung of the race ladder, three locals who race out of Cragfall village on the far side of the planet, on the Crooked Mile: a tunnel through the far mountains, then a long run of switchbacks choked with rock (pillars and boulders moved there from round the planet). They only race you once you have beaten the salt crew (`after`). Top notch: two racers and a box truck, every one fully stacked (tier-two engine, thrusters and cannons), aces at the yoke, every piece of race gear, shooting from lap 1. Same shape as yard.json (read its note); the hangout frame's +x faces their start line.",
   "rung": 4,
+  "difficulty": "Hard",
   "after": "salt",
   "course": "crooked_mile",
   "profile": "local_racer",
