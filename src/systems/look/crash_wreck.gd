@@ -177,8 +177,9 @@ func _split() -> void:
 	_burnt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_burnt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var parts: Array = []
+	var engines: Array = []
 	if _look != null and is_instance_valid(_look):
-		_collect(_look, _look_xf, parts)          # each mesh in the wreck's frame
+		_collect(_look, _look_xf, parts, engines)  # each mesh in the wreck's frame, the engine flames apart
 	var centre := Vector3.ZERO
 	var box := AABB()
 	var first := true
@@ -206,6 +207,16 @@ func _split() -> void:
 			h.add_child(mi)
 		_add_collider(h, box, centre.z, side == 0)
 		halves.append(h)
+	# The engines that were lit as it came down keep burning on their half, whole
+	# (not cut, not charred), and die with the fire's flames below.
+	for e in engines:
+		var en: Node3D = e.node
+		var side := 0 if (e.xf as Transform3D).origin.z < centre.z else 1
+		en.get_parent().remove_child(en)
+		halves[side].add_child(en)
+		en.transform = e.xf
+		en.set_meta("base_scale", (e.xf as Transform3D).basis.get_scale())
+		_flames.append(en)
 	if _look != null and is_instance_valid(_look):
 		_look.queue_free()
 	_look = null
@@ -268,14 +279,27 @@ static func _dark(m: BaseMaterial3D, k: float) -> BaseMaterial3D:
 
 
 ## Every MeshInstance3D under `n` with its transform in the wreck's frame (`xf` is n's).
-func _collect(n: Node, xf: Transform3D, out: Array) -> void:
+## Engine flames (a ship's "Flames", a speeder's boosters) go in `engines` instead,
+## one per nozzle, and only if they were lit: they are fire, not hull, so they are
+## never cut into the halves (they would glow there for good).
+func _collect(n: Node, xf: Transform3D, out: Array, engines: Array = []) -> void:
 	for c in n.get_children():
 		var cxf := xf
 		if c is Node3D:
 			cxf = xf * (c as Node3D).transform
+		if c is Node3D and c.has_meta("no_bounds") and String(c.name) == "Flames":
+			if (c as Node3D).visible:
+				for fl in c.get_children():
+					if fl is Node3D and (fl as Node3D).visible:
+						engines.append({ "node": fl, "xf": cxf * (fl as Node3D).transform })
+			continue
+		if c is MeshInstance3D and String(c.name).begins_with("BoosterFlame"):
+			if (c as MeshInstance3D).visible:
+				engines.append({ "node": c, "xf": cxf })
+			continue
 		if c is MeshInstance3D and (c as MeshInstance3D).mesh != null and (c as MeshInstance3D).visible:
 			out.append({ "mi": c, "xf": cxf })
-		_collect(c, cxf, out)
+		_collect(c, cxf, out, engines)
 
 
 ## Off for a wreck: lights, particles, sounds and any script ticking under it.
@@ -377,7 +401,8 @@ func _burn(_dt: float) -> void:
 	for f in _flames:
 		if is_instance_valid(f):
 			var flick := 0.85 + 0.25 * absf(sin(t * 23.0 + float(f.get_instance_id() % 7)))
-			(f as Node3D).scale = Vector3(1, maxf(0.001, flame_k * flick), 1)
+			var b: Vector3 = (f as Node3D).get_meta("base_scale", Vector3.ONE)    # an engine's: its width and length when it hit
+			(f as Node3D).scale = Vector3(b.x, maxf(0.001, b.y * flame_k * flick), b.z)
 			(f as Node3D).visible = flame_k > 0.01
 	var smoke_s := maxf(0.01, float(cfg.get("smoke_s", 60.0)))
 	var smoke_k := clampf(1.0 - t_landed / smoke_s, 0.0, 1.0)
