@@ -867,7 +867,30 @@ func _animate(dt: float) -> void:
 				(joints.l_knee as Node3D).rotation_degrees.x = 10.0 * absf(sin(b * 0.5))
 			if joints.has("r_knee"):
 				(joints.r_knee as Node3D).rotation_degrees.x = 10.0 * absf(sin(b * 0.5 + PI * 0.5))
+			if _rest_gun(body, kit):
+				continue
 		_sync_skins(body)
+
+
+## A guard's rifle slung where a town guard's rests between shots (WeaponCarry
+## "rifle": low across the belly, muzzle down and left), both hands on it and the
+## fists closed on the grips the way NpcBody holds it. True when it synced the skin.
+func _rest_gun(body: Node3D, kit) -> bool:
+	if kit == null or not body.has_meta("weapon"):
+		return false
+	var w: Node3D = body.get_meta("weapon")
+	var grips: Dictionary = w.get_meta("grips", {})
+	w.transform = WeaponCarry.rest_xf(str(w.get_meta("carry", "rifle")), grips.get("r", Vector3.ZERO))
+	for side in ["r", "l"]:
+		if grips.has(side):
+			kit.reach(body, side, w.transform * (grips[side] as Vector3), NpcBody.SEAT_POLES[side])
+	if not body.has_meta("skin"):
+		return false
+	var gun := NpcBody.close_on_gun(kit, body, w)
+	_sync_skins(body)
+	if gun:
+		NpcBody.gun_into_fist(body, w)
+	return true
 
 
 ## A performer's set (ClubMoves), hands put on the instrument with the kit's arm IK
