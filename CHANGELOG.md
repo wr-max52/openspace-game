@@ -2,6 +2,20 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The seeker launcher gets a digital sight (2026-11-26)
+
+- **The launcher's round scope is now a square blue display** on a bracket on
+  the left side of the tube. Aimed in, you look through its tinted glass: scan
+  lines, rulers down the sides, a status strip along the top, and the sniper's
+  crosshair with the range and zoom. Locking on works as before.
+- **You can see the tube in first person.** At the hip it runs in from the
+  bottom right with the sight beside it; aimed in it sits to the right of the
+  display, at an angle.
+- **The tube is worn painted metal**, chipped and seamed like the station
+  favela's shacks (the guards' tubes too).
+- **Reloading rolls the tube to the right** off your shoulder, and your arm
+  follows it.
+
 ## Rival racers sound dangerous (2026-11-26)
 
 - **The race crews have dark, aggressive voices of their own.** They used to

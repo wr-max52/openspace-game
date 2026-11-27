@@ -178,7 +178,7 @@ func build_weapons(ids: Array) -> void:
 			wrap.set_meta("fx", fx)
 		else:
 			# The seeker launcher is simple shapes (LauncherLook), not a model.
-			var model := LauncherLook.build(spec) if str(spec.get("build", "")) == "launcher" \
+			var model := LauncherLook.build(spec, true) if str(spec.get("build", "")) == "launcher" \
 				else _load_model(str(spec.get("model", "")), spec)
 			var s := float(spec.get("scale", 1.0))
 			if model != null:
@@ -771,7 +771,9 @@ func _place_weapon(upper: String, pitch: float) -> void:
 		var ae := ads_blend * ads_blend * (3.0 - 2.0 * ads_blend)
 		ready = motion.offset(ae) * ready * motion.wall_local(grips.get("r", Vector3.ZERO), ae)
 	if reload >= 0.0 and not sword_held():
-		ready = ready * WeaponMotion.reload_local(reload, grips.get("r", Vector3.ZERO))
+		var rr = (look.get(current, {}) as Dictionary).get("reload_roll")
+		ready = ready * (WeaponMotion.reload_roll_local(reload, rr) if rr is Dictionary
+			else WeaponMotion.reload_local(reload, grips.get("r", Vector3.ZERO)))
 	if ads_blend > 0.0 and first_person and ads_camera != null and is_inside_tree() and not sword_held():
 		var a := Ads.spec(look, current)
 		var sc := float((look.get(current, {}) as Dictionary).get("scale", 1.0))

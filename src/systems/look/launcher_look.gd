@@ -11,11 +11,20 @@ extends RefCounted
 ## it sits on the shoulder. "tube" { radius, back, front, bell, bell_len } and
 ## "grips" { r, l } place it; "tint" { tube, trim, grip } colours it. Materials
 ## are shared between builds.
+## `viewmodel` (the player's own): its parts are weapon_solid instead, so aimed in
+## the scope keeps the tube past its "barrel_from" in view, pinned to the eye
+## (GunSights). Those materials are the build's own; the guards' stay plain and
+## shared (no shader instance uniforms on every guard).
+
+const SOLID := preload("res://src/systems/look/shaders/weapon_solid.gdshader")
 
 static var _mats: Dictionary = {}
+static var _own: Dictionary = {}       ## this build's weapon_solid materials, while building
 
 
-static func build(spec: Dictionary) -> Node3D:
+static func build(spec: Dictionary, viewmodel := false) -> Node3D:
+	_own = {}
+	var solid := viewmodel
 	var root := Node3D.new()
 	root.name = "SeekerLauncher"
 	var t: Dictionary = spec.get("tube", {})
@@ -25,10 +34,13 @@ static func build(spec: Dictionary) -> Node3D:
 	var front := float(t.get("front", 0.62))
 	var bell := float(t.get("bell", r * 1.2))
 	var bell_len := float(t.get("bell_len", 0.07))
-	var tube := _mat(str(tint.get("tube", "#4f5a48")), 0.25, 0.6)
-	var trim := _mat(str(tint.get("trim", "#2a2c2e")), 0.6, 0.45)
-	var grip := _mat(str(tint.get("grip", "#1d1e20")), 0.0, 0.85)
-	var bore := _mat("#0a0a0b", 0.0, 1.0)
+	# The tube and its trim in the station favela's painted metal (chipped, grimy,
+	# seamed); "tex_scale" tiles a metre.
+	var ts := float(spec.get("tex_scale", 3.0))
+	var tube := _mat(str(tint.get("tube", "#4f5a48")), 0.25, 0.6, solid, ts)
+	var trim := _mat(str(tint.get("trim", "#2a2c2e")), 0.6, 0.45, solid, ts)
+	var grip := _mat(str(tint.get("grip", "#1d1e20")), 0.0, 0.85, solid)
+	var bore := _mat("#0a0a0b", 0.0, 1.0, solid)
 	# The tube between the bells, the bells flaring out to both ends, and the dark
 	# bore inside each end.
 	var mid_from := back + bell_len
@@ -90,14 +102,38 @@ static func _box(size: Vector3) -> BoxMesh:
 	return b
 
 
-static func _mat(hex: String, metal: float, rough: float) -> StandardMaterial3D:
-	var key := "%s/%s/%s" % [hex, metal, rough]
+## `tex` > 0: the favela's painted metal at that many tiles a metre.
+static func _mat(hex: String, metal: float, rough: float, solid := false, tex := 0.0) -> Material:
+	var key := "%s/%s/%s/%s" % [hex, metal, rough, tex]
+	var t: Array = StallTextures._metal_tex() if tex > 0.0 else []
+	if solid:
+		if not _own.has(key):
+			var sm := ShaderMaterial.new()
+			sm.shader = SOLID
+			sm.set_shader_parameter("albedo", Color.html(hex))
+			sm.set_shader_parameter("metallic", metal)
+			sm.set_shader_parameter("roughness", rough)
+			if tex > 0.0:
+				sm.set_shader_parameter("use_tex", true)
+				sm.set_shader_parameter("tex_scale", tex)
+				sm.set_shader_parameter("albedo_tex", t[0])
+				sm.set_shader_parameter("normal_tex", t[1])
+			_own[key] = sm
+		return _own[key]
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color.html(hex)
 	m.metallic = metal
 	m.roughness = rough
+	if tex > 0.0:
+		m.albedo_texture = t[0]
+		m.uv1_triplanar = true
+		m.uv1_scale = Vector3.ONE * tex
+		if t[1] != null:
+			m.normal_enabled = true
+			m.normal_texture = t[1]
+			m.normal_scale = 0.7
 	_mats[key] = m
 	return m
 

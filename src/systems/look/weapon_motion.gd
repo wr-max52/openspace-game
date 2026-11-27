@@ -121,6 +121,22 @@ static func reload_local(t: float, grip: Vector3) -> Transform3D:
 	return Transform3D(Basis(), grip) * Transform3D(r, Vector3(0.07 * k, 0.1 * k, -0.05 * k)) * Transform3D(Basis(), -grip)
 
 
+## A weapon with its own reload move (hand_weapons "reload_roll", the seeker
+## launcher): rolled about its own axis to the right (+roll_deg: its top toward
+## the shooter's right, -X), the muzzle up pitch_deg, and moved by `move` (its own
+## space, m), eased like reload_tip. The right hand stays on its grip, so the arm
+## follows it round.
+static func reload_roll_local(t: float, r: Dictionary) -> Transform3D:
+	var k := reload_tip(t)
+	if k <= 0.0:
+		return Transform3D.IDENTITY
+	var m = r.get("move", [-0.08, -0.06, 0.0])
+	var move := Vector3(float(m[0]), float(m[1]), float(m[2])) if m is Array and m.size() >= 3 else Vector3.ZERO
+	var b := Basis(Vector3.BACK, deg_to_rad(float(r.get("roll_deg", 50.0))) * k) \
+		* Basis(Vector3.RIGHT, -deg_to_rad(float(r.get("pitch_deg", 8.0))) * k)
+	return Transform3D(b, move * k)
+
+
 ## Where the left hand is at `t`, in the gun's space: from its grip to the cell,
 ## down out of view and back. `out` is the out-of-view point.
 static func reload_hand(t: float, grip_l: Vector3, mag: Vector3, out: Vector3) -> Vector3:
