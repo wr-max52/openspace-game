@@ -24,8 +24,12 @@ extends Node3D
 ##   3, 2, 1, GO        -- held until GO.
 ##   the race           -- laps through the gates in order (RaceLaps); the HUD
 ##                         shows your lap and place and the pointer the next gate.
-##                         From the crew's shoot_from_lap a racer with you in its
-##                         nose fires its lasers. Shoot them any time.
+##                         From the crew's shoot_from_lap (0: never) a racer with
+##                         you in its nose fires its lasers; with hold_fire_gates
+##                         it holds fire till it is through that many checkpoints.
+##                         Shoot them any time, but fire first (lasers, a seeker,
+##                         a mine) and every racer may shoot back from then on
+##                         (rules.json shoot_back).
 ##   crash out          -- hull gone mid-race: a speeder does not burst, it
 ##                         stops dead and smokes while it is patched up
 ##                         (crash_repair_s for yours, npc_crash_repair_s, a bit
@@ -90,6 +94,8 @@ var pink := false                     ## issue #617: this race is for pink slips
 ## Issue #618: race feel.
 var race_t := 0.0                     ## seconds since GO
 var clean_gates := 0                  ## checkpoints you took dead centre (each a boost)
+var provoked := false                 ## you fired first this race: every racer may shoot back
+var _fire_at_go := 0                  ## your shots + seekers + mines at GO (more since = you fired)
 var finish_cam_on := false
 var _lap_t0 := -1.0                   ## race_t when your current lap began
 var _fc_end_ms := 0
@@ -460,7 +466,12 @@ func menu_options() -> Array:
 
 func menu_body() -> String:
 	var shoot := int(r("shoot_from_lap", 2))
-	var rule_line := line("rule_shoot", { "lap": shoot }) if shoot > 0 else line("rule_clean")
+	var hold := int(r("hold_fire_gates", 0))
+	var rule_line := line("rule_clean")
+	if shoot > 0:
+		rule_line = line("rule_gate", { "gates": hold }) if hold > 0 and shoot <= 1 else line("rule_shoot", { "lap": shoot })
+	if bool(rules().get("shoot_back", true)):
+		rule_line += " " + line("rule_shoot_back")
 	var best := best_lap()
 	return line("menu_body", { "course": course.label(), "laps": course.laps_total(), "rule": rule_line,
 		"multiple": int(r("multiple", 10)), "best": ("%.1f s" % best) if best > 0.0 else "none yet" })
@@ -1180,6 +1191,8 @@ func go() -> void:
 	race_t = 0.0
 	_lap_t0 = -1.0
 	clean_gates = 0
+	provoked = false
+	_fire_at_go = _your_fire()
 	if _player_speeder != null and is_instance_valid(_player_speeder):
 		_player_speeder.set_external_command({})
 		_last[YOU] = _player_speeder.model.position
@@ -1230,7 +1243,10 @@ func _tick_racing(dt: float) -> void:
 			_last[YOU] = you_pos
 	race_t += dt
 	var shoot_lap := int(r("shoot_from_lap", 2))
+	var hold_gates := int(r("hold_fire_gates", 0))
 	_jeer_left -= dt
+	if not provoked and player_out == "" and bool(rules().get("shoot_back", true)) and _your_fire() > _fire_at_go:
+		_shot_first()
 	var beast_pts := _beast_points()
 	for rc in racers:
 		if bool(rc.out):
@@ -1250,10 +1266,13 @@ func _tick_racing(dt: float) -> void:
 				rc.finished = true
 				rc.brain.pace = 0.5
 		_last[rc.key] = at
-		# Lap `shoot_lap` on: you in their nose, in range: lasers.
+		# Lap `shoot_lap` on (and through `hold_gates` checkpoints), or since you
+		# fired first: you in their nose, in range: lasers.
 		var lap_now := laps.lap(rc.key) + 1
 		var crashed: bool = sp.repair_left > 0.0          # crashed out: no guns, no gear till patched up
-		var shoot := shoot_lap > 0 and lap_now >= shoot_lap and player_out == "" and you_pos != Vector3.INF \
+		var allowed := provoked or (shoot_lap > 0 and lap_now >= shoot_lap \
+			and (hold_gates <= 0 or laps.progress(rc.key) >= hold_gates))
+		var shoot := allowed and player_out == "" and you_pos != Vector3.INF \
 			and not bool(rc.finished) and not crashed
 		rc.brain.shoot_at = you_pos if shoot else Vector3.INF
 		if shoot:
@@ -1277,6 +1296,35 @@ func _tick_racing(dt: float) -> void:
 		Objective.race = { "text": _gate_text(), "target": "race:%s:%d" % [course.id, laps.next_gate(YOU)], "key": "race" }
 	if results.has(YOU) or player_out != "":
 		_end_race()
+
+
+## Everything you have fired off your speeder: laser shots, seekers, mines.
+func _your_fire() -> int:
+	if _player_speeder == null or not is_instance_valid(_player_speeder):
+		return 0
+	var n := _player_speeder.shots
+	if _player_speeder.gear != null:
+		n += _player_speeder.gear.fired + _player_speeder.gear.dropped
+	return n
+
+
+## You fired first: the gloves are off for the rest of this race, and the
+## nearest racer still in it says so.
+func _shot_first() -> void:
+	provoked = true
+	var you := _you_pos()
+	var best: Dictionary = {}
+	var best_d := INF
+	for rc in racers:
+		if bool(rc.out) or rc.speeder == null or not is_instance_valid(rc.speeder) or you == Vector3.INF:
+			continue
+		var d: float = rc.speeder.model.position.distance_to(you)
+		if d < best_d:
+			best_d = d
+			best = rc
+	if not best.is_empty():
+		_jeer_left = 6.0
+		_say(best.body, line("shot_first"))
 
 
 ## One of your crossings (RaceLaps events): the finish, the crowd's cheer, the
