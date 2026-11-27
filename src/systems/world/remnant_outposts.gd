@@ -25,9 +25,11 @@ extends Node3D
 ##
 ## Issue #187: an outpost changes hands (Territory). Kill every trooper at one and
 ## the locals have it: their desert guards (territory.json "outposts" posts) and a
-## white assassin droid move in once you are out of sight (or after move_in_s),
-## run by the outpost's own Townsfolk. When the Remnant take it back their
-## troopers and droids return the same way, once you are swap_dist away. Issue
+## white assassin droid move in, run by the outpost's own Townsfolk. When the
+## Remnant take it back their troopers and droids return the same way. Either way
+## the swap waits until the outpost has been cleared for move_in_s, you are at
+## least swap_away_m away and it is not on your screen; lines.cleared is toasted
+## the moment the last defender dies (whichever side they were). Issue
 ## #393: the outpost's red band, door frame, lamps and banner turn the locals'
 ## green with the swap, and back (LookMaterials.repaint, this outpost's group).
 ## Issue #425: once the cruiser has fallen the Remnant run short here too; a
@@ -328,10 +330,14 @@ func _tick_control(dt: float, p: Node3D) -> void:
 					if not bool(o.get("told", false)):
 						o.told = true
 						_toast(Territory.line("locked") % o.label)
-				elif o.side == Territory.REMNANT:
-					Territory.take(id)          # every trooper dead: the locals have it
 				else:
-					Territory.guards_lost(id)   # the locals' guards dead: the Remnant will be back
+					if o.side == Territory.REMNANT:
+						Territory.take(id)          # every trooper dead: the locals have it
+					else:
+						Territory.guards_lost(id)   # the locals' guards dead: the Remnant will be back
+					if not bool(o.get("cleared", false)):
+						o.cleared = true            # said once, whichever side you cleared
+						_toast(Territory.line("cleared") % o.label)
 			if o.side == Territory.LOCALS and Territory.can_deliver(id) and away <= Territory.n("supply_reach", 25.0):
 				var pay := Territory.deliver(id)
 				_toast(Territory.line("supplied") % [o.label, pay])
@@ -340,9 +346,32 @@ func _tick_control(dt: float, p: Node3D) -> void:
 				_toast(Territory.line("remnant_supplied") % [o.label, pay])
 			continue
 		o.wait = float(o.wait) + dt
-		# Change hands out of sight; the locals also walk in while you watch.
-		if away > Territory.n("swap_dist", 110.0) or (want == Territory.LOCALS and float(o.wait) >= Territory.n("move_in_s", 30.0)):
+		# Change hands out of sight only: cleared a while, you well away, not on screen.
+		if ready_to_swap(float(o.wait), away) and not _on_screen(o):
 			swap(o, want)
+
+
+## Cleared for at least move_in_s and you at least swap_away_m off (territory.json).
+## The screen check is separate (it needs the camera).
+static func ready_to_swap(waited: float, away: float) -> bool:
+	return waited >= Territory.n("move_in_s", 45.0) and away >= Territory.n("swap_away_m", 1000.0)
+
+
+## Outpost `o` is in the camera's view and not hidden over the planet's curve.
+func _on_screen(o: Dictionary) -> bool:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return false
+	var top: Vector3 = o.origin + _up_at(o.origin) * 6.0
+	if not cam.is_position_in_frustum(top):
+		return false
+	return demo == null or not demo.has_method("could_see") or demo.could_see(o.origin)
+
+
+## Up at `at`: away from the planet's centre on a ball, else +Y.
+func _up_at(at: Vector3) -> Vector3:
+	var sp: PlanetSphere = _ball(ground.terrain) if ground != null and ground.terrain != null else null
+	return (at - sp.center).normalized() if sp != null else Vector3.UP
 
 
 ## Outpost `o` is `side`'s now: the other side's people and droids go, this side's come.
@@ -359,6 +388,7 @@ func swap(o: Dictionary, side: String) -> void:
 		g0.respawns = g0.respawns.filter(func(r): return str(r.get("outpost", "")) != id)
 	o.side = side
 	o.wait = 0.0
+	o.cleared = false
 	swaps += 1
 	if demo.use_look:
 		demo._flat_mats().repaint(side, id)      # issue #393: the band, door frame, lamps and banner

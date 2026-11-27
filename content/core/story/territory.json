@@ -6,7 +6,9 @@
   "supply_pay": 120,
   "supply_reach": 25.0,
   "swap_dist": 110.0,
-  "move_in_s": 30.0,
+  "move_in_s": 45.0,
+  "swap_away_m": 1000.0,
+  "swap_note": "An outpost changes hands (either way) only once it has been cleared for move_in_s, you are at least swap_away_m from it, and it is not on your screen (in the camera view and over the horizon). lines.cleared is toasted the moment the last defender dies. swap_dist is the barracks' (barracks_unseen_dist).",
   "barracks_unseen_dist": 40.0,
   "outposts": {
     "posts": {
@@ -109,6 +111,7 @@
     "taken": "The locals move into %s.", "station_taken": "The Remnant on %s are dead. The locals take the station.",
     "locked": "The Remnant at %s answer to the cruiser. More will come until it falls.",
     "retaken": "The Remnant have taken %s back.",
+    "cleared": "%s is cleared. It will change hands once you are well away.",
     "supplied": "Supplies delivered to %s. +%d cr",
     "warn": "The locals at %s are running short.",
     "driven_off": "The Remnant have pulled out of the desert. The port is the locals' now.",
