@@ -45,6 +45,22 @@ func test_falls_flat_and_rests_on_the_floor() -> void:
 	assert_true(r.asleep, "it goes to sleep once it stops")
 
 
+## Flung off a landing in the cruiser's ramp shaft, a body was still falling when
+## max_seconds ran out and hung in the air. It falls on until it lands (or, over
+## nothing at all, until max_fall_seconds).
+func test_a_body_still_in_the_air_does_not_hang_there() -> void:
+	body.position = Vector3(0, 2000, 100)        # off the floor's edge, nothing below
+	await wait_physics_frames(1)
+	var cfg := Ragdoll.load_config()
+	var r := _drop(Vector3(0, 0, 3), float(cfg.max_seconds) + 1.0)
+	assert_false(r.asleep, "still falling past max_seconds: awake")
+	assert_lt(r.point("pelvis").y, 2000.0 - 50.0, "and it has fallen a long way")
+	var dt := 1.0 / 60.0
+	for i in int((float(cfg.max_fall_seconds) - float(cfg.max_seconds)) * 60.0):
+		r.step(dt)
+	assert_true(r.asleep, "over nothing at all it gives up at max_fall_seconds")
+
+
 func test_falls_away_from_the_shot() -> void:
 	var start := (body.get_meta("joints").head as Node3D).global_position
 	var r := _drop(Vector3(3, 0, 0))
