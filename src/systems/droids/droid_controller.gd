@@ -2,8 +2,9 @@ class_name DroidController
 extends Node3D
 ## Companion droids in the town (issue #51). The node over the pure DroidRoster
 ## (WorldState.droids):
-##   - your droids follow you on foot, vanish while you fly the ship and come
-##     back beside you when you climb out,
+##   - your droids trail behind you on foot, never close enough for their [E]
+##     prompts (you walk up to them), vanish while you ride a speeder or fly the
+##     ship and turn up behind you once you walk off from it,
 ##   - an assassin droid of yours shoots whoever the town is fighting you with,
 ##     and so does a floating droid of yours, with its smaller gun: the Remnant,
 ##     the port's locals once their alarm is up, a native pack on the attack
@@ -56,6 +57,9 @@ const REJOIN_LAG_S := 5.0           ## a lost droid turns up where you were this
 const REJOIN_MAX := 25.0            ## ...or nearer, if that is further back than this (m)
 const BLOCK_PROBE_H := 0.5          ## an engaged droid looks for walls this high off the ground (m)...
 const BLOCK_PROBE_R := 0.4          ## ...this far past its next step (about half a body)
+const TOGGLE_REACH := 2.4           ## a droid of yours this near shows its [E] prompt (hold, safety, lasers)
+const KEEP_OFF_MIN := 3.2           ## a following droid never walks nearer you than this (m); its kind's follow.keep_off can push it out
+const EXIT_WALK_M := 1.5            ## out of a speeder or ship, your droids turn up once you have walked this far from where you got out
 
 signal unit_down(u: DroidUnit, sweep: Vector3)   ## one of the Remnant's (or the locals') died; sweep INF: it ran off
 
@@ -87,6 +91,8 @@ var _wreck_clock := 0.0
 var _heading := Vector3.FORWARD
 var _follow_t := 0.0
 var _trail: Array = []              ## [[_follow_t, player position], ...], newest last: where a lost droid rejoins
+var _await_walk := false            ## you got out of a speeder or ship: no droids until you walk off
+var _exit_at := Vector3.INF         ## ...from here (where you stood the first frame on foot)
 var _mats: LookMaterials
 var _was_locked := false
 var net_copy := false               ## issue #402: the host's game runs this town's droids (see the top)
@@ -216,11 +222,16 @@ func _physics_process(dt: float) -> void:
 		return
 	_player_off_index = _off_index(player.global_position)
 	if player.piloting:
-		_despawn_companions()          # they wait while you fly
+		_despawn_companions()          # they wait while you ride or fly
 		_trail.clear()
 		focus = {}
+		_await_walk = true
+		_exit_at = Vector3.INF
 	else:
-		_sync_companions()
+		if _await_walk:
+			_await_walk = not _walked_off()
+		if not _await_walk:
+			_sync_companions()
 		_tick_knocked_out(dt)
 		_follow(dt)
 		_companion_guns(dt)
@@ -264,17 +275,17 @@ func _find_focus() -> Dictionary:
 	for uid in companions:
 		var d := roster().find(uid)
 		if bool(DroidRoster.kind_cfg(str(d.get("kind", ""))).get("carries", false)) \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "cargo", "uid": uid }
 	for uid in companions:              # issue #392: a droid of yours with the laser rig
 		var d := roster().find(uid)
 		if DroidRoster.has_lasers(d) and not companions[uid].dead \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "lasers", "uid": uid }
 	for uid in companions:              # a droid of yours with a gun: its safety
 		var d := roster().find(uid)
 		if DroidRoster.armed_kind(str(d.get("kind", ""))) and not companions[uid].dead \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "safety", "uid": uid }
 	return {}
 
@@ -875,14 +886,15 @@ func _take_remote() -> void:
 
 # ------------------------------------------------------------------ companions
 
-## Bring every owned droid that has no body yet, beside the player. Issue #310:
-## and the one a heist lends you (not in your roster).
+## Bring every owned droid that has no body yet, at its place behind the player
+## (_home_spot: out of reach of its [E] prompt). Issue #310: and the one a heist
+## lends you (not in your roster).
 func _sync_companions() -> void:
 	for d in roster().owned:
 		if not companions.has(int(d.uid)):
-			_spawn_companion(d, player.global_position - _heading * 2.0)
+			_spawn_companion(d, _home_spot(str(d.kind), _count_kind(str(d.kind))))
 	if not lent.is_empty() and not lent_down and not companions.has(LENT_UID):
-		_spawn_companion(_lent_entry(), player.global_position - _heading * 3.0)
+		_spawn_companion(_lent_entry(), _home_spot(str(lent.kind), _count_kind(str(lent.kind))))
 	for uid in companions.keys():
 		if uid == LENT_UID:
 			if lent.is_empty() or lent_down and not companions[uid].dead:
@@ -960,9 +972,61 @@ func _despawn_companions() -> void:
 		_free_companion(uid)
 
 
+## Out of a speeder or ship: true once you have walked EXIT_WALK_M from where you
+## got out, and your heading is the way you walked (so the droids turn up behind
+## you, not in front). Standing by the hull, nobody turns up.
+func _walked_off() -> bool:
+	if _exit_at == Vector3.INF:
+		_exit_at = player.global_position
+		return false
+	var off := _flat(player.global_position - _exit_at, _up(_exit_at))
+	if off.length() < EXIT_WALK_M:
+		return false
+	_heading = off.normalized()
+	return true
+
+
+## How many of your droids of `kind` have a body (the next one's place in its fan).
+func _count_kind(kind: String) -> int:
+	var n := 0
+	for u in companions.values():
+		if u.kind == kind:
+			n += 1
+	return n
+
+
+## Where the k-th droid of `kind` stands behind you: its follow slot without the
+## drift, pulled in short of a wall or a hull between you and it (a ray at knee
+## height) so it does not turn up inside the speeder you just left.
+func _home_spot(kind: String, k: int) -> Vector3:
+	var f: Dictionary = DroidRoster.kind_cfg(kind).get("follow", {})
+	var at := player.global_position
+	var pup := _up(at)
+	var h := _flat(_heading, pup)
+	if h.length() < 0.01:
+		h = _flat(-player.global_basis.z, pup)
+	h = h.normalized() if h.length() > 0.01 else PlanetSphere.tilt_to(pup) * Vector3.FORWARD
+	var right := h.cross(pup).normalized()
+	var fan := 0.0 if k == 0 else (1.0 if k % 2 == 1 else -1.0) * ceilf(k / 2.0) * 1.4
+	var spot := at + right * (float(f.get("side", 1.0)) + fan) - h * (float(f.get("back", 1.5)) + 1.1 * k)
+	if is_inside_tree():
+		var from := at + pup * BLOCK_PROBE_H
+		var to := spot + pup * BLOCK_PROBE_H
+		var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+		q.exclude = [player.get_rid()]
+		var hit := get_world_3d().direct_space_state.intersect_ray(q)
+		if not hit.is_empty() and (hit.normal as Vector3).dot(pup) < 0.7:
+			var dir := (to - from).normalized()
+			spot = (hit.position as Vector3) - dir * 0.6 - pup * BLOCK_PROBE_H
+	return spot
+
+
 ## Each droid holds its ground until the player gets `leash` metres away (its
-## kind's "follow"), then walks to its slot beside / behind the player and stops
-## there (within `settle` m). It catches up faster when far behind, and if it was
+## kind's "follow"), then walks to its slot behind the player and stops there
+## (within `settle` m). It never walks nearer you than `keep_off` (outside
+## TOGGLE_REACH), and never toward you while you walk its way: turn round and it
+## stands still, so you walk up to it for its [E]. The cargo droid trails furthest
+## back. It catches up faster when far behind, and if it was
 ## left a long way back (a jetpack hop, a speeder ride) it turns up on your trail
 ## some seconds back (_rejoin_point), not at your side, and runs the rest.
 func _follow(dt: float) -> void:
@@ -1006,7 +1070,10 @@ func _follow(dt: float) -> void:
 		var to := _flat(slot - u.global_position, _up(u.global_position))
 		var dist := to.length()
 		var leash := float(f.get("leash", 5.0)) + me.z * 2.0 + 0.8 * k
-		if not u.following and _flat_dist(u.global_position, player.global_position) > leash:
+		var keep_off := maxf(float(f.get("keep_off", KEEP_OFF_MIN)), KEEP_OFF_MIN)
+		# You are walking its way (it is ahead of you): it holds still and lets you pass.
+		var walking_at := v.length() > 0.6 and _flat(u.global_position - player.global_position, pup).dot(_heading) > 0.0
+		if not u.following and not walking_at and _flat_dist(u.global_position, player.global_position) > leash:
 			u.wait_left -= dt
 			if u.wait_left <= 0.0:
 				u.following = true
@@ -1031,7 +1098,15 @@ func _follow(dt: float) -> void:
 			_face(u, u.engaged.global_position - pos)
 		elif u.following:
 			speed = float(f.get("speed", 7.0)) * (0.85 + me.y * 0.3) * (2.0 if dist > 8.0 else clampf(dist / 1.5, 0.3, 1.0))
-			pos += to / dist * minf(speed * dt, dist)
+			var step := to / dist * minf(speed * dt, dist)
+			var near := _flat_dist(pos, player.global_position)
+			var near_next := _flat_dist(pos + step, player.global_position)
+			if near_next < near and (near_next < keep_off or walking_at):
+				u.following = false           # you are close, or coming its way: it waits for you
+				speed = 0.0
+				u.wait_left = 0.15 + me.x * 0.6
+			else:
+				pos += step
 			_face(u, to)
 		elif u.target == null:
 			_face(u, player.global_position - u.global_position)
