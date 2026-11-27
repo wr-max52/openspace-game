@@ -174,7 +174,7 @@ var _dock_y0 := 0.0
 var _dock_to := ""                ## where Z is taking her ("<name> bay"), for the HUD
 var _dock_head := 0.0             ## the curve's heading last frame (its turn rate banks her)
 var steals := 0                   ## issue #76: outpost ships taken (traces, tests)
-var opening := false              ## issue #202: the story's first landing (the autopilot; V and E only)
+var opening := false              ## issue #202: the story's first landing (the autopilot; V, the lasers and E only)
 var opening_t := 0.0              ## seconds into it: the cinematic view has the first few to itself
 var ejections := 0                ## issue #275: times the pilot ejected (traces, tests)
 var pit_key := ""                 ## issue #368: whose ship stood on the pit pad when the town was built (Fleet key)
@@ -1189,7 +1189,7 @@ func _seat_arriving() -> void:
 
 ## Issue #202: a story save opens with your ship coming down into the pit as if
 ## the autopilot were bringing it in, the camera far back. Nothing but V (change
-## view) does anything until she is down; then E gets you out (exit_ship), and
+## view) and the lasers (flight_fire) does anything until she is down; then E gets you out (exit_ship), and
 ## the story moves on ("landed"). The pad's "opening" sets where she starts.
 ## It is filmed in the cinematic view; the story's "opening_cinematic_secs" in, the
 ## prompt says V changes it and J the radio, which comes on to the story's
@@ -1443,15 +1443,14 @@ func _seated(dt: float) -> void:
 		_dock_step(dt)
 	elif bay_landing:
 		_bay_step(dt)
+		if opening:
+			_fire_guns(dt, _trigger_held())    # the opening's autopilot flies her; the lasers are still yours
 	else:
 		atmo.air_cap = _cruiser_air_cap()
 		for e in atmo.step(dt):
 			_on_event(e)
 		_rearm_space()
-		if _external.is_empty():
-			_fire_guns(dt, _held("flight_fire"), _held("flight_missile"))
-		else:
-			_fire_guns(dt, bool(_external.get("fire", false)), bool(_external.get("missile", false)))
+		_fire_guns(dt, _trigger_held(), _missile_held())
 		defense.step(dt)
 	_sync_visual()
 	var s := atmo.position()
@@ -1981,6 +1980,15 @@ func threat_velocity() -> Vector3:
 ## locked or not: a lock (the interceptor held in the cone, as in space) makes one
 ## home on it; without one it flies straight off the nose. The rack refills by the
 ## same rule as in space (ShipLoadout's reload_each), and it is the same rack.
+## The guns' trigger and the missile button this frame: the keys, or a bot's command.
+func _trigger_held() -> bool:
+	return _held("flight_fire") if _external.is_empty() else bool(_external.get("fire", false))
+
+
+func _missile_held() -> bool:
+	return _held("flight_missile") if _external.is_empty() else bool(_external.get("missile", false))
+
+
 func _fire_guns(dt: float, trigger: bool, missile := false) -> void:
 	if guns == null or atmo.state == AtmoFlight.State.CRASHED:
 		return
