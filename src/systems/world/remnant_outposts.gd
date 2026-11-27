@@ -378,7 +378,7 @@ func _tick_control(dt: float, p: Node3D) -> void:
 					# hands; the troopers come back on the outposts' respawn.
 					if not bool(o.get("told", false)):
 						o.told = true
-						_toast(Territory.line("locked") % o.label)
+						_toast(Territory.fline(Territory.front_of(id), "locked") % o.label)
 				else:
 					if o.side == Territory.REMNANT:
 						Territory.take(id)          # every trooper dead: the locals have it

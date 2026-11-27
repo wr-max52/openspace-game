@@ -1016,8 +1016,8 @@ func _build_npc(m: Dictionary) -> void:
 		var had = barracks_locals.get(barracks_post)
 		if (had != null and is_instance_valid(had)) or Territory.barracks_dead(Territory.here()).has(barracks_post):
 			return
-	elif _is_remnant_post(m) and Story.remnant_gone() and Territory.remnant_dead(Territory.here()).has(str(m.id)):
-		return                        # the fleet is beaten: a dead trooper stays dead
+	elif _is_remnant_post(m) and Territory.remnant_gone_on(Territory.here()) and Territory.remnant_dead(Territory.here()).has(str(m.id)):
+		return                        # the fleet is beaten (or this front's cruiser fallen): a dead trooper stays dead
 	var here := town.marker_pos(str(m.id))
 	var face := town.marker_pos("gate") if m.role == "trooper_post" else town.marker_pos("cantina_door")
 	if m.has("face"):
@@ -1313,7 +1313,7 @@ func respawn_rule(g: NpcBody) -> Dictionary:
 		r.merge({ "delay": float(rc.get("outpost_respawn_s", 180.0)), "at": g.post_pos, "outpost": str(g.get_meta("outpost")) })
 		return r
 	var mk := str(rc.get("town_respawn_marker", "remnant_respawn"))
-	if not Story.town_garrison() or Story.remnant_gone() or town.get_marker(mk).is_empty():
+	if not Story.town_garrison() or Territory.remnant_gone_on(Territory.here()) or town.get_marker(mk).is_empty():
 		return {}                     # the fleet beaten, the town's troopers stay dead (Territory.remnant_dead)
 	var aloft := bool(g.profile.get("combat", {}).get("hold_ground", false))
 	r.merge({ "delay": float(rc.get("town_respawn_s", 60.0)), "at": g.post_pos if aloft else town.marker_pos(mk) })
@@ -1323,7 +1323,7 @@ func respawn_rule(g: NpcBody) -> Dictionary:
 ## Bring one back (Garrison calls this when its time is up). Null = not now.
 func respawn(r: Dictionary) -> NpcBody:
 	var is_outpost := r.has("outpost")
-	if not is_outpost and (not Story.town_garrison() or Story.remnant_gone()):
+	if not is_outpost and (not Story.town_garrison() or Territory.remnant_gone_on(Territory.here())):
 		return null
 	if is_outpost and Territory.owner(str(r.outpost)) != Territory.REMNANT:
 		return null                   # issue #187: the locals hold it now

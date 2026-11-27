@@ -52,6 +52,16 @@ extends RefCounted
 ## `front` ("home" or a "fronts" key such as "moon") defaults to the port's; one that takes a place id
 ## works out its front from the id (front_of).
 ##
+## A front can answer to a cruiser of its own (its "cruiser": the lava moon's is the
+## belt cruiser by the ringed giant, content/core/cruiser/belt_cruiser.json) instead
+## of the story's. Then that cruiser runs its ground: while the Remnant hold it their
+## outposts there are locked (killing every trooper hands nothing over; they come
+## back, the ranch villages' rule) and their barracks troopers come back; once the
+## locals hold it (RemnantCruiser.holder_of) the Remnant there are cut off (their
+## outposts run short and give up, a dead barracks trooper stays dead) and the
+## barracks are the locals', as the fleet's defeat does for the port. If the Remnant
+## get it back (the dark master's oath) it turns round again (cruiser_fallen).
+##
 ## Numbers and lines: content/core/story/territory.json.
 
 const PATH := "res://content/core/story/territory.json"
@@ -123,10 +133,10 @@ static func _front_of(f: String) -> Dictionary:
 			"driven_off": f + "_remnant_driven_off", "retaken": f + "_town_retaken",
 			"dead": f + "_barracks_dead", "remnant_dead": f + "_remnant_dead", "clock": false,
 			"lines": m.get("lines", {}), "posts": m.get(BARRACKS, {}).get("posts", {}), "planet": str(m.get("planet", "")),
-			"label": str(m.get("barracks_label", "Barracks")) }
+			"label": str(m.get("barracks_label", "Barracks")), "cruiser": str(m.get("cruiser", "")) }
 	return { "outposts": Story.OUTPOSTS, "barracks": BARRACKS, "driven_off": DRIVEN_OFF, "retaken": RETAKEN,
 		"dead": "barracks_dead", "remnant_dead": "remnant_dead", "clock": true, "lines": cfg().get("lines", {}),
-		"posts": cfg().get(BARRACKS, {}).get("posts", {}), "planet": "", "label": "Barracks" }
+		"posts": cfg().get(BARRACKS, {}).get("posts", {}), "planet": "", "label": "Barracks", "cruiser": "" }
 
 
 ## The fronts past the port's (territory.json "fronts" keys: "moon", "lava_moon").
@@ -183,6 +193,28 @@ static func driven_off(f: String = HOME) -> bool:
 	return WorldState.has_flag(str(front(f).driven_off))
 
 
+## The cruiser config front `f` answers to ("" = the story's, the home planet's).
+static func cruiser_of(f: String = HOME) -> String:
+	return str(front(f).get("cruiser", ""))
+
+
+## The cruiser front `f` answers to is out of the Remnant's hands: the story's once
+## its general is dead (Story.cruiser_taken); a front's own once the locals hold it
+## (RemnantCruiser.holder_of: not on the dark master's oath).
+static func cruiser_fallen(f: String = HOME) -> bool:
+	var c := cruiser_of(f)
+	if c == "":
+		return Story.cruiser_taken()
+	return RemnantCruiser.holder_of(c) == LOCALS
+
+
+## The Remnant on front `f` get no more troopers: the fleet beaten (the story's), or
+## for a front with a cruiser of its own, the locals holding it. Their barracks are
+## then the locals' and a dead trooper there stays dead.
+static func remnant_gone_on(f: String = HOME) -> bool:
+	return Story.remnant_gone() if cruiser_of(f) == "" else cruiser_fallen(f)
+
+
 ## "remnant" or "locals".
 static func owner(id: String) -> String:
 	if is_station(id):
@@ -192,7 +224,7 @@ static func owner(id: String) -> String:
 	if id == str(fc.barracks):
 		if WorldState.has_flag(fc.driven_off):
 			return LOCALS
-		return LOCALS if Story.remnant_gone() and not WorldState.has_flag(fc.retaken) else REMNANT
+		return LOCALS if remnant_gone_on(front_of(id)) and not WorldState.has_flag(fc.retaken) else REMNANT
 	if WorldState.has_flag(fc.driven_off):
 		return LOCALS
 	var c = WorldState.control.get(id, {})
@@ -254,9 +286,9 @@ static func rn(key: String, fallback: float) -> float:
 
 
 ## The cruiser has fallen and the Remnant still hold some of the desert: their
-## outposts run down.
+## outposts run down. A front with a cruiser of its own goes by that one.
 static func remnant_cut_off(f: String = HOME) -> bool:
-	return Story.cruiser_taken() and not driven_off(f)
+	return cruiser_fallen(f) and not driven_off(f)
 
 
 ## The Remnant's outposts on a clock (only once they are cut off).
@@ -273,8 +305,12 @@ static func remnant_short(id: String) -> bool:
 ## The ranch villages' outposts (their location's "after_cruiser"): the Remnant
 ## there answer to the cruiser, so killing them all hands nothing over until it
 ## has fallen (Story.cruiser_taken); they come back like any outpost's. The same
-## rule as the barracks: the cruiser first, then its guards.
+## rule as the barracks: the cruiser first, then its guards. A front with a cruiser
+## of its own (the lava moon's) has every outpost locked while the Remnant hold it.
 static func locked(id: String) -> bool:
+	var f := front_of(id)
+	if cruiser_of(f) != "" and outposts(f).has(id):
+		return not cruiser_fallen(f)
 	return not Story.cruiser_taken() and after_cruiser(id)
 
 
@@ -527,7 +563,7 @@ static func remnant_dead(f: String = HOME) -> Array:
 ## A Remnant trooper on barracks post `post` died; `posts` are all the town's
 ## trooper posts. Before the fleet is beaten they respawn and nothing changes.
 static func remnant_guard_died(post: String, posts: Array, f: String = HOME) -> void:
-	if not Story.remnant_gone() or owner(barracks_of(f)) != REMNANT or not posts.has(post):
+	if not remnant_gone_on(f) or owner(barracks_of(f)) != REMNANT or not posts.has(post):
 		return
 	var dead := remnant_dead(f)
 	if not dead.has(post):
@@ -684,7 +720,7 @@ static func hold_frac(id: String) -> float:
 	if driven_off(f) or not outposts(f).has(id):
 		return -1.0
 	if owner(id) == REMNANT:
-		return clampf(hold_left(id) / rn("hold_s", 6000.0), 0.0, 1.0) if remnant_clocked(f).has(id) else -1.0
+		return clampf(hold_left(id) / rn("hold_s", 6000.0), 0.0, 1.0) if remnant_cut_off(f) and remnant_clocked(f).has(id) else -1.0
 	if not locals_clocked(f):
 		return -1.0                           # no clock: the moon's locals, or any once the cruiser has fallen
 	return clampf(hold_left(id) / n("hold_s", 900.0), 0.0, 1.0)
