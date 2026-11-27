@@ -10,7 +10,7 @@
   "welder": {
     "note": "Issue #722: the plasma welder's prompts (src/systems/items/player_welder.gd). %s is what is being welded, %.0f the seconds to hold.",
     "hold_e": "[Hold E]  Weld %s  (%.0f s)",
-    "hold_fire": "Welder out [7], hold fire: weld %s  (%.0f s)",
+    "hold_fire": "Welder out [8], hold fire: weld %s  (%.0f s)",
     "welding": "Welding %s...",
     "welded": "Welded: %s",
     "need_welder": "You need a plasma welder to fix %s",
