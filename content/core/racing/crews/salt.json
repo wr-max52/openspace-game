@@ -76,6 +76,7 @@
     "buy_in_steps": 6,
     "multiple": 15,
     "shoot_from_lap": 1,
+    "hold_fire_gates": 1,
     "off_course_m": 450.0,
     "crowd": [6, 10],
     "gear": [
