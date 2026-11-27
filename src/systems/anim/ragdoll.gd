@@ -17,7 +17,8 @@ extends RefCounted
 ##     small forward push so the legs buckle instead of the body falling like a plank.
 ##   - Every particle casts a short ray against the world (layer 1): it lands, slides
 ##     with friction, bounces a little, and cannot go through walls.
-##   - It sleeps once everything is slow, or after max_seconds, and costs nothing.
+##   - It sleeps once everything is slow, or after max_seconds once it is touching
+##     something (still in the air, it falls on, up to max_fall_seconds), and costs nothing.
 ##
 ## Joints are written as rotations only (except the pelvis, which also moves), so the
 ## primitive body and a skinned one look the same. stop() puts every joint back.
@@ -96,6 +97,7 @@ var asleep := true
 var running := false
 var elapsed := 0.0
 var rays_cast := 0
+var touching := false         ## a particle hit the world this step
 
 var _idx := {}                 ## name -> index
 var _pos: PackedVector3Array
@@ -207,6 +209,7 @@ func start(velocity: Vector3, kick: Vector3, space: PhysicsDirectSpaceState3D = 
 	_hips0 = _frame("pelvis", "chest", "l_hip", "r_hip")
 	elapsed = 0.0
 	_still = 0.0
+	touching = false
 	asleep = false
 	running = true
 
@@ -245,7 +248,10 @@ func step(dt: float) -> bool:
 		_still += dt
 	else:
 		_still = 0.0
-	if _still >= _num("sleep_after", 0.5) or elapsed >= _num("max_seconds", 6.0):
+	# The time cap only stops a body that is lying on something: one still in the air
+	# (flung off a landing in the cruiser's ramp shaft) would hang there.
+	var capped := elapsed >= _num("max_seconds", 6.0) and touching
+	if _still >= _num("sleep_after", 0.5) or capped or elapsed >= _num("max_fall_seconds", 20.0):
 		asleep = true
 	return not asleep
 
@@ -367,6 +373,7 @@ func _collide() -> void:
 	var friction := _num("friction", 0.6)
 	var bounce := _num("bounce", 0.15)
 	var mask := int(_num("collision_mask", 1))
+	touching = false
 	for i in _pos.size():
 		var r := _radius[i]
 		var from := _prev[i] + Vector3(0, r, 0)
@@ -376,6 +383,7 @@ func _collide() -> void:
 		rays_cast += 1
 		if hit.is_empty():
 			continue
+		touching = true
 		var n: Vector3 = hit.normal
 		var v := _pos[i] - _prev[i]
 		_pos[i] = (hit.position as Vector3) + n * r
