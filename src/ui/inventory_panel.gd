@@ -6,7 +6,7 @@ extends HBoxContainer
 ## Left, what you own: credits; the backpack (Inventory.slots_used), its numbered
 ## slots, the pistol in the first, one kind of item in each of the rest, then the
 ## empty ones; the gear you have on (the jetpack, the armour) with its Take off
-## button; your droids; your ships and what T-89 fitted to them (issue #207); your
+## button; your droids (a laser droid with its Lasers and Music buttons); your ships and what T-89 fitted to them (issue #207); your
 ## speeders and what the mechanic fitted; the fence's gear upgrades (issue #208).
 ## Each item says how many, what a vendor would pay, and CONTRABAND on what the
 ## Remnant would confiscate at the gate. Every backpack, worn, ship and speeder row
@@ -53,6 +53,9 @@ var call_button: Button           ## issue #368: the primary's Call button (test
 var call_speeder: Callable        ## slot -> "" (on its way) or a label key why not (SpeederPost.call_speeder); optional
 var speeder_call_state: Callable  ## slot -> { ok, text } for a speeder's Call button (SpeederPost.call_state); optional
 var speeder_call_buttons: Dictionary = {}  ## slot -> its speeder's Call button (tests)
+var toggle_lasers: Callable       ## droid uid -> its lasers on or off (DroidController.toggle_lasers); optional
+var cycle_station: Callable       ## droid uid -> its next music station (DroidController.cycle_station); optional
+var laser_buttons: Dictionary = {}  ## droid uid -> [its Lasers button, its Music button] (tests)
 var title: Label
 var credits_label: Label
 var backpack_label: Label
@@ -134,6 +137,7 @@ func refresh() -> void:
 	row_icons.clear()
 	owned_rows.clear()
 	wear_buttons.clear()
+	laser_buttons.clear()
 	for c in list.get_children():
 		c.queue_free()
 	credits_label.text = "%d cr" % WorldState.credits
@@ -374,7 +378,22 @@ func _droid_rows() -> void:
 			detail += "    hold %d of %d" % [(d.get("cargo", {}) as Dictionary).size(), DroidRoster.cargo_slots(d)]
 		detail += "    %d cr" % DroidRoster.resale(str(d.kind))
 		rows.append("%s   (droid)   %s" % [DroidRoster.label(str(d.kind)), detail])
-		_line(list, DroidRoster.label(str(d.kind)), detail, INK)
+		var h := _line(list, DroidRoster.label(str(d.kind)), detail, INK)
+		if DroidRoster.has_lasers(d) and toggle_lasers.is_valid() and cycle_station.is_valid():
+			_laser_buttons(h, int(d.uid), d)
+
+
+## A laser droid's two settings on its row: its lasers on or off, and the music
+## station it plays (cantina, rave, off; droids.json upgrades.lasers.modes).
+func _laser_buttons(h: HBoxContainer, uid: int, d: Dictionary) -> void:
+	var labels: Dictionary = DroidRoster.config().get("labels", {})
+	var lasers := _row_button(h, str(labels.get("ledger_lasers_on" if DroidRoster.lasers_on(d) else "ledger_lasers_off", "Lasers")), func():
+		toggle_lasers.call(uid)
+		refresh())
+	var music := _row_button(h, str(labels.get("ledger_music", "Music: %s")) % DroidRoster.station_label(DroidRoster.laser_station(d)), func():
+		cycle_station.call(uid)
+		refresh())
+	laser_buttons[uid] = [lasers, music]
 
 
 ## Issues #207, #208: your ships with what T-89 fitted, your speeders, and the

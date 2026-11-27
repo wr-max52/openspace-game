@@ -384,6 +384,15 @@ func _inventory_tab() -> Control:
 	inventory.speeder_call_state = func(slot: int) -> Dictionary:
 		var post = demo.get("speeder_post") if demo != null else null
 		return post.call_state(slot) if post != null else { "ok": false, "text": SpeederPost.call_label("call_away") }
+	# A laser droid's Lasers and Music buttons (DroidController), looked up when pressed.
+	inventory.toggle_lasers = func(uid: int) -> bool:
+		var dc = demo.get("droids") if demo != null else null
+		return dc.toggle_lasers(uid) if dc != null else WorldState.droids.set_lasers(uid, not DroidRoster.lasers_on(WorldState.droids.find(uid)))
+	inventory.cycle_station = func(uid: int) -> String:
+		var dc = demo.get("droids") if demo != null else null
+		if dc != null:
+			return dc.cycle_station(uid)
+		return WorldState.droids.set_station(uid, DroidRoster.next_station(DroidRoster.laser_station(WorldState.droids.find(uid))))
 	if not inventory.on_called.is_valid():
 		inventory.on_called = close
 	_refreshers.append(inventory.refresh)
