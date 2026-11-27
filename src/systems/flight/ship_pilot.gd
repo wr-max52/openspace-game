@@ -2318,6 +2318,8 @@ func place_fleet() -> void:
 		var s := Fleet.spot(key)
 		if not s.is_empty() and str(s.get("planet", "")) == here:
 			var i := _spawn_owned(key, Fleet.spot_xf(s))
+			if i >= 0:
+				_unsink(i)
 			if i > 0 and _on_pad(i):
 				_move_aside(i)
 		elif s.is_empty() and (here == PlanetGen.home_id() or key == Fleet.LAN):
@@ -2330,6 +2332,24 @@ func place_fleet() -> void:
 	var p := berth_of(Fleet.primary(), true)
 	if p >= 0 and WorldState.has_flag(Fleet.WRECKED):
 		_patch_up(p)
+
+
+## A ship saved where she had sunk through a floor (the pit's, before the landing
+## check counted a floor passed in one step): stood back on top of it, and kept there.
+func _unsink(i: int) -> void:
+	var v := berths[i].visual as Node3D
+	var c := float(berths[i].clearance)
+	var u := ground.up_at(v.global_position)
+	var lift := atmo.sunk_under_floor(v.global_position - u * c, u, c)
+	if lift <= 0.0:
+		return
+	v.global_position += u * lift
+	berths[i].home = v.global_position
+	if i == berth and not piloting:
+		atmo.park(v.global_position, float(berths[i].home_yaw))
+		home = berths[i].home
+		_sync_visual()
+	_remember(i)
 
 
 ## Issue #401: the landing pad the host gave this LAN guest's ship: [foot, yaw], or
