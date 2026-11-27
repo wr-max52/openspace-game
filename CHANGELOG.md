@@ -2,6 +2,16 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Smoke looks like smoke (2026-11-27)
+
+- **Smoke is lit by the sun.** Each puff shades like a lumpy ball: bright on
+  the side facing the sun, dark in its creases and underneath, with a thin
+  glowing rim when the sun is behind it. It follows the time of day.
+- **Explosion and wreck smoke is black soot** that greys as it thins, in place
+  of the flat light-grey puffs. The bottom of fresh smoke glows orange from the
+  fire under it.
+- Same cost as before: the same puffs and the same noise, no new shader.
+
 ## New version is 1.7.5 (2026-11-27)
 
 - Share builds are now **OpenSpace V1.7.5**. Everything below, down to "New

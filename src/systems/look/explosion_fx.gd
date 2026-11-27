@@ -48,6 +48,7 @@ static func small(parent: Node, at: Vector3) -> Node3D:
 	var r := _pop(parent, at, "fire")
 	if r == null:
 		return null
+	_light_smoke()
 	_emit(r, _quad(), _mat("smoke"), 4, 1.5, { "delay": 0.1, "radius": 0.15, "speed": Vector2(0.5, 1.1), "dir": Vector3.UP, "spread": 25.0,
 		"gravity": Vector3(0, 0.4, 0), "damping": Vector2(0.3, 0.6), "scale": Vector2(0.7, 1.1), "grow": _curve("rise"), "ramp": _ramp("smoke_light"), "spin": 15.0 })
 	_free_after(r, 1.7)
@@ -122,6 +123,8 @@ static func big(parent: Node, at: Vector3, size := 1.0, space := false) -> Node3
 		elif up.dot(Vector3.UP) < 0.9999:
 			r.global_basis = Basis(Quaternion(Vector3.UP, up))
 	var fall := Vector3.ZERO if space else up * -14.0
+	if not space:
+		_light_smoke()
 	_light(r, Color("#fff0d0"), 26.0, 32.0 * s, 0.9 * t, 0.12, Color("#ff7a30"))
 	_emit(r, _quad(), _mat("flash"), 1, 0.16 * t, { "scale": Vector2(10.0, 10.0) * s, "grow": _curve("pop"), "ramp": _ramp("flash_hot"), "radius": 0.01, "speed": Vector2.ZERO })
 	if space:
@@ -166,6 +169,7 @@ static func smoke_trail(parent: Node3D, at: Vector3, size := 1.0, amount := 14, 
 	if parent == null or not is_instance_valid(parent):
 		return null
 	var s := maxf(0.1, size)
+	_light_smoke()
 	var p := _emit(parent, _quad(), _mat("smoke"), amount, life, { "radius": 0.6 * s, "speed": Vector2(0.8, 2.0) * s, "dir": Vector3.UP,
 		"spread": 18.0, "gravity": Vector3(0.4, 1.1, 0.2) * s, "damping": Vector2(0.2, 0.5), "scale": Vector2(1.6, 3.2) * s,
 		"grow": _curve("rise"), "ramp": _ramp("smoke_light"), "spin": 40.0, "burst": 0.0, "life_rand": 0.4 })
@@ -173,6 +177,21 @@ static func smoke_trail(parent: Node3D, at: Vector3, size := 1.0, amount := 14, 
 	p.local_coords = false
 	p.position = at
 	return p
+
+
+## The smoke is lit by the sun and the sky's fill (explosion_puff.gdshader): hand the
+## one shared smoke material the look's sun now. Three uniforms per smoky blast, so
+## the smoke follows the time of day without tracking every frame.
+static func _light_smoke() -> void:
+	var look := LookEnvironment.active
+	if look == null or not is_instance_valid(look) or look.sun == null:
+		return
+	var m := _mat("smoke") as ShaderMaterial
+	var c := look.sun.light_color * minf(look.sun.light_energy, 1.3) * 1.35
+	var fill := 0.53 * look.ambient_now()
+	m.set_shader_parameter("sun_dir", look.sun_dir)
+	m.set_shader_parameter("sun_col", Vector3(c.r, c.g, c.b) * (1.0 if look.sun.visible else 0.0))
+	m.set_shader_parameter("amb_col", Vector3(1.0, 0.91, 0.97) * fill)
 
 
 # ------------------------------------------------------------------ building
@@ -305,7 +324,7 @@ static func _mat(key: String) -> Material:
 		"fire_jet":
 			m = _puff({ "erode": 0.9, "soft": 0.12, "energy": 2.8, "heat": 1.0, "shade": 0.0, "lumps": 2.0, "roil": 1.0, "stretch": 3.2 })
 		"smoke":
-			m = _puff({ "erode": 0.7, "soft": 0.12, "energy": 1.0, "heat": 0.0, "shade": 1.0, "lumps": 2.0 })
+			m = _puff({ "erode": 0.7, "soft": 0.16, "energy": 1.0, "heat": 0.0, "shade": 1.0, "lumps": 2.0 })
 		"flash":
 			m = _glow(0, 6.0)
 		"ring":
@@ -353,10 +372,10 @@ static func _ramp(key: String) -> Gradient:
 			stops = [[0.0, "#fff3d6"], [0.12, "#ffc35a"], [0.3, "#ff7a1c"], [0.5, "#c2340f"], [0.68, "#3a2620e8"], [0.85, "#221a16a0"], [1.0, "#1a141100"]]
 		"fire_clean":    # fire that fades out hot, never going to soot
 			stops = [[0.0, "#fff3d6"], [0.15, "#ffc35a"], [0.4, "#ff7a1c"], [0.7, "#c2340fa0"], [1.0, "#80200000"]]
-		"smoke_dark":
-			stops = [[0.0, "#2a221c00"], [0.1, "#2a221cd8"], [0.5, "#3a322ab0"], [1.0, "#5a524a00"]]
-		"smoke_light":
-			stops = [[0.0, "#5a524a00"], [0.15, "#5a524ab0"], [1.0, "#8a827800"]]
+		"smoke_dark":    # black soot off the fire, greying as it thins
+			stops = [[0.0, "#16120f00"], [0.08, "#16120ff2"], [0.45, "#2b2622dc"], [1.0, "#6e686200"]]
+		"smoke_light":   # a wreck's: thinner, greyer
+			stops = [[0.0, "#2a242000"], [0.12, "#2a2420e0"], [0.6, "#4a4440b0"], [1.0, "#8a847e00"]]
 		"dust":          # sand thrown out by the blast, a dusty grey-brown that suits any ground
 			stops = [[0.0, "#4a3e3200"], [0.06, "#4a3e3290"], [0.5, "#5a4e4278"], [1.0, "#6a5e5200"]]
 		"flash_hot":
