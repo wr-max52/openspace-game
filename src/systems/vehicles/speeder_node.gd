@@ -415,6 +415,7 @@ func _physics_process(dt: float) -> void:
 	if gear != null:
 		gear.step(dt)
 	_tick_boarding(dt)
+	model.parked = not riding and not npc_driven()     # at rest it sits on the slope (HoverModel._settle)
 	if riding or npc_driven():
 		_tick_tow(dt)
 	if riding:

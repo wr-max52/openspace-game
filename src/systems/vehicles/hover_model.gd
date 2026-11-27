@@ -74,11 +74,18 @@ var air_pitch := 0.0                 ## radians, nose up +, in the air only (W/S
 var _float_used := 0.0               ## seconds the lifter has been on this lift (sets the recharge)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
+var parked := false                  ## its node: nobody is driving it (at rest it sits on the slope)
 
 var _pending: Array = []             ## events from between steps (lift), for the next step()
 var _cmd := { "throttle": 0.0, "steer": 0.0, "boost": false }
 var _last_ride := NAN                ## the ride height last step (NAN: none yet)
 var _ground_rate := 0.0              ## how fast the ground under it was rising, m/s
+var _rest_basis := Basis.IDENTITY    ## parked: its tilt to the ground under its footprint (world)
+var _rest_lift := 0.0                ## parked: how far it is raised so no end is in the sand
+var _rest_w := 0.0                   ## 0..1: how far that rest pose is blended in
+var _rest_done := false              ## the rest pose is measured for this stop
+
+const REST_BLEND := 3.0              ## per second, in and out
 
 
 func _init(config: Dictionary = {}, world_ground: WorldGround = null) -> void:
@@ -116,7 +123,11 @@ func _tilt() -> Basis:
 
 
 func transform() -> Transform3D:
-	return Transform3D(Basis.looking_at(_fwd, up()), position)
+	var b := Basis.looking_at(_fwd, up())
+	if _rest_w <= 0.0:
+		return Transform3D(b, position)
+	var t := Basis(Quaternion.IDENTITY.slerp(Quaternion(_rest_basis), _rest_w))
+	return Transform3D(t * b, position + up() * _rest_lift * _rest_w)
 
 
 ## How high a point is, measured along up: y on a flat world, the distance from
@@ -218,6 +229,8 @@ func place(at: Vector3, yaw_rad: float) -> void:
 	_lift(ground_height() + p("hover_height", 1.05) - _level(position))
 	_last_ride = NAN
 	_ground_rate = 0.0
+	_settle()
+	_rest_w = 1.0
 
 
 ## throttle -1..1 (back..forward), steer -1..1 (left..right).
@@ -289,7 +302,55 @@ func step(dt: float) -> Array:
 	_drive(dt)
 	_move(dt)
 	_hover(dt)
+	_rest(dt)
 	return events
+
+
+## Parked and stopped on the ground: blend into the rest pose (measured once per
+## stop); driven, moving or in the air: blend back out to riding level.
+func _rest(dt: float) -> void:
+	var at_rest := parked and not airborne and absf(speed) < 0.05
+	if at_rest and not _rest_done:
+		_settle()
+	_rest_w = move_toward(_rest_w, 1.0 if at_rest else 0.0, dt * REST_BLEND)
+	if not at_rest and _rest_w <= 0.0:
+		_rest_done = false
+
+
+## A speeder hovers level, measured at its middle only, so parked on a dune curve
+## its nose or tail sat in the sand. Once, as it comes to rest: sample the ground
+## along its length (nose, quarters, tail) and either side (body_radius), tilt to
+## it (at most park_tilt_max_deg, like a landed ship) and raise it until no sample
+## is nearer the sand than rest_clearance of its hover height. Nothing per frame.
+func _settle() -> void:
+	_rest_done = true
+	_rest_basis = Basis.IDENTITY
+	_rest_lift = 0.0
+	if ground == null:
+		return
+	var u := up()
+	var f := (_fwd - u * _fwd.dot(u)).normalized()
+	var r := f.cross(u).normalized()
+	var hover := p("hover_height", 1.05)
+	var half := float(cfg.get("look", {}).get("length", 5.0)) * 0.5
+	var side := p("body_radius", 1.3)
+	var offs: Array[Vector3] = [f * half, f * half * 0.5, -f * half * 0.5, -f * half, r * side, -r * side]
+	var base := ground_height()
+	var rise: Array[float] = []          # the ground there, above the ground under the middle
+	for o: Vector3 in offs:
+		var q := position + o            # on the hover line: sand above it reads below zero; an awning overhead is not ground
+		var h := ground.height_above(q)
+		if not is_finite(h):
+			return
+		rise.append(_level(q) - h - base)
+	var cap := deg_to_rad(p("park_tilt_max_deg", 15.0))
+	var pitch := clampf(atan2(rise[0] - rise[3], half * 2.0), -cap, cap)     # nose up +
+	var roll := clampf(atan2(rise[5] - rise[4], side * 2.0), -cap, cap)      # left side up +
+	_rest_basis = (Basis(r, pitch) * Basis(f, roll)).orthonormalized()
+	var clear := hover * p("rest_clearance", 0.75)
+	for i in offs.size():
+		var over := (_rest_basis * offs[i]).dot(u) + hover - rise[i]
+		_rest_lift = maxf(_rest_lift, clear - over)
 
 
 func _drive(dt: float) -> void:
