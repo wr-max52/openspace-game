@@ -13,24 +13,24 @@ extends Node
 const BOOT := 420
 const STEP := 4
 const PRE := 2.0
+## Shots whose ground needs longer to build before the first frame (the wreck's far sand).
+const PRE_AT := {}
 const OUT := "res://test_results/cine2/s%d/%s.png"
 const FONT := "res://assets/fonts/AnonymousPro-Bold.ttf"
 
-const SECS := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 2.5, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
+## Each shot's action is authored in its own time (u, the v2 timings); TS slows it
+## down (camera, ship, walkers, the race all together) and TAIL adds a last push in
+## on the ship after the action. A shot runs BASE * TS + TAIL seconds.
+const BASE := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 2.5, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
 	10: 6.0, 11: 1.0, 12: 3.0, 13: 2.5, 14: 2.0, 15: 2.0, 16: 4.5 }
-
-## Lines on screen: [from, to, text]. Story captions (exposition) and dialogue
-## subtitles; the voices come with the sound pass.
-const CAPTIONS := {
-	1: [[1.2, 4.4, "For fifty years the Hegemony ruled this world."], [5.4, 8.8, "Now its heart has fallen."]],
-	2: [[0.4, 3.6, "Its fleets lie broken in the sand."]],
-	6: [[0.2, 1.7, "What is left of its army still holds the desert."],
-		[1.9, 3.6, "\"Halt! Back in the dirt, sand rat.\""]],
-	8: [[0.5, 3.6, "They call themselves the Remnant."]],
-	10: [[0.3, 3.4, "\"Sir, a ship has just entered orbit. They are landing at the port.\""],
-		[3.9, 5.9, "\"And who do we have here?\""]],
-	12: [[0.5, 2.8, "\"Dust ale. That'll be four credits.\""]],
-}
+const TS := { 1: 1.0, 2: 1.3, 3: 1.15, 4: 1.4, 5: 1.25, 6: 1.35, 7: 1.2, 8: 1.5, 9: 1.1,
+	10: 1.3, 11: 1.5, 12: 1.2, 13: 1.3, 14: 1.35, 15: 1.35, 16: 1.25 }
+const TAIL := { 1: 1.6, 2: 1.2, 5: 1.1, 6: 1.1, 7: 0.9, 13: 1.2, 15: 1.0, 16: 1.4 }
+## The spoken lines (Oda's voiceover and the dialogue), shown as subtitles timed to
+## the recorded clips' speech (voice.py writes vo/spans.json).
+const PUSH_MIN := { 1: 0.12 }
+const LINES := "res://tools/opening/lines.json"
+const SPANS := "res://test_results/cine2/vo/spans.json"
 
 var shot := 0
 var still := -1.0
@@ -58,6 +58,8 @@ var pilot
 var ship: Node3D                ## the player's ship look, placed by hand
 var keys: Array = []            ## this shot's camera: [t, eye, target, fov]
 var up := Vector3.UP            ## this shot's camera up
+var ts := 1.0                   ## this shot's slow-down (TS)
+var captions: Array = []        ## [from, to, text] in shot seconds
 
 
 func _ready() -> void:
@@ -70,7 +72,9 @@ func _ready() -> void:
 			steps_per = 60 / int(a.substr(4))
 		elif a.begins_with("res="):
 			res_h = int(a.substr(4))
-	secs = SECS.get(shot, 3.0)
+	ts = TS.get(shot, 1.0)
+	secs = BASE.get(shot, 3.0) * ts + TAIL.get(shot, 0.0)
+	_load_captions()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_results/cine2/s%d" % shot))
 	_log = FileAccess.open("res://test_results/cine2/log_s%d.txt" % shot, FileAccess.WRITE)
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -124,9 +128,35 @@ func _build_caption() -> void:
 	layer.add_child(caption)
 
 
+## Every line in this shot, a caption per spoken sentence when the clip's pauses
+## match its sentences (else one for the line). Dialogue in quotes.
+func _load_captions() -> void:
+	var lines = JSON.parse_string(FileAccess.get_file_as_string(LINES))
+	var spans = JSON.parse_string(FileAccess.get_file_as_string(SPANS)) if FileAccess.file_exists(SPANS) else {}
+	var rx := RegEx.new()
+	rx.compile("[^.!?]+[.!?]+")
+	for ln in lines.lines:
+		if int(ln.shot) != shot:
+			continue
+		var at := float(ln.at)
+		var text: String = ln.text
+		var sp: Array = spans.get(ln.id, [[0.0, 3.0]])
+		var parts := []
+		for m in rx.search_all(text):
+			parts.append(m.get_string().strip_edges())
+		if parts.size() != sp.size():
+			parts = [text]
+			sp = [[sp[0][0], sp[sp.size() - 1][1]]]
+		for i in parts.size():
+			var tx: String = parts[i]
+			if str(ln.id).begins_with("d"):
+				tx = "\"%s\"" % tx
+			captions.append([at + float(sp[i][0]) + 0.05, at + float(sp[i][1]) - 0.1, tx])
+
+
 func _caption(t: float) -> void:
 	caption.modulate.a = 0.0
-	for c in CAPTIONS.get(shot, []):
+	for c in captions:
 		if t >= c[0] - 0.25 and t <= c[1] + 0.25:
 			caption.text = c[2]
 			caption.modulate.a = clampf(minf(t - (c[0] - 0.25), c[1] + 0.25 - t) / 0.25, 0.0, 1.0)
@@ -150,13 +180,14 @@ func _process(_dt: float) -> void:
 		sp = demo.terrain.sphere if demo.terrain != null and "sphere" in demo.terrain else null
 		pilot = demo.pilot
 		_setup()
-		clock = -PRE
-		lead = int((PRE + maxf(still, 0.0)) * 60.0)
+		var pre: float = PRE_AT.get(shot, PRE)
+		clock = -pre
+		lead = int((pre + maxf(still, 0.0)) * 60.0)
 		return
 	if lead > 0:
 		lead -= 1
 		get_tree().paused = false
-		_direct(clock)
+		_direct(clock / ts)
 		_place_camera(clock)
 		clock += 1.0 / 60.0
 		if lead == 0:
@@ -164,7 +195,7 @@ func _process(_dt: float) -> void:
 		return
 	if _sub < steps_per:
 		get_tree().paused = false
-		_direct(float(fi + _sub) / 60.0)
+		_direct(float(fi + _sub) / 60.0 / ts)
 		_sub += 1
 		return
 	get_tree().paused = true
@@ -218,7 +249,7 @@ func _spawn(key: String, soldier: String, at: Vector3, yaw: float) -> NpcBody:
 
 func _walk_speed(npc: NpcBody, mps: float) -> void:
 	if npc.controller != null and "walk_speed" in npc.controller:
-		npc.controller.walk_speed = mps
+		npc.controller.walk_speed = mps / ts
 
 
 func _hide_player() -> void:
@@ -296,6 +327,7 @@ func _take_ship(big := 1.0) -> void:
 	WreckLook.apply(ship)
 	ShipKit.throttle_flames(ship, 0.55, false, 0.0)
 	var length: float = pilot._look_length()
+	v.ship_len = length
 	v.smoke = ExplosionFx.smoke_trail(ship, Vector3(0.0, 0.4, length * 0.42), 0.9 * big, 110, 5.0)
 	v.smoke2 = ExplosionFx.smoke_trail(ship, Vector3(length * 0.18, 0.2, length * 0.2), 1.0 * big, 50, 3.5)
 	if big > 1.0:
@@ -470,7 +502,7 @@ func _setup_wreck() -> void:
 	var side := to_port.cross(u).normalized()
 	var e0: Vector3 = wc + to_port * 300.0 + side * 140.0
 	e0 = sp.surface_at_dir((e0 - sp.center).normalized()) if sp.has_method("surface_at_dir") else e0
-	e0 += u * 2.0
+	e0 += u * 12.0         # over the near dune's crest (a hard seam in the sand from lower)
 	_put_player(e0 + u * 1.0)
 	var t0: Vector3 = wc + u * 40.0
 	var e1: Vector3 = e0 + u * 34.0 - to_port * 40.0
@@ -598,8 +630,8 @@ func _setup_outpost() -> void:
 	var t1: Vector3 = W.call(Vector3(22.2, 0, 0.2)) + u * 1.35
 	keys = [[0.0, e0, t0, 44.0], [2.4, e1, t1, 42.0], [5.0, e1 + (e1 - t1).normalized() * 0.5, t1, 42.0]]
 	_take_ship(3.0)
-	v.ship_a = _rel(e1, t1, u, -160.0, 150.0, 620.0)
-	v.ship_b = _rel(e1, t1, u, 60.0, 95.0, 560.0)
+	v.ship_a = _rel(e1, t1, u, -160.0, 215.0, 620.0)
+	v.ship_b = _rel(e1, t1, u, 60.0, 165.0, 560.0)
 	v.ship_t0 = 0.0
 	v.ship_t1 = 5.5
 
@@ -718,8 +750,8 @@ func _setup_cantina() -> void:
 			# Outside, over the roofs as we leave: the ship coming down.
 			_take_ship(1.4)
 			var e1 := Vector3(-73.0, 2.4, 0.0)
-			v.ship_a = e1 + Vector3(-160.0, 120.0, -150.0)
-			v.ship_b = e1 + Vector3(-210.0, 85.0, 40.0)
+			v.ship_a = e1 + Vector3(-150.0, 200.0, -150.0)
+			v.ship_b = e1 + Vector3(-190.0, 165.0, 40.0)
 			v.ship_t0 = 0.0
 			v.ship_t1 = 3.0
 
@@ -802,16 +834,16 @@ func _setup_pit() -> void:
 
 # ------------------------------------------------------------------ direction
 
-func _direct(ts: float) -> void:
-	_fly_ship(ts)
+func _direct(u: float) -> void:
+	_fly_ship(u)
 	match shot:
 		3:
 			var npc: NpcBody = cast.nomad
-			if ts >= 1.9 and not v.has("stopped"):
+			if u >= 1.9 and not v.has("stopped"):
 				v.stopped = true
 				npc.stop()
 				npc.face_point(npc.global_position + v.out * 5.0)
-			var k := _ease((ts - 1.9) / 0.8)
+			var k := _ease((u - 1.9) / 0.8)
 			npc.hold_pose = { "neck": Vector3(-14.0 * k, 0, 0), "head": Vector3(-26.0 * k, 0, 0) }
 			_follow("aim", npc.global_position + v.u * 1.35, 2.5)
 		4:
@@ -820,24 +852,24 @@ func _direct(ts: float) -> void:
 		6:
 			var tr: NpcBody = cast.trooper
 			var lo: NpcBody = cast.local
-			if ts >= 1.8 and not v.has("halt"):
+			if u >= 2.37 and not v.has("halt"):
 				v.halt = true
 				tr.say("Halt! Back in the dirt, sand rat.", 2.0, true)
 				lo.stop()
-			if ts >= 1.8 and not lo.dead:
+			if u >= 2.37 and not lo.dead:
 				lo.face_point(tr.global_position + _upv(tr.global_position) * 1.6)
-			if ts >= 0.8:
+			if u >= 0.8:
 				tr.face_point(lo.global_position)
-			if ts >= 3.5 and not lo.dead:
+			if u >= 4.55 and not lo.dead:
 				tr.fire_at(lo.global_position + _upv(lo.global_position) * 1.2, 1.0 / 60.0)
-			if ts >= 3.7 and not lo.dead:
+			if u >= 4.7 and not lo.dead:
 				lo.apply_damage_from(9999.0, tr)
 			if not lo.dead:
 				v.lo_last = lo.global_position
 			var mid: Vector3 = tr.global_position.lerp(v.get("lo_last", lo.global_position), 0.5)
 			_follow("aim", mid + _upv(mid) * 1.3, 2.0)
 		7:
-			_direct_race(ts)
+			_direct_race(u)
 		9, 10:
 			var c = demo.cruiser
 			var L: Callable = v.L
@@ -852,11 +884,11 @@ func _direct(ts: float) -> void:
 				if not cast.has("guard"):
 					_spawn("guard", "cruiser_honour_guard", L.call(Vector3(24.6, 58.0, 222.8)), 0.0)
 				var gd: NpcBody = cast.guard
-				var k := _ease((ts + 0.3) / 1.6)
+				var k := _ease((u + 0.3) / 1.6)
 				gd.global_position = L.call(Vector3(24.6, 58.0, 222.8).lerp(Vector3(27.0, 58.0, 220.1), k))
 				gd.velocity = Vector3.ZERO
 				gd.face_point(L.call(v.gen_at + Vector3(0, 1.6, 0)))
-				if ts > 3.7 and g != null:
+				if u > 4.0 and g != null:
 					g.face_point(cam.global_position)
 				var holo := _find_holo()
 				if holo != null:
@@ -866,20 +898,20 @@ func _direct(ts: float) -> void:
 				if holo != null:
 					holo.global_position = L.call(Vector3(26.0, 60.4, 218.6))
 		11, 12:
-			if ts >= -0.15 and not v.has("served") and demo.cantina_owner != null:
+			if u >= -0.15 and not v.has("served") and demo.cantina_owner != null:
 				v.served = true
 				demo.cantina_owner.serve({ "paid": true })
 		14, 15:
-			if ts >= -1.6 and not v.has("walking"):
+			if u >= -1.6 and not v.has("walking"):
 				v.walking = true
 				for k in cast:
 					var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
 					cast[k].go_to(Vector3(v.start - 40.0, 0, 0) + off)
-			if int((ts + PRE) * 60.0) % 30 == 0:
-				say("t=%.2f general %s" % [ts, cast.general.global_position])
+			if int((u + PRE) * 60.0) % 30 == 0:
+				say("t=%.2f general %s" % [u, cast.general.global_position])
 		16:
 			var g: NpcBody = cast.general
-			if ts >= -1.5 and not v.has("walking"):
+			if u >= -1.5 and not v.has("walking"):
 				v.walking = true
 				for k in cast:
 					var off := Vector3.ZERO if k == "general" else Vector3(1.8, 0, 1.9 if k == "guard_n" else -1.9)
@@ -889,21 +921,21 @@ func _direct(ts: float) -> void:
 				var fr: Vector3 = v.weld
 				var body: Vector3 = t89.body.global_position
 				t89.body.global_position = v.t89_at
-				if ts < 1.4:
+				if u < 1.4:
 					t89._face(fr - body)
 					DroidKit.raise_arm(t89.look, 1.0)
 					t89._sparks(true)
-				elif ts < 2.8:
+				elif u < 2.8:
 					t89._sparks(false)
-					DroidKit.raise_arm(t89.look, clampf(1.0 - (ts - 1.4) * 2.0, 0.0, 1.0))
+					DroidKit.raise_arm(t89.look, clampf(1.0 - (u - 1.4) * 2.0, 0.0, 1.0))
 					t89._face(g.global_position - body)
 				else:
 					t89._face(ship.global_position - body)
 
 
-func _direct_race(ts: float) -> void:
+func _direct_race(u: float) -> void:
 	var beast = demo.beast
-	var dt := 1.0 / 60.0
+	var dt := 1.0 / 60.0 / ts
 	if beast != null:
 		var head: Vector3 = beast.global_position - _upv(beast.global_position) * beast.radius
 		var g: Vector3 = beast._ground_at(head + beast.heading * 1.4 * dt)
@@ -920,7 +952,7 @@ func _direct_race(ts: float) -> void:
 		var s = v.racers[i]
 		if not is_instance_valid(s) or (i == 0 and v.has("burst")):
 			continue
-		var x := speed * (ts - float(plan[i][0]))
+		var x := speed * (u - float(plan[i][0]))
 		var y := _race_y(x, plan[i])
 		var y2 := _race_y(x + 1.0, plan[i])
 		var at: Vector3 = v.p0 + v.d * x + v.side * y
@@ -938,9 +970,9 @@ func _direct_race(ts: float) -> void:
 			v["clear%d" % i] = minf(v.get("clear%d" % i, INF), clear)
 	var shooter = v.racers[2]
 	var target = v.racers[0]
-	if ts >= 2.9 and not v.has("seeker") and is_instance_valid(shooter) and is_instance_valid(target):
+	if u >= 3.5 and not v.has("seeker") and is_instance_valid(shooter) and is_instance_valid(target):
 		v.seeker = _seeker(shooter.model.position + v.u * 1.3 + v.d * 2.5, target.visual)
-		say("t=%.2f seeker away; clearances %s %s %s" % [ts, v.get("clear0"), v.get("clear1"), v.get("clear2")])
+		say("t=%.2f seeker away; clearances %s %s %s" % [u, v.get("clear0"), v.get("clear1"), v.get("clear2")])
 	if v.has("seeker") and not v.has("burst") and is_instance_valid(target):
 		var sk = v.seeker
 		if not is_instance_valid(sk) or sk.global_position.distance_to(target.model.position) < 3.5:
@@ -948,7 +980,7 @@ func _direct_race(ts: float) -> void:
 			var where: Vector3 = target.model.position
 			target.apply_damage(9999.0)
 			ExplosionFx.big(demo, where, 2.4)
-			say("t=%.2f seeker hit %.0f m out" % [ts, (where - v.p0).dot(v.d)])
+			say("t=%.2f seeker hit %.0f m out" % [u, (where - v.p0).dot(v.d)])
 
 
 ## A seeker the way NpcLauncher.fire builds one, homing on `target`.
@@ -1011,12 +1043,30 @@ func _find_holo() -> Node3D:
 
 # ------------------------------------------------------------------ cameras
 
+## The last TAIL seconds of a shot: the camera turns onto the ship and the lens
+## closes in until it fills about a third of the frame (still moving at the cut),
+## never tighter than PUSH_MIN of the shot's own lens (the far dive in space).
+func _ship_push(t: float, eye: Vector3, tgt: Vector3, fov: float) -> Array:
+	var tail: float = TAIL.get(shot, 0.0)
+	if tail <= 0.0 or ship == null:
+		return [tgt, fov]
+	var k := _ease((t - (secs - tail)) / (tail * 1.1))
+	if k <= 0.0:
+		return [tgt, fov]
+	var to := ship.global_position - eye
+	var dir := (tgt - eye).normalized().slerp(to.normalized(), k)
+	var want := clampf(rad_to_deg(2.0 * atan(float(v.get("ship_len", 12.0)) * 1.5 / to.length())), 2.5, fov)
+	want = maxf(want, fov * float(PUSH_MIN.get(shot, 0.15)))
+	return [eye + dir * 10.0, lerpf(fov, want, k)]
+
+
 func _place_camera(t: float) -> void:
+	var u := t / ts
 	if keys.is_empty():
 		var pp: Vector3 = demo._player.global_position
 		_look(pp + Vector3(6, 4, 10), pp + Vector3(0, 1, 0))
 	else:
-		var p := _path(t)
+		var p := _path(u)
 		var eye: Vector3 = p[0]
 		var tgt: Vector3 = p[1]
 		var fov: float = p[2]
@@ -1024,19 +1074,20 @@ func _place_camera(t: float) -> void:
 			3:
 				# On him (a damped point, not his bob), then up with his look to the ship.
 				var aim: Vector3 = v.get("aim", v.chest0)
-				var k := _ease((t - 1.95) / 1.6)
+				var k := _ease((u - 1.95) / 1.6)
 				var to_ship: Vector3 = ship.global_position.lerp(v.ship_b, 0.15)
 				tgt = aim.lerp(eye + (to_ship - eye).normalized() * eye.distance_to(aim), k)
 				fov = lerpf(40.0, 46.0, k)
 			6:
 				if v.has("aim"):
-					tgt = tgt.lerp(v.aim, _ease((t - 1.0) / 1.4))
+					tgt = tgt.lerp(v.aim, _ease((u - 1.0) / 1.4))
 			4:
 				var e := _ease(t / secs)
 				eye = v.head
 				tgt = ship.global_position
 				fov = lerpf(24.0, 9.0, e)
-		_look(eye, tgt, up, fov)
+		var pushed := _ship_push(t, eye, tgt, fov)
+		_look(eye, pushed[0], up, pushed[1])
 	if v.get("space", false):
 		_space_sky()
 	rcam.global_transform = cam.global_transform

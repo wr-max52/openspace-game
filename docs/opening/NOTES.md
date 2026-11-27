@@ -1,6 +1,55 @@
 # Opening cutscene
 
-## v2: the one-minute cut (in progress)
+## v3: Oda tells it, with sound (about 90 s)
+
+> "The voiceover needs to be Oda. Don't "call themselves" the remnant say rather "they are hardly even a remnant of what they once were, but still have a hold". Need dialogue for the shots and sound fx. Each shot needs to pan a bit slower and be more patient. It can be 90 seconds max. The zoom in on the ship after each shot of just waiting still while the ship is in the background" (the user, on the v2 cut)
+
+- **Oda narrates.** Her own game voice (`woman_relaxed`, ElevenLabs, the model the
+  game uses live), wry and unhurried. The lines live in `tools/opening/lines.json`
+  (shot, start second, voice, delivery tag, text); `voice.py` records them into
+  `test_results/cine2/vo/` and notes where each clip's pauses fall, and the
+  subtitles follow those pauses, a caption per sentence.
+- **Dialogue in the speakers' voices:** the trooper (`man_gruff`), the bridge guard
+  (`man_serious`), the cruiser general (`man_shady`, his profile's voice), Oda at
+  the bar, and T-89 (`robot_retro`) with the last word.
+- **Slower, more patient:** each shot's action is authored in its own time and
+  slowed by a factor per shot (`TS`, 1.05 to 1.6): the camera, the ship, the
+  walkers and the race all together, so nothing drifts apart.
+- **The push in on the ship:** instead of holding still at the end of an exterior,
+  the last second or so turns onto the ship and closes the lens on it (`TAIL`;
+  shots 1, 2, 5, 6, 7, 13, 15, 16; 4 is already one).
+- **Sound (`mix.py`):** Ambient 2 the whole way, dipping under every line and
+  effect (a sidechain), giving way to the club mix in the cantina; desert wind
+  outside, the cruiser's hum in orbit; a few quiet effects from the game's own
+  sounds (the ship's engine passing, its sputter, the nomad's steps, the barge's
+  music, the trooper's shot, the speeders, the seeker and the blast, the holo's
+  chirps, the drink, the coins, the general's walk, T-89's torch and beeps).
+
+| # | Shot | Line (Oda's voiceover unless named) |
+|---|---|---|
+| 1 | Space, one move: stars, the tilt onto the lit planet and the Remnant cruiser; the ship streaks past and dives; push in on it. | "For fifty years, the Hegemony ruled this world." / "Then its heart gave out, and the whole thing came apart." |
+| 2 | Under the buried star cruiser wreck, craning up as the ship goes over; push in on it. | "Their great ships came down like rain. Nobody ever cleaned them up." |
+| 3 | The nomad walks toward us, stops, looks up; the camera tilts with him. | |
+| 4 | His view: the long-lens push on the ship. | |
+| 5 | The party barge on the dunes, its music carrying; push in on the ship. | "The rich still throw their parties out on the dunes." |
+| 6 | Wide on the Remnant outpost, in to the gate; the trooper turns a local back, then shoots him; push in on the ship. | "What's left of their army still holds the desert." / Trooper: "Halt! Back in the dirt, sand rat." |
+| 7 | The Basin Run past the beast's head; the seeker lands on "home"; push in on the ship. | "Out in the basin, folk race for coin. Not all of them make it home." |
+| 8 | Over the cruiser's hull to the bridge tower. | "They are hardly even a remnant of what they once were. But they still have a hold." |
+| 9 | The holo of the planet, pulling back to the general. | |
+| 10 | Close on the general; the guard reports; he turns to camera. | Guard: "Sir, a ship has just entered orbit. They are landing at the port." / General: "And who do we have here?" |
+| 11 | On the counter: Oda sets the drink down. | |
+| 12 | End of the bar. | Oda: "Dust ale. That'll be four credits." |
+| 13 | Backing out of the club; push in on the ship over the roofs. | "And now somebody new just fell out of our sky." |
+| 14 | The general and his guards walk to the pit, camera in front. | |
+| 15 | The same from behind and above; push in on the ship. | "Wonder whose side they'll pick." |
+| 16 | The pit: T-89 welding, turning to the general, then up at the ship; push in on it. | T-89: "Oh my. That one is going to need a lot of work." |
+| 17 | The OPENSPACE title card. | |
+
+Tools: `voice.py` (the lines), `pass.sh "shot:t,t ..."` (stills), `sheet.sh`
+(contact sheets), `clip.sh <shots>` (clips; `RES=1080`), `assemble.sh` (the cut,
+then `mix.py` for the sound).
+
+## v2: the one-minute cut
 
 > "start making the much better version of this cutscene with all the improvements. it should be exceptional and basically demo the world and show the depth we have here." (the user)
 
