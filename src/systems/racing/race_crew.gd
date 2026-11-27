@@ -44,6 +44,8 @@ extends Node3D
 ##                         race ends: win and you are offered the next crew up the
 ##                         ladder (pointing at where they hang out) and a pink-slip
 ##                         rematch with this crew; lose and a rematch with them.
+##                         One line per crew in the job log: its name, its
+##                         difficulty and where you stand (Race, Rematch, Pink slip).
 ##
 ## The headless test drives accept(), line_up() and the frame directly.
 
@@ -645,6 +647,7 @@ static func crew_name(c: Dictionary) -> String:
 
 static func _quest_words(c: Dictionary) -> Dictionary:
 	return { "crew": str(c.get("label", c.get("id", ""))), "Crew": crew_name(c),
+		"difficulty": str(c.get("difficulty", "")),
 		"course": str(RaceCourse.load_course(str(c.get("course", ""))).get("label", "course")) }
 
 
@@ -677,22 +680,73 @@ static func quests() -> Array:
 
 ## A race with `crew_id` is over: settle and offer its quests. Won: the rematch
 ## and (after a pink-slip race) the slips quest are done, and you are offered the
-## next crew up (unless you have beaten them) and a pink-slip rematch here. Lost:
-## you are offered a rematch only. Any pink-slip race, won or lost, does the
-## slips quest.
+## next crew up (unless you have beaten them or already have their line) and a
+## pink-slip rematch here. Lost: you are offered a rematch only. Any pink-slip
+## race, won or lost, does the slips quest. One line per crew: offering a crew's
+## quest clears its others (_offer).
 static func settle_quests(crew_id: String, won: bool, was_pink: bool) -> void:
 	if was_pink:
 		_finish(quest_id("slips", crew_id))
 	if not won:
-		Quests.offer_again(quest_id("rematch", crew_id))
+		_offer("rematch", crew_id)
 		return
 	_finish(quest_id("rematch", crew_id))
 	_finish(quest_id("next", crew_id))
-	var up := next_crew(crew_id)
-	if not up.is_empty() and not WorldState.has_flag("crew_beaten_" + str(up.get("id", ""))):
-		Quests.offer_again(quest_id("next", str(up.get("id", ""))))
+	var up := str(next_crew(crew_id).get("id", ""))
+	if up != "" and not WorldState.has_flag("crew_beaten_" + up) and _open_kind(up) == "":
+		_offer("next", up)
 	if bool(rules().get("pink_slips", true)):
-		Quests.offer_again(quest_id("slips", crew_id))
+		_offer("slips", crew_id)
+
+
+const KINDS := ["rematch", "slips", "next"]   ## which one an old save keeps when it has more than one open
+
+
+## The kind of race quest open with `crew_id` ("" if none).
+static func _open_kind(crew_id: String) -> String:
+	for kind in KINDS:
+		if Quests.state(quest_id(kind, crew_id)) == "open":
+			return kind
+	return ""
+
+
+## Offer `kind` with `crew_id`, clearing the crew's other race quests (open or
+## done) so the job log shows one line for them. A waypoint on the old line
+## moves to the new one (they point at the same hangout).
+static func _offer(kind: String, crew_id: String) -> void:
+	var waypoint := _clear_others(kind, crew_id)
+	var qid := quest_id(kind, crew_id)
+	Quests.offer_again(qid)
+	if waypoint and Quests.state(qid) == "open":
+		Quests.toggle_waypoint(qid)
+
+
+## Drop every race quest with `crew_id` but `keep`. True if one had the waypoint.
+static func _clear_others(keep: String, crew_id: String) -> bool:
+	var had := false
+	for kind in KINDS:
+		var qid := quest_id(kind, crew_id)
+		if kind == keep or not WorldState.quests.has(qid):
+			continue
+		had = had or bool(WorldState.quests[qid].get("waypoint", false))
+		WorldState.quests.erase(qid)
+	return had
+
+
+## A save from before one line per crew: keep the newest-looking line for each
+## crew (a rematch, then pink slips, then the first race; else the done one).
+static func tidy_quests() -> void:
+	for cid in ids():
+		var keep := _open_kind(cid)
+		if keep == "":
+			for kind in KINDS:
+				if WorldState.quests.has(quest_id(kind, cid)):
+					keep = kind
+					break
+		if keep != "" and _clear_others(keep, cid):
+			var qid := quest_id(keep, cid)
+			if Quests.can_point(qid):
+				WorldState.quests[qid].waypoint = true    # the one that had it is gone; no other is on
 
 
 ## Done, if it was offered (Quests.complete would also mark one never offered as
