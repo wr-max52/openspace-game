@@ -5,17 +5,20 @@
   "marker": "vendor_2",
   "reach": 3.5,
   "buys": [
-    "gear"
+    "gear",
+    "tool"
   ],
   "buy_rate": 0.5,
   "sell_rate": 1.0,
   "stock": [],
   "prices": {
-    "grenade": 40
+    "grenade": 40,
+    "plasma_welder": 20
   },
   "endless_stock": [
     "jetpack",
-    "grenade"
+    "grenade",
+    "plasma_welder"
   ],
   "offers": [
     {
@@ -99,5 +102,5 @@
       "endless": true
     }
   ],
-  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates). Its marker is put at the booth by StationHull.favela_vendors."
+  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates, the plasma welder too). Its marker is put at the booth by StationHull.favela_vendors."
 }

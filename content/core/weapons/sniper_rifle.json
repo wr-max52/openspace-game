@@ -7,7 +7,7 @@
   "rate": 0.24,
   "recoil": 3.5,
   "range": 300.0,
-  "mag": 30,
+  "mag": 10,
   "reload_time": 2.2,
   "visible_bolt": true,
   "bolt_color": "#ff4a2a",

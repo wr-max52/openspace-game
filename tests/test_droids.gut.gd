@@ -161,6 +161,40 @@ func test_ball_wrecks_cover_both_sides_and_use_surface_spacing() -> void:
 			assert_gt(arc, sep - 0.01, "wrecks stay separated over the curved surface")
 	assert_gt(far_side, 0, "wrecks are not confined to the town-facing hemisphere")
 	assert_lt(kinds.size(), r.wrecks.size(), "the larger field allows multiple wrecks of a kind")
+	assert_eq(kinds.size(), 3, "all three kinds are out in the field")
+
+
+## A runaway outpost cargo droid is not part of the field: it does not fill the
+## field's cap, keeps its flag through a save and is gone when the world rebuilds.
+func test_runaway_wrecks_go_when_the_world_rebuilds() -> void:
+	for i in 3:
+		r.add_wreck("cargo", "remnant", Vector3(i * 10.0, 0, 0))
+	for i in 3:
+		assert_false(r.roll_wreck(rng, Vector3.ZERO, Callable(), true).is_empty(), "runaways leave the field room")
+	assert_eq(r.wrecks.size(), 6)
+	WorldState.from_save(JSON.parse_string(JSON.stringify(WorldState.to_save())))
+	r = WorldState.droids
+	assert_eq(r.wrecks.size(), 6, "found before the world rebuilds, it is still there")
+	assert_eq(r.drop_runaways(), 3)
+	assert_eq(r.wrecks.size(), 3, "the field stays")
+	for w in r.wrecks:
+		assert_false(w.has("runaway"))
+
+
+## Saves from before runaways went kept dozens of them: loading one clears the
+## desert and lets the field seed fresh.
+func test_old_save_clears_the_piled_up_wrecks() -> void:
+	for i in 30:
+		r.add_wreck("cargo", "remnant", Vector3(i * 10.0, 0, 0))
+	r.wrecks_seeded = true
+	var d := r.to_save()
+	d.erase("wrecks_v")
+	for w in d.wrecks:
+		w.erase("runaway")
+	var loaded := DroidRoster.new()
+	loaded.from_save(JSON.parse_string(JSON.stringify(d)))
+	assert_eq(loaded.wrecks.size(), 0)
+	assert_false(loaded.wrecks_seeded, "the field is seeded again")
 
 
 func test_fix_wreck_and_save_round_trip() -> void:
@@ -246,13 +280,22 @@ func test_controller_buy_sell_follow_and_ship() -> void:
 	for i in 120:
 		await wait_physics_frames(1)
 	var u: Node3D = ctl.companions.values()[0]
-	assert_lt(u.global_position.distance_to(p.global_position), 5.0, "it followed the player")
+	assert_lt(u.global_position.distance_to(p.global_position), 8.0, "it followed the player")
+	assert_gt(DroidController._flat_dist(u.global_position, p.global_position), DroidController.TOGGLE_REACH,
+		"but stopped short of its [E] prompt")
 	p.piloting = true
 	await wait_physics_frames(2)
 	assert_eq(ctl.companions.size(), 0, "gone while flying")
 	p.piloting = false
+	await wait_physics_frames(5)
+	assert_eq(ctl.companions.size(), 0, "not back while the player stands by the hull")
+	p.global_position += Vector3(DroidController.EXIT_WALK_M + 0.5, 0, 0)
 	await wait_physics_frames(2)
-	assert_eq(ctl.companions.size(), 1, "back when the player climbs out")
+	assert_eq(ctl.companions.size(), 1, "back once the player walks off")
+	u = ctl.companions.values()[0]
+	assert_gt(DroidController._flat_dist(u.global_position, p.global_position), DroidController.TOGGLE_REACH,
+		"behind the player, out of reach of its [E] prompt")
+	assert_lt(u.global_position.x, p.global_position.x, "behind the way the player walked")
 	var uid := int(WorldState.droids.owned[0].uid)
 	assert_eq(ctl.sell(uid), 90)
 	assert_eq(WorldState.credits, 190)
@@ -268,6 +311,7 @@ func test_lost_droid_rejoins_on_your_trail_not_at_your_side() -> void:
 	p.global_position = Vector3(-60, 0, 0)
 	await wait_physics_frames(2)
 	# Walk 60 m along x in five seconds (12 m/s).
+	p.velocity = Vector3(12, 0, 0)
 	for i in 300:
 		p.global_position.x += 0.2
 		await wait_physics_frames(1)
@@ -276,7 +320,8 @@ func test_lost_droid_rejoins_on_your_trail_not_at_your_side() -> void:
 	await wait_physics_frames(1)
 	var gap := DroidController._flat_dist(u.global_position, p.global_position)
 	assert_gt(gap, 10.0, "not dropped at the player's side")
-	assert_lt(gap, DroidController.REJOIN_MAX + 3.0, "most of the gap closed")
+	var back := float(DroidRoster.kind_cfg("assassin").follow.back)
+	assert_lt(gap, DroidController.REJOIN_MAX + back + 1.0, "most of the gap closed (its place behind you kept)")
 	assert_lt(u.global_position.x, p.global_position.x, "back along the way the player came")
 	assert_lt(absf(u.global_position.z), 3.0, "on the trail")
 
@@ -331,6 +376,54 @@ func test_controller_make_room_then_weld_the_wreck() -> void:
 	assert_eq(WorldState.droids.owned.size(), 3)
 	assert_false(ctl.wreck_nodes.has(wid))
 	assert_eq(WorldState.droids.wrecks.size(), 0)
+
+
+## Full roster: the droid you just welded can go to the nearest droid merchant
+## instead. It de-spawns, you get its resale price, and your three stay.
+func test_full_roster_sells_the_welded_wreck_to_the_nearest_merchant() -> void:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	for k in ["floating", "cargo", "cargo"]:
+		WorldState.droids.add(k, DroidRoster.pick_variant(k, rng))
+	var mine: Array = WorldState.droids.owned.map(func(d): return int(d.uid))
+	var wid := ctl.spawn_wreck(true)
+	var wn: Node3D = ctl.wreck_nodes[wid]
+	var kind := str(WorldState.droids.find_wreck(wid).kind)
+	ctl.vendor_sites = [
+		{ "id": "far", "label": "Far Merchant", "pos": wn.global_position + Vector3(900, 0, 0), "face": Vector3.ZERO },
+		{ "id": "near", "label": "Near Merchant", "pos": wn.global_position + Vector3(40, 0, 0), "face": Vector3.ZERO },
+	]
+	assert_eq(ctl.nearest_vendor(wn.global_position), 1)
+	assert_eq(ctl.weld_wreck(wid), "menu")
+	assert_eq(ctl.menu.options[0].id, "sell_wreck:%d" % wid, "selling the new one is the first choice")
+	assert_string_contains(str(ctl.menu.options[0].text), "Near Merchant")
+	var credits := WorldState.credits
+	ctl.menu.choose("sell_wreck:%d" % wid)
+	assert_eq(WorldState.credits, credits + DroidRoster.resale(kind), "paid its resale price")
+	assert_false(ctl.wreck_nodes.has(wid), "the wreck is gone")
+	assert_eq(WorldState.droids.wrecks.size(), 0)
+	assert_eq(WorldState.droids.owned.map(func(d): return int(d.uid)), mine, "your three droids stay")
+	await wait_process_frames(3)
+	assert_false(is_instance_valid(wn), "its body de-spawned")
+
+
+## No droid merchant in this world: the home planet's market buys it.
+func test_full_roster_no_merchant_here_sells_to_the_home_planet() -> void:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	for k in ["floating", "cargo", "cargo"]:
+		WorldState.droids.add(k, DroidRoster.pick_variant(k, rng))
+	var wid := ctl.spawn_wreck(true)
+	var kind := str(WorldState.droids.find_wreck(wid).kind)
+	ctl.vendor_sites = []
+	assert_eq(ctl.weld_wreck(wid), "menu")
+	assert_eq(ctl.menu.options[0].id, "sell_wreck:%d" % wid, "still offered with no merchant here")
+	var home := PlanetGen.display_name(PlanetGen.build(PlanetGen.home_id()))
+	assert_string_contains(str(ctl.menu.options[0].text), home, "the home planet's merchant")
+	var credits := WorldState.credits
+	ctl.menu.choose("sell_wreck:%d" % wid)
+	assert_eq(WorldState.credits, credits + DroidRoster.resale(kind))
+	assert_false(ctl.wreck_nodes.has(wid))
 
 
 # ---- issue #64 ----------------------------------------------------------------

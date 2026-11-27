@@ -107,8 +107,11 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 		var kind := str(lm.get("kind", ""))
 		var label := ""
 		if kind == "location":
-			var loc := _location(str(lm.get("location", id)))
-			kind = str(loc.get("kind", "post"))
+			var loc_id := str(lm.get("location", id))
+			var loc := _location(loc_id)
+			# map.json "location_kinds": a merchant's own kind (the speeder mechanic,
+			# the speeder stall), so each sort of merchant has its own legend row
+			kind = str(cfg().get("location_kinds", {}).get(loc_id, loc.get("kind", "post")))
 			label = str(loc.get("label", ""))
 		if kind_cfg(kind).is_empty() or kind in ["cruiser", "planet", "port", "station"]:
 			continue             # the cruiser is off planet, the station has its own pin; anything unnamed is not a place
@@ -127,11 +130,39 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 			at if at is Vector2 else Vector2(float(at[0]), float(at[1])))
 		p["hostile"] = str(pack.get("attitude", "")) == "hostile"
 		out.append(p)
+	var bp := barge_pin(planet)
+	if not bp.is_empty():
+		out.append(bp)
 	out.append_array(race_pins(str(world.get("id", "")), world))
 	out.append_array(place_pins(world))
 	for t in town:
 		out.append(t)
 	return out
+
+
+## The planet's party barge (issue #269: its file's "barge" block) where it is
+## moored, {} if it has none. The page moves it to where the barge really is
+## (place_barge) once it is yours and has sailed.
+static func barge_pin(planet: Dictionary) -> Dictionary:
+	var b: Dictionary = planet.get("barge", {})
+	if kind_cfg("barge").is_empty() or not (b.get("home") is Array) or (b.home as Array).size() < 2:
+		return {}
+	var nm := str(b.get("name", ""))
+	return _pin("barge", "barge", line("barge_named") % nm if nm != "" else _kind_label("barge"),
+		Vector2(float(b.home[0]), float(b.home[1])))
+
+
+## The barge's pin in `pins` put where `barge` (a PartyBarge) is now, by `to_map`.
+static func place_barge(pins: Array, barge, to_map: Callable) -> void:
+	if barge == null or not is_instance_valid(barge) or not barge.has_method("ground_spot"):
+		return
+	var at: Vector3 = barge.ground_spot()
+	if at == Vector3.ZERO:
+		return                   # not built yet: where it is moored
+	for p in pins:
+		if str(p.get("id", "")) == "barge":
+			p["map"] = to_map.call(at)
+			return
 
 
 ## Issue #615: the speeder races you have heard of, where the crew's leader stands

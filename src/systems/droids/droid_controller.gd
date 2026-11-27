@@ -2,8 +2,9 @@ class_name DroidController
 extends Node3D
 ## Companion droids in the town (issue #51). The node over the pure DroidRoster
 ## (WorldState.droids):
-##   - your droids follow you on foot, vanish while you fly the ship and come
-##     back beside you when you climb out,
+##   - your droids trail behind you on foot, never close enough for their [E]
+##     prompts (you walk up to them), vanish while you ride a speeder or fly the
+##     ship and turn up behind you once you walk off from it,
 ##   - an assassin droid of yours shoots whoever the town is fighting you with,
 ##     and so does a floating droid of yours, with its smaller gun: the Remnant,
 ##     the port's locals once their alarm is up, a native pack on the attack
@@ -14,7 +15,10 @@ extends Node3D
 ##   - broken droids turn up in the desert now and then; weld one with the plasma
 ##     welder (issue #722: its WeldSpot, hold E) and it follows you. With no
 ##     welder it stays broken. A knocked-out droid of yours can be welded back up
-##     at once the same way,
+##     at once the same way. With max_owned droids already, the menu also offers to
+##     sell the one you just woke to the nearest droid merchant (its resale price):
+##     it goes off to them (de-spawns) and you keep the three you have. A world
+##     with no merchant sells to the nearest planet's (the home planet's at worst),
 ##   - the range remote follows you once you block its bolts five times in a row,
 ##   - the Remnant's own two droids patrol the main street, call the alarm and
 ##     fight when the garrison would,
@@ -56,6 +60,9 @@ const REJOIN_LAG_S := 5.0           ## a lost droid turns up where you were this
 const REJOIN_MAX := 25.0            ## ...or nearer, if that is further back than this (m)
 const BLOCK_PROBE_H := 0.5          ## an engaged droid looks for walls this high off the ground (m)...
 const BLOCK_PROBE_R := 0.4          ## ...this far past its next step (about half a body)
+const TOGGLE_REACH := 2.4           ## a droid of yours this near shows its [E] prompt (hold, safety, lasers)
+const KEEP_OFF_MIN := 3.2           ## a following droid never walks nearer you than this (m); its kind's follow.keep_off can push it out
+const EXIT_WALK_M := 1.5            ## out of a speeder or ship, your droids turn up once you have walked this far from where you got out
 
 signal unit_down(u: DroidUnit, sweep: Vector3)   ## one of the Remnant's (or the locals') died; sweep INF: it ran off
 
@@ -70,6 +77,8 @@ var cfg: Dictionary = {}
 var labels: Dictionary = {}
 var menu: DroidMenu
 var companions: Dictionary = {}     ## uid -> DroidUnit (yours, following)
+const HOLD_ICON := "res://assets/ui/menu_icons/droid.svg"         ## the hold menu's "In the droid" heading
+const BACKPACK_ICON := "res://assets/ui/menu_icons/backpack.svg"  ## and its "In your backpack" heading
 const LENT_UID := -310               ## issue #310: a borrowed droid's uid (never a roster uid)
 var lent: Dictionary = {}            ## issue #310: the droid a heist lends you: { kind, variant } ({} = none)
 var lent_down := false               ## ... it was knocked out: it is gone for this heist
@@ -87,6 +96,8 @@ var _wreck_clock := 0.0
 var _heading := Vector3.FORWARD
 var _follow_t := 0.0
 var _trail: Array = []              ## [[_follow_t, player position], ...], newest last: where a lost droid rejoins
+var _await_walk := false            ## you got out of a speeder or ship: no droids until you walk off
+var _exit_at := Vector3.INF         ## ...from here (where you stood the first frame on foot)
 var _mats: LookMaterials
 var _was_locked := false
 var net_copy := false               ## issue #402: the host's game runs this town's droids (see the top)
@@ -160,6 +171,8 @@ func _ready() -> void:
 ## The wrecks, the patrols and the hauler. Issue #574: `st` (a StagedBuild) spreads
 ## them over frames on a handoff; with null (from _ready) all at once.
 func build_units(st: StagedBuild) -> void:
+	if not net_copy:
+		roster().drop_runaways()      # a runaway nobody found is gone when the world is built again
 	if _on_ball() and not roster().wrecks_seeded:
 		var starting_count := int(cfg.get("wrecks", {}).get("ball_starting_count", 8))
 		while roster().wrecks.size() < starting_count:
@@ -216,11 +229,16 @@ func _physics_process(dt: float) -> void:
 		return
 	_player_off_index = _off_index(player.global_position)
 	if player.piloting:
-		_despawn_companions()          # they wait while you fly
+		_despawn_companions()          # they wait while you ride or fly
 		_trail.clear()
 		focus = {}
+		_await_walk = true
+		_exit_at = Vector3.INF
 	else:
-		_sync_companions()
+		if _await_walk:
+			_await_walk = not _walked_off()
+		if not _await_walk:
+			_sync_companions()
 		_tick_knocked_out(dt)
 		_follow(dt)
 		_companion_guns(dt)
@@ -264,17 +282,17 @@ func _find_focus() -> Dictionary:
 	for uid in companions:
 		var d := roster().find(uid)
 		if bool(DroidRoster.kind_cfg(str(d.get("kind", ""))).get("carries", false)) \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "cargo", "uid": uid }
 	for uid in companions:              # issue #392: a droid of yours with the laser rig
 		var d := roster().find(uid)
 		if DroidRoster.has_lasers(d) and not companions[uid].dead \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "lasers", "uid": uid }
 	for uid in companions:              # a droid of yours with a gun: its safety
 		var d := roster().find(uid)
 		if DroidRoster.armed_kind(str(d.get("kind", ""))) and not companions[uid].dead \
-				and _flat_dist(p, companions[uid].global_position) <= 2.4:
+				and _flat_dist(p, companions[uid].global_position) <= TOGGLE_REACH:
 			return { "kind": "safety", "uid": uid }
 	return {}
 
@@ -323,7 +341,7 @@ func interact() -> String:
 			return "menu"
 		"cargo":
 			var opts := hold_options(int(focus.uid))
-			if opts.is_empty():
+			if not has_hold_actions(opts):
 				_toast(_l("empty_hold"))
 				return ""
 			_open_hold(int(focus.uid), opts)
@@ -557,16 +575,19 @@ func sell(uid: int) -> int:
 
 
 ## At the cap: pick one droid to sell (merchant price) and then `then` runs.
-## Walking away runs `declined` instead.
-func _ask_make_room(then: Callable, declined := Callable()) -> void:
-	var opts := []
+## Walking away runs `declined` instead. `extra` rows go first (a welded wreck:
+## sell it on instead, "sell_wreck:<uid>").
+func _ask_make_room(then: Callable, declined := Callable(), extra: Array = []) -> void:
+	var opts := extra.duplicate()
 	for d in roster().owned:
 		opts.append({ "id": str(d.uid), "text": _l("sell") % [DroidRoster.label(str(d.kind)), DroidRoster.resale(str(d.kind))] })
 	_open_menu(_l("make_room") % DroidRoster.max_owned(), opts, _on_make_room.bind(then, declined))
 
 
 func _on_make_room(id: String, then: Callable, declined: Callable) -> void:
-	if id != "" and sell(int(id)) >= 0:
+	if id.begins_with("sell_wreck:"):
+		sell_wreck(int(id.substr(11)))
+	elif id != "" and sell(int(id)) >= 0:
 		then.call()
 	elif declined.is_valid():
 		declined.call()
@@ -575,31 +596,21 @@ func _on_make_room(id: String, then: Callable, declined: Callable) -> void:
 ## A cargo droid's hold menu. keep_cursor: reopened after a stash, so you can stash
 ## one more without starting over.
 func _open_hold(uid: int, opts: Array, keep_cursor := false) -> void:
-	var d := roster().find(uid)
-	_open_menu(_l("menu_hold") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)], opts, _on_hold.bind(uid), keep_cursor)
+	_open_menu(_l("menu_hold"), opts, _on_hold.bind(uid), keep_cursor)
 
 
-## Stash what the hold has a slot for (or already holds some of), take back what it
-## holds, and unload. Enter (or "Stash one" / "Take one") moves one of a stack;
-## Shift+Enter (or "Stash all" / "Take all") the whole stack. "Unload everything"
-## shows once the hold has more than one kind.
+## Two sections, each under a heading with its icon: what the droid holds (take it
+## back, or unload; "The droid is empty." when it holds nothing), then what is in
+## your backpack that the hold has a slot for (or already holds some of). Enter (or
+## "Take one" / "Stash one") moves one of a stack; Shift+Enter (or "Take all" /
+## "Stash all") the whole stack. "Unload everything" shows once the hold has more
+## than one kind. Headings and notes can not be picked (has_hold_actions).
 func hold_options(uid: int) -> Array:
 	var out := []
 	var inv := WorldState.inventory
 	var d := roster().find(uid)
-	for id in inv.item_ids():
-		if not DroidRoster.hold_has_room(d, str(id)):
-			continue
-		var it: Dictionary = WorldState._item(str(id))
-		var row := { "id": "stash:" + str(id), "text": _l("stash") % [str(it.get("label", id)), inv.count(str(id))] }
-		if inv.count(str(id)) > 1:
-			row["alt"] = "stash_all:" + str(id)
-			row["alt_hint"] = _l("stash_all_hint")
-			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_one_button") },
-				{ "id": "stash_all:" + str(id), "text": _l("stash_all_button") }]
-		else:
-			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_button") }]
-		out.append(row)
+	out.append({ "id": "", "heading": true, "icon": HOLD_ICON,
+		"text": _l("hold_section_droid") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)] })
 	var held: Array = []
 	var cargo_ids: Array = d.get("cargo", {}).keys()
 	cargo_ids.sort()
@@ -616,9 +627,39 @@ func hold_options(uid: int) -> Array:
 		else:
 			row["buttons"] = [{ "id": "take:" + str(id), "text": _l("take_button") }]
 		out.append(row)
-	if held.size() > 1:
+	if held.is_empty():
+		out.append({ "id": "", "note": true, "text": _l("hold_section_droid_empty") })
+	elif held.size() > 1:
 		out.append({ "id": "unload", "text": _l("unload") % ", ".join(held) })
+	out.append({ "id": "", "heading": true, "icon": BACKPACK_ICON,
+		"text": _l("hold_section_backpack") % [inv.slots_used(), Inventory.backpack_slots()] })
+	var stashable := 0
+	for id in inv.item_ids():
+		if not DroidRoster.hold_has_room(d, str(id)):
+			continue
+		stashable += 1
+		var it: Dictionary = WorldState._item(str(id))
+		var row := { "id": "stash:" + str(id), "text": _l("stash") % [str(it.get("label", id)), inv.count(str(id))] }
+		if inv.count(str(id)) > 1:
+			row["alt"] = "stash_all:" + str(id)
+			row["alt_hint"] = _l("stash_all_hint")
+			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_one_button") },
+				{ "id": "stash_all:" + str(id), "text": _l("stash_all_button") }]
+		else:
+			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_button") }]
+		out.append(row)
+	if stashable == 0:
+		out.append({ "id": "", "note": true,
+			"text": _l("hold_section_backpack_empty" if inv.item_ids().is_empty() else "hold_section_backpack_no_room") })
 	return out
+
+
+## Some row of `opts` can be picked (not just headings and notes).
+static func has_hold_actions(opts: Array) -> bool:
+	for o in opts:
+		if not bool(o.get("heading", false)) and not bool(o.get("note", false)):
+			return true
+	return false
 
 
 func _on_hold(id: String, uid: int) -> void:
@@ -637,7 +678,7 @@ func _on_hold(id: String, uid: int) -> void:
 			if gear != null:
 				gear.sync_gear()        # a jetpack back in your pack goes on your back
 			var opts := hold_options(uid)
-			if not opts.is_empty():
+			if has_hold_actions(opts):
 				_open_hold(uid, opts, true)     # stay open: take the next one
 		else:
 			_toast(_l("take_no_room") % label)
@@ -652,7 +693,7 @@ func _on_hold(id: String, uid: int) -> void:
 			if gear != null:
 				gear.sync_gear()        # a stashed jetpack comes off your back
 			var opts := hold_options(uid)
-			if not opts.is_empty():
+			if has_hold_actions(opts):
 				_open_hold(uid, opts, true)     # stay open: stash the next one
 		elif not DroidRoster.hold_has_room(d, item):
 			_toast(_l("hold_full") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)])
@@ -668,10 +709,82 @@ func weld_wreck(uid: int) -> String:
 	if not wreck_nodes.has(uid):
 		return ""
 	if roster().is_full():
-		_ask_make_room(func(): _finish_fix(uid))
+		var kind := str(roster().find_wreck(uid).get("kind", ""))
+		var extra := [{ "id": "sell_wreck:%d" % uid, "text": _l("sell_wreck")
+			% [DroidRoster.label(kind).to_lower(), buyer_label(wreck_nodes[uid].global_position), DroidRoster.resale(kind)] }]
+		_ask_make_room(func(): _finish_fix(uid), Callable(), extra)
 		return "menu"
 	_finish_fix(uid)
 	return "fixed"
+
+
+## The droid merchant nearest `at` (a vendor_sites index), open or not, or -1 when
+## this world has none.
+func nearest_vendor(at: Vector3) -> int:
+	var best := -1
+	var best_d := INF
+	for i in vendor_sites.size():
+		var d := at.distance_to(vendor_sites[i].pos as Vector3)
+		if d < best_d:
+			best = i
+			best_d = d
+	return best
+
+
+## Who buys a welded droid you have no room for: the nearest droid merchant in
+## this world, or with none here, the one on the nearest planet that has one (the
+## home planet's market at worst). So you can always sell one on.
+func buyer_label(at: Vector3) -> String:
+	var site := nearest_vendor(at)
+	return _vendor_label(site) if site >= 0 else offworld_merchant()
+
+
+## No droid merchant in this world. The nearest other planet with one: the
+## home planet (its market stall, droids.json "vendor") or a planet whose club dome
+## has "droid_merchant" (the moon's rave, "club_vendor"), by distance between the
+## planets' ports. The home planet when this world's place is unknown.
+func offworld_merchant() -> String:
+	var cc = load("res://src/systems/dataload/core_content.gd").shared()
+	var here := _planet_id()
+	var home := PlanetGen.home_id()
+	var from := PlanetGen.system_port(here, cc) if here != "" else Vector3.INF
+	var best := home
+	var best_d := INF
+	for id in PlanetGen.ids(cc):
+		var pc: Dictionary = cc.planets.get(id, {})
+		if str(id) == here and str(id) != home:
+			continue
+		if str(id) != home and not bool((pc.get("club_dome", {}) as Dictionary).get("droid_merchant", false)):
+			continue
+		var to := PlanetGen.system_port(str(id), cc)
+		var d := from.distance_to(to) if from.is_finite() and to.is_finite() else (0.0 if str(id) == home else INF)
+		if d < best_d:
+			best = str(id)
+			best_d = d
+	var who: Dictionary = cfg.get("vendor" if best == home else "club_vendor", {})
+	return _l("offworld_merchant") % [str(who.get("label", "Droid Merchant")),
+		PlanetGen.display_name(PlanetGen.build(best, cc))]
+
+
+## Wreck `uid` welded with no room in your roster: it reboots and is sold to the
+## nearest droid merchant (buyer_label) at its resale price, then de-spawns.
+## Returns the price or -1.
+func sell_wreck(uid: int) -> int:
+	var n: DroidUnit = wreck_nodes.get(uid)
+	var w := roster().find_wreck(uid)
+	if n == null or w.is_empty():
+		return -1
+	var at := n.global_position
+	var buyer := buyer_label(at)
+	var price := roster().sell_wreck(uid)
+	WorldState.credits += price
+	wreck_nodes.erase(uid)
+	n.queue_free()
+	Sound.play("droid_wake", at)
+	var label := DroidRoster.label(str(w.kind)).to_lower()
+	WorldState.log_event(_l("event_found") % label)
+	_toast(_l("sold_wreck") % [label, buyer, price])
+	return price
 
 
 ## Issue #722: knocked-out droid `uid` of yours welded: it reboots now.
@@ -875,14 +988,15 @@ func _take_remote() -> void:
 
 # ------------------------------------------------------------------ companions
 
-## Bring every owned droid that has no body yet, beside the player. Issue #310:
-## and the one a heist lends you (not in your roster).
+## Bring every owned droid that has no body yet, at its place behind the player
+## (_home_spot: out of reach of its [E] prompt). Issue #310: and the one a heist
+## lends you (not in your roster).
 func _sync_companions() -> void:
 	for d in roster().owned:
 		if not companions.has(int(d.uid)):
-			_spawn_companion(d, player.global_position - _heading * 2.0)
+			_spawn_companion(d, _home_spot(str(d.kind), _count_kind(str(d.kind))))
 	if not lent.is_empty() and not lent_down and not companions.has(LENT_UID):
-		_spawn_companion(_lent_entry(), player.global_position - _heading * 3.0)
+		_spawn_companion(_lent_entry(), _home_spot(str(lent.kind), _count_kind(str(lent.kind))))
 	for uid in companions.keys():
 		if uid == LENT_UID:
 			if lent.is_empty() or lent_down and not companions[uid].dead:
@@ -960,9 +1074,61 @@ func _despawn_companions() -> void:
 		_free_companion(uid)
 
 
+## Out of a speeder or ship: true once you have walked EXIT_WALK_M from where you
+## got out, and your heading is the way you walked (so the droids turn up behind
+## you, not in front). Standing by the hull, nobody turns up.
+func _walked_off() -> bool:
+	if _exit_at == Vector3.INF:
+		_exit_at = player.global_position
+		return false
+	var off := _flat(player.global_position - _exit_at, _up(_exit_at))
+	if off.length() < EXIT_WALK_M:
+		return false
+	_heading = off.normalized()
+	return true
+
+
+## How many of your droids of `kind` have a body (the next one's place in its fan).
+func _count_kind(kind: String) -> int:
+	var n := 0
+	for u in companions.values():
+		if u.kind == kind:
+			n += 1
+	return n
+
+
+## Where the k-th droid of `kind` stands behind you: its follow slot without the
+## drift, pulled in short of a wall or a hull between you and it (a ray at knee
+## height) so it does not turn up inside the speeder you just left.
+func _home_spot(kind: String, k: int) -> Vector3:
+	var f: Dictionary = DroidRoster.kind_cfg(kind).get("follow", {})
+	var at := player.global_position
+	var pup := _up(at)
+	var h := _flat(_heading, pup)
+	if h.length() < 0.01:
+		h = _flat(-player.global_basis.z, pup)
+	h = h.normalized() if h.length() > 0.01 else PlanetSphere.tilt_to(pup) * Vector3.FORWARD
+	var right := h.cross(pup).normalized()
+	var fan := 0.0 if k == 0 else (1.0 if k % 2 == 1 else -1.0) * ceilf(k / 2.0) * 1.4
+	var spot := at + right * (float(f.get("side", 1.0)) + fan) - h * (float(f.get("back", 1.5)) + 1.1 * k)
+	if is_inside_tree():
+		var from := at + pup * BLOCK_PROBE_H
+		var to := spot + pup * BLOCK_PROBE_H
+		var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+		q.exclude = [player.get_rid()]
+		var hit := get_world_3d().direct_space_state.intersect_ray(q)
+		if not hit.is_empty() and (hit.normal as Vector3).dot(pup) < 0.7:
+			var dir := (to - from).normalized()
+			spot = (hit.position as Vector3) - dir * 0.6 - pup * BLOCK_PROBE_H
+	return spot
+
+
 ## Each droid holds its ground until the player gets `leash` metres away (its
-## kind's "follow"), then walks to its slot beside / behind the player and stops
-## there (within `settle` m). It catches up faster when far behind, and if it was
+## kind's "follow"), then walks to its slot behind the player and stops there
+## (within `settle` m). It never walks nearer you than `keep_off` (outside
+## TOGGLE_REACH), and never toward you while you walk its way: turn round and it
+## stands still, so you walk up to it for its [E]. The cargo droid trails furthest
+## back. It catches up faster when far behind, and if it was
 ## left a long way back (a jetpack hop, a speeder ride) it turns up on your trail
 ## some seconds back (_rejoin_point), not at your side, and runs the rest.
 func _follow(dt: float) -> void:
@@ -1006,7 +1172,10 @@ func _follow(dt: float) -> void:
 		var to := _flat(slot - u.global_position, _up(u.global_position))
 		var dist := to.length()
 		var leash := float(f.get("leash", 5.0)) + me.z * 2.0 + 0.8 * k
-		if not u.following and _flat_dist(u.global_position, player.global_position) > leash:
+		var keep_off := maxf(float(f.get("keep_off", KEEP_OFF_MIN)), KEEP_OFF_MIN)
+		# You are walking its way (it is ahead of you): it holds still and lets you pass.
+		var walking_at := v.length() > 0.6 and _flat(u.global_position - player.global_position, pup).dot(_heading) > 0.0
+		if not u.following and not walking_at and _flat_dist(u.global_position, player.global_position) > leash:
 			u.wait_left -= dt
 			if u.wait_left <= 0.0:
 				u.following = true
@@ -1031,7 +1200,15 @@ func _follow(dt: float) -> void:
 			_face(u, u.engaged.global_position - pos)
 		elif u.following:
 			speed = float(f.get("speed", 7.0)) * (0.85 + me.y * 0.3) * (2.0 if dist > 8.0 else clampf(dist / 1.5, 0.3, 1.0))
-			pos += to / dist * minf(speed * dt, dist)
+			var step := to / dist * minf(speed * dt, dist)
+			var near := _flat_dist(pos, player.global_position)
+			var near_next := _flat_dist(pos + step, player.global_position)
+			if near_next < near and (near_next < keep_off or walking_at):
+				u.following = false           # you are close, or coming its way: it waits for you
+				speed = 0.0
+				u.wait_left = 0.15 + me.x * 0.6
+			else:
+				pos += step
 			_face(u, to)
 		elif u.target == null:
 			_face(u, player.global_position - u.global_position)
@@ -1961,8 +2138,9 @@ func _flee(u: DroidUnit, dt: float) -> void:
 	u.walk(dt, true, speed)
 
 
-## The runaway gives out where it stopped: a wreck there (saved; [E] fixes it and
-## it is yours), and the outpost gets a new one when its troopers come back.
+## The runaway gives out where it stopped: a wreck there (weld it and it is yours;
+## gone when the world is built again), and the outpost gets a new one when its
+## troopers come back.
 func _strand(u: DroidUnit) -> void:
 	var w := roster().add_wreck(u.kind, u.variant, u.global_position)
 	_build_wreck(w)

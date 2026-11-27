@@ -169,17 +169,31 @@ func test_buy_back_needs_stock_and_credits() -> void:
 
 func test_gear_trader_always_sells_jetpacks() -> void:
 	var inv := Inventory.new()
-	# (#372) grenades are endless stock too.
-	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade"], "a fresh game: the trader has jetpacks")
+	# (#372) grenades are endless stock too, and so is the plasma welder.
+	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade", "plasma_welder"], "a fresh game: the trader has jetpacks")
 	var cost := Inventory.buy_price(jet, trader)
 	assert_eq(cost, int(jet.value), "at the jetpack's value")
 	assert_eq(inv.buy("jetpack", jet, trader, cost - 1), -1, "cannot afford it")
 	assert_eq(inv.buy("jetpack", jet, trader, cost * 3), cost)
 	assert_eq(inv.buy("jetpack", jet, trader, cost * 3), cost, "never runs out")
 	assert_eq(inv.count("jetpack"), 2)
-	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade"], "still on the stall")
+	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade", "plasma_welder"], "still on the stall")
 	assert_eq(inv.sell("jetpack", jet, trader), Inventory.sell_price(jet, trader), "it still buys them back")
-	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade"], "a sold jetpack does not pile up")
+	assert_eq(inv.vendor_stock(trader), ["jetpack", "grenade", "plasma_welder"], "a sold jetpack does not pile up")
+
+
+func test_every_gear_trader_sells_welders_for_20_and_buys_them_for_10() -> void:
+	var weld: Dictionary = content.get_item("plasma_welder")
+	for vid in ["gear_trader", "station_gear_trader"]:
+		var v: Dictionary = content.get_vendor(vid)
+		var inv := Inventory.new()
+		assert_true(inv.vendor_stock(v).has("plasma_welder"), "%s has welders" % vid)
+		assert_eq(Inventory.buy_price(weld, v), 20, "%s sells one for 20" % vid)
+		assert_eq(inv.buy("plasma_welder", weld, v, 100), 20)
+		assert_eq(inv.buy("plasma_welder", weld, v, 100), 20, "%s never runs out" % vid)
+		assert_eq(inv.sell("plasma_welder", weld, v), 10, "%s buys one back for 10" % vid)
+		assert_true(inv.has("plasma_welder"), "one left")
+	assert_eq(Inventory.sell_price(weld, content.get_vendor("fence")), 10, "the fence pays 10 too")
 
 
 func test_old_saves_see_the_trader_jetpacks() -> void:
