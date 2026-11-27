@@ -1263,7 +1263,7 @@ func _tick_countdown(dt: float) -> void:
 	go()
 
 
-## GO: control back, the racers off along the racing line.
+## GO: control back, the racers off round the gates.
 func go() -> void:
 	phase = Phase.RACING
 	_big(str(rules().get("hud", {}).get("go", "GO!")), 1.2)
@@ -1279,10 +1279,7 @@ func go() -> void:
 		_last[YOU] = _player_speeder.model.position
 		_player_speeder.gear.refill()           # issue #616: a full load of race gear at the start
 		_crash_repair(true)
-	var start := _line_start()
-	var route: Array = []
-	for k in course.line.size():
-		route.append(course.line[(start + k) % course.line.size()])
+	var route := course.race_route()           # straight at the gates, the way the checkpoints run
 	for rc in racers:
 		if bool(rc.out) or rc.brain == null:
 			continue
@@ -1291,21 +1288,6 @@ func go() -> void:
 		rc.speeder.crash_repair_s = rule("npc_crash_repair_s", 7.0)
 		rc.brain.follow(route, true)
 		_last[rc.key] = rc.speeder.model.position
-
-
-## The first racing-line point past the start line.
-func _line_start() -> int:
-	var g: Dictionary = course.gates[0]
-	var best := 0
-	var best_d := INF
-	for i in course.line.size():
-		var rel: Vector3 = (course.line[i] as Vector3) - (g.pos as Vector3)
-		if rel.dot(g.fwd) <= 5.0:
-			continue
-		if rel.length() < best_d:
-			best_d = rel.length()
-			best = i
-	return best
 
 
 # ------------------------------------------------------------------ racing

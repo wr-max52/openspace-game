@@ -75,7 +75,7 @@ func test_the_first_course_is_a_file_by_dorrins_yard() -> void:
 	var c := RaceCourse.load_course("hoodoo_run")
 	assert_eq(str(c.world), "port_desert")
 	assert_eq(int(c.laps), 2)
-	assert_between(c.gates.size(), 5, 7, "a start/finish line and 4 to 6 checkpoints")
+	assert_between(c.gates.size(), 6, 12, "a start/finish line and its checkpoints")
 	assert_gt(c.line.size(), 20, "a racing line")
 	var yard := Vector2(-900, -620)
 	var start := Vector2(float(c.gates[0].at[0]), float(c.gates[0].at[1]))
@@ -101,6 +101,30 @@ func test_the_courses_rock_towers_are_hoodoos_off_the_line() -> void:
 			near += 1
 			assert_gt(best - float(hd.radius), 12.0, "a tower's skirt beside the line, not on it")
 	assert_eq(near, 5, "five towers to weave round")
+
+
+## The racing line is the gates and nothing else: straight legs from each gate to
+## the next, round the loop, and the racers drive at the gates themselves.
+func test_the_racing_line_is_straight_legs_between_the_gates() -> void:
+	for cid in RaceCourse.ids():
+		var c := RaceCourse.load_course(cid)
+		var r := RaceCourse.sphere_radius(str(c.world))
+		var gates: Array = c.gates.map(func(g): return Vector2(float(g.at[0]), float(g.at[1])))
+		var k := 0
+		for p in c.line:
+			var q := Vector2(float(p[0]), float(p[1]))
+			if k < gates.size() and q.distance_to(gates[k]) < 0.01:
+				k += 1
+			var a: Vector2 = gates[(k - 1 + gates.size()) % gates.size()]
+			var b: Vector2 = gates[k % gates.size()]
+			var s := RaceCourse.ground_dist(a, q, r) / RaceCourse.ground_dist(a, b, r)
+			assert_lt(RaceCourse.ground_dist(q, RaceCourse.ground_lerp(a, b, s, r), r), 1.0, "%s: every line point on the leg between its gates" % cid)
+		assert_eq(k, gates.size(), "%s: the line runs through every gate, in order" % cid)
+		var rc := _course(c)
+		var route := rc.race_route()
+		assert_eq(route.size(), rc.gates.size() + 1, "%s: racers aim past the line, then at every gate" % cid)
+		for i in range(1, rc.gates.size()):
+			assert_lt((route[i] as Vector3).distance_to(rc.gates[i].pos), 0.01, "%s: straight at gate %d" % [cid, i])
 
 
 func test_boulders_keep_off_the_line() -> void:

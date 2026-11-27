@@ -2,6 +2,22 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The racers drive the checkpoints, down the valleys (2026-11-27)
+
+- **NPC racers now drive exactly the course the checkpoints set:** a straight
+  run from each gate to the next. Before, they followed their own smooth line
+  that swung wide of the gates (on the Crooked Mile and the Far Leaps by
+  hundreds of metres), so the course you raced was not the one they raced.
+- **Every course is re-laid on the dunes.** The legs run down the valleys
+  between the dunes and cross a ridge only at a low saddle, so the tracks read
+  as natural runs instead of a loop drawn over the crests. Courses have a few
+  more checkpoints where the valleys bend (9 to 13 each).
+- **The Salt Flats runs the other way round** now: you come out of the tunnel
+  and drop off the edge of the salt pan into the basin below.
+- **The Crooked Mile's switchbacks are square U-turns** with the rock towers
+  between the rows; Hoodoo Run's towers stand beside its new legs.
+- **Tunnels follow the checkpoints:** each one is cut along the course's own
+  legs, and you line up on it before you go in.
 ## Laser droid settings in the Ledger (2026-11-27)
 
 - **Your laser droid's settings are two buttons on its row in the Ledger (I):**
