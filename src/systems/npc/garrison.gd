@@ -87,6 +87,9 @@ var always_hostile := false       ## issue #193: the Remnant cruiser's crew shoo
 ## before setup). Out there the vehicle is no offence by itself: no "vehicle" alarm.
 var vehicles_anywhere := false
 var knockout_s := 1.6             ## black screen before you wake in the pit
+## Where this garrison is, for the alarm toast ("the dry wash outpost", the
+## cruiser, the town's barracks): set by whoever builds it (TownAlarm.toast_text).
+var place := ""
 ## Issue #308: checkpoint zones, set before setup: [{ id, place, roles, and either
 ## center (Vector3) + radius or min + max ([x, z]), checkpoint: { what differs
 ## from the troopers' checkpoint block } }]. setup makes `zones` from them:
@@ -480,8 +483,10 @@ func _raise(why: String, at := Vector3.INF) -> void:
 
 ## Another director's alarm went up (the town's locals for the locals' gate, and
 ## back): this one fights too. It costs no standing here; that was paid there.
-func join_alarm(at: Vector3) -> void:
-	if alarm != null and alarm.raise("joined", at):
+## `why`: "joined" says nothing (the other one already sounded it); anything else
+## (a heist's wave running in) sounds this one's klaxon and toast too.
+func join_alarm(at: Vector3, why := "joined") -> void:
+	if alarm != null and alarm.raise(why, at):
 		_handle(alarm.drain())
 
 
@@ -754,7 +759,7 @@ func _handle(events: Array, post: Dictionary = {}) -> void:
 				klaxon_plays += 1
 				if klaxon.stream != null and klaxon.is_inside_tree():
 					klaxon.play()
-				hud.toast("ALARM", 2.5)
+				hud.toast(TownAlarm.toast_text(place), 3.5)
 			"calm":
 				for p in _posts():
 					p.checkpoint.set_alarm(false)

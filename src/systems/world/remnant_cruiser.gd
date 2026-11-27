@@ -506,6 +506,7 @@ func _enlist(g: NpcBody) -> void:
 		# Issue #303: his crew is yours on the oath. Issue #497: the locals aboard go by
 		# your standing with them (the garrison takes their faction from its first body).
 		garrison.always_hostile = crew_always_hostile()
+		garrison.place = label()               # which alarm: "Remnant star cruiser <name>"
 		var outposts = demo.outposts
 		if outposts != null:
 			outposts.garrisons[id] = garrison      # a ship taken from its bay sounds its alarm

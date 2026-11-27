@@ -178,6 +178,80 @@ func test_fight_with_nothing_to_go_on_stands_ready() -> void:
 	_run(b, 1.0)
 	assert_eq(b.go_to, Vector3.INF)
 	assert_false(b.fire)
+	assert_ne(b.aim, Vector3.INF, "rifle up, not idling: it is on the alarm")
+	var faces := {}
+	var start := b.facing
+	var widest := 0.0
+	for i in 60 * 12:
+		_run(b, DT)
+		var want := atan2(b.face.x - b.pos.x, b.face.z - b.pos.z)
+		b.facing = want               # the body turns to it (worst case: at once)
+		faces[snappedf(want, 0.1)] = true
+		widest = maxf(widest, absf(angle_difference(start, want)))
+	assert_gt(faces.size(), 2, "and looks round for them")
+	assert_lt(widest, PI * 0.95, "looking round, not spinning on the spot")
+
+
+## On the alarm with the player out of sight: after hunt_after_s it hunts (rifle
+## up, sweeping, walking search spots round the last sighting, on its leash), and
+## the moment it sees them again it is back to the fight.
+func test_hunts_when_nobody_is_in_sight() -> void:
+	var b := _brain()
+	b.visible = false
+	b.alarm_pos = Vector3(110, 0, 4)
+	b.engage()
+	b.want_cover = false
+	b.cover = Vector3.INF
+	_run(b, b.c("hunt_after_s", 6.0) - 1.0)
+	assert_false(b.hunting(), "not straight away")
+	var said: Array = []
+	var aimed := 0
+	var spots := {}
+	var farthest := 0.0
+	for i in 60 * 25:
+		b.want_cover = false
+		_run(b, DT)
+		if b.bark != "":
+			said.append(b.bark)
+		if b.aim != Vector3.INF:
+			aimed += 1
+		if b.go_to != Vector3.INF:
+			spots[Vector2i(roundi(b.go_to.x), roundi(b.go_to.z))] = true
+		farthest = maxf(farthest, b.pos.distance_to(b.patrol_points[0]))
+		assert_false(b.fire, "never fires at nothing")
+	assert_true(b.hunting(), "then hunts")
+	assert_has(said, "hunt", "and calls it out")
+	assert_gt(aimed, 60 * 10, "rifle up most of the time")
+	assert_gt(spots.size(), 2, "walking more than one spot")
+	assert_lte(farthest, b.c("chase_leash", 30.0) + 0.5, "on its leash")
+	b.visible = true
+	b.target_pos = b.pos + Vector3(8, 0, 0)
+	_run(b, 0.1)
+	assert_false(b.hunting(), "seen again: back to the fight")
+	var fired := false
+	for i in 60 * 2:
+		_run(b, DT)
+		fired = fired or b.fire
+	assert_true(fired)
+
+
+func test_a_sentry_hunts_from_its_rim() -> void:
+	var cc = CoreScript.new()
+	cc.load_from()
+	var b := GuardBrain.new(cc.get_soldier("tower_sentry"), 5)
+	b.patrol_points = [Vector3(91, 12, 16)]
+	b.pos = b.patrol_points[0]
+	b.visible = false
+	b.alarm_pos = Vector3(60, 0, -20)
+	b.engage()
+	var yaws := {}
+	for i in 60 * 16:
+		_run(b, DT)
+		yaws[snappedf(atan2(b.face.x - b.pos.x, b.face.z - b.pos.z), 0.1)] = true
+		assert_lt(Vector2(b.pos.x - 91, b.pos.z - 16).length(), b.c("hold_radius", 2.3) + 0.2, "never leaves the rim")
+	assert_true(b.hunting())
+	assert_ne(b.aim, Vector3.INF, "rifle up")
+	assert_gt(yaws.size(), 2, "sweeping round")
 
 
 func test_searches_on_a_leash_then_goes_home() -> void:

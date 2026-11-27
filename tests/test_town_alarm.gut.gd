@@ -174,6 +174,24 @@ func test_alarm_sighting_guides_the_blind() -> void:
 	assert_eq(b.face, Vector3(99, 0, 0), "faces where the alarm says the player is")
 
 
+## Every alarm says which one went off.
+func test_alarm_toast_names_the_place() -> void:
+	assert_eq(TownAlarm.toast_text("the dry wash outpost"), "ALARM  ·  The dry wash outpost")
+	assert_eq(TownAlarm.toast_text(""), "ALARM", "a place nobody named still sounds")
+	assert_string_contains(TownAlarm.place_name("town_remnant", "Dustfall"), "Dustfall")
+	assert_string_contains(TownAlarm.place_name("station", "Halo Ring"), "Halo Ring")
+	assert_ne(TownAlarm.place_name("town_locals", ""), "", "a world with no town name still says where")
+	for kind in ["town_remnant", "town_locals_barracks", "town_locals", "station", "station_remnant", "station_guards"]:
+		assert_false(TownAlarm.place_name(kind, "").contains("%"), kind + " unnamed")
+	# The guards' alarm bark is said everywhere (outposts, the cruiser), so it names no one place.
+	var lines: Dictionary = CharacterKit._read_json("res://content/core/dialogue/gate_guard_lines.json").get("lines", {})
+	for l in lines.get("alarm", []):
+		assert_false(str(l).to_lower().contains("gate"), str(l))
+	assert_false((lines.get("hunt", []) as Array).is_empty(), "the guards have hunt calls")
+	var locals: Dictionary = CharacterKit._read_json("res://content/core/dialogue/locals_lines.json").get("lines", {})
+	assert_false((locals.get("hunt", []) as Array).is_empty(), "and the locals")
+
+
 # ------------------------------------------------------------------ smuggling plumbing
 
 func test_contraband_item_and_fence() -> void:

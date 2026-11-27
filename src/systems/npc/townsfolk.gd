@@ -82,6 +82,10 @@ var _club_talk: Dictionary = {}   ## locals_lines.json "club_talk" ({} when the 
 var _club_lines: Array = []       ## its lines for this club's style
 var _club_next := 0.0             ## game seconds before a patron may talk again
 
+## Where these people are, for the alarm toast (the town's locals, a village, the
+## barge, the station): set by whoever builds them (TownAlarm.toast_text).
+var place := ""
+
 ## The alarm went up here (any cause): the locals' barracks join it (Garrison.join_alarm).
 signal alarm_up(at: Vector3)
 
@@ -249,6 +253,8 @@ func _handle(events: Array) -> void:
 					g.perception.noticed = true
 				_say(_lead(_alive()), "alarm")
 				alarm_up.emit(alarm.last_known)
+				if str(e.get("why", "")) != "joined":
+					_toast(TownAlarm.toast_text(place))   # joined: whoever sounded it said where
 			"standing":
 				if standing:
 					WorldState.change_standing("locals", int(e.delta), "Someone shot up the port's locals and got away.")
@@ -483,6 +489,24 @@ func forgive_player() -> void:
 
 
 # ------------------------------------------------------------------ helpers
+
+## A line on the HUD: the garrison's (it shows on foot and in a ship alike), else
+## the gear's or the cockpit's.
+func _toast(text: String, secs := 3.5) -> void:
+	if demo == null:
+		return
+	var g = demo.get("garrison")
+	if g != null and is_instance_valid(g) and g.get("hud") != null:
+		g.hud.toast(text, secs)
+		return
+	var gear = demo.get("gear")
+	if gear != null and gear.get("hud") != null:
+		gear.hud.toast(text, secs)
+		return
+	var pilot = demo.get("pilot")
+	if pilot != null and pilot.get("hud") != null:
+		pilot.hud.toast(text, secs)
+
 
 func _player_pos() -> Vector3:
 	if player == null or not is_instance_valid(player) or player.get("piloting") == true or player.get("is_downed") == true:
