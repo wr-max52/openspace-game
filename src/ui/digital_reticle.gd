@@ -10,6 +10,13 @@ var color := Color("#ff3a1e")
 var reach := 120.0                  ## pixels from the centre to the end of an arm
 var meters := -1.0                  ## range to what is under the centre; < 0 = nothing
 var mag := 2.5
+## The seeker launcher's panel sight (scope "panel"): its glass's half size on
+## screen, pixels (0 = the sniper's round scope, no panel drawn), and the panel's
+## line colour. The glass itself is the 3D panel's; this adds a display on it:
+## scan lines, an edge frame with corner marks, rulers down the sides and along
+## the bottom, a few status strips along the top.
+var panel_half := 0.0
+var panel_color := Color("#7cc4ff")
 var _font: SystemFont
 
 
@@ -41,8 +48,52 @@ func _segment(at: Vector2, d: Vector2, from: float, length: float, t: float) -> 
 		_bar(Rect2(lo.x - t * 0.5, lo.y, t, absf(b.y - a.y)))
 
 
+## The panel's display round the reticle (panel_half > 0).
+func _draw_panel(mid: Vector2) -> void:
+	var h := panel_half
+	var box := Rect2(mid - Vector2(h, h), Vector2(h, h) * 2.0)
+	var c := panel_color
+	draw_rect(box, Color(c, 0.05))
+	# Scan lines across the glass.
+	var y := box.position.y + 2.0
+	while y < box.end.y:
+		draw_line(Vector2(box.position.x, round(y)), Vector2(box.end.x, round(y)), Color(c, 0.06), 1.0)
+		y += 4.0
+	# The display's edge, inset from the frame, and corner marks inside it.
+	var inset := box.grow(-h * 0.04)
+	draw_rect(inset, Color(c, 0.35), false, 1.0)
+	var arm := h * 0.16
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			var k := mid + Vector2(sx, sy) * (h * 0.9)
+			draw_line(k, k - Vector2(sx * arm, 0.0), Color(c, 0.9), 2.0)
+			draw_line(k, k - Vector2(0.0, sy * arm), Color(c, 0.9), 2.0)
+	# Rulers: ticks down both sides and along the bottom, every tenth of the panel.
+	for i in range(-8, 9):
+		var f := float(i) / 10.0
+		var long := 0.07 if i % 4 == 0 else 0.035
+		for sx in [-1.0, 1.0]:
+			var x: float = mid.x + sx * h * 0.84
+			var ty := mid.y + f * h
+			draw_line(Vector2(x, ty), Vector2(x - sx * h * long, ty), Color(c, 0.55), 1.0)
+		var bx := mid.x + f * h
+		var by := mid.y + h * 0.84
+		draw_line(Vector2(bx, by), Vector2(bx, by - h * long), Color(c, 0.55), 1.0)
+	# Status strips along the top: a label, then a row of cells, then a short bar.
+	var size_px := int(clampf(h * 0.075, 11.0, 22.0))
+	var top := mid.y - h * 0.8
+	draw_string(_font, Vector2(mid.x - h * 0.8, top + size_px), "SKR", HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(c, 0.9))
+	for i in 6:
+		var cell := Rect2(mid.x - h * 0.45 + i * h * 0.09, top + 2.0, h * 0.065, size_px * 0.7)
+		draw_rect(cell, Color(c, 0.75 if i < 4 else 0.22))
+	draw_rect(Rect2(mid.x + h * 0.25, top + size_px * 0.3, h * 0.5, 2.0), Color(c, 0.5))
+	draw_rect(Rect2(mid.x + h * 0.25, top + size_px * 0.3 + 6.0, h * 0.3, 2.0), Color(c, 0.5))
+
+
 func _draw() -> void:
 	var mid := (get_viewport_rect().size * 0.5).round()
+	if panel_half > 0.0:
+		_draw_panel(mid)
 	var t := maxf(2.0, round(reach / 70.0))         # line thickness
 	var gap := reach * 0.16
 	var dash := maxf(4.0, reach * 0.07)

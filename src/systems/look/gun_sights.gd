@@ -20,6 +20,9 @@ const SCOPE_METAL := preload("res://src/systems/look/shaders/scope_metal.gdshade
 const SCOPE_GLASS := preload("res://src/systems/look/shaders/scope_glass.gdshader")
 const SCOPE_RETICLE := preload("res://src/systems/look/shaders/scope_reticle.gdshader")
 const DARK := preload("res://src/systems/look/shaders/weapon_dark.gdshader")
+## The seeker launcher's plain parts (LauncherLook, the player's): kept and pinned
+## through the scope like DARK.
+const SOLID := preload("res://src/systems/look/shaders/weapon_solid.gdshader")
 
 static var _cut_cache: Dictionary = {}
 static var _noise: NoiseTexture2D
@@ -145,7 +148,8 @@ static func cut_mesh(m: ArrayMesh, xf: Transform3D, box: AABB) -> ArrayMesh:
 ## puts them back. A gun without a scope is untouched.
 ## `barrel_from` (metres from the eye, hand_weapons scope "barrel_from"): the gun
 ## past it stays, so the barrel runs out under the scope and it does not float.
-## That needs the gun's weapon_dark material (its near_clip); others just hide.
+## That needs the gun's weapon_dark or weapon_solid material (its near_clip); others
+## just hide.
 ## Issue #539: only when `on` or `barrel_from` changes; the parts come from parts().
 static func scope_view(weapon: Node3D, on: bool, barrel_from := 0.0) -> void:
 	var pt := parts(weapon)
@@ -165,7 +169,7 @@ static func scope_view(weapon: Node3D, on: bool, barrel_from := 0.0) -> void:
 			continue
 		var g := mi as GeometryInstance3D
 		var sm := g.material_override as ShaderMaterial
-		if barrel_from > 0.0 and sm != null and sm.shader == DARK:
+		if barrel_from > 0.0 and sm != null and (sm.shader == DARK or sm.shader == SOLID):
 			g.visible = true
 			sm.set_shader_parameter("near_clip", barrel_from if on else 0.0)
 		else:
@@ -243,7 +247,7 @@ static func parts(weapon: Node3D) -> Dictionary:
 	for mi in weapon.find_children("*", "GeometryInstance3D", true, false):
 		var sm := (mi as GeometryInstance3D).material_override as ShaderMaterial
 		var mine := scope != null and scope.is_ancestor_of(mi)
-		if mine or (sm != null and sm.shader == DARK):
+		if mine or (sm != null and (sm.shader == DARK or sm.shader == SOLID)):
 			out.pinned.append(mi)
 		if scope != null and not mine and mi.name != "Flash":
 			out.gun.append(mi)
@@ -285,6 +289,8 @@ static func _knob(parent: Node3D, r: float, h: float, pos: Vector3, axis: String
 
 
 static func build_scope(s: Dictionary) -> Node3D:
+	if s.get("panel") is Dictionary:
+		return build_panel(s)
 	var root := Node3D.new()
 	root.name = "Scope"
 	root.position = _v3(s.get("pos"), Vector3(0, 0.24, 0))
@@ -378,6 +384,64 @@ static func build_scope(s: Dictionary) -> Node3D:
 		root.add_child(none)
 	else:
 		root.add_child(_reticle(Color.html(str(s.get("reticle", "#ff2a1a"))), r - 0.003))
+	return root
+
+
+## The seeker launcher's sight (scope "panel"): a square see-through display on
+## a bracket off the tube's left side, facing the eye. Its frame and blue glass
+## are the Scope's own (pinned and kept aimed in, so the view through it is
+## tinted); the bracket and the clamp round the tube are Hardware (hidden aimed
+## in). Its lines, crosshair and readouts are drawn on screen (DigitalReticle's
+## panel), so "digital" goes with it. `pos` is the panel's centre (the ads sight),
+## model space; panel { size (m, square), frame (m), glass, glass_alpha,
+## clamp_r (the tube's radius plus a little), arm_y (the bracket's height under
+## the centre) }.
+static func build_panel(s: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Scope"
+	root.position = _v3(s.get("pos"), Vector3(0.11, 0.05, 0.12))
+	var p: Dictionary = s.panel
+	var size := float(p.get("size", 0.075))
+	var fr := float(p.get("frame", 0.005))
+	var h := size * 0.5
+	var frame := _scope_mat(Color(0.05, 0.054, 0.062), 0.42)
+	# The frame: four bars round the glass, a little deeper than thick.
+	for side in [Vector3(0, h + fr * 0.5, 0), Vector3(0, -h - fr * 0.5, 0)]:
+		var bar := BoxMesh.new()
+		bar.size = Vector3(size + fr * 2.0, fr, 0.008)
+		_mesh(root, bar, frame, side)
+	for side in [Vector3(h + fr * 0.5, 0, 0), Vector3(-h - fr * 0.5, 0, 0)]:
+		var bar := BoxMesh.new()
+		bar.size = Vector3(fr, size, 0.008)
+		_mesh(root, bar, frame, side)
+	var glass := ShaderMaterial.new()
+	glass.shader = SCOPE_GLASS
+	var gc := Color.html(str(p.get("glass", "#2f86e0")))
+	glass.set_shader_parameter("tint", Color(gc, float(p.get("glass_alpha", 0.2))))
+	glass.set_shader_parameter("rim", 0.4)
+	glass.render_priority = -1
+	var pane := QuadMesh.new()
+	pane.size = Vector2(size, size)
+	# Two faces: the glass is drawn one-sided, and it reads from in front too.
+	_mesh(root, pane, glass, Vector3.ZERO, Vector3(0, 180, 0)).name = "Lens"
+	_mesh(root, pane, glass, Vector3.ZERO).name = "LensFront"
+	# The bracket from the frame's right side (-X) in to the tube, and the clamp
+	# band round the tube under it.
+	var hw := Node3D.new()
+	hw.name = "Hardware"
+	root.add_child(hw)
+	var arm_y := float(p.get("arm_y", -0.02))
+	var clamp_r := float(p.get("clamp_r", 0.066))
+	var tube_x := -root.position.x
+	var inner := tube_x + sqrt(maxf(0.0, clamp_r * clamp_r - pow(root.position.y + arm_y, 2.0)))
+	var reach := (-h - fr) - inner
+	var arm := BoxMesh.new()
+	arm.size = Vector3(absf(reach) + 0.004, 0.012, 0.03)
+	_mesh(hw, arm, frame, Vector3(inner + reach * 0.5, arm_y, 0.0))
+	_tube(hw, clamp_r, clamp_r, 0.03, 0.0, frame).position = Vector3(tube_x, -root.position.y, 0.0)
+	var none := Node3D.new()            # drawn on screen (DigitalReticle); scope_view still toggles it
+	none.name = "Reticle"
+	root.add_child(none)
 	return root
 
 

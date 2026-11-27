@@ -1071,12 +1071,21 @@ func _update_scope_hud(cur: String) -> void:
 	_scope_hud.visible = on
 	if not on:
 		return
-	# The narrowest the view through the tube gets is its far end (the tube's radius
-	# just behind the objective bell); the reticle stays inside that opening.
 	var relief := float(Ads.spec(look, cur).relief) * avatar.ads_relief_scale
-	var far := relief + float(sc.get("length", 0.24)) - 0.045
 	var half_h := _hud.get_viewport().get_visible_rect().size.y * 0.5
-	_scope_hud.reach = 0.8 * float(sc.get("radius", 0.024)) / far / tan(deg_to_rad(cam.fov) * 0.5) * half_h
+	var px_per_m := 1.0 / tan(deg_to_rad(cam.fov) * 0.5) * half_h
+	if sc.get("panel") is Dictionary:
+		# The launcher's panel: its glass is `relief` in front of the eye, square.
+		var p: Dictionary = sc.panel
+		_scope_hud.panel_half = float(p.get("size", 0.075)) * 0.5 / relief * px_per_m
+		_scope_hud.panel_color = Color.html(str(p.get("lines", "#7cc4ff")))
+		_scope_hud.reach = _scope_hud.panel_half * 0.55
+	else:
+		# The narrowest the view through the tube gets is its far end (the tube's radius
+		# just behind the objective bell); the reticle stays inside that opening.
+		var far := relief + float(sc.get("length", 0.24)) - 0.045
+		_scope_hud.panel_half = 0.0
+		_scope_hud.reach = 0.8 * float(sc.get("radius", 0.024)) / far * px_per_m
 	_scope_hud.color = Color.html(str(sc.get("reticle", "#ff2a1a")))
 	_scope_hud.meters = aim_range()
 	_scope_hud.mag = Ads.magnification(look, cur, _zoom_step)
