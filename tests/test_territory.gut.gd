@@ -413,3 +413,19 @@ func test_the_map_shows_the_remnant_clock() -> void:
 	GlobeMap._stamp_owner(pin, id)
 	assert_true(bool(pin.short), "Resupply needed")
 	assert_string_contains(str(pin.status), "Resupply")
+
+
+## An outpost changes hands only once it has been cleared a while and you are well
+## away (the screen check is RemnantOutposts._on_screen); the cleared line names no side.
+func test_an_outpost_swaps_only_after_the_wait_and_far_off() -> void:
+	var wait := Territory.n("move_in_s", 0.0)
+	var away := Territory.n("swap_away_m", 0.0)
+	assert_gte(wait, 45.0, "at least 45 s")
+	assert_gte(away, 1000.0, "at least 1 km")
+	assert_false(RemnantOutposts.ready_to_swap(wait - 1.0, away + 500.0), "too soon")
+	assert_false(RemnantOutposts.ready_to_swap(wait + 60.0, away - 1.0), "too close")
+	assert_false(RemnantOutposts.ready_to_swap(wait + 60.0, Territory.n("swap_dist", 110.0) + 1.0), "the old 110 m is not enough")
+	assert_true(RemnantOutposts.ready_to_swap(wait, away))
+	var cleared := Territory.line("cleared")
+	assert_string_contains(cleared, "%s")
+	assert_false(cleared.contains("Remnant") or cleared.contains("locals"), "names neither side")
