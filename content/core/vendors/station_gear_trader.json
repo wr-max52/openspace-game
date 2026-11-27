@@ -13,12 +13,14 @@
   "stock": [],
   "prices": {
     "grenade": 40,
-    "plasma_welder": 20
+    "plasma_welder": 20,
+    "seeker_launcher": 900
   },
   "endless_stock": [
     "jetpack",
     "grenade",
-    "plasma_welder"
+    "plasma_welder",
+    "seeker_launcher"
   ],
   "offers": [
     {
@@ -100,15 +102,7 @@
       "price": 600,
       "item": "sniper_rifle",
       "endless": true
-    },
-    {
-      "id": "seeker_launcher",
-      "label": "Seeker launcher",
-      "about": "a shoulder tube that fires your grenades as seekers; aim in to lock on ships and speeders; weapon 4",
-      "price": 900,
-      "item": "seeker_launcher",
-      "endless": true
     }
   ],
-  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates, the plasma welder too). Its marker is put at the booth by StationHull.favela_vendors."
+  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates, the plasma welder too). Its marker is put at the booth by StationHull.favela_vendors. The seeker launcher is in 'endless_stock' at 900 cr, as at the port's."
 }

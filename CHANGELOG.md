@@ -16,8 +16,9 @@ Plain English, newest on top. One entry per milestone.
 - **What it hits:** a seeker goes up like a vehicle where it lands. One kills a
   speeder; two bring down the Remnant interceptor in the air. It locks on
   speeders, the interceptor in the air and the barracks pad's interceptor.
-- **Where to get it:** always there in free roam; in a story save the gear
-  traders (the port's and the station's) sell it for 900 cr.
+- **Where to get it:** every gear trader always has it in stock for 900 cr: the
+  port's, the ranch villages' stands and the station's. Free roam also lets you
+  draw it without buying it (as the rifle); a story save needs one bought.
 - For now the look is a plain tube with a scope, the rifle's scope, with the
   range drawn on screen when you look through it.
 - **Launcher guards.** Two of the three roof riflemen on the port's barracks
