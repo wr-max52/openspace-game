@@ -89,6 +89,30 @@ func test_a_story_opens_in_the_cinematic_view_and_names_v_and_j_after_8s() -> vo
 	WorldState.reset()
 
 
+func test_the_lasers_fire_while_the_opening_brings_her_in() -> void:
+	# The autopilot flies the opening landing, story or free roam; Space still
+	# fires the lasers, and firing does not take her off the autopilot.
+	for mode in [WorldState.STORY, WorldState.FREEPLAY]:
+		WorldState.new_game(mode)
+		var t = TownDemo.new()
+		t.use_look = false
+		t.npc_brains = false
+		add_child_autofree(t)
+		await wait_physics_frames(3)
+		var pilot = t.pilot
+		assert_true(pilot.opening and pilot.bay_landing, "%s opens with the autopilot landing" % mode)
+		var before: int = pilot.shots
+		Input.action_press("flight_fire")
+		for i in 30:
+			pilot._physics_process(1.0 / 60.0)
+		Input.action_release("flight_fire")
+		assert_gt(pilot.shots, before, "%s: the lasers fire on the way down" % mode)
+		assert_true(pilot.opening and pilot.bay_landing, "%s: and the autopilot still has her" % mode)
+		t.queue_free()
+		await wait_process_frames(1)
+	WorldState.reset()
+
+
 func test_on_foot_v_reaches_cinematic_and_the_guns_still_aim_ahead() -> void:
 	var t = TownDemo.new()
 	t.use_look = false
