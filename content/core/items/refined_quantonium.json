@@ -6,5 +6,5 @@
   "value": 45,
   "look": "quantonium_flask",
   "icon": "res://assets/ui/item_icons/refined_quantonium.svg",
-  "note": "IP-neutral. Reactor-grade quantonium, refined off the books. The Remnant confiscates it at the gate; the fence pays twice its value. Not worn (no slot). One of the goods Oda lines up for the smuggling run (board/bar_board.json, j_smuggle_run)."
+  "note": "IP-neutral. Reactor-grade quantonium, refined off the books. The Remnant confiscates it at the gate; the fence pays twice its value, any time, drop or not: carry any contraband to him and [E] opens his stall's menu, not his chat (GearController.talks_first). Not worn (no slot). One of the goods Oda lines up for the smuggling run (board/bar_board.json, j_smuggle_run)."
 }
