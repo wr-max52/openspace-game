@@ -186,7 +186,7 @@ static func pieces(b: Dictionary) -> Array:
 	var bk: Vector2 = o.bunks
 	var wall := func(id: String, x0: float, x1: float, z0: float, z1: float, y0 := 0.0, y1 := top, kind := "wall") -> void:
 		if x1 - x0 > 0.02 and z1 - z0 > 0.02 and y1 - y0 > 0.02:
-			out.append(_box(b, id, Vector3(x0, y0, z0), Vector3(x1, y1, z1), kind))
+			out.append(_zone_box(b, id, Vector3(x0, y0, z0), Vector3(x1, y1, z1), kind))
 	# The shell: back, ends, the door face round the way in, the roof over all.
 	wall.call("back", -d * 0.5, ix0, -l * 0.5, l * 0.5)
 	wall.call("end_l", ix0, ix1, -l * 0.5, -iz)
@@ -223,18 +223,18 @@ static func pieces(b: Dictionary) -> Array:
 		if bool(part.solid):
 			var c: Vector3 = part.center
 			var s: Vector3 = part.size
-			out.append(_box(b, "office_" + str(part.id), c - s * 0.5, c + s * 0.5, "cover"))
+			out.append(_zone_box(b, "office_" + str(part.id), c - s * 0.5, c + s * 0.5, "cover"))
 	# The bunk room.
 	for p in bunk_parts(b):
 		var c: Vector3 = p.center
 		var s: Vector3 = p.size
-		out.append(_box(b, str(p.id), c - s * 0.5, c + s * 0.5, "cover"))
+		out.append(_zone_box(b, str(p.id), c - s * 0.5, c + s * 0.5, "cover"))
 	return out
 
 
 ## One piece as a town box: local corners -> the town's frame (snapped to the mm,
 ## so pieces that touch never overlap by a rounding error).
-static func _box(b: Dictionary, id: String, lo: Vector3, hi: Vector3, kind: String) -> Dictionary:
+static func _zone_box(b: Dictionary, id: String, lo: Vector3, hi: Vector3, kind: String) -> Dictionary:
 	var xf := frame(b)
 	var a := xf * lo
 	var c := xf * hi

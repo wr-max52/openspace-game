@@ -272,7 +272,7 @@ func _dress(r: Dictionary) -> void:
 	var mats: LookMaterials = d.mats if d != null and d.get("mats") != null else demo._flat_mats()
 	var kit := RanchKit.new(mats, demo.look)
 	var market := TownMarket.new(kit)
-	var looks: Dictionary = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
+	var looks: Dictionary = CoreContent.read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
 	var stall_cfg: Dictionary = r.cfg.get("stalls", {})
 	var lk: Dictionary = r.cfg.get("look", {})          # the racers' outpost: their own paint
 	var wall := mats.plaster(-1.0e7, -1.0e7, LookMaterials.CLOTH_SAND, Color("#d6c09c"))

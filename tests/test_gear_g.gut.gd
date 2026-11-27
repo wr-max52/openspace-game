@@ -26,7 +26,7 @@ func before_each() -> void:
 	gear = GearController.new()
 	gear.content = content
 	gear.player = player
-	gear.labels = ItemKit._read_json(GearController.LABELS_PATH).get("labels", {})
+	gear.labels = CoreContent.read_json(GearController.LABELS_PATH).get("labels", {})
 	gear.hud = GearHud.new()
 	gear.menu = DroidMenu.new()
 	add_child_autofree(gear.hud)

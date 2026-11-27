@@ -153,6 +153,7 @@ the steps.
 | **Ships, guns, pilots, fights** | Data-driven ships, weapons, AI pilots and encounters; one flight model for all. Speeders and the barge drive on `hover_model.gd`. | `content/core/ships/`, `src/systems/flight/`, `src/systems/vehicles/`, `docs/ADDING_SHIPS.md` |
 | **Story, jobs, rumors, state** | Chapters and quests, the job board, rumors; `WorldState` is what is true now and is saved with the world. | `content/core/story/`, `content/core/board/`, `content/core/rumors/`, `src/systems/world/world_state.gd` |
 | **Sound and effects** | Playlists, moods, NPC sounds, explosions, materials. | `content/look/sound.json`, `src/systems/audio/`, `src/systems/look/` |
+| **Primitives and JSON** | Primitives and JSON come from `LookMeshKit` and `CoreContent`; a new `_box` in a PR is a review comment. `LookMeshKit.box / cyl / ball` are shared meshes cached by their numbers (never change one), `LookMeshKit.mi` places one, `CoreContent.read_json` reads a file. `tests/test_one_mesh_kit.gut.gd` fails on a local copy. | `src/systems/look/mesh_kit.gd`, `src/systems/dataload/core_content.gd` |
 
 ## What can not change
 

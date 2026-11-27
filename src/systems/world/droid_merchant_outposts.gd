@@ -111,41 +111,41 @@ func _dress(root: Node3D, loc: Dictionary) -> void:
 		var size := WorldGround._v3(b.get("size", [1, 1, 1]))
 		var pos := WorldGround._v3(b.get("position", [0, 0, 0]))
 		if str(b.get("id", "")) == "relay_hut":
-			_part(root, _box(size + Vector3(0.25, 0.12, 0.25)), wall, pos + Vector3(0, size.y * 0.5, 0))
-			_part(root, _box(Vector3(size.x + 0.55, 0.24, size.z + 0.55)), dark,
+			_part(root, LookMeshKit.box(size + Vector3(0.25, 0.12, 0.25)), wall, pos + Vector3(0, size.y * 0.5, 0))
+			_part(root, LookMeshKit.box(Vector3(size.x + 0.55, 0.24, size.z + 0.55)), dark,
 				pos + Vector3(0, size.y + 0.12, 0))
-			_part(root, _box(Vector3(size.x + 0.32, 0.28, size.z + 0.32)), trim,
+			_part(root, LookMeshKit.box(Vector3(size.x + 0.32, 0.28, size.z + 0.32)), trim,
 				pos + Vector3(0, size.y - 0.42, 0))
-			_part(root, _box(Vector3(0.12, 2.25, 1.15)), dark,
+			_part(root, LookMeshKit.box(Vector3(0.12, 2.25, 1.15)), dark,
 				pos + Vector3(size.x * 0.5 + 0.04, 1.12, 0.5))
-			_part(root, _box(Vector3(0.18, 0.12, 1.35)), glow,
+			_part(root, LookMeshKit.box(Vector3(0.18, 0.12, 1.35)), glow,
 				pos + Vector3(size.x * 0.5 + 0.14, 2.45, 0.5))
-			_part(root, _box(Vector3(2.8, 0.12, 1.7)), dark,
+			_part(root, LookMeshKit.box(Vector3(2.8, 0.12, 1.7)), dark,
 				pos + Vector3(size.x * 0.5 + 0.9, 2.5, 1.5))
 			# Small roof service panels, visible but subordinate to the tall relay.
 			for i in 2:
-				_part(root, _box(Vector3(1.35, 0.08, 0.8)), steel,
+				_part(root, LookMeshKit.box(Vector3(1.35, 0.08, 0.8)), steel,
 					pos + Vector3(-1.5 + i * 1.7, size.y + 0.3, 1.15))
 		elif str(b.get("id", "")) == "trade_counter":
-			_part(root, _box(size), dark, pos + Vector3(0, size.y * 0.5, 0))
-			_part(root, _box(Vector3(size.x + 0.2, 0.14, size.z + 0.18)), trim,
+			_part(root, LookMeshKit.box(size), dark, pos + Vector3(0, size.y * 0.5, 0))
+			_part(root, LookMeshKit.box(Vector3(size.x + 0.2, 0.14, size.z + 0.18)), trim,
 				pos + Vector3(0, size.y + 0.07, 0))
 		elif str(b.get("id", "")) == "merchant_table":
 			var top := Vector3(size.x, 0.12, size.z)
-			_part(root, _box(top), steel, pos + Vector3(0, size.y - top.y * 0.5, 0))
+			_part(root, LookMeshKit.box(top), steel, pos + Vector3(0, size.y - top.y * 0.5, 0))
 			for x_sign in [-1.0, 1.0]:
 				for z_sign in [-1.0, 1.0]:
-					_part(root, _box(Vector3(0.1, size.y - top.y, 0.1)),
+					_part(root, LookMeshKit.box(Vector3(0.1, size.y - top.y, 0.1)),
 						dark, pos + Vector3(x_sign * (size.x * 0.5 - 0.08), (size.y - top.y) * 0.5,
 							z_sign * (size.z * 0.5 - 0.08)))
-			_part(root, _box(Vector3(size.x * 0.7, 0.06, size.z * 0.58)), trim,
+			_part(root, LookMeshKit.box(Vector3(size.x * 0.7, 0.06, size.z * 0.58)), trim,
 				pos + Vector3(0, size.y - top.y - 0.04, 0))
 			_table_wares(root, pos + Vector3(0, size.y, 0), size, mats, dark)
 	# Chocked cargo cases and a small repair trolley keep the yard detailed,
 	# without expanding its building footprint.
-	_part(root, _box(Vector3(0.85, 0.8, 0.85)), steel, Vector3(-3.2, 0.4, -2.7))
-	_part(root, _box(Vector3(0.9, 0.7, 0.75)), dark, Vector3(-2.25, 0.35, -2.7))
-	_part(root, _box(Vector3(1.3, 0.12, 0.55)), trim, Vector3(2.0, 0.55, -2.4))
+	_part(root, LookMeshKit.box(Vector3(0.85, 0.8, 0.85)), steel, Vector3(-3.2, 0.4, -2.7))
+	_part(root, LookMeshKit.box(Vector3(0.9, 0.7, 0.75)), dark, Vector3(-2.25, 0.35, -2.7))
+	_part(root, LookMeshKit.box(Vector3(1.3, 0.12, 0.55)), trim, Vector3(2.0, 0.55, -2.4))
 	_antenna_array(root, float(look.get("antenna_height", 8.5)), str(look.get("array_style", "wide")),
 		steel, dark, trim, glow, beacon)
 
@@ -161,15 +161,15 @@ func _table_wares(root: Node3D, top: Vector3, size: Vector3, mats: LookMaterials
 	var cell := mats.glow(Color("#69e4d6"))
 	cell.emission_energy_multiplier = 1.4
 	var head := top + Vector3(size.x * 0.22, 0, -size.z * 0.15)
-	_part(root, _cyl(0.07, 0.09, 0.08), dark, head + Vector3(0, 0.04, 0))
-	_part(root, _ball(0.16, 0.28), shell, head + Vector3(0, 0.22, 0))
-	_part(root, _ball(0.045, 0.045), eye, head + Vector3(0, 0.26, 0.14))
+	_part(root, LookMeshKit.cyl(0.07, 0.09, 0.08, 10), dark, head + Vector3(0, 0.04, 0))
+	_part(root, LookMeshKit.ball(0.16, 12, 6, 0.28), shell, head + Vector3(0, 0.22, 0))
+	_part(root, LookMeshKit.ball(0.045, 12, 6, 0.045), eye, head + Vector3(0, 0.26, 0.14))
 	var arm := top + Vector3(size.x * 0.25, 0.04, size.z * 0.25)
 	_rod(root, 0.035, 0.5, shell, arm, Vector3.RIGHT)
-	_part(root, _ball(0.055, 0.11), dark, arm + Vector3(-0.25, 0, 0))
+	_part(root, LookMeshKit.ball(0.055, 12, 6, 0.11), dark, arm + Vector3(-0.25, 0, 0))
 	for k in 3:
-		_part(root, _cyl(0.035, 0.035, 0.16), cell, top + Vector3(-size.x * 0.05 + k * 0.1, 0.08, size.z * 0.3))
-	var looks: Array = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("droid_posts", {}).get("items", [])
+		_part(root, LookMeshKit.cyl(0.035, 0.035, 0.16, 10), cell, top + Vector3(-size.x * 0.05 + k * 0.1, 0.08, size.z * 0.3))
+	var looks: Array = CoreContent.read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("droid_posts", {}).get("items", [])
 	var kit := ItemKit.new(mats)
 	var x := -size.x * 0.5 + 0.1
 	for l in looks:
@@ -215,27 +215,3 @@ func _part(root: Node3D, mesh: Mesh, mat: Material, at: Vector3,
 	root.add_child(mi)
 	mi.position = at
 	mi.basis = basis
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	return mesh
-
-
-func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = top
-	mesh.bottom_radius = bottom
-	mesh.height = h
-	mesh.radial_segments = 10
-	return mesh
-
-
-func _ball(r: float, h: float) -> SphereMesh:
-	var mesh := SphereMesh.new()
-	mesh.radius = r
-	mesh.height = h
-	mesh.radial_segments = 12
-	mesh.rings = 6
-	return mesh

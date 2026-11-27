@@ -1094,7 +1094,7 @@ func _wrath_target(p: CharacterBody3D) -> Vector3:
 ## the flight (a quick one up close, longer far off), led by their speeder's speed.
 func throw_at(p: CharacterBody3D) -> Grenade:
 	if _grenade_cfg.is_empty():
-		_grenade_cfg = CharacterKit._read_json(Grenade.CFG_PATH)
+		_grenade_cfg = CoreContent.read_json(Grenade.CFG_PATH)
 	var cfg := _grenade_cfg
 	var w := wrath_cfg()
 	var up := Vector3.UP
@@ -1423,33 +1423,33 @@ func _dress(loc: Dictionary) -> void:
 		var c := WorldGround._v3(b.get("position", [0, 0, 0]))     # local; _mesh turns it into the world
 		match str(b.id):
 			"house":
-				_mesh(_box(s + Vector3(0, 1.0, 0)), plaster, c + Vector3(0, s.y * 0.5 - 0.5, 0))
+				_mesh(LookMeshKit.box(s + Vector3(0, 1.0, 0)), plaster, c + Vector3(0, s.y * 0.5 - 0.5, 0))
 				# A domed roof, a door toward the stall and a red awning over it.
 				var dr := minf(s.x, s.z) * 0.42
 				_mesh(_dome(dr), plaster, c + Vector3(0, s.y, 0))
 				_dome_collider(c + Vector3(0, s.y, 0), dr)
-				_mesh(_box(Vector3(0.12, 2.1, 1.3)), wood, c + Vector3(s.x * 0.5 + 0.02, 1.05, 2.2))
-				_mesh(_box(Vector3(1.6, 0.08, 2.4)), red_cloth, c + Vector3(s.x * 0.5 + 0.8, 2.5, 2.2), Vector3(0, 0, -14))
+				_mesh(LookMeshKit.box(Vector3(0.12, 2.1, 1.3)), wood, c + Vector3(s.x * 0.5 + 0.02, 1.05, 2.2))
+				_mesh(LookMeshKit.box(Vector3(1.6, 0.08, 2.4)), red_cloth, c + Vector3(s.x * 0.5 + 0.8, 2.5, 2.2), Vector3(0, 0, -14))
 				# Issue #458: a lamp under the awning, over the door.
 				HangingLamp.build(self, _xf(), c + Vector3(s.x * 0.5 + 0.5, 2.15, 2.2), mats, _look(), "DoorLamp",
 					float(DOOR_LAMP.energy), float(DOOR_LAMP.reach), LAMP_DAY, 0.2)
 			"stall":
-				_mesh(_box(s), wood, c + Vector3(0, s.y * 0.5, 0))
-				_mesh(_box(Vector3(s.x + 0.3, 0.08, s.z + 0.3)), red, c + Vector3(0, s.y + 0.04, 0))
+				_mesh(LookMeshKit.box(s), wood, c + Vector3(0, s.y * 0.5, 0))
+				_mesh(LookMeshKit.box(Vector3(s.x + 0.3, 0.08, s.z + 0.3)), red, c + Vector3(0, s.y + 0.04, 0))
 				# Posts and a red canopy over the counter and Skrugs.
 				for dz in [-s.z * 0.5, s.z * 0.5]:
-					_mesh(_cyl(0.06, 2.6), wood, c + Vector3(-1.2, 1.3, dz))
-					_mesh(_cyl(0.06, 2.6), wood, c + Vector3(0.45, 1.3, dz))
-				_mesh(_box(Vector3(2.2, 0.06, s.z + 0.6)), red_cloth, c + Vector3(-0.4, 2.62, 0), Vector3(0, 0, -8))
+					_mesh(LookMeshKit.cyl(0.06, 0.06, 2.6, 8), wood, c + Vector3(-1.2, 1.3, dz))
+					_mesh(LookMeshKit.cyl(0.06, 0.06, 2.6, 8), wood, c + Vector3(0.45, 1.3, dz))
+				_mesh(LookMeshKit.box(Vector3(2.2, 0.06, s.z + 0.6)), red_cloth, c + Vector3(-0.4, 2.62, 0), Vector3(0, 0, -8))
 				_counter_wares(mats, c + Vector3(0, s.y + 0.08, 0), s, red, metal)
 			"display_pad":
-				_mesh(_box(s), metal, c + Vector3(0, s.y * 0.5, 0))
+				_mesh(LookMeshKit.box(s), metal, c + Vector3(0, s.y * 0.5, 0))
 			"bench":
 				_workbench(mats, c, s, wood, metal, red)
 			_:
 				if str(b.id).begins_with("garage_"):
 					# Issue #295: back wall, two side walls and a red roof; one side stands open.
-					_mesh(_box(s), red if str(b.id) == "garage_roof" else plaster, c + Vector3(0, s.y * 0.5, 0))
+					_mesh(LookMeshKit.box(s), red if str(b.id) == "garage_roof" else plaster, c + Vector3(0, s.y * 0.5, 0))
 	_dress_garage(mats, loc, metal)
 
 
@@ -1466,41 +1466,41 @@ func _workbench(mats: LookMaterials, c: Vector3, s: Vector3, wood: Material, met
 	var across := Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)
 	var depth := s.x if along_x else s.z        # the bench toward the player
 	var width := s.z if along_x else s.x        # ... and along the pegboard
-	_mesh(_box(s), metal, c + Vector3(0, s.y * 0.5, 0))
-	_mesh(_box(Vector3(s.x + 0.1, 0.06, s.z + 0.1)), wood, c + Vector3(0, s.y + 0.03, 0))
+	_mesh(LookMeshKit.box(s), metal, c + Vector3(0, s.y * 0.5, 0))
+	_mesh(LookMeshKit.box(Vector3(s.x + 0.1, 0.06, s.z + 0.1)), wood, c + Vector3(0, s.y + 0.03, 0))
 	var top := c + Vector3(0, s.y + 0.06, 0)
 	# The toolbox and the coil (#295), and a vise at the near end, its screw toward the player.
-	_mesh(_box(Vector3(0.4, 0.3, 0.4)), red, top + Vector3(0, 0.15, 0))
-	_mesh(_cyl(0.12, 0.3), metal, top + across * 0.6 + Vector3(0, 0.15, 0))
+	_mesh(LookMeshKit.box(Vector3(0.4, 0.3, 0.4)), red, top + Vector3(0, 0.15, 0))
+	_mesh(LookMeshKit.cyl(0.12, 0.12, 0.3, 8), metal, top + across * 0.6 + Vector3(0, 0.15, 0))
 	var vise := top - across * (width * 0.5 - 0.35)
-	_mesh(_box(Vector3(0.3, 0.25, 0.3)), dark, vise + Vector3(0, 0.125, 0))
-	_mesh(_box(Vector3(0.34, 0.1, 0.34)), metal, vise + Vector3(0, 0.3, 0))
+	_mesh(LookMeshKit.box(Vector3(0.3, 0.25, 0.3)), dark, vise + Vector3(0, 0.125, 0))
+	_mesh(LookMeshKit.box(Vector3(0.34, 0.1, 0.34)), metal, vise + Vector3(0, 0.3, 0))
 	var lay := Vector3(0, 0, 90) if along_x else Vector3(90, 0, 0)      # a cylinder laid along `toward`
 	var bar := Vector3(90, 0, 0) if along_x else Vector3(0, 0, 90)      # ... and along `across`
-	_mesh(_cyl(0.03, 0.4), metal, vise + toward * 0.25 + Vector3(0, 0.14, 0), lay)
-	_mesh(_cyl(0.015, 0.22), metal, vise + toward * 0.44 + Vector3(0, 0.14, 0), bar)
+	_mesh(LookMeshKit.cyl(0.03, 0.03, 0.4, 8), metal, vise + toward * 0.25 + Vector3(0, 0.14, 0), lay)
+	_mesh(LookMeshKit.cyl(0.015, 0.015, 0.22, 8), metal, vise + toward * 0.44 + Vector3(0, 0.14, 0), bar)
 	# The pegboard on two posts, and its tools.
 	var board := c - toward * (depth * 0.5 + 0.12) + Vector3(0, s.y + 0.9, 0)
-	var panel := _mesh(_box(Vector3(0.08, 1.6, width + 0.2) if along_x else Vector3(width + 0.2, 1.6, 0.08)),
+	var panel := _mesh(LookMeshKit.box(Vector3(0.08, 1.6, width + 0.2) if along_x else Vector3(width + 0.2, 1.6, 0.08)),
 		mats.wood(Color("#4a3a2a"), 0.9), board)
 	panel.set_meta("decor", "workbench")
 	for side: float in [-1.0, 1.0]:
 		var post: Vector3 = Vector3(board.x, c.y + (s.y + 1.75) * 0.5, board.z) - toward * 0.06 + across * side * (width * 0.5 + 0.08)
-		_mesh(_cyl(0.05, s.y + 1.75), wood, post)
+		_mesh(LookMeshKit.cyl(0.05, 0.05, s.y + 1.75, 8), wood, post)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 458
 	var n := 9 if width > 2.0 else 5
 	var step := (width - 0.3) / float(n - 1)
 	for k in n:
 		var h := rng.randf_range(0.3, 0.6)
-		var tool := _mesh(_box(Vector3(0.04, h, 0.06) if along_x else Vector3(0.06, h, 0.04)), metal if k % 3 else red,
+		var tool := _mesh(LookMeshKit.box(Vector3(0.04, h, 0.06) if along_x else Vector3(0.06, h, 0.04)), metal if k % 3 else red,
 			board + toward * 0.06 + across * (-(width - 0.3) * 0.5 + k * step) + Vector3(0, 0.05 + rng.randf_range(-0.3, 0.3), 0),
 			(Vector3(rng.randf_range(-23.0, 23.0), 0, 0) if along_x else Vector3(0, 0, rng.randf_range(-23.0, 23.0))))
 		tool.set_meta("decor", "tool")
 	# The lamp: an arm from the pegboard's top out over the bench, the lamp hanging from its end.
 	var arm_y := c.y + s.y + 1.95
 	var reach := depth * 0.5 + 0.12
-	_mesh(_cyl(0.025, reach), metal, Vector3(board.x, arm_y, board.z) + toward * reach * 0.5, lay)
+	_mesh(LookMeshKit.cyl(0.025, 0.025, reach, 8), metal, Vector3(board.x, arm_y, board.z) + toward * reach * 0.5, lay)
 	HangingLamp.build(self, _xf(), Vector3(c.x, arm_y - 0.37, c.z), mats, _look(), "BenchLamp",
 		float(BENCH_LAMP.energy), float(BENCH_LAMP.reach), LAMP_DAY, 0.2)
 
@@ -1557,7 +1557,7 @@ func _dress_garage(mats: LookMaterials, loc: Dictionary, metal: Material) -> voi
 	HangingLamp.track_glow(bulb, _look(), LAMP_DAY)      # on by day, full at dusk
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _ball(0.07)
+	mm.mesh = LookMeshKit.ball(0.07, 8, 4)
 	mm.instance_count = bulbs.size()
 	for i in bulbs.size():
 		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, bulbs[i]))
@@ -1590,14 +1590,13 @@ func _dress_garage(mats: LookMaterials, loc: Dictionary, metal: Material) -> voi
 	for i in spots.size():
 		var tall := rng.randf_range(0.55, 0.9)
 		var r := 0.22 if tall > 0.7 else 0.18
-		var can := _cyl(r, tall)
-		can.radial_segments = 12
+		var can := LookMeshKit.cyl(r, r, tall, 12)
 		var m := _mesh(can, paints[i % paints.size()], spots[i] + Vector3(0, tall * 0.5, 0))
 		m.rotation.y += rng.randf() * TAU
-		_mesh(_cyl(0.05, 0.08), metal, spots[i] + Vector3(r * 0.4, tall + 0.04, 0))     # the cap
+		_mesh(LookMeshKit.cyl(0.05, 0.05, 0.08, 8), metal, spots[i] + Vector3(r * 0.4, tall + 0.04, 0))     # the cap
 	# One knocked over by the outside stack.
 	var down := spots[spots.size() - 3] + Vector3(-0.9, 0.2, out * 0.2)
-	_mesh(_cyl(0.2, 0.7), paints[0], down, Vector3(90, 0, 0))
+	_mesh(LookMeshKit.cyl(0.2, 0.2, 0.7, 8), paints[0], down, Vector3(90, 0, 0))
 
 	# The lamp hanging from the canopy over the counter, between Skrugs and the
 	# customer (issue #435; #458: on the lamp clock, never off).
@@ -1608,17 +1607,17 @@ func _dress_garage(mats: LookMaterials, loc: Dictionary, metal: Material) -> voi
 	# the speeder inside (and the bench, by the wall) is lit.
 	var fixture := mats.painted(Color("#2b2c30"), 0.5, 0.6)
 	var mid := Vector3((back + mouth) * 0.5, roof - 0.12, (lo + hi) * 0.5)
-	_mesh(_box(Vector3(1.2, 0.1, 0.3)), fixture, mid)
+	_mesh(LookMeshKit.box(Vector3(1.2, 0.1, 0.3)), fixture, mid)
 	var strip := mats.glow(Color("#fff0d0"))
-	_mesh(_box(Vector3(1.1, 0.03, 0.22)), strip, mid + Vector3(0, -0.06, 0))
+	_mesh(LookMeshKit.box(Vector3(1.1, 0.03, 0.22)), strip, mid + Vector3(0, -0.06, 0))
 	HangingLamp.light(self, _xf(), mid + Vector3(0, -0.5, 0), _look(), "GarageLight",
 		float(GARAGE_LIGHT.energy), float(GARAGE_LIGHT.reach), LAMP_DAY, strip)
 	# The sign over the mouth: a teal glow tube on a dark backing, like Dorrin's.
 	var w := (hi - lo) * 0.55
-	_mesh(_box(Vector3(0.2, 0.5, w + 0.3)), fixture, Vector3(mouth + 0.12, roof - 0.5, (lo + hi) * 0.5))
+	_mesh(LookMeshKit.box(Vector3(0.2, 0.5, w + 0.3)), fixture, Vector3(mouth + 0.12, roof - 0.5, (lo + hi) * 0.5))
 	var tube := mats.glow(Color("#7fe0d0"))
 	HangingLamp.track_glow(tube, _look(), LAMP_DAY)
-	_mesh(_box(Vector3(0.1, 0.12, w)), tube, Vector3(mouth + 0.25, roof - 0.5, (lo + hi) * 0.5))
+	_mesh(LookMeshKit.box(Vector3(0.1, 0.12, w)), tube, Vector3(mouth + 0.25, roof - 0.5, (lo + hi) * 0.5))
 
 
 ## Issue #355: what Skrugs deals in, on his counter (`top`: the middle of its top,
@@ -1633,12 +1632,12 @@ func _counter_wares(mats: LookMaterials, top: Vector3, s: Vector3, red: Material
 	nozzle.height = 0.5
 	nozzle.radial_segments = 12
 	_mesh(nozzle, dark, top + Vector3(-0.05, 0.17, -s.z * 0.5 + 0.45), Vector3(90, 0, 0))
-	_mesh(_cyl(0.13, 0.06), metal, top + Vector3(-0.05, 0.17, -s.z * 0.5 + 0.72), Vector3(90, 0, 0))
+	_mesh(LookMeshKit.cyl(0.13, 0.13, 0.06, 8), metal, top + Vector3(-0.05, 0.17, -s.z * 0.5 + 0.72), Vector3(90, 0, 0))
 	for k in 2:
-		var can := _cyl(0.1, 0.34)
+		var can := LookMeshKit.cyl(0.1, 0.1, 0.34, 8)
 		_mesh(can, CampTextures.canister(Color("#a8322a"), Color("#d8c2a0")), top + Vector3(-0.15 + k * 0.08, 0.17, -0.35 + k * 0.24))
-	_mesh(_box(Vector3(0.28, 0.2, 0.5)), red, top + Vector3(-0.12, 0.1, 0.45))
-	_mesh(_box(Vector3(0.3, 0.03, 0.06)), dark, top + Vector3(-0.12, 0.22, 0.45))
+	_mesh(LookMeshKit.box(Vector3(0.28, 0.2, 0.5)), red, top + Vector3(-0.12, 0.1, 0.45))
+	_mesh(LookMeshKit.box(Vector3(0.3, 0.03, 0.06)), dark, top + Vector3(-0.12, 0.22, 0.45))
 	var coil := TorusMesh.new()
 	coil.inner_radius = 0.05
 	coil.outer_radius = 0.08
@@ -1646,7 +1645,7 @@ func _counter_wares(mats: LookMaterials, top: Vector3, s: Vector3, red: Material
 		_mesh(coil, metal, top + Vector3(0.18, 0.015 + k * 0.03, 0.05))
 	var kit := ItemKit.new(mats)
 	var z := s.z * 0.5 - 0.15
-	for l in ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("skrugs", {}).get("items", []):
+	for l in CoreContent.read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("skrugs", {}).get("items", []):
 		if not kit.has_look(str(l)):
 			continue
 		var item := kit.build(str(l))
@@ -1671,30 +1670,6 @@ func _mesh(mesh: Mesh, mat: Material, local: Vector3, rot_deg: Vector3 = Vector3
 	mi.global_position = origin + local.rotated(Vector3.UP, yaw)
 	mi.rotation_degrees = rot_deg + Vector3(0, rad_to_deg(yaw), 0)
 	return mi
-
-
-func _ball(r: float) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	s.radial_segments = 8
-	s.rings = 4
-	return s
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _cyl(r: float, h: float) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = r
-	c.bottom_radius = r
-	c.height = h
-	c.radial_segments = 8
-	return c
 
 
 ## A cylinder collider under the dome cap, at the house's roof height. `cap` is

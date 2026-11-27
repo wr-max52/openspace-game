@@ -4,6 +4,8 @@ extends GutTest
 ## gravity, and Oda's last chapter: the general's death pays once and ends the
 ## story. The whole flight, landing, walk and fight are scenes/cruiser_trace.gd.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 
 func before_each() -> void:
 	WorldState.reset()
@@ -18,7 +20,7 @@ func _sphere() -> PlanetSphere:
 
 
 func _landmark() -> Dictionary:
-	var world: Dictionary = ItemKit._read_json("res://content/core/worlds/port_desert.json")
+	var world: Dictionary = CoreContent.read_json("res://content/core/worlds/port_desert.json")
 	return CruiserHull.landmark(world)
 
 

@@ -607,7 +607,7 @@ func _add_wall_lamps(center: Vector3, radius: float, height: float,
 		var basis := _radial_basis(angle)
 		var at := center + Vector3(cos(angle) * (radius - 0.3), height - 0.85,
 			sin(angle) * (radius - 0.3))
-		_box(root, at, Vector3(0.55, 0.34, 0.12), status, basis)
+		LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.55, 0.34, 0.12)), status, at, basis)
 		var lamp := OmniLight3D.new()
 		lamp.light_color = Color("#ffe1ac")
 		lamp.light_energy = energy
@@ -649,8 +649,8 @@ func _town_floods(dm: Dictionary, dim: float, status: StandardMaterial3D, cable:
 			if over_roof:
 				continue
 			var top := dome_top(dm, off.length())
-			_box(root, Vector3(at.x, (lamp_y + top) * 0.5, at.z), Vector3(0.06, top - lamp_y, 0.06), cable)
-			_box(root, at, Vector3(1.4, 0.18, 1.4), status)
+			LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.06, top - lamp_y, 0.06)), cable, Vector3(at.x, (lamp_y + top) * 0.5, at.z))
+			LookMeshKit.mi(root, LookMeshKit.box(Vector3(1.4, 0.18, 1.4)), status, at)
 			var lamp := OmniLight3D.new()
 			lamp.light_color = Color("#f2f4f7")
 			lamp.light_energy = 2.2 * dim
@@ -678,7 +678,7 @@ func _pit_floor_lights(status: StandardMaterial3D) -> void:
 		basis = Basis(-basis.x, basis.y, -basis.z)
 		var at := pit_c + Vector3(cos(angle) * (pit_r - 0.1), floor_y - pit_c.y + 3.2,
 			sin(angle) * (pit_r - 0.1))
-		_box(root, at, Vector3(0.9, 0.3, 0.12), status, basis)
+		LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.9, 0.3, 0.12)), status, at, basis)
 		var lamp := OmniLight3D.new()
 		lamp.light_color = Color("#ffe6bd")
 		lamp.light_energy = 1.8
@@ -852,28 +852,28 @@ func _dress_hall(hl: Dictionary, i: int, metal: Material, glass: Material, _env:
 	var bottom := pit_c.y - 6.0
 	for sg in [-1.0, 1.0]:
 		var t: float = sg * (hw + 0.15)
-		_box(root, _hp(hl, (a + rim) * 0.5, 0.5, t), _hsize(hl, a - rim, 1.0, 0.3), metal)
-		_box(root, _hp(hl, (rim + e) * 0.5, (bottom + 1.0) * 0.5, t), _hsize(hl, rim - e, 1.0 - bottom, 0.3), metal)
-		_box(root, _hp(hl, (a + e) * 0.5, h - 0.4, t), _hsize(hl, a - e, 0.8, 0.3), metal)
-		_box(root, _hp(hl, (a + e) * 0.5, (1.0 + h - 0.8) * 0.5, t), _hsize(hl, a - e, h - 1.8, 0.08), glass)
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, a - rim, 1.0, 0.3)), metal, _hp(hl, (a + rim) * 0.5, 0.5, t))
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, rim - e, 1.0 - bottom, 0.3)), metal, _hp(hl, (rim + e) * 0.5, (bottom + 1.0) * 0.5, t))
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, a - e, 0.8, 0.3)), metal, _hp(hl, (a + e) * 0.5, h - 0.4, t))
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, a - e, h - 1.8, 0.08)), glass, _hp(hl, (a + e) * 0.5, (1.0 + h - 0.8) * 0.5, t))
 		var s := a - 4.0
 		while s > e:
 			var low := bottom if s < rim else 0.0
-			_box(root, _hp(hl, s, low * 0.5 + h * 0.5, t), _hsize(hl, 0.25, h - low, 0.35), metal)
+			LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, 0.25, h - low, 0.35)), metal, _hp(hl, s, low * 0.5 + h * 0.5, t))
 			s -= 4.0
-	_box(root, _hp(hl, (a + e) * 0.5, h + 0.15, 0.0), _hsize(hl, a - e, 0.3, hw * 2.0 + 0.6), metal)
+	LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, a - e, 0.3, hw * 2.0 + 0.6)), metal, _hp(hl, (a + e) * 0.5, h + 0.15, 0.0))
 	# The gate's frame, a trim reveal round the opening on both faces.
 	for b in _gate_frame_boxes(hl):
-		_box(root, b[0], b[1], metal)
+		LookMeshKit.mi(root, LookMeshKit.box(b[1]), metal, b[0])
 	var trim := mats.flat(Color("#899195"), 0.6, 0.7)
 	for fs in [float(hl.s_far) + 1.03, float(hl.s_far) - 0.43]:
 		for sg in [-1.0, 1.0]:
-			_box(root, _hp(hl, fs, (h + 0.24) * 0.5, sg * (hw + 0.12)), _hsize(hl, 0.06, h + 0.24, 0.24), trim)
-		_box(root, _hp(hl, fs, h + 0.12, 0.0), _hsize(hl, 0.06, 0.24, hw * 2.0 + 0.48), trim)
+			LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, 0.06, h + 0.24, 0.24)), trim, _hp(hl, fs, (h + 0.24) * 0.5, sg * (hw + 0.12)))
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, 0.06, 0.24, hw * 2.0 + 0.48)), trim, _hp(hl, fs, h + 0.12, 0.0))
 	# The end wall round its shield (the same boxes as the collider).
 	var boxes := _hall_boxes(hl)
 	for k in range(boxes.size() - 3, boxes.size()):
-		_box(root, boxes[k][0], boxes[k][1], metal)
+		LookMeshKit.mi(root, LookMeshKit.box(boxes[k][1]), metal, boxes[k][0])
 	# A square shield filling the end wall's whole opening (floor to the lintel).
 	var top: float = boxes[boxes.size() - 3][0].y - boxes[boxes.size() - 3][1].y * 0.5
 	var jamb: Vector3 = boxes[boxes.size() - 1][1]
@@ -886,7 +886,7 @@ func _dress_hall(hl: Dictionary, i: int, metal: Material, glass: Material, _env:
 	var lamp_glow := mats.glow(Color("#bfefff"))
 	lamp_glow.emission_energy_multiplier = 3.2
 	for sg in [-1.0, 1.0]:
-		_box(root, _hp(hl, (a + e) * 0.5, h - 0.05, sg * (hw - 0.6)), _hsize(hl, a - e, 0.08, 0.25), lamp_glow)
+		LookMeshKit.mi(root, LookMeshKit.box(_hsize(hl, a - e, 0.08, 0.25)), lamp_glow, _hp(hl, (a + e) * 0.5, h - 0.05, sg * (hw - 0.6)))
 	var s := a - 3.5
 	while s > e:
 		_hall_lamp(root, _hp(hl, s, h - 0.6, 0.0))
@@ -904,18 +904,6 @@ func _hall_lamp(root: Node3D, at: Vector3) -> void:
 	l.shadow_enabled = false
 	l.position = at
 	root.add_child(l)
-
-
-func _box(root: Node3D, at: Vector3, size: Vector3, mat: Material,
-		basis: Basis = Basis.IDENTITY) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.material_override = mat
-	mi.position = at
-	mi.basis = basis
-	root.add_child(mi)
 
 
 func _dress_boulders() -> void:

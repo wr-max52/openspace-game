@@ -264,8 +264,8 @@ func _repulsors() -> void:
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var at := Vector3(sx * barge._W * 0.28, h - 0.45, sz * barge._L * 0.3)
-			jazz._cyl(jazz, 0.9, 0.5, at, iron)
-			jazz._cyl(jazz, 0.7, 0.06, at - Vector3(0, 0.27, 0), glow)
+			jazz._cone(jazz, 0.9, 0.9, 0.5, at, iron)
+			jazz._cone(jazz, 0.7, 0.7, 0.06, at - Vector3(0, 0.27, 0), glow)
 	jazz.pulses.append([glow, 3.0, 6.0, 2.0, 0.0])
 	var l := OmniLight3D.new()
 	l.light_color = Color("#3aa8ff")
@@ -287,12 +287,12 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 	var fz0 := stage_end
 	var fz1 := -6.8
 	var fw := W - 1.6
-	jazz._box(jazz, Vector3(fw, 0.012, fz1 - fz0), Vector3(0, top + 0.006, (fz0 + fz1) * 0.5), ClubTextures.checker(Color("#151312"), Color("#d6c8a8"), 0.6))
+	jazz._put(jazz, LookMeshKit.box(Vector3(fw, 0.012, fz1 - fz0)), Vector3(0, top + 0.006, (fz0 + fz1) * 0.5), ClubTextures.checker(Color("#151312"), Color("#d6c8a8"), 0.6))
 	for z in [fz0 + 0.03, fz1 - 0.03]:
-		jazz._box(jazz, Vector3(fw + 0.06, 0.016, 0.06), Vector3(0, top + 0.008, z), brass)
+		jazz._put(jazz, LookMeshKit.box(Vector3(fw + 0.06, 0.016, 0.06)), Vector3(0, top + 0.008, z), brass)
 	for sx in [-1.0, 1.0]:
-		jazz._box(jazz, Vector3(0.06, 0.016, fz1 - fz0), Vector3(sx * fw * 0.5, top + 0.008, (fz0 + fz1) * 0.5), brass)
-	jazz._box(jazz, Vector3(W - 1.2, 0.03, 0.06), Vector3(0, top + 0.135, stage_end), brass)       # the stage's lip
+		jazz._put(jazz, LookMeshKit.box(Vector3(0.06, 0.016, fz1 - fz0)), Vector3(sx * fw * 0.5, top + 0.008, (fz0 + fz1) * 0.5), brass)
+	jazz._put(jazz, LookMeshKit.box(Vector3(W - 1.2, 0.03, 0.06)), Vector3(0, top + 0.135, stage_end), brass)       # the stage's lip
 	await StagedBuild.slice_of(st)
 	# Behind the band the bow is open (no wall): the club's sign rides high on two
 	# brass posts at the back of the stage, so you walk under it out onto the prow.
@@ -340,8 +340,8 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 ## crescent moon over a wavy line, on a dark board, facing aft.
 func _sign(at: Vector3) -> void:
 	var board := ClubTextures.brushed(Color("#141210"), 0.4)
-	jazz._box(jazz, Vector3(4.6, 1.9, 0.12), at, board)
-	jazz._box(jazz, Vector3(4.7, 0.06, 0.16), at + Vector3(0, 0.98, 0), ClubTextures.brushed(Color("#b08e50"), 0.9))
+	jazz._put(jazz, LookMeshKit.box(Vector3(4.6, 1.9, 0.12)), at, board)
+	jazz._put(jazz, LookMeshKit.box(Vector3(4.7, 0.06, 0.16)), at + Vector3(0, 0.98, 0), ClubTextures.brushed(Color("#b08e50"), 0.9))
 	var z := at.z + 0.08
 	var x := at.x - 0.9
 	var y := at.y - 0.2
@@ -375,17 +375,17 @@ func _piano(at: Transform3D) -> void:
 	lacquer.roughness = 0.12
 	lacquer.clearcoat_enabled = true
 	lacquer.clearcoat = 1.0
-	jazz._box(root, Vector3(1.5, 1.25, 0.55), Vector3(0, 0.625, -0.05), lacquer)
-	jazz._box(root, Vector3(1.52, 0.06, 0.6), Vector3(0, 1.28, -0.05), lacquer)
-	jazz._box(root, Vector3(1.4, 0.06, 0.3), Vector3(0, 0.74, 0.32), lacquer)
-	jazz._box(root, Vector3(1.3, 0.025, 0.16), Vector3(0, 0.78, 0.34), jazz._flat(Color("#f2ece0"), 0.3))
+	jazz._put(root, LookMeshKit.box(Vector3(1.5, 1.25, 0.55)), Vector3(0, 0.625, -0.05), lacquer)
+	jazz._put(root, LookMeshKit.box(Vector3(1.52, 0.06, 0.6)), Vector3(0, 1.28, -0.05), lacquer)
+	jazz._put(root, LookMeshKit.box(Vector3(1.4, 0.06, 0.3)), Vector3(0, 0.74, 0.32), lacquer)
+	jazz._put(root, LookMeshKit.box(Vector3(1.3, 0.025, 0.16)), Vector3(0, 0.78, 0.34), jazz._flat(Color("#f2ece0"), 0.3))
 	for k in 36:
 		if k % 7 in [2, 6]:
 			continue
-		jazz._box(root, Vector3(0.016, 0.02, 0.09), Vector3(-0.63 + k * 0.036, 0.8, 0.31), jazz._flat(Color("#0a0a0a"), 0.3))
+		jazz._put(root, LookMeshKit.box(Vector3(0.016, 0.02, 0.09)), Vector3(-0.63 + k * 0.036, 0.8, 0.31), jazz._flat(Color("#0a0a0a"), 0.3))
 	for side in [-1.0, 1.0]:
-		jazz._box(root, Vector3(0.08, 0.74, 0.08), Vector3(side * 0.66, 0.37, 0.4), lacquer)
-	jazz._box(root, Vector3(0.8, 0.06, 0.36), Vector3(0, 0.5, 0.85), ClubTextures.leather(Color("#2a1410"), 0.12))
+		jazz._put(root, LookMeshKit.box(Vector3(0.08, 0.74, 0.08)), Vector3(side * 0.66, 0.37, 0.4), lacquer)
+	jazz._put(root, LookMeshKit.box(Vector3(0.8, 0.06, 0.36)), Vector3(0, 0.5, 0.85), ClubTextures.leather(Color("#2a1410"), 0.12))
 	jazz.candle(root, Vector3(0.5, 1.31, -0.05))
 
 
@@ -449,7 +449,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 	var fz0 := _bow + 5.0
 	var cols := 6
 	var rows := 7
-	rave._box(rave, Vector3(cols + 0.4, 0.03, rows + 0.4), Vector3(0, y1 + 0.015, fz0 + rows * 0.5), ClubTextures.brushed(Color("#0c0c0e"), 0.6))
+	rave._put(rave, LookMeshKit.box(Vector3(cols + 0.4, 0.03, rows + 0.4)), Vector3(0, y1 + 0.015, fz0 + rows * 0.5), ClubTextures.brushed(Color("#0c0c0e"), 0.6))
 	for cx in cols:
 		for cz in rows:
 			var x := -cols * 0.5 + 0.5 + cx
@@ -457,7 +457,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 			var m := ClubTextures.glow(Color.from_hsv(0.0, 0.8, 1.0), 1.0)
 			m.albedo_color = Color("#101012")
 			m.roughness = 0.15
-			rave._box(rave, Vector3(0.92, 0.035, 0.92), Vector3(x, y1 + 0.02, z), m)
+			rave._put(rave, LookMeshKit.box(Vector3(0.92, 0.035, 0.92)), Vector3(x, y1 + 0.02, z), m)
 			rave.cycles.append([m, 0.06, (x + z) * 0.03])
 			rave.pulses.append([m, 0.25, 2.6, 1.0, -Vector2(x, z - fz0 - rows * 0.5).length() * 0.09])
 		await StagedBuild.slice_of(st)
@@ -470,7 +470,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 		rave.speaker(Transform3D(yaw, foot), Vector3(1.1, 1.0, 0.8))
 		rave.speaker(Transform3D(yaw, foot + Vector3(0, 1.0, 0)), Vector3(0.9, 0.8, 0.7))
 		var strobe := ClubTextures.glow(Color("#ffffff"), 1.0)
-		rave._box(rave, Vector3(0.4, 0.14, 0.1), foot + Vector3(0, 1.9, 0.1), strobe).basis = yaw
+		rave._put(rave, LookMeshKit.box(Vector3(0.4, 0.14, 0.1)), foot + Vector3(0, 1.9, 0.1), strobe).basis = yaw
 		rave.pulses.append([strobe, 0.0, 30.0, 2.0, 0.0])
 		var flash := OmniLight3D.new()
 		flash.light_color = Color("#e8f0ff")
@@ -498,7 +498,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 		rave.neon(PackedVector3Array([Vector3(x, ceil - 0.25, _bow + 0.6), Vector3(x, ceil - 0.25, -7.2)]), Color("#ff2bd6"), false, 0.025, 4.0)
 	await StagedBuild.slice_of(st)
 	# The lounge aft: booths on the port wall, a rug, tables and warm lamps.
-	jazz._box(jazz, Vector3(4.0, 0.012, 7.6), Vector3(-W * 0.5 + 2.7, y1 + 0.006, 8.4), ClubTextures.rug(Color("#5a1e22"), Color("#c9a058"), 1.2))
+	jazz._put(jazz, LookMeshKit.box(Vector3(4.0, 0.012, 7.6)), Vector3(-W * 0.5 + 2.7, y1 + 0.006, 8.4), ClubTextures.rug(Color("#5a1e22"), Color("#c9a058"), 1.2))
 	for z in [6.2, 10.4]:
 		jazz.booth(Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(-W * 0.5 + 0.42, y1, z)), 3.2, Color("#5a1e1a"))
 		jazz.cocktail_table(Vector3(-W * 0.5 + 1.75, y1, z), 0.38, 0.72)
@@ -513,7 +513,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 ## the colours, scan lines and a band of light climbing it, over a glowing strip.
 func _hologram(foot: Vector3, width: float, height: float) -> void:
 	var emitter := ClubTextures.glow(Color("#2bd9ff"), 5.0)
-	rave._box(rave, Vector3(width, 0.06, 0.16), foot + Vector3(0, 0.03, 0), emitter)
+	rave._put(rave, LookMeshKit.box(Vector3(width, 0.06, 0.16)), foot + Vector3(0, 0.03, 0), emitter)
 	rave.cycles.append([emitter, 0.1, 0.0])
 	var y0 := 0.35
 	var cols := 8
@@ -523,12 +523,12 @@ func _hologram(foot: Vector3, width: float, height: float) -> void:
 	for cx in cols:
 		for cy in rows:
 			var m := ClubTextures.beam(Color.from_hsv(0.0, 0.85, 1.0), 0.3)
-			var tile := rave._box(rave, Vector3(pw - 0.08, ph - 0.08, 0.01), foot + Vector3((cx - (cols - 1) * 0.5) * pw, y0 + (cy + 0.5) * ph, 0.1), m)
+			var tile := rave._put(rave, LookMeshKit.box(Vector3(pw - 0.08, ph - 0.08, 0.01)), foot + Vector3((cx - (cols - 1) * 0.5) * pw, y0 + (cy + 0.5) * ph, 0.1), m)
 			tile.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			rave.cycles.append([m, 0.1, cx * 0.035 + cy * 0.06])
 			rave.fades.append([m, 0.05, 0.3, 1.0, absf(cx - (cols - 1) * 0.5) * 0.06])
 	var band_mat := ClubTextures.beam(Color("#e8fbff"), 0.35)
-	var band := rave._box(rave, Vector3(width, 0.1, 0.02), foot, band_mat)
+	var band := rave._put(rave, LookMeshKit.box(Vector3(width, 0.1, 0.02)), foot, band_mat)
 	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	rave.scans.append([band, foot + Vector3(0, y0, 0.12), foot + Vector3(0, y0 + height, 0.12), 2.4, 0.0])
 	var wash := OmniLight3D.new()
@@ -558,20 +558,20 @@ func _steerage() -> void:
 func _console(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	var c := jazz._group("Console", Transform3D(Basis.IDENTITY, Vector3(3.6, _top, 16.1)))
 	var face := jazz._group("Face", Transform3D(Basis(Vector3.RIGHT, 0.38), Vector3(0, 1.04, 0.0)), c)
-	jazz._box(face, Vector3(1.86, 0.05, 0.78), Vector3.ZERO, ClubTextures.brushed(Color("#26282c"), 0.7))
-	jazz._box(face, Vector3(1.9, 0.03, 0.04), Vector3(0, 0.02, 0.4), ClubTextures.brushed(Color("#b08e50"), 0.9))
+	jazz._put(face, LookMeshKit.box(Vector3(1.86, 0.05, 0.78)), Vector3.ZERO, ClubTextures.brushed(Color("#26282c"), 0.7))
+	jazz._put(face, LookMeshKit.box(Vector3(1.9, 0.03, 0.04)), Vector3(0, 0.02, 0.4), ClubTextures.brushed(Color("#b08e50"), 0.9))
 	var screen := ClubTextures.glow(SCREEN, 1.3)
-	jazz._box(face, Vector3(0.62, 0.012, 0.5), Vector3(0, 0.03, 0.0), screen)
+	jazz._put(face, LookMeshKit.box(Vector3(0.62, 0.012, 0.5)), Vector3(0, 0.03, 0.0), screen)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.17
 	ring.outer_radius = 0.185
 	ring.rings = 24
 	jazz._put(face, ring, Vector3(0, 0.04, 0.0), ClubTextures.glow(Color("#9fe8ff"), 3.0))
-	jazz._box(face, Vector3(0.02, 0.012, 0.05), Vector3(0, 0.04, -0.2), ClubTextures.glow(Color("#ffffff"), 3.0))     # the bow
+	jazz._put(face, LookMeshKit.box(Vector3(0.02, 0.012, 0.05)), Vector3(0, 0.04, -0.2), ClubTextures.glow(Color("#ffffff"), 3.0))     # the bow
 	needle = Node3D.new()
 	needle.position = Vector3(0, 0.045, 0)
 	face.add_child(needle)
-	jazz._box(needle, Vector3(0.025, 0.01, 0.17), Vector3(0, 0, -0.085), ClubTextures.glow(Color("#ffcc33"), 4.0))
+	jazz._put(needle, LookMeshKit.box(Vector3(0.025, 0.01, 0.17)), Vector3(0, 0, -0.085), ClubTextures.glow(Color("#ffcc33"), 4.0))
 	await StagedBuild.slice_of(st)
 	# Buttons either side of the screen, blinking on their own time.
 	var palette := [Color("#3fe8ff"), Color("#2b8cff"), Color("#ffcc33"), Color("#ff4a3a"), Color("#7aff5a")]
@@ -579,11 +579,11 @@ func _console(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 		for gx in 3:
 			for gz in 4:
 				var b := ClubTextures.glow(palette[(gx * 2 + gz + (1 if sx > 0 else 0)) % palette.size()], 2.0)
-				jazz._box(face, Vector3(0.07, 0.025, 0.06), Vector3(sx * (0.45 + gx * 0.11), 0.035, -0.24 + gz * 0.12), b)
+				jazz._put(face, LookMeshKit.box(Vector3(0.07, 0.025, 0.06)), Vector3(sx * (0.45 + gx * 0.11), 0.035, -0.24 + gz * 0.12), b)
 				jazz.pulses.append([b, 0.4, 3.0, [2.0, 3.0, 5.0][(gx + gz) % 3], float(gx * 4 + gz) * 0.13])
 	engage_mat = ClubTextures.glow(Color("#ffcc33"), 3.0)
-	jazz._cyl(face, 0.07, 0.04, Vector3(0.0, 0.04, 0.33), jazz._flat(Color("#1a1a1c"), 0.5, 0.6))
-	jazz._cyl(face, 0.055, 0.05, Vector3(0.0, 0.05, 0.33), engage_mat)
+	jazz._cone(face, 0.07, 0.07, 0.04, Vector3(0.0, 0.04, 0.33), jazz._flat(Color("#1a1a1c"), 0.5, 0.6))
+	jazz._cone(face, 0.055, 0.055, 0.05, Vector3(0.0, 0.05, 0.33), engage_mat)
 	lever = Node3D.new()
 	lever.position = Vector3(0.82, 0.03, 0.3)
 	face.add_child(lever)
@@ -595,12 +595,12 @@ func _console(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	arrow.position = Vector3(0, 1.75, -0.2)
 	c.add_child(arrow)
 	var holo := ClubTextures.beam(Color("#3fe8ff"), 0.45)
-	var shaft := jazz._box(arrow, Vector3(0.06, 0.02, 0.4), Vector3(0, 0, 0.05), holo)
+	var shaft := jazz._put(arrow, LookMeshKit.box(Vector3(0.06, 0.02, 0.4)), Vector3(0, 0, 0.05), holo)
 	shaft.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var head := jazz._cone(arrow, 0.0, 0.12, 0.2, Vector3(0, 0, -0.25), holo, Vector3(-90, 0, 0))
 	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	jazz.fades.append([holo, 0.25, 0.55, 1.0, 0.0])
-	jazz._cyl(c, 0.1, 0.02, Vector3(0, 1.33, -0.2), ClubTextures.glow(Color("#3fe8ff"), 2.0))      # its emitter
+	jazz._cone(c, 0.1, 0.1, 0.02, Vector3(0, 1.33, -0.2), ClubTextures.glow(Color("#3fe8ff"), 2.0))      # its emitter
 	var l := OmniLight3D.new()
 	l.light_color = SCREEN
 	l.light_energy = 0.8

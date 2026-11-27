@@ -114,8 +114,7 @@ func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2) -> void
 		if _hits(clear, map.x, map.y, r) or _in_circles(map.x, map.y, r):
 			continue
 		noise.frequency = 1.4 / r
-		var base := _cyl(r * 0.55, r, h, 16)
-		base.rings = 10
+		var base := LookMeshKit.cyl(r * 0.55, r, h, 16, 10)
 		var g := _ground(terrain, map.x, map.y)
 		var gy := snappedf(_ground_h(terrain, g, map.x, map.y), 1.0)
 		var mat := mats.rock(gy, 0.35)
@@ -702,16 +701,6 @@ func _in_circles(x: float, z: float, radius: float) -> bool:
 		if d.angle_to(cd) * _sp.radius < reach:
 			return true
 	return false
-
-
-func _cyl(top: float, bottom: float, h: float, seg: int) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
 
 
 ## One spire variation, built once a session: { mesh, shape }. The shape is a

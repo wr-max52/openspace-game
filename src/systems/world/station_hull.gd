@@ -26,6 +26,8 @@ extends RefCounted
 ## on), "solid" or "decor" (drawn only), finish }. The frame: y up, the main tower's
 ## middle at x = z = 0, y = 0 the market floor and the bay's deck.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const DATA_DIR := "res://content/core/stations/"
 const LANDMARK_KIND := "station"
 const UP := Vector3.UP
@@ -223,7 +225,7 @@ static func town_for(town_id: String, lm: Dictionary, sp: PlanetSphere, world: D
 	var markers := [{ "id": "player_spawn", "pos": [sp_at.x, sp_at.y, sp_at.z], "role": "spawn" }]
 	# The other pads: a parked ship's box (its look's footprint, turned with it; a
 	# berth like the port's bay ships), and the salesman's spare pad, a flat plate.
-	var sizes: Dictionary = ShipKit._read_json(ShipKit.LOOKS_PATH).get("looks", {})
+	var sizes: Dictionary = CoreContent.read_json(ShipKit.LOOKS_PATH).get("looks", {})
 	var ships: Dictionary = {}
 	for p in h.pads():
 		if str(p.ship) == "" or p.id == pad.id:

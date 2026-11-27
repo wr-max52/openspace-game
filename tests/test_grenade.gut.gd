@@ -14,7 +14,7 @@ var content
 
 func before_each() -> void:
 	WorldState.reset()
-	cfg = CharacterKit._read_json(Grenade.CFG_PATH)
+	cfg = CoreScript.read_json(Grenade.CFG_PATH)
 	content = CoreScript.new()
 	content.load_from()
 
@@ -199,7 +199,7 @@ func test_a_grenade_hurts_another_player_like_it_hurts_you() -> void:
 # ---- the throw's pose -----------------------------------------------------------
 
 func test_the_arm_winds_back_then_swings_over_and_lets_go() -> void:
-	var sp := ThrowPose.spec(CharacterKit._read_json("res://content/look/hand_weapons.json"))
+	var sp := ThrowPose.spec(CoreScript.read_json("res://content/look/hand_weapons.json"))
 	var wound := ThrowPose.right_hand(sp, -1.0)
 	assert_lt(wound.z, 0.0, "held, the hand is behind the shoulder")
 	assert_gt(wound.y, 0.18, "and above it")

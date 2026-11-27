@@ -29,6 +29,8 @@ extends RefCounted
 ## town back if its barracks guards all die).
 ## Who holds the outposts in between: Territory.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const PATH := "res://content/core/story/main.json"
 ## The Remnant's desert outposts, nearest the front gate first (issue #187: and
 ## four more round the other sides of the town), then the outposts in the three
@@ -257,7 +259,7 @@ static func cruiser_general_name(cfg: Dictionary = {}) -> String:
 	if cfg.is_empty():
 		cfg = CruiserHull.data()
 	var soldier := str(cfg.get("general", {}).get("soldier", "cruiser_general"))
-	var profile := ItemKit._read_json("res://content/core/soldiers/%s.json" % soldier)
+	var profile := CoreContent.read_json("res://content/core/soldiers/%s.json" % soldier)
 	return NameHooks.person(profile.get("naming", {}), "npc:%s/general" % str(cfg.get("id", "remnant_cruiser")))
 
 

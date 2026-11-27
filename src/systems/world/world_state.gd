@@ -11,6 +11,8 @@ extends RefCounted
 ##
 ## Saved and restored through SaveSystem (to_save / from_save).
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const RUMOR_DIR := "res://content/core/rumors"
 const BOARD_PATH := "res://content/core/board/bar_board.json"
 const PICKUP_DIR := "res://content/core/pickups"
@@ -381,7 +383,7 @@ static func on_deflection() -> void:
 
 static func board() -> Array:
 	if _board.is_empty():
-		var d = _read_json(BOARD_PATH)
+		var d = CoreContent.parse_json(BOARD_PATH)
 		if d is Dictionary:
 			_board = d.get("jobs", [])
 	return _board
@@ -600,7 +602,7 @@ static func _fence(location: String) -> Dictionary:
 	for f in DirAccess.get_files_at(VENDOR_DIR):
 		if not f.ends_with(".json"):
 			continue
-		var v = _read_json(VENDOR_DIR + "/" + f)
+		var v = CoreContent.parse_json(VENDOR_DIR + "/" + f)
 		if v is Dictionary and str(v.get("location", "")) == location and (v.get("buys", []) as Array).has("contraband"):
 			return v
 	return {}
@@ -637,7 +639,7 @@ static func smuggle_goods_text(j: Dictionary = {}, s: Dictionary = {}) -> String
 ## {} when it has nothing to offer.
 static func _roll_smuggle(j: Dictionary) -> Dictionary:
 	var goods: Array = j.get("goods", [])
-	var d = _read_json(PICKUP_DIR + "/" + str(j.get("location", "")) + ".json")
+	var d = CoreContent.parse_json(PICKUP_DIR + "/" + str(j.get("location", "")) + ".json")
 	var areas: Array = d.get("drops", {}).get("areas", []) if d is Dictionary else []
 	var mine: Array = j.get("areas", [])
 	# Issue #237: in a town built to a saved layout, an area's "layouts" block (its
@@ -750,7 +752,7 @@ static func _cargo_delivered() -> void:
 
 static func _item(id: String) -> Dictionary:
 	if not _items.has(id):
-		var d = _read_json(ITEM_DIR + "/" + id + ".json")
+		var d = CoreContent.parse_json(ITEM_DIR + "/" + id + ".json")
 		_items[id] = d if d is Dictionary else {}
 	return _items[id]
 
@@ -1001,7 +1003,7 @@ static func all_rumors() -> Array:
 		if da != null:
 			for f in da.get_files():
 				if f.ends_with(".json"):
-					var d = _read_json(RUMOR_DIR + "/" + f)
+					var d = CoreContent.parse_json(RUMOR_DIR + "/" + f)
 					if d is Dictionary and d.has("rumors"):
 						# The town they are about: the file's "location", else its name
 						# (rumors/port_town.json: the port's gate, pit and range).
@@ -1170,13 +1172,6 @@ static func from_save(d: Dictionary) -> void:
 		set_flag(FREE_SHIP)    # a free roam save from before its interceptor was yours (Fleet.FREE)
 	if story.has("chapter"):
 		Story.catch_up()       # the general dead in a save from when the fleet chapter waited on a dogfight
-
-
-static func _read_json(path: String) -> Variant:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return null
-	return JSON.parse_string(f.get_as_text())
 
 
 # ------------------------------------------------------------------ native packs (issue #96)

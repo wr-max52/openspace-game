@@ -20,6 +20,7 @@ const HAND_WEAPONS_PATH := "res://content/look/hand_weapons.json"   ## issue #82
 const GunSights := preload("res://src/systems/look/gun_sights.gd")
 const ENERGY := preload("res://src/systems/look/shaders/energy.gdshader")
 const GEAR := preload("res://src/systems/look/shaders/gear.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const REF_HEIGHT := 1.8
 
 var mats: LookMaterials
@@ -37,16 +38,8 @@ func _init(materials: LookMaterials, floor_height: float = 8.0) -> void:
 	mats = materials
 	floor_y = floor_height
 	rng.randomize()
-	palettes = _read_json(PALETTES_PATH).get("archetypes", {})
-	blade_cfg = _read_json(BLADE_PATH)
-
-
-static func _read_json(path: String) -> Dictionary:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	return d if d is Dictionary else {}
+	palettes = CoreContent.read_json(PALETTES_PATH).get("archetypes", {})
+	blade_cfg = CoreContent.read_json(BLADE_PATH)
 
 
 func archetypes() -> Array:
@@ -140,7 +133,7 @@ func build(archetype: String, pose: String = "", outfit: Dictionary = {}) -> Nod
 static var _sizes := {}
 static func size_of(archetype: String) -> Vector3:
 	if _sizes.is_empty():
-		_sizes["_"] = _read_json(PALETTES_PATH).get("archetypes", {})
+		_sizes["_"] = CoreContent.read_json(PALETTES_PATH).get("archetypes", {})
 	var all: Dictionary = _sizes["_"]
 	var p: Dictionary = all.get(archetype, {})
 	var base: Dictionary = all.get(str(p.get("base", archetype)), {})
@@ -268,7 +261,7 @@ static func outfit_textures() -> Array:
 static func _list_outfit_textures() -> Array:
 	var out: Array = []
 	var cfgs: Array = []
-	for p in _read_json(PALETTES_PATH).get("archetypes", {}).values():
+	for p in CoreContent.read_json(PALETTES_PATH).get("archetypes", {}).values():
 		cfgs.append((p as Dictionary).get("model", {}))
 		cfgs.append_array((p as Dictionary).get("skin_layers", []))
 	for cfg in cfgs:
@@ -368,33 +361,8 @@ func _joint(parent: Node3D, jname: String, pos: Vector3) -> Node3D:
 	return j
 
 
-func _cyl(top: float, bottom: float, h: float, seg: int = 10) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _sphere(r: float, h: float = -1.0, seg: int = 14) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = h if h > 0.0 else r * 2.0
-	s.radial_segments = seg
-	s.rings = maxi(seg / 2, 4)
-	return s
-
-
 func _limb(parent: Node3D, jname: String, length: float, r_top: float, r_bot: float, mat: Material) -> Node3D:
-	_mi(parent, _cyl(r_bot, r_top, length), mat, Vector3(0, -length * 0.5, 0))
+	_mi(parent, LookMeshKit.cyl(r_bot, r_top, length, 10, 1), mat, Vector3(0, -length * 0.5, 0))
 	return _joint(parent, jname, Vector3(0, -length, 0))
 
 
@@ -410,27 +378,27 @@ func _body(root: Node3D, p: Dictionary) -> void:
 	var boots := _m(_c(p, "boots", "#2a2220"), "leather", 0.6)
 	var gloves := _m(_c(p, "gloves", "#1e1c1c"), "leather", 0.4)
 	var pelvis := _joint(root, "pelvis", Vector3(0, 0.97, 0))
-	_mi(pelvis, _box(Vector3(0.3, 0.18, 0.2)), under)
+	_mi(pelvis, LookMeshKit.box(Vector3(0.3, 0.18, 0.2)), under)
 	var spine := _joint(pelvis, "spine", Vector3(0, 0.07, 0))
 	var chest := _joint(spine, "chest", Vector3(0, 0.22, 0))
 	# V-taper: narrow waist, broad chest.
 	_mi(chest, LookMeshKit.frustum(0.29, 0.19, 0.44, -0.3), under)
 	var neck := _joint(chest, "neck", Vector3(0, 0.22, 0))
-	_mi(neck, _cyl(0.05, 0.062, 0.12), under, Vector3(0, 0.04, 0))
+	_mi(neck, LookMeshKit.cyl(0.05, 0.062, 0.12, 10, 1), under, Vector3(0, 0.04, 0))
 	var head := _joint(neck, "head", Vector3(0, 0.15, 0))
 	var joints := { "pelvis": pelvis, "spine": spine, "chest": chest, "neck": neck, "head": head }
 	for side in [["l", 1.0], ["r", -1.0]]:
 		var sname: String = side[0]
 		var sx: float = side[1]
 		var sh := _joint(chest, sname + "_shoulder", Vector3(0.22 * sx, 0.18, 0))
-		_mi(sh, _sphere(0.064), under)
+		_mi(sh, LookMeshKit.ball(0.064, 14, 7), under)
 		var el := _limb(sh, sname + "_elbow", UPPER_ARM, 0.058, 0.048, under)
 		var wr := _limb(el, sname + "_wrist", FOREARM, 0.047, 0.037, under)
-		_mi(wr, _box(Vector3(0.055, 0.11, 0.1)), gloves, Vector3(0, -0.055, 0.01))   # big hands
+		_mi(wr, LookMeshKit.box(Vector3(0.055, 0.11, 0.1)), gloves, Vector3(0, -0.055, 0.01))   # big hands
 		var hip := _joint(pelvis, sname + "_hip", Vector3(0.09 * sx, -0.04, 0))
 		var kn := _limb(hip, sname + "_knee", 0.46, 0.088, 0.062, under)
 		var an := _limb(kn, sname + "_ankle", 0.43, 0.06, 0.045, boots)
-		_mi(an, _box(Vector3(0.12, 0.1, 0.28)), boots, Vector3(0, -0.035, 0.065))      # big boots
+		_mi(an, LookMeshKit.box(Vector3(0.12, 0.1, 0.28)), boots, Vector3(0, -0.035, 0.065))      # big boots
 		joints[sname + "_shoulder"] = sh
 		joints[sname + "_elbow"] = el
 		joints[sname + "_wrist"] = wr
@@ -577,44 +545,44 @@ func _dress_trooper(body: Node3D, p: Dictionary, commander: bool) -> void:
 	_mi(chest, LookMeshKit.shell(0.105, 0.15, 0.33, 0.2, 0.0, TAU, 0.02, 16, 1), armor)
 	_mi(chest, LookMeshKit.shell(0.152, 0.16, 0.215, 0.195, 0.0, TAU, 0.02, 16, 1), trim)
 	for i in 3:
-		_mi(chest, _box(Vector3(0.31 - i * 0.015, 0.05, 0.22)), armor_l, Vector3(0, -0.15 - i * 0.055, 0.012))
+		_mi(chest, LookMeshKit.box(Vector3(0.31 - i * 0.015, 0.05, 0.22)), armor_l, Vector3(0, -0.15 - i * 0.055, 0.012))
 	# Power pack on the back: a silhouette bump with vents and a whip antenna.
 	_mi(chest, LookMeshKit.frustum(0.3, 0.12, 0.34, 0.12), armor_l, Vector3(0, 0.02, -0.18))
 	for x in [-0.08, 0.0, 0.08]:
-		_mi(chest, _box(Vector3(0.02, 0.24, 0.05)), armor, Vector3(x, 0.03, -0.25))
-	_mi(chest, _cyl(0.004, 0.006, 0.55, 4), dark, Vector3(0.12, 0.42, -0.2), Vector3(-10, 0, -8))
+		_mi(chest, LookMeshKit.box(Vector3(0.02, 0.24, 0.05)), armor, Vector3(x, 0.03, -0.25))
+	_mi(chest, LookMeshKit.cyl(0.004, 0.006, 0.55, 4, 1), dark, Vector3(0.12, 0.42, -0.2), Vector3(-10, 0, -8))
 	# Belt and kit.
-	_mi(pelvis, _box(Vector3(0.35, 0.07, 0.23)), dark, Vector3(0, 0.03, 0))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.35, 0.07, 0.23)), dark, Vector3(0, 0.03, 0))
 	for x in [-0.12, -0.04, 0.04, 0.12]:
-		_mi(pelvis, _box(Vector3(0.065, 0.075, 0.05)), dark, Vector3(x, 0.01, 0.125))
+		_mi(pelvis, LookMeshKit.box(Vector3(0.065, 0.075, 0.05)), dark, Vector3(x, 0.01, 0.125))
 	# Asymmetric shoulders: layered pauldron on the left (shield side), small on the right.
 	var ls := _j(body, "l_shoulder")
 	for i in 3:
-		_mi(ls, _sphere(0.14 - i * 0.012, 0.15, 12), armor if i % 2 == 0 else armor_l,
+		_mi(ls, LookMeshKit.ball(0.14 - i * 0.012, 12, 6, 0.15), armor if i % 2 == 0 else armor_l,
 			Vector3(0.045 + i * 0.02, 0.035 - i * 0.05, 0), Vector3(0, 0, -16 - i * 11), Vector3(1.0, 0.7, 1.15))
-	_mi(ls, _box(Vector3(0.18, 0.015, 0.2)), trim, Vector3(0.06, 0.085, 0), Vector3(0, 0, -16))
-	_mi(_j(body, "r_shoulder"), _sphere(0.09, 0.1, 10), armor, Vector3(-0.02, 0.025, 0), Vector3(0, 0, 15))
+	_mi(ls, LookMeshKit.box(Vector3(0.18, 0.015, 0.2)), trim, Vector3(0.06, 0.085, 0), Vector3(0, 0, -16))
+	_mi(_j(body, "r_shoulder"), LookMeshKit.ball(0.09, 10, 5, 0.1), armor, Vector3(-0.02, 0.025, 0), Vector3(0, 0, 15))
 	for s in ["l", "r"]:
-		_mi(_j(body, s + "_elbow"), _cyl(0.054, 0.06, 0.17, 10), armor_l, Vector3(0, -0.15, 0))
-		_mi(_j(body, s + "_knee"), _sphere(0.075, 0.1, 10), armor, Vector3(0, 0.0, 0.05))
-		_mi(_j(body, s + "_knee"), _cyl(0.058, 0.074, 0.3, 10), armor, Vector3(0, -0.2, 0.014))
-		_mi(_j(body, s + "_hip"), _box(Vector3(0.16, 0.24, 0.18)), armor_l, Vector3(0, -0.15, 0.02))
+		_mi(_j(body, s + "_elbow"), LookMeshKit.cyl(0.054, 0.06, 0.17, 10, 1), armor_l, Vector3(0, -0.15, 0))
+		_mi(_j(body, s + "_knee"), LookMeshKit.ball(0.075, 10, 5, 0.1), armor, Vector3(0, 0.0, 0.05))
+		_mi(_j(body, s + "_knee"), LookMeshKit.cyl(0.058, 0.074, 0.3, 10, 1), armor, Vector3(0, -0.2, 0.014))
+		_mi(_j(body, s + "_hip"), LookMeshKit.box(Vector3(0.16, 0.24, 0.18)), armor_l, Vector3(0, -0.15, 0.02))
 	# Tabard front and back, with a brass stripe.
 	var tab := _mi(pelvis, LookMeshKit.cloth(0.24, 0.62 if commander else 0.5, 0.02, 2, 4), cloth, Vector3(0, -0.02, 0.14))
 	tab.rotation_degrees = Vector3(-4, 0, 0)
-	_mi(pelvis, _box(Vector3(0.035, 0.46, 0.01)), trim, Vector3(0, -0.26, 0.15))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.035, 0.46, 0.01)), trim, Vector3(0, -0.26, 0.15))
 	var tab_b := _mi(pelvis, LookMeshKit.cloth(0.26, 0.55, 0.02, 2, 4), cloth, Vector3(0, -0.02, -0.12))
 	tab_b.rotation_degrees = Vector3(4, 180, 0)
 
 	# Helmet: a swept sallet. Brow overhang shades a single burning visor slit.
-	_mi(head, _sphere(0.13, 0.28, 16), armor, Vector3(0, 0.03, -0.012), Vector3.ZERO, Vector3(1.0, 1.05, 1.2))
-	_mi(head, _box(Vector3(0.24, 0.05, 0.21)), armor, Vector3(0, -0.06, -0.12), Vector3(-30, 0, 0))
-	_mi(head, _box(Vector3(0.2, 0.13, 0.05)), armor_l, Vector3(0, -0.04, 0.12), Vector3(-10, 0, 0))
-	_mi(head, _box(Vector3(0.23, 0.03, 0.07)), armor, Vector3(0, 0.035, 0.12), Vector3(12, 0, 0))
-	_mi(head, _box(Vector3(0.17, 0.016, 0.012)), visor, Vector3(0, 0.008, 0.148))
-	_mi(head, _box(Vector3(0.022, 0.05, 0.3)), trim if commander else armor_l, Vector3(0, 0.162, -0.02))
+	_mi(head, LookMeshKit.ball(0.13, 16, 8, 0.28), armor, Vector3(0, 0.03, -0.012), Vector3.ZERO, Vector3(1.0, 1.05, 1.2))
+	_mi(head, LookMeshKit.box(Vector3(0.24, 0.05, 0.21)), armor, Vector3(0, -0.06, -0.12), Vector3(-30, 0, 0))
+	_mi(head, LookMeshKit.box(Vector3(0.2, 0.13, 0.05)), armor_l, Vector3(0, -0.04, 0.12), Vector3(-10, 0, 0))
+	_mi(head, LookMeshKit.box(Vector3(0.23, 0.03, 0.07)), armor, Vector3(0, 0.035, 0.12), Vector3(12, 0, 0))
+	_mi(head, LookMeshKit.box(Vector3(0.17, 0.016, 0.012)), visor, Vector3(0, 0.008, 0.148))
+	_mi(head, LookMeshKit.box(Vector3(0.022, 0.05, 0.3)), trim if commander else armor_l, Vector3(0, 0.162, -0.02))
 	for sx in [-1.0, 1.0]:
-		_mi(head, _box(Vector3(0.03, 0.12, 0.1)), armor, Vector3(0.122 * sx, -0.05, 0.06), Vector3(0, 0, 12 * sx))
+		_mi(head, LookMeshKit.box(Vector3(0.03, 0.12, 0.1)), armor, Vector3(0.122 * sx, -0.05, 0.06), Vector3(0, 0, 12 * sx))
 
 	if commander:
 		var coat := _m(_c(p, "coat"), "cloth", 0.4)
@@ -624,10 +592,10 @@ func _dress_trooper(body: Node3D, p: Dictionary, commander: bool) -> void:
 		# Short shoulder cape and brass epaulettes: rank you can read from across the port.
 		_mi(chest, LookMeshKit.shell(0.2, 0.33, 0.24, 0.0, PI * 0.5 + 0.9, PI * 0.5 + TAU - 0.9, 0.02, 20, 2, 0.02), cloth)
 		for sx in [-1.0, 1.0]:
-			_mi(chest, _box(Vector3(0.13, 0.025, 0.14)), trim, Vector3(0.2 * sx, 0.255, 0), Vector3(0, 0, -14 * sx))
-		_mi(head, _box(Vector3(0.035, 0.1, 0.36)), cloth, Vector3(0, 0.215, -0.04), Vector3(-6, 0, 0))   # crest
-		_mi(chest, _box(Vector3(0.05, 0.5, 0.012)), trim, Vector3(0.05, 0.0, 0.165), Vector3(0, 0, 38))   # sash
-		_mi(_j(body, "r_hip"), _box(Vector3(0.05, 0.17, 0.09)), dark, Vector3(-0.1, -0.08, 0.02))
+			_mi(chest, LookMeshKit.box(Vector3(0.13, 0.025, 0.14)), trim, Vector3(0.2 * sx, 0.255, 0), Vector3(0, 0, -14 * sx))
+		_mi(head, LookMeshKit.box(Vector3(0.035, 0.1, 0.36)), cloth, Vector3(0, 0.215, -0.04), Vector3(-6, 0, 0))   # crest
+		_mi(chest, LookMeshKit.box(Vector3(0.05, 0.5, 0.012)), trim, Vector3(0.05, 0.0, 0.165), Vector3(0, 0, 38))   # sash
+		_mi(_j(body, "r_hip"), LookMeshKit.box(Vector3(0.05, 0.17, 0.09)), dark, Vector3(-0.1, -0.08, 0.02))
 	else:
 		var cape := _mi(_j(body, "l_shoulder"), LookMeshKit.cloth(0.34, 0.85, 0.08, 3, 5), cloth, Vector3(0.02, 0.08, -0.09))
 		cape.rotation_degrees = Vector3(8, 180, -6)
@@ -645,7 +613,7 @@ func _rifle(body: Node3D, p: Dictionary) -> void:
 	body.set_meta("weapon", r)
 	var grips := { "r": Vector3(0, -0.06, 0.0), "l": Vector3(0, -0.04, 0.26) }
 	r.set_meta("grips", grips)
-	var spec: Dictionary = _read_json(HAND_WEAPONS_PATH).get("rifle_blaster", {})
+	var spec: Dictionary = CoreContent.read_json(HAND_WEAPONS_PATH).get("rifle_blaster", {})
 	var path := str(spec.get("model", ""))
 	# Issue #162: ModelCache keeps the rifle loaded. load() twice with nothing
 	# holding it read rifle.glb from disk twice per trooper (~78 ms each).
@@ -668,14 +636,14 @@ func _rifle(body: Node3D, p: Dictionary) -> void:
 	var metal := _m(Color("#2a2a2a"), "metal", 0.35)
 	var furn := _m(_c(p, "armor_light", "#4a4a4a"), "metal", 0.5)
 	var cell := _m(_c(p, "cloth", "#6b1e1e"), "metal", 0.3)
-	_mi(r, _box(Vector3(0.05, 0.1, 0.52)), metal, Vector3(0, 0.05, 0.12))
-	_mi(r, _cyl(0.016, 0.016, 0.4, 8), metal, Vector3(0, 0.07, 0.56), Vector3(90, 0, 0))
-	_mi(r, _cyl(0.03, 0.03, 0.16, 8), furn, Vector3(0, 0.07, 0.44), Vector3(90, 0, 0))
-	_mi(r, _box(Vector3(0.045, 0.13, 0.2)), furn, Vector3(0, 0.0, -0.22), Vector3(-10, 0, 0))
-	_mi(r, _box(Vector3(0.035, 0.1, 0.05)), metal, Vector3(0, -0.045, 0.0), Vector3(-15, 0, 0))
-	_mi(r, _box(Vector3(0.03, 0.05, 0.17)), metal, Vector3(0, 0.125, 0.1))
-	_mi(r, _box(Vector3(0.07, 0.06, 0.12)), cell, Vector3(0.05, 0.03, 0.18))
-	_mi(r, _box(Vector3(0.035, 0.06, 0.05)), metal, Vector3(0, -0.02, 0.3))
+	_mi(r, LookMeshKit.box(Vector3(0.05, 0.1, 0.52)), metal, Vector3(0, 0.05, 0.12))
+	_mi(r, LookMeshKit.cyl(0.016, 0.016, 0.4, 8, 1), metal, Vector3(0, 0.07, 0.56), Vector3(90, 0, 0))
+	_mi(r, LookMeshKit.cyl(0.03, 0.03, 0.16, 8, 1), furn, Vector3(0, 0.07, 0.44), Vector3(90, 0, 0))
+	_mi(r, LookMeshKit.box(Vector3(0.045, 0.13, 0.2)), furn, Vector3(0, 0.0, -0.22), Vector3(-10, 0, 0))
+	_mi(r, LookMeshKit.box(Vector3(0.035, 0.1, 0.05)), metal, Vector3(0, -0.045, 0.0), Vector3(-15, 0, 0))
+	_mi(r, LookMeshKit.box(Vector3(0.03, 0.05, 0.17)), metal, Vector3(0, 0.125, 0.1))
+	_mi(r, LookMeshKit.box(Vector3(0.07, 0.06, 0.12)), cell, Vector3(0.05, 0.03, 0.18))
+	_mi(r, LookMeshKit.box(Vector3(0.035, 0.06, 0.05)), metal, Vector3(0, -0.02, 0.3))
 
 
 ## A guard's seeker launcher in place of the gun the archetype carries: the
@@ -689,7 +657,7 @@ func launcher(body: Node3D) -> void:
 		if old.get_parent() != null:
 			old.get_parent().remove_child(old)
 		old.queue_free()
-	var spec: Dictionary = _read_json(HAND_WEAPONS_PATH).get("seeker_launcher", {})
+	var spec: Dictionary = CoreContent.read_json(HAND_WEAPONS_PATH).get("seeker_launcher", {})
 	var r := Node3D.new()
 	r.name = "Launcher"
 	_j(body, "chest").add_child(r)
@@ -710,7 +678,7 @@ func launcher(body: Node3D) -> void:
 ## The port's locals carry the same pistol undarkened (`dark` false; their
 ## profile's "sidearm", NpcBody).
 func pistol(body: Node3D, dark := true) -> void:
-	var spec: Dictionary = _read_json(HAND_WEAPONS_PATH).get("pistol_blaster", {})
+	var spec: Dictionary = CoreContent.read_json(HAND_WEAPONS_PATH).get("pistol_blaster", {})
 	var path := str(spec.get("model", ""))
 	var packed = ModelCache.scene(path) if path != "" and ResourceLoader.exists(path) else null
 	if not (packed is PackedScene):
@@ -750,11 +718,11 @@ func _dress_smuggler(body: Node3D, p: Dictionary) -> void:
 	var pelvis := _j(body, "pelvis")
 	var head := _j(body, "head")
 	for s in ["l", "r"]:
-		_mi(_j(body, s + "_hip"), _cyl(0.066, 0.09, 0.46, 10), trousers, Vector3(0, -0.23, 0))
-		_mi(_j(body, s + "_knee"), _cyl(0.064, 0.07, 0.27, 10), boots, Vector3(0, -0.29, 0))
-		_mi(_j(body, s + "_knee"), _cyl(0.075, 0.075, 0.04, 10), boots, Vector3(0, -0.16, 0))   # boot cuff
-		_mi(_j(body, s + "_shoulder"), _cyl(0.054, 0.066, 0.3, 10), coat, Vector3(0, -0.15, 0))
-		_mi(_j(body, s + "_elbow"), _cyl(0.05, 0.056, 0.12, 10), coat, Vector3(0, -0.2, 0))      # turned-back cuff
+		_mi(_j(body, s + "_hip"), LookMeshKit.cyl(0.066, 0.09, 0.46, 10, 1), trousers, Vector3(0, -0.23, 0))
+		_mi(_j(body, s + "_knee"), LookMeshKit.cyl(0.064, 0.07, 0.27, 10, 1), boots, Vector3(0, -0.29, 0))
+		_mi(_j(body, s + "_knee"), LookMeshKit.cyl(0.075, 0.075, 0.04, 10, 1), boots, Vector3(0, -0.16, 0))   # boot cuff
+		_mi(_j(body, s + "_shoulder"), LookMeshKit.cyl(0.054, 0.066, 0.3, 10, 1), coat, Vector3(0, -0.15, 0))
+		_mi(_j(body, s + "_elbow"), LookMeshKit.cyl(0.05, 0.056, 0.12, 10, 1), coat, Vector3(0, -0.2, 0))      # turned-back cuff
 	_mi(chest, LookMeshKit.frustum(0.3, 0.2, 0.42, -0.26), shirt, Vector3(0, 0.0, 0.003))
 	# Long duster, open at the front, flaring as it falls; collar turned up against sand.
 	_mi(chest, LookMeshKit.shell(0.21, 0.205, 0.2, -0.24, PI * 0.5 + 0.48, PI * 0.5 + TAU - 0.48, 0.018, 22, 3), coat)
@@ -763,43 +731,43 @@ func _dress_smuggler(body: Node3D, p: Dictionary) -> void:
 	# Short weather cape over the left shoulder: asymmetry, and a second colour block.
 	_mi(chest, LookMeshKit.shell(0.15, 0.235, 0.29, 0.1, -0.7, 1.5, 0.02, 14, 2), wrap)
 	# Gun belt slung low, brass buckle, holster on the right thigh with a grip to reach for.
-	_mi(pelvis, _box(Vector3(0.35, 0.06, 0.235)), leather, Vector3(0, 0.0, 0), Vector3(0, 0, -5))
-	_mi(pelvis, _box(Vector3(0.06, 0.05, 0.02)), brass, Vector3(0.02, 0.0, 0.122))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.35, 0.06, 0.235)), leather, Vector3(0, 0.0, 0), Vector3(0, 0, -5))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.06, 0.05, 0.02)), brass, Vector3(0.02, 0.0, 0.122))
 	var rh := _j(body, "r_hip")
-	_mi(rh, _box(Vector3(0.065, 0.22, 0.11)), leather, Vector3(-0.1, -0.13, 0.0), Vector3(0, 0, 4))
-	_mi(rh, _box(Vector3(0.04, 0.12, 0.075)), _m(Color("#262626"), "metal", 0.4), Vector3(-0.1, 0.0, 0.015), Vector3(18, 0, 4))
-	_mi(rh, _cyl(0.03, 0.03, 0.03, 10), _m(Color("#b0703a"), "metal", 0.3), Vector3(-0.1, -0.03, 0.06), Vector3(90, 0, 0))   # coil
+	_mi(rh, LookMeshKit.box(Vector3(0.065, 0.22, 0.11)), leather, Vector3(-0.1, -0.13, 0.0), Vector3(0, 0, 4))
+	_mi(rh, LookMeshKit.box(Vector3(0.04, 0.12, 0.075)), _m(Color("#262626"), "metal", 0.4), Vector3(-0.1, 0.0, 0.015), Vector3(18, 0, 4))
+	_mi(rh, LookMeshKit.cyl(0.03, 0.03, 0.03, 10, 1), _m(Color("#b0703a"), "metal", 0.3), Vector3(-0.1, -0.03, 0.06), Vector3(90, 0, 0))   # coil
 	var grip := _joint(rh, "holster_grip", Vector3(-0.1, 0.02, 0.03))
 	body.set_meta("holster_grip", grip)
 	# Bandolier of charge cells across the chest.
 	var band := Node3D.new()
 	band.rotation_degrees = Vector3(0, 0, -38)
 	chest.add_child(band)
-	_mi(band, _box(Vector3(0.05, 0.66, 0.012)), leather, Vector3(0, -0.02, 0.122))
+	_mi(band, LookMeshKit.box(Vector3(0.05, 0.66, 0.012)), leather, Vector3(0, -0.02, 0.122))
 	for i in 6:
-		_mi(band, _box(Vector3(0.04, 0.035, 0.03)), brass if i % 2 == 0 else leather, Vector3(0, 0.16 - i * 0.07, 0.135))
-	_mi(_j(body, "l_hip"), _box(Vector3(0.09, 0.2, 0.22)), leather, Vector3(0.13, 0.02, -0.03))
+		_mi(band, LookMeshKit.box(Vector3(0.04, 0.035, 0.03)), brass if i % 2 == 0 else leather, Vector3(0, 0.16 - i * 0.07, 0.135))
+	_mi(_j(body, "l_hip"), LookMeshKit.box(Vector3(0.09, 0.2, 0.22)), leather, Vector3(0.13, 0.02, -0.03))
 	# Head: face wrap up to the eyes, goggles, a scarf tail, and the wide hat.
-	_mi(head, _sphere(0.108, 0.24, 14), _m(Color("#3a2a20"), "cloth", 0.2))
-	_mi(head, _cyl(0.114, 0.126, 0.13, 14), _m(_c(p, "face_wrap", "#2c2622"), "cloth", 0.4), Vector3(0, -0.06, 0.005))
-	_mi(head, _cyl(0.13, 0.15, 0.06, 14), wrap, Vector3(0, -0.13, 0.0))   # scarf knot at the neck
+	_mi(head, LookMeshKit.ball(0.108, 14, 7, 0.24), _m(Color("#3a2a20"), "cloth", 0.2))
+	_mi(head, LookMeshKit.cyl(0.114, 0.126, 0.13, 14, 1), _m(_c(p, "face_wrap", "#2c2622"), "cloth", 0.4), Vector3(0, -0.06, 0.005))
+	_mi(head, LookMeshKit.cyl(0.13, 0.15, 0.06, 14, 1), wrap, Vector3(0, -0.13, 0.0))   # scarf knot at the neck
 	var tail := _mi(head, LookMeshKit.cloth(0.1, 0.42, 0.04, 1, 4), wrap, Vector3(0.05, -0.12, -0.11))
 	tail.rotation_degrees = Vector3(25, 160, -20)
 	var g := _m(_c(p, "goggles"), "metal", 0.5)
 	var lens := _glow(_c(p, "lens"))
 	lens.emission_energy_multiplier = 0.8
 	for sx in [-1.0, 1.0]:
-		_mi(head, _cyl(0.034, 0.034, 0.03, 10), g, Vector3(0.045 * sx, 0.02, 0.098), Vector3(90, 0, 0))
-		_mi(head, _cyl(0.026, 0.026, 0.01, 10), lens, Vector3(0.045 * sx, 0.02, 0.115), Vector3(90, 0, 0))
-	_mi(head, _box(Vector3(0.235, 0.014, 0.18)), g, Vector3(0, 0.03, 0.0))
+		_mi(head, LookMeshKit.cyl(0.034, 0.034, 0.03, 10, 1), g, Vector3(0.045 * sx, 0.02, 0.098), Vector3(90, 0, 0))
+		_mi(head, LookMeshKit.cyl(0.026, 0.026, 0.01, 10, 1), lens, Vector3(0.045 * sx, 0.02, 0.115), Vector3(90, 0, 0))
+	_mi(head, LookMeshKit.box(Vector3(0.235, 0.014, 0.18)), g, Vector3(0, 0.03, 0.0))
 	var hat_node := Node3D.new()
 	hat_node.position = Vector3(0, 0.0, -0.005)
 	hat_node.rotation_degrees = Vector3(-8, 0, 4)
 	head.add_child(hat_node)
 	_mi(hat_node, LookMeshKit.shell(0.29, 0.28, 0.072, 0.09, 0.0, TAU, 0.18, 24, 1), hat)       # brim
-	_mi(hat_node, _cyl(0.08, 0.11, 0.14, 14), hat, Vector3(0, 0.145, 0))                     # crown
-	_mi(hat_node, _box(Vector3(0.02, 0.05, 0.16)), _m(Color("#4a3624"), "leather", 0.5), Vector3(0, 0.215, 0))  # pinch
-	_mi(hat_node, _cyl(0.112, 0.112, 0.024, 14), _m(Color("#2a2018"), "leather", 0.4), Vector3(0, 0.09, 0))
+	_mi(hat_node, LookMeshKit.cyl(0.08, 0.11, 0.14, 14, 1), hat, Vector3(0, 0.145, 0))                     # crown
+	_mi(hat_node, LookMeshKit.box(Vector3(0.02, 0.05, 0.16)), _m(Color("#4a3624"), "leather", 0.5), Vector3(0, 0.215, 0))  # pinch
+	_mi(hat_node, LookMeshKit.cyl(0.112, 0.112, 0.024, 14, 1), _m(Color("#2a2018"), "leather", 0.4), Vector3(0, 0.09, 0))
 
 
 # ------------------------------------------------------------------ duelist
@@ -816,13 +784,13 @@ func _dress_duelist(body: Node3D, p: Dictionary) -> void:
 	_mi(chest, LookMeshKit.frustum(0.29, 0.2, 0.44, -0.24), wraps, Vector3(0, 0.0, 0.002))
 	# Crossed chest wraps (focal zone detail).
 	for sx in [-1.0, 1.0]:
-		_mi(chest, _box(Vector3(0.045, 0.5, 0.012)), bandage, Vector3(0, 0.0, 0.112), Vector3(0, 0, 30 * sx))
+		_mi(chest, LookMeshKit.box(Vector3(0.045, 0.5, 0.012)), bandage, Vector3(0, 0.0, 0.112), Vector3(0, 0, 30 * sx))
 	for s in ["l", "r"]:
 		for i in 4:
-			_mi(_j(body, s + "_elbow"), _cyl(0.05, 0.05, 0.035, 10), bandage, Vector3(0, -0.07 - i * 0.05, 0), Vector3(0, 0, 8 if i % 2 == 0 else -8))
+			_mi(_j(body, s + "_elbow"), LookMeshKit.cyl(0.05, 0.05, 0.035, 10, 1), bandage, Vector3(0, -0.07 - i * 0.05, 0), Vector3(0, 0, 8 if i % 2 == 0 else -8))
 	_mi(pelvis, LookMeshKit.shell(0.19, 0.31, 0.06, -0.86, PI * 0.5 + 0.3, PI * 0.5 + PI - 0.15, 0.015, 12, 6, 0.06), wraps)
 	_mi(pelvis, LookMeshKit.shell(0.19, 0.31, 0.06, -0.86, PI * 0.5 + PI + 0.15, PI * 0.5 + TAU - 0.3, 0.015, 12, 6, 0.06), wraps)
-	_mi(pelvis, _cyl(0.175, 0.18, 0.1, 14), sash, Vector3(0, 0.05, 0))
+	_mi(pelvis, LookMeshKit.cyl(0.175, 0.18, 0.1, 14, 1), sash, Vector3(0, 0.05, 0))
 	var tail := _mi(pelvis, LookMeshKit.cloth(0.09, 0.66, 0.05, 1, 5), sash, Vector3(0.1, 0.02, 0.12))
 	tail.rotation_degrees = Vector3(-8, 20, 6)
 	# Asymmetric mantle: heavy over the right shoulder and down the back.
@@ -831,11 +799,11 @@ func _dress_duelist(body: Node3D, p: Dictionary) -> void:
 	_mi(chest, LookMeshKit.shell(0.13, 0.155, 0.31, 0.2, 0.0, TAU, 0.02, 16, 1), mantle)
 	# Hood thrown back over a sculpted mask: smooth, one vertical slit, a brass seam.
 	_mi(head, LookMeshKit.shell(0.12, 0.135, 0.12, -0.12, PI * 0.5 + 1.2, PI * 0.5 + TAU - 1.2, 0.02, 16, 3), wraps, Vector3(0, 0, -0.025))
-	_mi(head, _sphere(0.108, 0.26, 16), mask, Vector3.ZERO, Vector3.ZERO, Vector3(0.95, 1.0, 1.05))
-	_mi(head, _box(Vector3(0.012, 0.12, 0.02)), _m(Color("#120f0e"), "dark", 0.0), Vector3(0, 0.0, 0.108))
+	_mi(head, LookMeshKit.ball(0.108, 16, 8, 0.26), mask, Vector3.ZERO, Vector3.ZERO, Vector3(0.95, 1.0, 1.05))
+	_mi(head, LookMeshKit.box(Vector3(0.012, 0.12, 0.02)), _m(Color("#120f0e"), "dark", 0.0), Vector3(0, 0.0, 0.108))
 	var seam := _glow(_c(p, "mask_line"))
 	seam.emission_energy_multiplier = 0.5
-	_mi(head, _box(Vector3(0.006, 0.09, 0.01)), seam, Vector3(-0.05, 0.03, 0.102), Vector3(0, 25, 18))
+	_mi(head, LookMeshKit.box(Vector3(0.006, 0.09, 0.01)), seam, Vector3(-0.05, 0.03, 0.102), Vector3(0, 25, 18))
 	_energy_sword(body)
 
 
@@ -882,10 +850,10 @@ func make_energy_sword(color_override: Color = Color(0, 0, 0, 0), length_overrid
 	halo.set_shader_parameter("energy", 0.6)
 	halo.set_shader_parameter("falloff", 2.2)
 	# A round staff: white-hot core, a coloured shell, and a wide soft halo.
-	_mi(blade, _cyl(0.008, 0.01, length, 12), core, Vector3(0, length * 0.5, 0)).name = "Core"
-	_mi(blade, _sphere(0.008, 0.016, 12), core, Vector3(0, length, 0)).name = "Tip"
-	_mi(blade, _cyl(0.022, 0.025, length * 1.03, 14), glow, Vector3(0, length * 0.515, 0)).name = "Glow"
-	_mi(blade, _cyl(0.05, 0.055, length * 1.06, 14), halo, Vector3(0, length * 0.52, 0)).name = "Halo"
+	_mi(blade, LookMeshKit.cyl(0.008, 0.01, length, 12, 1), core, Vector3(0, length * 0.5, 0)).name = "Core"
+	_mi(blade, LookMeshKit.ball(0.008, 12, 6, 0.016), core, Vector3(0, length, 0)).name = "Tip"
+	_mi(blade, LookMeshKit.cyl(0.022, 0.025, length * 1.03, 14, 1), glow, Vector3(0, length * 0.515, 0)).name = "Glow"
+	_mi(blade, LookMeshKit.cyl(0.05, 0.055, length * 1.06, 14, 1), halo, Vector3(0, length * 0.52, 0)).name = "Halo"
 	var light := OmniLight3D.new()
 	light.name = "BladeLight"
 	light.light_color = color
@@ -912,9 +880,9 @@ func _sword_hilt(path: String) -> Node3D:
 		hilt.add_child(model)
 		return hilt
 	var metal := _m(Color("#9a9ea4"), "metal", 0.6)
-	_mi(hilt, _cyl(0.019, 0.021, 0.25, 10), _m(Color("#2a2826"), "leather", 0.4), Vector3(0, -0.13, 0))
-	_mi(hilt, _cyl(0.024, 0.02, 0.04, 10), metal, Vector3(0, 0.0, 0))
-	_mi(hilt, _sphere(0.024, 0.04, 10), metal, Vector3(0, -0.26, 0))
+	_mi(hilt, LookMeshKit.cyl(0.019, 0.021, 0.25, 10, 1), _m(Color("#2a2826"), "leather", 0.4), Vector3(0, -0.13, 0))
+	_mi(hilt, LookMeshKit.cyl(0.024, 0.02, 0.04, 10, 1), metal, Vector3(0, 0.0, 0))
+	_mi(hilt, LookMeshKit.ball(0.024, 10, 5, 0.04), metal, Vector3(0, -0.26, 0))
 	return hilt
 
 
@@ -969,36 +937,36 @@ func _dress_cantina_owner(body: Node3D, p: Dictionary) -> void:
 	var pelvis := _j(body, "pelvis")
 	var head := _j(body, "head")
 	for s in ["l", "r"]:
-		_mi(_j(body, s + "_hip"), _cyl(0.066, 0.088, 0.46, 10), trousers, Vector3(0, -0.23, 0))
-		_mi(_j(body, s + "_shoulder"), _cyl(0.056, 0.064, 0.24, 10), shirt, Vector3(0, -0.12, 0))
-		_mi(_j(body, s + "_shoulder"), _cyl(0.064, 0.064, 0.05, 10), shirt, Vector3(0, -0.25, 0))   # rolled cuff
+		_mi(_j(body, s + "_hip"), LookMeshKit.cyl(0.066, 0.088, 0.46, 10, 1), trousers, Vector3(0, -0.23, 0))
+		_mi(_j(body, s + "_shoulder"), LookMeshKit.cyl(0.056, 0.064, 0.24, 10, 1), shirt, Vector3(0, -0.12, 0))
+		_mi(_j(body, s + "_shoulder"), LookMeshKit.cyl(0.064, 0.064, 0.05, 10, 1), shirt, Vector3(0, -0.25, 0))   # rolled cuff
 	_mi(chest, LookMeshKit.frustum(0.3, 0.2, 0.43, -0.26), shirt, Vector3(0, 0.0, 0.002))
 	# Vest: open, cut short; a second colour block over the shirt.
 	_mi(chest, LookMeshKit.shell(0.205, 0.2, 0.2, -0.22, PI * 0.5 + 0.42, PI * 0.5 + TAU - 0.42, 0.016, 20, 2), vest)
 	for sx in [-1.0, 1.0]:
-		_mi(chest, _box(Vector3(0.016, 0.02, 0.02)), brass, Vector3(0.07 * sx, -0.02, 0.125))
+		_mi(chest, LookMeshKit.box(Vector3(0.016, 0.02, 0.02)), brass, Vector3(0.07 * sx, -0.02, 0.125))
 	# Apron: long, straight, to mid-shin. Neck strap and a waist tie.
-	_mi(pelvis, _box(Vector3(0.36, 0.72, 0.012)), apron, Vector3(0, -0.32, 0.135), Vector3(-3, 0, 0))
-	_mi(chest, _box(Vector3(0.24, 0.3, 0.012)), apron, Vector3(0, 0.0, 0.128), Vector3(-6, 0, 0))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.36, 0.72, 0.012)), apron, Vector3(0, -0.32, 0.135), Vector3(-3, 0, 0))
+	_mi(chest, LookMeshKit.box(Vector3(0.24, 0.3, 0.012)), apron, Vector3(0, 0.0, 0.128), Vector3(-6, 0, 0))
 	for sx in [-1.0, 1.0]:
-		_mi(chest, _box(Vector3(0.02, 0.26, 0.01)), apron, Vector3(0.09 * sx, 0.24, 0.07), Vector3(-30, 0, -14 * sx))
-	_mi(pelvis, _cyl(0.18, 0.185, 0.04, 14), apron, Vector3(0, 0.03, 0))
-	_mi(pelvis, _box(Vector3(0.12, 0.08, 0.05)), towel, Vector3(-0.12, -0.08, 0.15))   # pocket rag
+		_mi(chest, LookMeshKit.box(Vector3(0.02, 0.26, 0.01)), apron, Vector3(0.09 * sx, 0.24, 0.07), Vector3(-30, 0, -14 * sx))
+	_mi(pelvis, LookMeshKit.cyl(0.18, 0.185, 0.04, 14, 1), apron, Vector3(0, 0.03, 0))
+	_mi(pelvis, LookMeshKit.box(Vector3(0.12, 0.08, 0.05)), towel, Vector3(-0.12, -0.08, 0.15))   # pocket rag
 	# Mechanical left forearm: plates, a piston, a glowing joint.
 	var le := _j(body, "l_elbow")
-	_mi(le, _cyl(0.042, 0.05, 0.25, 8), metal, Vector3(0, -0.13, 0))
-	_mi(le, _cyl(0.008, 0.008, 0.22, 6), brass, Vector3(0.04, -0.13, 0.02))
-	_mi(le, _sphere(0.05, 0.08, 10), metal, Vector3(0, 0.0, 0))
+	_mi(le, LookMeshKit.cyl(0.042, 0.05, 0.25, 8, 1), metal, Vector3(0, -0.13, 0))
+	_mi(le, LookMeshKit.cyl(0.008, 0.008, 0.22, 6, 1), brass, Vector3(0.04, -0.13, 0.02))
+	_mi(le, LookMeshKit.ball(0.05, 10, 5, 0.08), metal, Vector3(0, 0.0, 0))
 	var core := _glow(_c(p, "prosthetic_glow", "#7fd0c8"))
 	core.emission_energy_multiplier = 1.4
-	_mi(le, _cyl(0.02, 0.02, 0.02, 8), core, Vector3(0, -0.02, 0.045), Vector3(90, 0, 0))
+	_mi(le, LookMeshKit.cyl(0.02, 0.02, 0.02, 8, 1), core, Vector3(0, -0.02, 0.045), Vector3(90, 0, 0))
 	# Bar towel over the right shoulder.
 	var t1 := _mi(chest, LookMeshKit.cloth(0.11, 0.42, 0.03, 1, 3), towel, Vector3(-0.17, 0.27, 0.02))
 	t1.rotation_degrees = Vector3(0, 0, 8)
 	# Head: wrap, goggles pushed up on the forehead, breather mask over mouth and nose.
-	_mi(head, _sphere(0.104, 0.235, 14), dark)
+	_mi(head, LookMeshKit.ball(0.104, 14, 7, 0.235), dark)
 	for i in 3:
-		_mi(head, _cyl(0.112 - i * 0.012, 0.118 - i * 0.008, 0.05, 14), wrap,
+		_mi(head, LookMeshKit.cyl(0.112 - i * 0.012, 0.118 - i * 0.008, 0.05, 14, 1), wrap,
 			Vector3(0, 0.05 + i * 0.045, -0.012), Vector3(-10 + i * 4, 0, -3 + i * 3))
 	var tail := _mi(head, LookMeshKit.cloth(0.08, 0.3, 0.03, 1, 3), wrap, Vector3(0.04, 0.06, -0.11))
 	tail.rotation_degrees = Vector3(14, 165, 10)
@@ -1006,12 +974,12 @@ func _dress_cantina_owner(body: Node3D, p: Dictionary) -> void:
 	var lens := _glow(_c(p, "lens", "#e0a050"))
 	lens.emission_energy_multiplier = 0.6
 	for sx in [-1.0, 1.0]:
-		_mi(head, _cyl(0.03, 0.03, 0.03, 10), g, Vector3(0.042 * sx, 0.1, 0.085), Vector3(60, 0, 0))
-		_mi(head, _cyl(0.023, 0.023, 0.01, 10), lens, Vector3(0.042 * sx, 0.11, 0.1), Vector3(60, 0, 0))
-	_mi(head, _box(Vector3(0.22, 0.012, 0.16)), g, Vector3(0, 0.1, 0.0), Vector3(-15, 0, 0))
-	_mi(head, _sphere(0.07, 0.09, 12), _m(_c(p, "mask", "#3c3a36"), "metal", 0.4), Vector3(0, -0.055, 0.075), Vector3.ZERO, Vector3(1.0, 0.8, 0.75))
+		_mi(head, LookMeshKit.cyl(0.03, 0.03, 0.03, 10, 1), g, Vector3(0.042 * sx, 0.1, 0.085), Vector3(60, 0, 0))
+		_mi(head, LookMeshKit.cyl(0.023, 0.023, 0.01, 10, 1), lens, Vector3(0.042 * sx, 0.11, 0.1), Vector3(60, 0, 0))
+	_mi(head, LookMeshKit.box(Vector3(0.22, 0.012, 0.16)), g, Vector3(0, 0.1, 0.0), Vector3(-15, 0, 0))
+	_mi(head, LookMeshKit.ball(0.07, 12, 6, 0.09), _m(_c(p, "mask", "#3c3a36"), "metal", 0.4), Vector3(0, -0.055, 0.075), Vector3.ZERO, Vector3(1.0, 0.8, 0.75))
 	for sx in [-1.0, 1.0]:
-		_mi(head, _cyl(0.022, 0.022, 0.03, 8), g, Vector3(0.05 * sx, -0.07, 0.11), Vector3(90, 0, 0))   # filters
+		_mi(head, LookMeshKit.cyl(0.022, 0.022, 0.03, 8, 1), g, Vector3(0.05 * sx, -0.07, 0.11), Vector3(90, 0, 0))   # filters
 
 
 ## A glass and a rag: the cantina owner's props (the npc's animator moves her hands).
@@ -1023,11 +991,11 @@ func make_bar_glass() -> Node3D:
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.roughness = 0.1
 	glass.metallic_specular = 0.8
-	_mi(root, _cyl(0.035, 0.03, 0.11, 12), glass, Vector3(0, 0.055, 0))
+	_mi(root, LookMeshKit.cyl(0.035, 0.03, 0.11, 12, 1), glass, Vector3(0, 0.055, 0))
 	var drink := StandardMaterial3D.new()
 	drink.albedo_color = Color(0.85, 0.5, 0.15, 0.8)
 	drink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mi(root, _cyl(0.031, 0.028, 0.06, 12), drink, Vector3(0, 0.033, 0))
+	_mi(root, LookMeshKit.cyl(0.031, 0.028, 0.06, 12, 1), drink, Vector3(0, 0.033, 0))
 	return root
 
 
@@ -1044,24 +1012,24 @@ func _dress_local(body: Node3D, p: Dictionary) -> void:
 	_mi(chest, LookMeshKit.shell(0.21, 0.22, 0.24, -0.25, 0.0, TAU, 0.03, 18, 3), robe)
 	_mi(pelvis, LookMeshKit.shell(0.22, 0.35, 0.08, -0.93, 0.0, TAU, 0.03, 20, 6, 0.05), robe)
 	for s in ["l", "r"]:
-		_mi(_j(body, s + "_shoulder"), _cyl(0.06, 0.09, 0.42, 10), robe, Vector3(0, -0.22, 0))
+		_mi(_j(body, s + "_shoulder"), LookMeshKit.cyl(0.06, 0.09, 0.42, 10, 1), robe, Vector3(0, -0.22, 0))
 	_mi(chest, LookMeshKit.shell(0.2, 0.26, 0.28, 0.04, 0.0, TAU, 0.03, 18, 2), hood)
 	# Head wrap: layered bands, slightly askew, and a veil over the lower face.
-	_mi(head, _sphere(0.1, 0.23, 12), _m(Color("#1c1816"), "dark", 0.0))
+	_mi(head, LookMeshKit.ball(0.1, 12, 6, 0.23), _m(Color("#1c1816"), "dark", 0.0))
 	for i in 4:
-		_mi(head, _cyl(0.118 - i * 0.012, 0.124 - i * 0.008, 0.05, 14), hood if i % 2 == 0 else robe,
+		_mi(head, LookMeshKit.cyl(0.118 - i * 0.012, 0.124 - i * 0.008, 0.05, 14, 1), hood if i % 2 == 0 else robe,
 			Vector3(0.005 * i, 0.03 + i * 0.04, -0.01), Vector3(-8 + i * 3, 0, 4 - i * 3))
-	_mi(head, _sphere(0.07, 0.07, 10), hood, Vector3(0.01, 0.2, -0.02))
+	_mi(head, LookMeshKit.ball(0.07, 10, 5, 0.07), hood, Vector3(0.01, 0.2, -0.02))
 	var veil := _mi(head, LookMeshKit.cloth(0.2, 0.2, 0.05, 2, 2), wrap, Vector3(0, -0.01, 0.105))
 	veil.rotation_degrees = Vector3(6, 0, 0)
 	var tail := _mi(head, LookMeshKit.cloth(0.1, 0.36, 0.05, 1, 3), hood, Vector3(-0.07, 0.08, -0.1))
 	tail.rotation_degrees = Vector3(18, 200, 0)
-	_mi(pelvis, _cyl(0.2, 0.21, 0.07, 14), wrap, Vector3(0, 0.06, 0))
+	_mi(pelvis, LookMeshKit.cyl(0.2, 0.21, 0.07, 14, 1), wrap, Vector3(0, 0.06, 0))
 	# A woven pack on the back: the silhouette says "carries everything they own".
 	if not bool(p.get("no_local_props", false)):
-		_mi(chest, _cyl(0.13, 0.11, 0.42, 12), _m(Color("#8a6a44"), "leather", 0.7), Vector3(0, 0.02, -0.24), Vector3(8, 0, 0))
-		_mi(chest, _sphere(0.12, 0.1, 10), wrap, Vector3(0, 0.25, -0.25))
-		var staff := _mi(_j(body, "r_wrist"), _cyl(0.018, 0.022, 1.8, 6), wood, Vector3(0, -0.06, 0.03))
+		_mi(chest, LookMeshKit.cyl(0.13, 0.11, 0.42, 12, 1), _m(Color("#8a6a44"), "leather", 0.7), Vector3(0, 0.02, -0.24), Vector3(8, 0, 0))
+		_mi(chest, LookMeshKit.ball(0.12, 10, 5, 0.1), wrap, Vector3(0, 0.25, -0.25))
+		var staff := _mi(_j(body, "r_wrist"), LookMeshKit.cyl(0.018, 0.022, 1.8, 6, 1), wood, Vector3(0, -0.06, 0.03))
 		staff.rotation_degrees = Vector3(-75, 0, 0)
 
 

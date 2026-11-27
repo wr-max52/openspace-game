@@ -35,13 +35,13 @@ static func build(tint: Dictionary = {}, spec: Dictionary = {}) -> Node3D:
 	var grip := _mat("#2a2826", 0.0, 0.85)
 	var glow := _glow(str(tint.get("glow", "#7fd8ff")))
 	# The handle, where the blade's hilt is, and the hose out of its foot.
-	_mi(root, _cyl(0.021, 0.023, 0.22), grip, Vector3(0, -0.12, 0))
-	_mi(root, _cyl(0.026, 0.026, 0.02), trim, Vector3(0, -0.235, 0))
+	_mi(root, LookMeshKit.cyl(0.021, 0.023, 0.22, 10, 1), grip, Vector3(0, -0.12, 0))
+	_mi(root, LookMeshKit.cyl(0.026, 0.026, 0.02, 10, 1), trim, Vector3(0, -0.235, 0))
 	_seg(root, Vector3(0, -0.245, 0), Vector3(0, -0.33, -0.06), 0.014, 0.014, grip)
 	# The head on top, and the trigger under its front.
-	_mi(root, _box(Vector3(0.05, 0.06, 0.07)), body, Vector3(0, 0.025, 0.01))
-	_mi(root, _box(Vector3(0.054, 0.01, 0.074)), trim, Vector3(0, 0.0, 0.01))
-	_mi(root, _box(Vector3(0.016, 0.045, 0.014)), accent, Vector3(0, -0.03, 0.035))
+	_mi(root, LookMeshKit.box(Vector3(0.05, 0.06, 0.07)), body, Vector3(0, 0.025, 0.01))
+	_mi(root, LookMeshKit.box(Vector3(0.054, 0.01, 0.074)), trim, Vector3(0, 0.0, 0.01))
+	_mi(root, LookMeshKit.box(Vector3(0.016, 0.045, 0.014)), accent, Vector3(0, -0.03, 0.035))
 	# The neck: up at an angle, a joint, then straight ahead to the nozzle.
 	var a := Vector3(0, 0.05, 0.02)
 	var d1 := Vector3(0, cos(deg_to_rad(NECK_DEG)), sin(deg_to_rad(NECK_DEG)))
@@ -63,7 +63,7 @@ static func build(tint: Dictionary = {}, spec: Dictionary = {}) -> Node3D:
 	# The nozzle: a wider trim cup with a glowing ring at the tip.
 	var e := c + d2 * 0.045
 	_seg(root, c, e, 0.014, 0.017, trim)
-	var ring := _mi(root, _cyl(0.0085, 0.0085, 0.004), glow, e)
+	var ring := _mi(root, LookMeshKit.cyl(0.0085, 0.0085, 0.004, 10, 1), glow, e)
 	ring.basis = _along(d2)
 	var nozzle := Node3D.new()
 	nozzle.name = "Nozzle"
@@ -98,7 +98,7 @@ static func _v3(a) -> Vector3:
 ## A cylinder from `from` to `to` (radii at each end).
 static func _seg(parent: Node3D, from: Vector3, to: Vector3, r_from: float, r_to: float, mat: Material) -> MeshInstance3D:
 	var d := to - from
-	var m := _mi(parent, _cyl(r_to, r_from, d.length()), mat, (from + to) * 0.5)
+	var m := _mi(parent, LookMeshKit.cyl(r_to, r_from, d.length(), 10, 1), mat, (from + to) * 0.5)
 	m.basis = _along(d.normalized())
 	return m
 
@@ -119,22 +119,6 @@ static func _mi(parent: Node3D, mesh: Mesh, mat: Material, at: Vector3) -> MeshI
 	m.position = at
 	parent.add_child(m)
 	return m
-
-
-static func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = 10
-	c.rings = 1
-	return c
-
-
-static func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
 
 
 static func _mat(hex: String, metal: float, rough: float) -> StandardMaterial3D:

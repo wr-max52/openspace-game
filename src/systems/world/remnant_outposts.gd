@@ -869,40 +869,40 @@ func _dress(o: Dictionary) -> void:
 			var ps := WorldGround._v3(piece.get("size", [1, 1, 1]))
 			var pc := WorldGround._v3(piece.get("position", [0, 0, 0]))
 			var down := skirt if pc.y - c.y <= 0.001 else 0.0
-			_mesh(o, _box(ps + Vector3(0, down, 0)), wall, pc + Vector3(0, (ps.y - down) * 0.5, 0))
-		_mesh(o, _box(Vector3(s.x + 0.6, 0.35, s.z + 0.6)), black, c + Vector3(0, s.y + 0.17, 0))
+			_mesh(o, LookMeshKit.box(ps + Vector3(0, down, 0)), wall, pc + Vector3(0, (ps.y - down) * 0.5, 0))
+		_mesh(o, LookMeshKit.box(Vector3(s.x + 0.6, 0.35, s.z + 0.6)), black, c + Vector3(0, s.y + 0.17, 0))
 		if room:
 			_ring(o, c, s, 0.3, 0.5 + skirt - 1.0, 0.1 - (skirt - 1.0) * 0.5, black, OutpostRoom.door_width(b) + 0.4)
 			_ring(o, c, s, 0.04, 0.3, s.y - 0.6, red)
 		else:
-			_mesh(o, _box(Vector3(s.x + 0.3, 0.5 + skirt - 1.0, s.z + 0.3)), black, c + Vector3(0, 0.1 - (skirt - 1.0) * 0.5, 0))
-			_mesh(o, _box(Vector3(s.x + 0.04, 0.3, s.z + 0.04)), red, c + Vector3(0, s.y - 0.6, 0))
+			_mesh(o, LookMeshKit.box(Vector3(s.x + 0.3, 0.5 + skirt - 1.0, s.z + 0.3)), black, c + Vector3(0, 0.1 - (skirt - 1.0) * 0.5, 0))
+			_mesh(o, LookMeshKit.box(Vector3(s.x + 0.04, 0.3, s.z + 0.04)), red, c + Vector3(0, s.y - 0.6, 0))
 		# Corner posts, and steel ribs down the long sides.
 		for sx in [-1.0, 1.0]:
 			for sz in [-1.0, 1.0]:
-				_mesh(o, _box(Vector3(0.34, s.y + 0.1, 0.34)), steel, c + Vector3(hx * sx, s.y * 0.5, hz * sz))
+				_mesh(o, LookMeshKit.box(Vector3(0.34, s.y + 0.1, 0.34)), steel, c + Vector3(hx * sx, s.y * 0.5, hz * sz))
 		var ribs := maxi(1, int(s.x / 2.4))
 		for i in range(1, ribs):
 			var x := -hx + s.x * float(i) / float(ribs)
 			for sz in [-1.0, 1.0]:
-				_mesh(o, _box(Vector3(0.14, s.y - 0.4, 0.1)), steel, c + Vector3(x, s.y * 0.5, (hz + 0.03) * sz))
+				_mesh(o, LookMeshKit.box(Vector3(0.14, s.y - 0.4, 0.1)), steel, c + Vector3(x, s.y * 0.5, (hz + 0.03) * sz))
 		if room:
 			# Issue #309: the doorway, open, in a red frame, a lamp over it.
 			var dw := OutpostRoom.door_width(b)
 			var dh := OutpostRoom.door_height(b)
 			for sz: float in [-1.0, 1.0]:
-				_mesh(o, _box(Vector3(0.14, dh + 0.2, 0.2)), red, c + Vector3(hx + 0.02, (dh + 0.2) * 0.5, (dw * 0.5 + 0.1) * sz))
-			_mesh(o, _box(Vector3(0.14, 0.2, dw + 0.4)), red, c + Vector3(hx + 0.02, dh + 0.1, 0))
-			_mesh(o, _box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, dh + 0.35, 0))
+				_mesh(o, LookMeshKit.box(Vector3(0.14, dh + 0.2, 0.2)), red, c + Vector3(hx + 0.02, (dh + 0.2) * 0.5, (dw * 0.5 + 0.1) * sz))
+			_mesh(o, LookMeshKit.box(Vector3(0.14, 0.2, dw + 0.4)), red, c + Vector3(hx + 0.02, dh + 0.1, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, dh + 0.35, 0))
 		else:
 			# The door, toward the town: a red frame, a dark door with a seam, a step, a lamp over it.
-			_mesh(o, _box(Vector3(0.14, 2.5, 1.8)), red, c + Vector3(hx + 0.02, 1.25, 0))
-			_mesh(o, _box(Vector3(0.16, 2.2, 1.4)), black, c + Vector3(hx + 0.06, 1.1, 0))
-			_mesh(o, _box(Vector3(0.17, 2.1, 0.03)), steel, c + Vector3(hx + 0.07, 1.1, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.14, 2.5, 1.8)), red, c + Vector3(hx + 0.02, 1.25, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.16, 2.2, 1.4)), black, c + Vector3(hx + 0.06, 1.1, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.17, 2.1, 0.03)), steel, c + Vector3(hx + 0.07, 1.1, 0))
 			var step := 0.18 + _sink(o, c + Vector3(hx + 0.4, 0, 0), 0.4, 1.0)
-			_mesh(o, _box(Vector3(0.8, step, 2.0)), steel, c + Vector3(hx + 0.4, 0.18 - step * 0.5, 0))
-			_mesh(o, _box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, 2.75, 0))
-		_mesh(o, _box(Vector3(0.05, 2.6, 0.9)), red, c + Vector3(hx + 0.05, s.y - 1.7, hz - 0.9))
+			_mesh(o, LookMeshKit.box(Vector3(0.8, step, 2.0)), steel, c + Vector3(hx + 0.4, 0.18 - step * 0.5, 0))
+			_mesh(o, LookMeshKit.box(Vector3(0.22, 0.12, 0.7)), mats.glow(Color("#ffb04a")), c + Vector3(hx + 0.12, 2.75, 0))
+		_mesh(o, LookMeshKit.box(Vector3(0.05, 2.6, 0.9)), red, c + Vector3(hx + 0.05, s.y - 1.7, hz - 0.9))
 		# Vents: two on the back, one on each side.
 		for v in [Vector3(-hx - 0.05, 1.4, -hz * 0.45), Vector3(-hx - 0.05, 1.4, hz * 0.45)]:
 			_vent(o, c + v, Basis.IDENTITY, grille, steel)
@@ -910,25 +910,25 @@ func _dress(o: Dictionary) -> void:
 			_vent(o, c + Vector3(-hx * 0.35, 1.9, (hz + 0.05) * sz), Basis(Vector3.UP, PI * 0.5), grille, steel)
 		# Red lamps at the front corners of the roof.
 		for sz in [-1.0, 1.0]:
-			_mesh(o, _box(Vector3(0.18, 0.18, 0.18)), lamp, c + Vector3(hx + 0.1, s.y + 0.45, (hz + 0.1) * sz))
+			_mesh(o, LookMeshKit.box(Vector3(0.18, 0.18, 0.18)), lamp, c + Vector3(hx + 0.1, s.y + 0.45, (hz + 0.1) * sz))
 		# A roof unit with a fan and a hatch.
 		var ru := c + Vector3(hx * 0.3, s.y + 0.35, -hz * 0.35)
-		_mesh(o, _box(Vector3(1.4, 0.6, 1.0)), steel, ru + Vector3(0, 0.3, 0))
-		_mesh(o, _cyl(0.38, 0.04), grille, ru + Vector3(0, 0.62, 0))
-		_mesh(o, _box(Vector3(0.9, 0.12, 0.9)), black, c + Vector3(-hx * 0.4, s.y + 0.41, hz * 0.3))
+		_mesh(o, LookMeshKit.box(Vector3(1.4, 0.6, 1.0)), steel, ru + Vector3(0, 0.3, 0))
+		_mesh(o, LookMeshKit.cyl(0.38, 0.38, 0.04, 8), grille, ru + Vector3(0, 0.62, 0))
+		_mesh(o, LookMeshKit.box(Vector3(0.9, 0.12, 0.9)), black, c + Vector3(-hx * 0.4, s.y + 0.41, hz * 0.3))
 		if bool(look.get("mast", false)):
-			_mesh(o, _cyl(0.12, 6.0), steel, c + Vector3(-s.x * 0.25, s.y + 3.0, -s.z * 0.25))
-			_mesh(o, _box(Vector3(1.6, 0.1, 0.1)), steel, c + Vector3(-s.x * 0.25, s.y + 5.4, -s.z * 0.25))
-			_mesh(o, _box(Vector3(0.25, 0.25, 0.25)), lamp, c + Vector3(-s.x * 0.25, s.y + 6.1, -s.z * 0.25))
+			_mesh(o, LookMeshKit.cyl(0.12, 0.12, 6.0, 8), steel, c + Vector3(-s.x * 0.25, s.y + 3.0, -s.z * 0.25))
+			_mesh(o, LookMeshKit.box(Vector3(1.6, 0.1, 0.1)), steel, c + Vector3(-s.x * 0.25, s.y + 5.4, -s.z * 0.25))
+			_mesh(o, LookMeshKit.box(Vector3(0.25, 0.25, 0.25)), lamp, c + Vector3(-s.x * 0.25, s.y + 6.1, -s.z * 0.25))
 		else:
-			_mesh(o, _cyl(0.04, 1.6), steel, c + Vector3(-hx + 0.5, s.y + 1.1, -hz + 0.5))
+			_mesh(o, LookMeshKit.cyl(0.04, 0.04, 1.6, 8), steel, c + Vector3(-hx + 0.5, s.y + 1.1, -hz + 0.5))
 		if bool(look.get("tower", false)):
 			var t := c + Vector3(-hx - 1.2, 0, hz + 1.2)
 			for dx in [-1.0, 1.0]:
 				for dz in [-1.0, 1.0]:
-					_mesh(o, _box(Vector3(0.25, 7.0, 0.25)), black, t + Vector3(dx, 3.5, dz))
-			_mesh(o, _box(Vector3(2.8, 0.25, 2.8)), steel, t + Vector3(0, 7.0, 0))
-			_mesh(o, _box(Vector3(2.8, 0.9, 0.12)), red, t + Vector3(0, 7.5, 1.35))
+					_mesh(o, LookMeshKit.box(Vector3(0.25, 7.0, 0.25)), black, t + Vector3(dx, 3.5, dz))
+			_mesh(o, LookMeshKit.box(Vector3(2.8, 0.25, 2.8)), steel, t + Vector3(0, 7.0, 0))
+			_mesh(o, LookMeshKit.box(Vector3(2.8, 0.9, 0.12)), red, t + Vector3(0, 7.5, 1.35))
 	# The light over the door, so the outpost reads at night.
 	var light := OmniLight3D.new()
 	light.light_color = Color("#ff9a50")
@@ -950,14 +950,14 @@ func _ring(o: Dictionary, c: Vector3, s: Vector3, grow: float, h: float, y: floa
 	var oz := s.z * 0.5 + grow * 0.5 - t * 0.5
 	var lz := s.z + grow - 2.0 * t
 	for sz: float in [-1.0, 1.0]:
-		_mesh(o, _box(Vector3(s.x + grow, h, t)), mat, c + Vector3(0, y, oz * sz))
-	_mesh(o, _box(Vector3(t, h, lz)), mat, c + Vector3(-ox, y, 0))
+		_mesh(o, LookMeshKit.box(Vector3(s.x + grow, h, t)), mat, c + Vector3(0, y, oz * sz))
+	_mesh(o, LookMeshKit.box(Vector3(t, h, lz)), mat, c + Vector3(-ox, y, 0))
 	if gap <= 0.0:
-		_mesh(o, _box(Vector3(t, h, lz)), mat, c + Vector3(ox, y, 0))
+		_mesh(o, LookMeshKit.box(Vector3(t, h, lz)), mat, c + Vector3(ox, y, 0))
 		return
 	var seg := (lz - gap) * 0.5
 	for sz: float in [-1.0, 1.0]:
-		_mesh(o, _box(Vector3(t, h, seg)), mat, c + Vector3(ox, y, (gap + seg) * 0.5 * sz))
+		_mesh(o, LookMeshKit.box(Vector3(t, h, seg)), mat, c + Vector3(ox, y, (gap + seg) * 0.5 * sz))
 
 
 ## How far the sand falls below the outpost's floor (local y = 0) at the corners and
@@ -973,9 +973,9 @@ func _sink(o: Dictionary, c: Vector3, hx: float, hz: float) -> float:
 
 ## A vent grille facing out of a wall (its basis turns +X to the wall's normal).
 func _vent(o: Dictionary, at: Vector3, basis: Basis, grille: Material, frame: Material) -> void:
-	_mesh(o, _box(Vector3(0.08, 0.6, 1.0)), frame, at, basis)
+	_mesh(o, LookMeshKit.box(Vector3(0.08, 0.6, 1.0)), frame, at, basis)
 	for k in 3:
-		_mesh(o, _box(Vector3(0.1, 0.07, 0.86)), grille, at + basis * Vector3(0.0, -0.18 + k * 0.18, 0.0), basis)
+		_mesh(o, LookMeshKit.box(Vector3(0.1, 0.07, 0.86)), grille, at + basis * Vector3(0.0, -0.18 + k * 0.18, 0.0), basis)
 
 
 ## Issue #309: how far the sand rises above the outpost's floor (local y = 0)
@@ -1110,14 +1110,14 @@ func _room_look(o: Dictionary, b: Dictionary, parts: Array, up: Vector3, ramp: D
 		_near_only(light)
 	if not ramp.is_empty():
 		var xf: Transform3D = ramp.xf
-		_mesh(o, _box(ramp.size), demo._flat_mats().flat(Color("#5d6168"), 0.35, 0.75), xf.origin, xf.basis)
+		_mesh(o, LookMeshKit.box(ramp.size), demo._flat_mats().flat(Color("#5d6168"), 0.35, 0.75), xf.origin, xf.basis)
 
 
 ## The room's inside is drawn only up close (content/look/world.json
 ## draw_distance.room_m): its own range, so DrawDistance's size rules leave it be;
 ## the "draw_distance_m" meta lets Low graphics scale it with the rest.
 func _near_only(n: Node3D) -> void:
-	var dd: Dictionary = ItemKit._read_json(DrawDistance.LOOK_PATH).get("draw_distance", {}) if _room_draw.is_empty() else _room_draw
+	var dd: Dictionary = CoreContent.read_json(DrawDistance.LOOK_PATH).get("draw_distance", {}) if _room_draw.is_empty() else _room_draw
 	_room_draw = dd
 	var end := float(dd.get("room_m", 50.0))
 	n.set_meta(DrawDistance.BASE, end)
@@ -1474,19 +1474,19 @@ func _prop_look(parent: Node3D, pr: Dictionary, xf: Transform3D, mats: LookMater
 		"crate":
 			var body_mat := mats.flat(Color("#3d4046") if int(pr.level) % 2 == 0 else Color("#2a2c30"), 0.5, 0.55)
 			var band := mats.flat(Color("#1a1a1c"), 0.6, 0.4)
-			add.call(_box(Vector3(r * 2.0, h, r * 2.0)), body_mat, Transform3D.IDENTITY)
+			add.call(LookMeshKit.box(Vector3(r * 2.0, h, r * 2.0)), body_mat, Transform3D.IDENTITY)
 			for y in [-h * 0.36, h * 0.36]:
-				add.call(_box(Vector3(r * 2.04, 0.08, r * 2.04)), band, Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
-			add.call(_box(Vector3(r * 0.9, h * 0.25, 0.02)), mats.flat(Color("#a81e1a"), 0.7), Transform3D(Basis.IDENTITY, Vector3(0, 0, r + 0.01)))
+				add.call(LookMeshKit.box(Vector3(r * 2.04, 0.08, r * 2.04)), band, Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
+			add.call(LookMeshKit.box(Vector3(r * 0.9, h * 0.25, 0.02)), mats.flat(Color("#a81e1a"), 0.7), Transform3D(Basis.IDENTITY, Vector3(0, 0, r + 0.01)))
 		"canister":
 			var shell := mats.flat(Color("#4f535a"), 0.35, 0.8)
-			add.call(_cyl(r, h * 0.82), shell, Transform3D(Basis.IDENTITY, Vector3(0, -h * 0.05, 0)))
-			add.call(_cyl(r * 0.55, h * 0.14), mats.flat(Color("#1a1a1c"), 0.5, 0.6), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.42, 0)))
-			add.call(_cyl(r * 1.02, 0.1), mats.flat(Color("#c8a02a"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.12, 0)))
+			add.call(LookMeshKit.cyl(r, r, h * 0.82, 8), shell, Transform3D(Basis.IDENTITY, Vector3(0, -h * 0.05, 0)))
+			add.call(LookMeshKit.cyl(r * 0.55, r * 0.55, h * 0.14, 8), mats.flat(Color("#1a1a1c"), 0.5, 0.6), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.42, 0)))
+			add.call(LookMeshKit.cyl(r * 1.02, r * 1.02, 0.1, 8), mats.flat(Color("#c8a02a"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, h * 0.12, 0)))
 		"drum":
-			add.call(_cyl(r, h), mats.flat(Color("#202226"), 0.55, 0.5), Transform3D.IDENTITY)
+			add.call(LookMeshKit.cyl(r, r, h, 8), mats.flat(Color("#202226"), 0.55, 0.5), Transform3D.IDENTITY)
 			for y in [-h * 0.3, h * 0.3]:
-				add.call(_cyl(r * 1.03, 0.06), mats.flat(Color("#8a1a16"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
+				add.call(LookMeshKit.cyl(r * 1.03, r * 1.03, 0.06, 8), mats.flat(Color("#8a1a16"), 0.6, 0.3), Transform3D(Basis.IDENTITY, Vector3(0, y, 0)))
 
 
 ## The outpost's ship (the location's "ship"; issue #76: the Remnant's dark
@@ -1530,18 +1530,3 @@ func _mesh(o: Dictionary, mesh: Mesh, mat: Material, local: Vector3, basis := Ba
 	add_child(mi)
 	mi.global_transform = (o.xf as Transform3D) * Transform3D(basis, local)
 	return mi
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _cyl(r: float, h: float) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = r
-	c.bottom_radius = r
-	c.height = h
-	c.radial_segments = 8
-	return c
