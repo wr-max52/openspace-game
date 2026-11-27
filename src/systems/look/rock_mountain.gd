@@ -639,9 +639,10 @@ static func placement(sp: PlanetSphere, map: Vector2, p: Dictionary, max_sink: f
 
 
 ## The ship's columns for one placed mountain: one per tier (its centre, its
-## mean radius, its top), along the ball's up, highest first, that a ship hits;
-## then one (`<id>_top`, kind "mountain") carrying the rock's tops (top_surface)
-## that is the ground under a ship. A tunnel version's
+## mean radius, its top), along the ball's up, highest first; then one
+## (`<id>_top`, kind "mountain") carrying the rock's shape (top_surface), which
+## is the ground under a ship and what it hits once it is made (the tiers stand
+## in until then). A tunnel version's
 ## columns carry `tunnel` { path (its centre line, world), half, spring, crown,
 ## roofed } so WorldGround leaves its way through open (WorldGround.in_tunnel).
 static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String) -> Array:
@@ -665,20 +666,21 @@ static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String) -
 				wp.append(g * (turn * Vector3(q.x, -float(pl.sink), q.y)))
 			col["tunnel"] = { "path": wp, "half": float(tn.half) - 1.0, "spring": float(tn.spring),
 				"crown": float(tn.crown), "roofed": h > float(tn.crown) + 1.5 }
-		col["top_job"] = job         # once it is done the tops say where the rock is
+		col["top_job"] = job         # once it is done the rock's own shape takes over
 		out.append(col)
 	# A tier's column is round and its rock is lobed and jagged, with ramps,
 	# stairs and blocks round it, so a ship set down on its column's top sank into
-	# the rock or hung over a shelf. The ground under a ship is the rock's own tops
-	# (the trimesh the player stands on); the columns above only stop a ship flying
-	# into the walls. Sized from the plan (the tops are still being made): the
-	# ramp up from the sand stands out past the foot, the crags up past the top.
+	# the rock or hung over a shelf, and flew into lobes or bumped on air. The
+	# ground under a ship and what it hits are the rock's own shape (the trimesh
+	# the player stands on); the columns above stand in until it is made. Sized
+	# from the plan (the tops are still being made): the ramp up from the sand
+	# stands out past the foot, the crags up past the top.
 	var xf := Transform3D(g.basis * turn, g.origin - g.basis.y * float(pl.sink))
 	var reach := float(p.radius) + 30.0
 	var height := float(p.height) + 20.0
 	out.append({ "id": "%s_top" % id, "kind": "mountain", "center": xf.origin, "up": g.basis.y,
 		"radius": reach, "h": height, "top": xf.origin.y + height,
-		"top_job": job, "inv": xf.affine_inverse(), "no_hit": true })
+		"top_job": job, "inv": xf.affine_inverse() })
 	return out
 
 
@@ -764,10 +766,14 @@ const TOP_CELL := 4.0         ## top_surface()'s grid, metres a cell
 
 ## The rock's tops (the triangles build() makes facing up: every shelf, ramp,
 ## stair and block, so exactly what the trimesh has to stand on, without its walls)
-## binned on a TOP_CELL grid across the plan's frame, for the ship's ground:
-## { verts (three a triangle), origin, w, h (the grid's corner and size in cells),
-## start, items (cell c's triangles are items[start[c]] .. items[start[c + 1] - 1]),
-## reach (how far from the frame's centre any top goes), height (the highest) }.
+## binned on a TOP_CELL grid across the plan's frame, for the ship's ground and
+## what a ship hits: { verts (three a triangle), bots (the piece's bottom under each
+## corner), lean (four a triangle: the lean's centre x, z, its k and bury), origin,
+## w, h (the grid's corner and size in cells), start, items (cell c's triangles
+## are items[start[c]] .. items[start[c + 1] - 1]), cell_top (each cell's highest
+## top), reach (how far from the frame's centre any top goes),
+## height (the highest) }. A triangle is binned where its piece's foot is (a
+## leaning wall stands out further low down than its top).
 ## Made once a plan on a worker thread (top_job), this waits for it.
 static func top_surface(p: Dictionary) -> Dictionary:
 	var job := top_job(p)
@@ -801,17 +807,33 @@ static func top_job(p: Dictionary) -> TopJob:
 
 
 static func _make_top_surface(p: Dictionary) -> Dictionary:
-	var verts := _top_tris(p)
+	var tt := _top_tris(p)
+	var verts: PackedVector3Array = tt.verts
+	var lean: PackedFloat32Array = tt.lean
 	var nt := verts.size() / 3
+	# Where each corner's piece stands at its foot (its outline before the lean
+	# draws it in), for the bins.
+	var feet := PackedVector2Array()
+	feet.resize(verts.size())
+	for t in nt:
+		var lk := lean[t * 4 + 2]
+		var lc := Vector2(lean[t * 4], lean[t * 4 + 1])
+		var grow := 1.0
+		if lk > 0.0:
+			grow = 1.0 / maxf(0.05, 1.0 - lk * (verts[t * 3].y + lean[t * 4 + 3]))
+		for m in 3:
+			var q := verts[t * 3 + m]
+			feet[t * 3 + m] = lc + (Vector2(q.x, q.z) - lc) * grow
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 	var reach := 0.0
 	var height := 0.0
 	for q in verts:
-		lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.z))
-		hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.z))
 		reach = maxf(reach, q.x * q.x + q.z * q.z)
 		height = maxf(height, q.y)
+	for q in feet:
+		lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y))
+		hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
 	if nt == 0:
 		lo = Vector2.ZERO
 		hi = Vector2.ZERO
@@ -825,9 +847,9 @@ static func _make_top_surface(p: Dictionary) -> Dictionary:
 	start.resize(w * h + 1)
 	for t in nt:
 		# Corners by z (v0 lowest), in cells from the grid's corner.
-		var v0 := Vector2(verts[t * 3].x - lo.x, verts[t * 3].z - lo.y) / TOP_CELL
-		var v1 := Vector2(verts[t * 3 + 1].x - lo.x, verts[t * 3 + 1].z - lo.y) / TOP_CELL
-		var v2 := Vector2(verts[t * 3 + 2].x - lo.x, verts[t * 3 + 2].z - lo.y) / TOP_CELL
+		var v0 := (feet[t * 3] - lo) / TOP_CELL
+		var v1 := (feet[t * 3 + 1] - lo) / TOP_CELL
+		var v2 := (feet[t * 3 + 2] - lo) / TOP_CELL
 		if v1.y < v0.y:
 			var sw := v0
 			v0 = v1
@@ -864,13 +886,19 @@ static func _make_top_surface(p: Dictionary) -> Dictionary:
 	var fill := start.duplicate()
 	var items := PackedInt32Array()
 	items.resize(start[w * h])
+	var cell_top := PackedFloat32Array()      # the highest top binned in each cell
+	cell_top.resize(w * h)
+	cell_top.fill(-INF)
 	for k in range(0, spans.size(), 4):
 		var row := spans[k + 1] * w
+		var t := spans[k]
+		var ty := maxf(verts[t * 3].y, maxf(verts[t * 3 + 1].y, verts[t * 3 + 2].y))
 		for cx in range(spans[k + 2], spans[k + 3] + 1):
-			items[fill[row + cx]] = spans[k]
+			items[fill[row + cx]] = t
 			fill[row + cx] += 1
-	return { "verts": verts, "origin": lo, "w": w, "h": h, "start": start, "items": items,
-		"reach": sqrt(reach), "height": height }
+			cell_top[row + cx] = maxf(cell_top[row + cx], ty)
+	return { "verts": verts, "bots": tt.bots, "lean": lean, "origin": lo, "w": w, "h": h,
+		"start": start, "items": items, "cell_top": cell_top, "reach": sqrt(reach), "height": height }
 
 
 ## x where the edge p0-p1 (x, z) is at z (clamped onto it).
@@ -882,21 +910,29 @@ static func _edge_x(p0: Vector2, p1: Vector2, z: float) -> float:
 
 
 ## build()'s up-facing triangles alone: each piece's top (its outline drawn in by
-## the lean at its top's height) and each ramp strip's top.
-static func _top_tris(p: Dictionary) -> PackedVector3Array:
+## the lean at its top's height) and each ramp strip's top, with the piece's bottom
+## under each corner and its lean (see top_surface). { verts, bots, lean }.
+static func _top_tris(p: Dictionary) -> Dictionary:
 	var out := PackedVector3Array()
+	var bots := PackedFloat32Array()
+	var lean := PackedFloat32Array()
 	for piece in p.pieces:
+		var y0 := float(piece.y0)
 		if piece.has("strip"):
 			var inner: PackedVector3Array = piece.strip.inner
 			var outer: PackedVector3Array = piece.strip.outer
 			for i in inner.size() - 1:
 				out.append_array([outer[i], outer[i + 1], inner[i + 1], outer[i], inner[i + 1], inner[i]])
+				for k in 2:
+					bots.append_array([y0, y0, y0])
+					lean.append_array([0.0, 0.0, 0.0, 0.0])
 			continue
 		var poly: PackedVector2Array = piece.poly
 		var n := poly.size()
 		if n < 3:
 			continue
 		var tops: Array = piece.tops
+		var pb: Array = piece.get("bots", [])
 		var ln: Dictionary = piece.get("lean", {})
 		var lc := Vector2.ZERO
 		var lk := 0.0
@@ -905,11 +941,15 @@ static func _top_tris(p: Dictionary) -> PackedVector3Array:
 			lc = ln.c
 			lk = float(ln.k)
 			lb = float(ln.bury)
-		for i in Geometry2D.triangulate_polygon(poly):
+		var idx := Geometry2D.triangulate_polygon(poly)
+		for i in idx:
 			var yy := float(tops[i] if tops.size() == n else tops[0])
 			var q := lc + (poly[i] - lc) * (1.0 - lk * (yy + lb))
 			out.append(Vector3(q.x, yy, q.y))
-	return out
+			bots.append(float(pb[i]) if pb.size() == n else y0)
+		for k in idx.size() / 3:
+			lean.append_array([lc.x, lc.y, lk, lb])
+	return { "verts": out, "bots": bots, "lean": lean }
 
 
 ## The highest rock top straight under (x, z) in the plan's frame no higher than
@@ -948,6 +988,89 @@ static func top_at(s: Dictionary, x: float, z: float, below: float) -> float:
 		if y <= below and y > best:
 			best = y
 	return best
+
+
+## A sphere of radius r at (x, y, z) in the plan's frame against the rock: true
+## when its centre is inside a piece (under its top, its bottom less than r over
+## the centre), or a point of a ring round it at r is in rock standing over both
+## `wall_y` and the sphere's lower half (y - r / 2) with its bottom under y + r.
+## A piece is its prism from bottom to top, its outline drawn in by its lean at
+## the lowest height the two share (a leaning wall is wider down low). The
+## triangles near it are gathered once and tested against every point.
+static func sphere_hits(s: Dictionary, x: float, y: float, z: float, r: float, wall_y: float) -> bool:
+	var o: Vector2 = s.origin
+	var w: int = s.w
+	var gh: int = s.h
+	var x0 := maxi(floori((x - r - o.x) / TOP_CELL), 0)
+	var x1 := mini(floori((x + r - o.x) / TOP_CELL), w - 1)
+	var z0 := maxi(floori((z - r - o.y) / TOP_CELL), 0)
+	var z1 := mini(floori((z + r - o.y) / TOP_CELL), gh - 1)
+	if x0 > x1 or z0 > z1:
+		return false
+	var start: PackedInt32Array = s.start
+	var items: PackedInt32Array = s.items
+	var cell_top: PackedFloat32Array = s.cell_top
+	var verts: PackedVector3Array = s.verts
+	var bots: PackedFloat32Array = s.bots
+	var lean: PackedFloat32Array = s.lean
+	var ring_lo := maxf(y - r * 0.5, wall_y)
+	var need := minf(y, ring_lo)          # no top at or under this can be hit
+	var hi := y + r
+	# The centre, then HIT_RING points round it.
+	var px := PackedFloat32Array([x])
+	var pz := PackedFloat32Array([z])
+	for k in HIT_RING:
+		var a := TAU * float(k) / float(HIT_RING)
+		px.append(x + cos(a) * r)
+		pz.append(z + sin(a) * r)
+	for cz in range(z0, z1 + 1):
+		for cx in range(x0, x1 + 1):
+			var ci := cz * w + cx
+			if cell_top[ci] <= need:
+				continue
+			for k in range(start[ci], start[ci + 1]):
+				var t := items[k]
+				var a := verts[t * 3]
+				var b := verts[t * 3 + 1]
+				var c := verts[t * 3 + 2]
+				if maxf(a.y, maxf(b.y, c.y)) <= need:
+					continue
+				var b_lo := minf(bots[t * 3], minf(bots[t * 3 + 1], bots[t * 3 + 2]))
+				if b_lo >= hi:
+					continue
+				var e0x := b.x - a.x
+				var e0z := b.z - a.z
+				var e1x := c.x - a.x
+				var e1z := c.z - a.z
+				var den := e0x * e1z - e1x * e0z
+				if absf(den) < 1e-9:
+					continue
+				var lk := lean[t * 4 + 2]
+				var lcx := lean[t * 4]
+				var lcz := lean[t * 4 + 1]
+				var f_c := 1.0                  # the lean's pull at the centre's height and the ring's
+				var f_r := 1.0
+				if lk > 0.0:
+					var lb := lean[t * 4 + 3]
+					var top_s := 1.0 - lk * (a.y + lb)
+					f_c = top_s / maxf(0.05, 1.0 - lk * (clampf(y, b_lo, a.y) + lb))
+					f_r = top_s / maxf(0.05, 1.0 - lk * (clampf(y - r * 0.5, b_lo, a.y) + lb))
+				for i in px.size():
+					var f := f_c if i == 0 else f_r
+					var qx := lcx + (px[i] - lcx) * f - a.x
+					var qz := lcz + (pz[i] - lcz) * f - a.z
+					var u := (qx * e1z - e1x * qz) / den
+					var v := (e0x * qz - qx * e0z) / den
+					if u < -1e-5 or v < -1e-5 or u + v > 1.00001:
+						continue
+					var top := a.y + u * (b.y - a.y) + v * (c.y - a.y)
+					var bot := bots[t * 3] + u * (bots[t * 3 + 1] - bots[t * 3]) + v * (bots[t * 3 + 2] - bots[t * 3])
+					if bot < hi and top > (y if i == 0 else ring_lo):
+						return true
+	return false
+
+
+const HIT_RING := 8      ## points round a sphere's middle tested against the rock's walls
 
 
 ## A ramp's faces: its top in quads along the strip, its outer and inner sides

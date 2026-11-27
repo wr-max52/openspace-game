@@ -208,7 +208,7 @@ func _ready() -> void:
 		# The mesas and hoodoos on screen are solid to the ship too.
 		if demo.landforms != null:
 			_late_landforms = true
-			ground.add_landforms(demo.landforms.data, demo.desert_site().floor)
+			ground.add_landforms(demo.landforms.data, demo.desert_site().floor, demo.landforms.drawn_ids)
 			ground.add_boulders(demo.landforms.boulders)      # issue #93: solid rocks, speeder ramps
 		scenery = WorldScenery.new()
 		scenery.build_later = late
@@ -324,7 +324,7 @@ func town_built_late() -> void:
 	_gather_berths()
 	if demo.landforms != null and not _late_landforms:
 		_late_landforms = true
-		ground.add_landforms(demo.landforms.data, demo.desert_site().floor)
+		ground.add_landforms(demo.landforms.data, demo.desert_site().floor, demo.landforms.drawn_ids)
 		ground.add_boulders(demo.landforms.boulders)
 var _late_landforms := false
 
