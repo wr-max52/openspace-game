@@ -217,6 +217,7 @@ func build(st: StagedBuild = null) -> void:
 		await StagedBuild.slice_of(st)
 	if not bodies.is_empty() and demo.has_method("make_townsfolk"):
 		folk = demo.make_townsfolk("RaceFolk_" + id, bodies, TownAlarm.place_name("race_crew", str(crew.get("label", id))))
+		folk.chatty = false     # walk up and only the leader speaks (the challenge on [E])
 	menu = DroidMenu.new()
 	add_child(menu)
 	_build_hud()
