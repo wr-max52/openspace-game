@@ -1,0 +1,22 @@
+{
+  "note": "Which alarm went off. Every alarm that goes up (a garrison's or a crowd's) shows `toast` with the place it belongs to, its first letter made a capital: an outpost or village by its location label, the cruiser and the station by name, the town's by the town's generated name in `places` (%s). `unnamed`: the same places on a world that names no town or station. Generic, in-world, no franchise terms.",
+  "toast": "ALARM  ·  %s",
+  "toast_nowhere": "ALARM",
+  "places": {
+    "town_remnant": "the Remnant garrison in %s",
+    "town_locals_barracks": "the locals' barracks in %s",
+    "town_locals": "the locals of %s",
+    "station": "the station %s",
+    "station_remnant": "the Remnant deck on the station %s",
+    "station_guards": "the guards' deck on the station %s",
+    "race_crew": "%s's hangout"
+  },
+  "unnamed": {
+    "town_remnant": "the Remnant garrison in town",
+    "town_locals_barracks": "the locals' barracks in town",
+    "town_locals": "the town's locals",
+    "station": "the station",
+    "station_remnant": "the Remnant deck on the station",
+    "station_guards": "the guards' deck on the station"
+  }
+}

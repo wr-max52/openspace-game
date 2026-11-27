@@ -20,6 +20,10 @@ extends RefCounted
 
 enum State { CALM, ALARM }
 
+## Which alarm went off: the toast's wording and the places' names (data).
+const PLACES_PATH := "res://content/core/dialogue/alarm_places.json"
+static var _places: Dictionary = {}
+
 var cfg: Dictionary = {}
 var state := State.CALM
 var why := ""
@@ -105,3 +109,32 @@ func drain() -> Array:
 	var e := events
 	events = []
 	return e
+
+
+static func places() -> Dictionary:
+	if _places.is_empty():
+		var f := FileAccess.open(PLACES_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_places = d if d is Dictionary else { "toast": "ALARM  ·  %s" }
+	return _places
+
+
+## What the HUD says when an alarm goes up: which one ("ALARM  ·  The dry wash
+## outpost"). No place, just "ALARM".
+static func toast_text(place: String) -> String:
+	var p := places()
+	if place.strip_edges() == "":
+		return str(p.get("toast_nowhere", "ALARM"))
+	return str(p.get("toast", "ALARM  ·  %s")) % (place.left(1).to_upper() + place.substr(1))
+
+
+## A place by its kind ("town_remnant", "station", ...) with `name` (the town's,
+## the station's) put in; a world that names none gets the kind's unnamed one.
+static func place_name(kind: String, name: String) -> String:
+	var p := places()
+	if name.strip_edges() == "":
+		var un: Dictionary = p.get("unnamed", {})
+		if un.has(kind):
+			return str(un[kind])
+	var fmt := str((p.get("places", {}) as Dictionary).get(kind, "%s"))
+	return fmt % name if fmt.contains("%s") else fmt

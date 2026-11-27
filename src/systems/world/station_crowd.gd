@@ -693,7 +693,7 @@ func _provoke() -> void:
 	if demo == null or not bool(demo.get("npc_brains")) or not demo.has_method("make_npc"):
 		return
 	if _folk == null:
-		_folk = demo.make_townsfolk("StationFolk", [])
+		_folk = demo.make_townsfolk("StationFolk", [], TownAlarm.place_name("station", str(station.vessel_name) if station != null else ""))
 	_folk.provoke()
 	_calm_t = 0.0
 	var player: Node3D = demo._player

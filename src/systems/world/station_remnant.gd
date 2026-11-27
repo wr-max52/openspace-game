@@ -191,6 +191,7 @@ func _add_trooper(p: Dictionary) -> void:
 		if not bool(demo.get("npc_brains")):
 			return
 		garrison = demo._make_garrison("Garrison_" + place, [g], false, station.to_world(p.at), true)
+		garrison.place = TownAlarm.place_name("station_remnant", str(station.vessel_name))
 		if demo.get("outposts") != null:
 			demo.outposts.garrisons[place] = garrison
 	else:
@@ -258,7 +259,7 @@ func _add_guard(p: Dictionary) -> void:
 	if not bool(demo.get("npc_brains")):
 		return
 	if _folk == null:
-		_folk = demo.make_townsfolk("StationGuards_" + str(station.id), [])
+		_folk = demo.make_townsfolk("StationGuards_" + str(station.id), [], TownAlarm.place_name("station_guards", str(station.vessel_name)))
 	_folk.add_member(g)
 
 

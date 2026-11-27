@@ -33,6 +33,12 @@
       "Where'd they go?",
       "Gone into the alleys..."
     ],
+    "hunt": [
+      "Find them! They're hiding somewhere.",
+      "Check the doorways.",
+      "Keep looking, they can't be far.",
+      "Over there? No... keep searching."
+    ],
     "give_up": [
       "Let them run. We'll remember the face.",
       "Back to it. Keep your eyes open."

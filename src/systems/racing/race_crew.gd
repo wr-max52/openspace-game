@@ -216,7 +216,7 @@ func build(st: StagedBuild = null) -> void:
 		i += 1
 		await StagedBuild.slice_of(st)
 	if not bodies.is_empty() and demo.has_method("make_townsfolk"):
-		folk = demo.make_townsfolk("RaceFolk_" + id, bodies)
+		folk = demo.make_townsfolk("RaceFolk_" + id, bodies, TownAlarm.place_name("race_crew", str(crew.get("label", id))))
 	menu = DroidMenu.new()
 	add_child(menu)
 	_build_hud()

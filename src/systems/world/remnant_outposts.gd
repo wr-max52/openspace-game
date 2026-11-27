@@ -1251,7 +1251,7 @@ func _send_wave(o: Dictionary) -> void:
 	else:
 		for g in mine:
 			gar.add_member(g)
-	gar.join_alarm(home)
+	gar.join_alarm(home, "heist")    # its own alarm: the klaxon and the toast say where
 
 
 ## The wave goes once you are well away from it (alive or dead), and the hack is

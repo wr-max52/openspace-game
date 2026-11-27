@@ -682,6 +682,12 @@ func _build_shot_camera() -> void:
 
 # ---------------------------------------------------------------- names (issue #15)
 
+## The town's name for the alarm toasts: the garrisons are built before the
+## place card names the town (_name_places), so ask the namer if it has not yet.
+func _town_label() -> String:
+	return town_name if town_name != "" else NameHooks.town(world)
+
+
 ## The town and its planet get their names from the world's "naming" block
 ## (NameHooks); a card shows them when you arrive, like entering a region.
 func _name_places() -> void:
@@ -1091,6 +1097,7 @@ func _npc_brains(st: StagedBuild = null) -> void:
 		var town_troops: Array = npcs if outposts == null else npcs.filter(func(n): return not n.has_meta("outpost"))
 		if not town_troops.is_empty():
 			garrison = _make_garrison("Garrison", town_troops, true, Vector3.INF, false, _town_zones())
+			garrison.place = TownAlarm.place_name("town_remnant", _town_label())
 			await StagedBuild.slice_of(st)
 		if outposts != null:
 			for o in outposts.outposts:
@@ -1099,13 +1106,14 @@ func _npc_brains(st: StagedBuild = null) -> void:
 					continue
 				var first := garrison == null and outposts.garrisons.is_empty()
 				outposts.garrisons[str(o.id)] = _make_garrison("Garrison_" + str(o.id), mine, first, o.origin, true, [outpost_zone(o)])
+				outposts.garrisons[str(o.id)].place = str(o.label)
 				await StagedBuild.slice_of(st)
 		# Issue #187: someone always counts the player out when they are downed, even
 		# with no Remnant left in town or at the outposts (a garrison of nobody).
 		if garrison == null and (outposts == null or outposts.garrisons.is_empty()):
 			garrison = _make_garrison("Garrison", [], true)
 	if npc_brains and not locals.is_empty():
-		townsfolk = make_townsfolk("Townsfolk", locals)
+		townsfolk = make_townsfolk("Townsfolk", locals, TownAlarm.place_name("town_locals", _town_label()))
 		if gear != null:
 			gear.vendor_open = townsfolk.vendor_open
 			gear.closed_line = townsfolk.closed_line
@@ -1139,6 +1147,7 @@ func _locals_garrison_join(n: NpcBody) -> void:
 		locals_garrison.add_member(n)
 		return
 	locals_garrison = _make_garrison("LocalsGarrison", [n], false, Vector3.INF, false, _town_zones())
+	locals_garrison.place = TownAlarm.place_name("town_locals_barracks", _town_label())
 	locals_garrison.respawn_rule = Callable()   # a dead one stays dead (Territory.barracks_dead)
 	if townsfolk != null:
 		locals_garrison.alarm_up.connect(townsfolk.join_alarm)
@@ -1150,13 +1159,16 @@ func _locals_garrison_join(n: NpcBody) -> void:
 func make_locals_outpost_garrison(o: Dictionary, members: Array) -> Garrison:
 	var g := _make_garrison("Locals_" + str(o.id), members, false, o.origin, true, [outpost_zone(o)])
 	g.respawn_rule = Callable()   # Territory decides when the locals there are gone
+	g.place = str(o.label)
 	return g
 
 
 ## Issue #187: a director for some of the port's locals (the town's, or one outpost's).
-func make_townsfolk(node_name: String, members: Array) -> Townsfolk:
+## `place`: where they are, for the alarm toast (a village's label, the barge, the station).
+func make_townsfolk(node_name: String, members: Array, place := "") -> Townsfolk:
 	var t := Townsfolk.new()
 	t.name = node_name
+	t.place = place
 	add_child(t)
 	t.setup(self, members)
 	return t
@@ -1164,7 +1176,9 @@ func make_townsfolk(node_name: String, members: Array) -> Townsfolk:
 
 ## Issue #187: a garrison for an outpost the Remnant have just taken back.
 func make_outpost_garrison(o: Dictionary, members: Array) -> Garrison:
-	return _make_garrison("Garrison_" + str(o.id), members, false, o.origin, true, [outpost_zone(o)])
+	var g := _make_garrison("Garrison_" + str(o.id), members, false, o.origin, true, [outpost_zone(o)])
+	g.place = str(o.label)
+	return g
 
 
 ## Issue #308: the town's checkpoint zones (its "garrison" "checkpoints", e.g. the
