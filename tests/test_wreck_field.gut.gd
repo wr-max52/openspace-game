@@ -5,7 +5,8 @@ extends GutTest
 ## different from the original; the same crew aboard each, back three minutes after
 ## they fall or as soon as you are 500 ft away; a supply crate on every wreck's
 ## bridge platform, the original's too, always 10 refined quantonium, and stray
-## loot on the floors climbing up to it, better the higher you go.
+## loot on the floors climbing up to it, each spot rolled from one table (quartz,
+## grenades, credits, quantonium, now and then a sniper rifle; never a rifle blaster).
 ## Pure WorldGround queries on the analytic planet, plus small scenes.
 
 const CoreScript := preload("res://src/systems/dataload/core_content.gd")
@@ -477,25 +478,69 @@ func test_stray_loot_lies_on_a_floor_on_every_wreck() -> void:
 			assert_eq(g.hit(at + up * 1.0, 0.4), "", "%s on %s is not inside anything" % [spot.id, site])
 
 
-func test_the_loot_gets_better_going_up() -> void:
+func test_the_loot_table_is_quartz_grenades_credits_quantonium_and_a_rare_sniper() -> void:
 	var content = CoreScript.new()
 	content.load_from()
-	var spots: Array = content.get_site_loot("port_town")
-	assert_eq(str(spots[0].item), "grenade", "grenades at the bottom")
-	var last_v := -INF
-	var last_worth := 0
-	for spot in spots:
-		var at := _loot_point(spot, "starcruiser_wreck")
-		var v: float = (StarcruiserWreck.frame(g, "starcruiser_wreck", "level").affine_inverse() * at).y
-		assert_gte(v, last_v - 0.01, "%s is no lower than the one before" % spot.id)
-		var worth := int(content.get_item(str(spot.item)).get("value", 0)) * int(spot.count)
-		assert_gte(worth, last_worth, "%s is worth no less than the one below it" % spot.id)
-		assert_false(bool(content.get_item(str(spot.item)).get("contraband", false)), "%s shows in a story save" % spot.id)
-		last_v = v
-		last_worth = worth
-	var prize: Dictionary = content.get_crate_prizes("port_town")[0]
-	var crate_worth := int(content.get_item(str(prize.item)).get("value", 0)) * int(prize.count) * 2     # a fence pays double
-	assert_gt(crate_worth, last_worth, "the crate on top is the best of all")
+	var table: Array = content.get_site_loot_table("port_town")
+	var by := {}
+	for e in table:
+		by[str(e.get("item", "credits"))] = e
+		if e.has("item"):
+			assert_false(content.get_item(str(e.item)).is_empty(), "%s is an item" % e.item)
+	assert_eq(by.keys().size(), table.size(), "one entry per kind")
+	assert_false(by.has("rifle_blaster"), "never a plain rifle")
+	for k in ["quartz", "grenade", "credits", "refined_quantonium", "sniper_rifle"]:
+		assert_true(by.has(k), "the table holds %s" % k)
+	assert_eq([int(by.quartz.count[0]), int(by.quartz.count[1])], [5, 10], "5-10 quartz")
+	assert_gte(int(by.grenade.count[0]), 2, "grenades come as a stack")
+	for k in by:
+		if k != "quartz":
+			assert_gt(float(by.quartz.weight), float(by[k].weight), "quartz is the most common (%s)" % k)
+		if k != "sniper_rifle":
+			assert_lt(float(by.sniper_rifle.weight), float(by[k].weight), "the sniper rifle is the rarest (%s)" % k)
+
+
+func test_every_spot_rolls_from_the_table_and_the_same_each_time() -> void:
+	var s := _gear()
+	var gear: GearController = s[0]
+	var seen := {}
+	for site in IDS:
+		for spot in gear.content.get_site_loot("port_town"):
+			var id := "%s/%s" % [site, spot.id]
+			var l := gear.roll_site_loot(id)
+			assert_eq(gear.roll_site_loot(id), l, "%s rolls the same every time" % id)
+			assert_ne(str(l.get("item", "")), "rifle_blaster", "%s is no plain rifle" % id)
+			var kind := str(l.get("item", "credits"))
+			seen[kind] = true
+			if kind == "quartz":
+				assert_between(int(l.count), 5, 10, "%s: 5-10 quartz" % id)
+			elif kind == "credits":
+				assert_between(int(l.credits), 150, 400)
+				assert_eq(int(l.credits) % 10, 0, "credits in tens")
+			elif kind == "grenade":
+				assert_gte(int(l.count), 2, "a stack of grenades")
+	assert_true(seen.has("quartz"), "the four wrecks hold some quartz")
+	# What you can reach (not _3's buried hold): a sniper rifle somewhere, quartz most of all.
+	var reach := {}
+	for site in IDS:
+		for spot in gear.content.get_site_loot("port_town"):
+			if site == "starcruiser_wreck_3" and str(spot.frame) == "hull":
+				continue
+			var k := str(gear.roll_site_loot("%s/%s" % [site, spot.id]).get("item", "credits"))
+			reach[k] = int(reach.get(k, 0)) + 1
+	assert_gte(int(reach.get("sniper_rifle", 0)), 1, "a sniper rifle you can reach")
+	for k in reach:
+		if k != "quartz":
+			assert_gt(int(reach.quartz), int(reach[k]), "quartz turns up most (%s)" % k)
+	assert_gte(seen.size(), 3, "and more than one kind of thing")
+	# Over many spots: quartz often, a sniper rifle now and then, never a rifle blaster.
+	var n := {}
+	for i in 2000:
+		var k := str(gear.roll_site_loot("spot_%d" % i).get("item", "credits"))
+		n[k] = int(n.get(k, 0)) + 1
+	assert_false(n.has("rifle_blaster"))
+	assert_between(int(n.get("quartz", 0)), 450, 780, "quartz about 4 in 13")
+	assert_between(int(n.get("sniper_rifle", 0)), 80, 240, "a sniper rifle about 1 in 13")
 
 
 func test_stray_loot_is_put_out_and_taken_once() -> void:
@@ -506,15 +551,45 @@ func test_stray_loot_is_put_out_and_taken_once() -> void:
 	var spots: int = gear.content.get_site_loot("port_town").size()
 	var hull_spots: int = gear.content.get_site_loot("port_town").filter(func(e): return str(e.frame) == "hull").size()
 	assert_eq(loot.size(), spots * IDS.size() - hull_spots, "every spot on every wreck, but _3's buried hold")
-	var nade = loot.filter(func(n): return str(n.pickup.id) == "starcruiser_wreck_2/hold_grenades_stern")[0]
-	p.global_position = nade.base + g.up_at(nade.base) * 0.2
+	var stack = loot.filter(func(n): return n.pickup.has("item"))[0]
+	var sid := str(stack.pickup.id)
+	var item := str(stack.pickup.item)
+	p.global_position = stack.base + stack.basis.y * 0.2
 	gear.focus = {}
-	var n0 := WorldState.inventory.count("grenade")
+	var n0 := WorldState.inventory.count(item)
 	assert_eq(gear.interact(), "picked_up")
-	assert_eq(WorldState.inventory.count("grenade"), n0 + 2, "two grenades")
+	assert_eq(WorldState.inventory.count(item), n0 + int(stack.pickup.count), "the whole stack")
 	var again: Array = (_gear()[0] as GearController).pickups.filter(func(n): return str(n.pickup.id).contains("/"))
 	assert_eq(again.size(), loot.size() - 1, "taken once, the rest still there")
-	assert_true(again.all(func(n): return str(n.pickup.id) != "starcruiser_wreck_2/hold_grenades_stern"))
+	assert_true(again.all(func(n): return str(n.pickup.id) != sid))
+
+
+func test_a_stack_of_credits_goes_in_the_purse_once() -> void:
+	var s := _gear()
+	var gear: GearController = s[0]
+	var p: FakePlayer = s[1]
+	var cash = gear.pickups.filter(func(n): return str(n.pickup.id).contains("/"))[0]
+	cash.pickup.erase("item")
+	cash.pickup.erase("count")
+	cash.pickup["credits"] = 250
+	p.global_position = cash.base + cash.basis.y * 0.2
+	gear.focus = gear._find_focus()
+	assert_string_contains(gear.prompt_text(), "250 credits")
+	var cr0 := WorldState.credits
+	assert_eq(gear.interact(), "picked_up")
+	assert_eq(WorldState.credits, cr0 + 250)
+	assert_true(WorldState.inventory.is_taken(str(cash.pickup.id)))
+	assert_false(WorldState.inventory.owned.has(""), "nothing odd in the backpack")
+
+
+func test_quantonium_on_a_wreck_shows_in_a_story_save() -> void:
+	var s := _gear()
+	var gear: GearController = s[0]
+	var q = gear.pickups.filter(func(n): return str(n.pickup.id).contains("/"))[0]
+	q.pickup["item"] = "refined_quantonium"
+	WorldState.inventory.add("refined_quantonium", 1)     # carrying contraband hides loose contraband
+	gear._sync_loose_contraband()
+	assert_true(q.visible, "wreck loot always shows, contraband or not")
 
 
 class FakePlayer extends CharacterBody3D:

@@ -31,8 +31,9 @@ extends Node
 ##   - wreck field: a supply crate on each crashed starcruiser's bridge platform
 ##     (pickups "site_crates"), placed once the world's ground is here; [E] opens
 ##     it for one prize rolled from "crate_prizes" (credits or a stack of goods).
-##     Stray loot ("site_loot") lies along the climb up to it on every such wreck:
-##     grenades on the hold floor, better things on each deck up.
+##     Stray loot ("site_loot") lies along the climb up to it on every such wreck,
+##     each spot rolled from "site_loot_table": quartz, grenades, credits,
+##     quantonium, now and then a sniper rifle.
 ##
 ## The headless trace calls interact() and toggle_gear() directly: the same code
 ## path the keys use. All words come from content/core/flow/gear.json.
@@ -41,6 +42,7 @@ const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const Jetpack := preload("res://src/systems/player/jetpack.gd")
 const PickupNode := preload("res://src/systems/items/pickup_node.gd")
 const LABELS_PATH := "res://content/core/flow/gear.json"
+const CREDIT_LOOK := "credit_case"  ## a stack of credits lying on a wreck (looks/items.json)
 const SLOT_BACK := "back"
 const SLOT_ARMOUR := "armour"
 const SLOT_BLADE := "blade"
@@ -226,14 +228,17 @@ func _build_site_crates() -> void:
 
 ## Wreck field: the stray loot on one wreck's floors, each spot at its point in
 ## the wreck's hull or level frame, lying flat on that floor (the hold's pitched
-## plating or a level deck). A spot under the sand is not put out.
+## plating or a level deck). A spot under the sand is not put out. What each spot
+## holds is rolled from "site_loot_table" (roll_site_loot).
 func _build_site_loot(site: String) -> void:
 	for spot in content.get_site_loot(location_id):
 		var e: Dictionary = (spot as Dictionary).duplicate()
 		e["id"] = "%s/%s" % [site, str(spot.get("id", ""))]
+		e["site"] = site          # wreck loot always shows, contraband or not
 		if inv().is_taken(str(e.id)):
 			continue
-		var item: Dictionary = content.get_item(str(e.get("item", "")))
+		e.merge(roll_site_loot(str(e.id)), true)
+		var item: Dictionary = { "look": CREDIT_LOOK } if e.has("credits") else content.get_item(str(e.get("item", "")))
 		if item.is_empty():
 			push_warning("GearController: site loot %s names an unknown item" % str(e.id))
 			continue
@@ -249,18 +254,44 @@ func _build_site_loot(site: String) -> void:
 		pickups.append(node)
 
 
-## A supply crate's prize: { credits } or { item, count }, rolled by weight.
-func roll_crate_prize() -> Dictionary:
-	var table: Array = content.get_crate_prizes(location_id)
+## Wreck field: what one loot spot holds, { item, count } or { credits }, rolled
+## by weight from "site_loot_table". Seeded by the spot's id ("<wreck>/<spot>")
+## and "site_loot_seed", so the same wreck shows the same loot every time until
+## it is taken.
+func roll_site_loot(spot_id: String) -> Dictionary:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("%s#%d" % [spot_id, content.get_site_loot_seed(location_id)])
+	var e := _pick_weighted(content.get_site_loot_table(location_id), r.randf())
+	if e.is_empty():
+		return {}
+	if e.has("credits"):
+		return { "credits": int(snappedi(_rolled(e.credits, r), 10)) }
+	return { "item": str(e.get("item", "")), "count": maxi(1, _rolled(e.get("count", 1), r)) }
+
+
+## A number, or a [min, max] range rolled with `r`.
+static func _rolled(v, r: RandomNumberGenerator) -> int:
+	if v is Array and (v as Array).size() >= 2:
+		return r.randi_range(int(v[0]), int(v[1]))
+	return int(v)
+
+
+## One entry of a { weight } table, picked by `u` in 0..1.
+static func _pick_weighted(table: Array, u: float) -> Dictionary:
 	var total := 0.0
 	for e in table:
 		total += float(e.get("weight", 1.0))
-	var r := rng.randf() * total
+	var r := u * total
 	for e in table:
 		r -= float(e.get("weight", 1.0))
 		if r <= 0.0:
 			return e
 	return table.back() if not table.is_empty() else {}
+
+
+## A supply crate's prize: { credits } or { item, count }, rolled by weight.
+func roll_crate_prize() -> Dictionary:
+	return _pick_weighted(content.get_crate_prizes(location_id), rng.randf())
 
 
 ## Issue #64: one loot box at a time. Contraband lying in the world (the desert
@@ -270,7 +301,7 @@ func roll_crate_prize() -> Dictionary:
 func _sync_loose_contraband() -> void:
 	var allowed := Story.chapter() == "free" and WorldState.smuggle_drop().is_empty() and not WorldState.carrying_contraband()
 	for n in pickups:
-		if is_instance_valid(n) and not bool(n.pickup.get("job", false)) \
+		if is_instance_valid(n) and not bool(n.pickup.get("job", false)) and not n.pickup.has("site") \
 				and bool(content.get_item(str(n.pickup.get("item", ""))).get("contraband", false)):
 			n.visible = allowed
 
@@ -424,8 +455,12 @@ func prompt_text() -> String:
 			return _l(str(focus.node.pickup.get("prompt", "open_droid")))   # issue #321: a console's "search_console"
 		if bool(focus.node.pickup.get("crate", false)):
 			return _l("open_crate")
+		if focus.node.pickup.has("credits"):
+			return _l("pick_up") % (_l("crate_credits") % int(focus.node.pickup.credits))
 		var item: Dictionary = content.get_item(str(focus.node.pickup.get("item", "")))
-		return _l("pick_up") % _shown(item, str(focus.node.pickup.get("item", "")))
+		var n := int(focus.node.pickup.get("count", 1))
+		var shown := _shown(item, str(focus.node.pickup.get("item", "")))
+		return _l("pick_up") % ((_l("crate_items") % [n, shown]) if n > 1 else shown)
 	var v: Dictionary = focus.cfg
 	if not is_open(v):
 		var said: String = closed_line.call(str(v.get("marker", ""))) if closed_line.is_valid() else ""
@@ -521,6 +556,8 @@ func _take(node) -> String:
 	var entry: Dictionary = node.pickup
 	if bool(entry.get("crate", false)):
 		return _open_crate(node)
+	if entry.has("credits"):
+		return _take_credits(node)
 	var id := str(entry.get("item", ""))
 	var item: Dictionary = content.get_item(id)
 	if not inv().is_taken(str(entry.get("id", ""))) and not inv().room_for(id, item):
@@ -537,7 +574,8 @@ func _take(node) -> String:
 		QuestNews.push("cargo_found", WorldState.smuggle_goods_text())
 	node.queue_free()
 	focus = {}
-	var msg := _l("picked_up") % str(item.get("label", id))
+	var n := int(entry.get("count", 1))
+	var msg := _l("picked_up") % ((_l("crate_items") % [n, str(item.get("label", id))]) if n > 1 else str(item.get("label", id)))
 	# Wear it straight away if its slot is free (not one you activate yourself: "auto_on" false).
 	if bool(item.get("auto_on", true)) and inv().in_slot(str(item.get("slot", ""))) == "" and inv().attach(id, item):
 		msg = _l("attached") % str(item.get("label", id))
@@ -545,6 +583,22 @@ func _take(node) -> String:
 	if hud != null:
 		hud.toast(msg, 4.0)
 	_tips_for(id)
+	return "picked_up"
+
+
+## Wreck field: a stack of credits lying on a wreck: straight into the purse.
+func _take_credits(node) -> String:
+	var entry: Dictionary = node.pickup
+	var pid := str(entry.get("id", ""))
+	if pid == "" or inv().is_taken(pid):
+		return ""
+	inv().taken[pid] = true
+	WorldState.credits += int(entry.credits)
+	pickups.erase(node)
+	node.queue_free()
+	focus = {}
+	if hud != null:
+		hud.toast(_l("picked_up") % (_l("crate_credits") % int(entry.credits)), 4.0)
 	return "picked_up"
 
 
