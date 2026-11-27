@@ -177,7 +177,9 @@ func build_weapons(ids: Array) -> void:
 			welder.get_node("Nozzle").add_child(fx)
 			wrap.set_meta("fx", fx)
 		else:
-			var model := _load_model(str(spec.get("model", "")), spec)
+			# The seeker launcher is simple shapes (LauncherLook), not a model.
+			var model := LauncherLook.build(spec) if str(spec.get("build", "")) == "launcher" \
+				else _load_model(str(spec.get("model", "")), spec)
 			var s := float(spec.get("scale", 1.0))
 			if model != null:
 				model.scale = Vector3.ONE * s

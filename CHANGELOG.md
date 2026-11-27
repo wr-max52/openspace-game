@@ -15,6 +15,35 @@ Plain English, newest on top. One entry per milestone.
   another, or strolls on; the scared take the nearest free one), and the
   elevator queue spreads over the bridge, at least 0.8 m apart.
 
+## Seeker launcher (2026-11-26)
+
+- **A new hand weapon, key 4 (or the wheel's slot 4): the seeker launcher.** A
+  tube with a scope, carried over your right shoulder. It fires your grenades as
+  small seekers, one grenade a shot from the same stack you throw with F; with
+  no grenades it does not fire. The next one goes in over 1.3 s.
+- **Free fire or lock on.** From the hip (or aimed with nothing locked) a seeker
+  flies straight at the crosshair. Aim in (right-click) and hold a ship or a
+  speeder near the crosshair: amber brackets close on it and a ring fills, the
+  same lock the ship's seekers use (1.2 s, out to 450 m), and once it says
+  LOCKED the next seeker turns after it. Let it drift out and the lock bleeds off.
+- **What it hits:** a seeker goes up like a vehicle where it lands. One kills a
+  speeder; two bring down the Remnant interceptor in the air. It locks on
+  speeders, the interceptor in the air and the barracks pad's interceptor.
+- **Where to get it:** every gear trader always has it in stock for 900 cr: the
+  port's, the ranch villages' stands and the station's. Free roam also lets you
+  draw it without buying it (as the rifle); a story save needs one bought.
+- For now the look is a plain tube with a scope, the rifle's scope, with the
+  range drawn on screen when you look through it.
+- **Launcher guards.** Two of the three roof riflemen on the port's barracks
+  hall (west and east) now carry seeker launchers, and so does one guard at
+  every outpost (the third post, for whoever holds it). Take off from the port
+  while the Remnant hold it, or ride near an outpost that is fighting you, and
+  they turn the tube on you, lock on and fire. Their lock and their seekers
+  sound your ship's seeker warning (ENEMY LOCK – MISSILES INBOUND); a speeder
+  has no warning yet. A hit takes 35 off your shields or hull; turn hard or fly
+  fast and they can lose you. On foot they lob slow seekers that burst where
+  they land. No extra people: they replace riflemen on the same posts.
+
 ## Ships land on and hit the mountains' real rock (2026-11-26)
 
 - **A ship set down on a mountain stays on top of it.** The ship used to read

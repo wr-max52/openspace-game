@@ -506,6 +506,7 @@ func _enlist(g: NpcBody) -> void:
 		# Issue #303: his crew is yours on the oath. Issue #497: the locals aboard go by
 		# your standing with them (the garrison takes their faction from its first body).
 		garrison.always_hostile = crew_always_hostile()
+		garrison.place = label()               # which alarm: "Remnant star cruiser <name>"
 		var outposts = demo.outposts
 		if outposts != null:
 			outposts.garrisons[id] = garrison      # a ship taken from its bay sounds its alarm
@@ -1026,8 +1027,8 @@ func _holo_near() -> void:
 		return
 	var table := CruiserHull.holo_table()
 	var near: bool = (inv * (demo._player.global_position as Vector3)).distance_to(table) <= float(spec.get("show_within", 400.0))
-	if near and holo == null and str(spec.get("kind", "")) == "station":
-		holo = _station_holo(spec, table)
+	if near and holo == null and str(spec.get("kind", "")) == "system":
+		holo = _system_holo(spec, table)
 	if near and holo == null:
 		var names := { "town": NameHooks.town(ground.world), "cruiser": vessel_name }
 		var moons: Array = []
@@ -1046,27 +1047,38 @@ func _holo_near() -> void:
 		holo.process_mode = Node.PROCESS_MODE_INHERIT if near else Node.PROCESS_MODE_DISABLED
 
 
-## Issue #327: the holo table's map of the station this cruiser holds by (holo.station:
-## the station config a landmark of this world names), or null when it is not here.
-func _station_holo(spec: Dictionary, table: Vector3) -> CruiserHolo:
+## Issue #327: the holo table's map of the whole system this cruiser hangs in (the
+## planet under it, its ring, its space stations, its moons and the cruiser itself),
+## each saying who holds it (CruiserHolo.setup_system).
+func _system_holo(spec: Dictionary, table: Vector3) -> CruiserHolo:
+	var sp := ground.sphere()
+	var stations: Array = []
+	var live: Array = demo.get("stations") if demo.get("stations") is Array else []
 	for lm in StationHull.landmarks(ground.world):
-		if str(lm.get("station", "")) != str(spec.get("station", "")):
-			continue
 		var hull := StationHull.for_id(str(lm.get("station", "")))
-		var lm_id := str(lm.get("id", ""))
-		var at := StationHull.frame(ground, lm_id)
-		if hull == null or at == Transform3D.IDENTITY:
+		if hull == null:
 			continue
+		var lm_id := str(lm.get("id", ""))
 		var station_name := ""
-		for st in demo.get("stations") if demo.get("stations") != null else []:
+		for st in live:
 			if is_instance_valid(st) and st.id == lm_id:
 				station_name = st.label()
-		var h := CruiserHolo.new()
-		h.setup_station(spec, hull, at, frame, table + Vector3(0, float(spec.get("lift", 1.6)), 0),
-			{ "station": station_name, "cruiser": vessel_name })
-		_hull.add_child(h)
-		return h
-	return null
+		var at := StationHull.frame(ground, lm_id)
+		if at == Transform3D.IDENTITY:
+			at = hull.frame_for(sp, lm, ground.world)
+		stations.append({ "id": Territory.STATION + lm_id, "hull": hull, "frame": at, "name": station_name })
+	var moons: Array = []
+	var travel = demo.pilot.travel if demo.pilot != null else null
+	if travel != null:
+		moons = travel.bodies
+	elif "planet" in demo:
+		moons = demo.planet.get("neighbours", [])
+	var body: Dictionary = demo.planet.get("cfg", {}).get("body", {}) if "planet" in demo else {}
+	var h := CruiserHolo.new()
+	h.setup_system(spec, sp, body, frame, table + Vector3(0, float(spec.get("lift", 1.6)), 0), stations, moons,
+		{ "cruiser": vessel_name }, flag())
+	_hull.add_child(h)
+	return h
 
 
 func _toast(text: String, secs: float) -> void:

@@ -179,7 +179,7 @@ func start_brains() -> void:
 	for r in ranches:
 		var mine: Array = people.filter(func(g): return is_instance_valid(g) and str(g.get_meta("ranch", "")) == str(r.id))
 		if not mine.is_empty():
-			folks[str(r.id)] = demo.make_townsfolk("Ranch_" + str(r.id), mine)
+			folks[str(r.id)] = demo.make_townsfolk("Ranch_" + str(r.id), mine, str(r.label))
 	_give_vendors()
 	var gear = demo.get("gear")
 	if gear == null:

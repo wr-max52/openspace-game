@@ -154,6 +154,48 @@
       }
     }
   },
+  "seeker_launcher": {
+    "note": "The seeker launcher: a plain tube with a scope, built from simple shapes (LauncherLook, src/systems/look/launcher_look.gd; 'build': 'launcher', no model), held over the right shoulder. Model space: the tube's axis along +Z, the origin on the axis where it sits on the shoulder; 'tube' its radius, its back and front ends (z) and the flared bells. A pistol grip under it for the right hand and a front grip for the left ('grips', the hands' IK targets; 'hold_3p' closes them on the grips as the rifle's). The scope is GunSights' own (the rifle's) on the tube's upper left, its reticle drawn on screen with the range (digital). 'aim' / 'aim_fpv': the tube on the right shoulder beside the head (chest space), turning about the shoulder contact (pivot) to the crosshair. 'carry' launcher: it stays on the shoulder at rest too (WeaponCarry REST/SPRINT 'launcher'). 'tint': tube, trim, grip.",
+    "build": "launcher",
+    "carry": "launcher",
+    "scale": 1.0,
+    "emitter": false,
+    "tint": { "tube": "#4f5a48", "trim": "#2a2c2e", "grip": "#1d1e20", "glow": "#ffb060" },
+    "tube": { "radius": 0.062, "back": -0.42, "front": 0.62, "bell": 0.075, "bell_len": 0.07 },
+    "ads": { "sight": [0.072, 0.082, 0.03], "relief": 0.1, "mag": 2.0, "blend_s": 0.2 },
+    "scope": {
+      "pos": [0.072, 0.082, 0.13],
+      "length": 0.2,
+      "radius": 0.022,
+      "ocular": 0.027,
+      "objective": 0.032,
+      "rings": [-0.05, 0.05],
+      "rail_y": 0.035,
+      "reticle": "#ffb060",
+      "digital": true,
+      "weave": 0.0,
+      "accent": "#c98a3a",
+      "accent_glow": 0.0
+    },
+    "grips": { "r": [0.0, -0.135, 0.2], "l": [0.0, -0.125, 0.42] },
+    "mag": [0.0, 0.0, -0.42],
+    "reload_out": [0.1, -0.12, -0.12],
+    "muzzle": [0.0, 0.0, 0.64],
+    "aim": { "pos": [-0.17, 0.15, 0.0], "rot": [0, 0, 0], "pivot": [0.0, -0.062, 0.0] },
+    "aim_fpv": { "pos": [-0.17, 0.12, 0.02], "rot": [0, 2, 0] },
+    "fpv_pose": { "r": "trigger", "l": "support" },
+    "holster": "back",
+    "sound": "res://assets/third_party/kenney_starter_kit_fps/sounds/blaster.ogg",
+    "sound_pitch": 0.45,
+    "slot": 4,
+    "hold_3p": {
+      "passes": 2,
+      "hands": {
+        "r": { "grip": [0.0, -0.135, 0.2], "bar": [0.0, 0.95, 0.3], "palm": [1.0, 0.0, 0.2], "radius": 0.022, "curl": [0.35, 1.0, 1.0, 1.0], "thumb": "wrap" },
+        "l": { "grip": [0.0, -0.125, 0.42], "bar": [0.0, 0.95, 0.3], "palm": [-1.0, 0.0, 0.2], "radius": 0.02, "curl": [1.0, 1.0, 1.0, 1.0], "thumb": "wrap" }
+      }
+    }
+  },
   "throw": {
     "wind": [-0.26, 0.36, -0.32],
     "over": [-0.22, 0.50, 0.06],

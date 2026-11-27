@@ -22,7 +22,7 @@ const DATA := "res://content/core/droids/droids.json"
 
 static var _cfg: Dictionary = {}
 
-var owned: Array = []       ## [{ uid, kind, variant, cargo: { item id -> count }, up: { upgrade -> level }, lasers_on?, safety? }]
+var owned: Array = []       ## [{ uid, kind, variant, cargo: { item id -> count }, up: { upgrade -> level }, lasers_on?, laser_mode?, safety? }]
 var wrecks: Array = []      ## [{ uid, kind, variant, pos: [x, y, z] }]
 var wrecks_seeded := false  ## the home ball's starting field is generated once and saved
 ## Saves before this had every runaway cargo droid kept for good (dozens of them):
@@ -263,6 +263,52 @@ func set_lasers(uid: int, on: bool) -> bool:
 		return false
 	d["lasers_on"] = on
 	return on
+
+
+## The rig's modes in the order E steps through them after off (droids.json
+## upgrades.lasers.modes): [{ id, music }].
+static func laser_modes() -> Array:
+	return upgrade_cfg("lasers").get("modes", [])
+
+
+## What droid `d`'s rig is doing: "" with its lasers off, else a mode id. Lasers
+## on means music on: a rig with no mode saved (an older save) plays the first.
+static func laser_mode(d: Dictionary) -> String:
+	if not lasers_on(d):
+		return ""
+	var ids := laser_modes().map(func(m): return str(m.id))
+	if ids.is_empty():
+		return ""
+	var id := str(d.get("laser_mode", ""))
+	return id if ids.has(id) else str(ids[0])
+
+
+## The club playlist droid `d` is playing ("" for none: lasers off, or no music).
+static func laser_music(d: Dictionary) -> String:
+	var id := laser_mode(d)
+	for m in laser_modes():
+		if str(m.id) == id:
+			return str(m.get("music", ""))
+	return ""
+
+
+## The mode after `mode` in E's cycle: off -> each mode in turn -> off.
+static func next_laser_mode(mode: String) -> String:
+	var ids := laser_modes().map(func(m): return str(m.id))
+	var i := ids.find(mode) + 1 if mode != "" else 0
+	return str(ids[i]) if i < ids.size() else ""
+
+
+## Put droid `uid`'s rig in `mode` ("" turns the lasers off; the mode stays
+## remembered). Returns the mode now on ("" with no rig).
+func set_laser_mode(uid: int, mode: String) -> String:
+	var d := find(uid)
+	if d.is_empty() or not has_lasers(d):
+		return ""
+	d["lasers_on"] = mode != ""
+	if mode != "":
+		d["laser_mode"] = mode
+	return laser_mode(d)
 
 
 # ---- safety (E beside it, or the wheel's droid slot for all) ------------------------
@@ -540,6 +586,8 @@ func from_save(d: Dictionary) -> void:
 				"cargo": (o.get("cargo", {}) as Dictionary).duplicate(), "up": up }
 			if o.has("lasers_on"):
 				mine["lasers_on"] = bool(o.lasers_on)
+			if o.has("laser_mode"):
+				mine["laser_mode"] = str(o.laser_mode)
 			if o.has("safety"):
 				mine["safety"] = bool(o.safety)
 			mine.variant = look_variant(mine)    # older saves: the random look becomes the base one

@@ -465,6 +465,8 @@ func _ride(dt: float) -> void:
 			gear.fire_seeker(self, gear.pick_target(self))
 		if gear != null and _just("throw"):
 			gear.drop_mine(self)
+		if _just("flight_radio"):
+			radio_next()
 	else:
 		model.set_command(float(_external.get("throttle", 0.0)), float(_external.get("steer", 0.0)),
 			bool(_external.get("boost", false)))
@@ -527,6 +529,16 @@ func _fire(dt: float, trigger: bool) -> void:
 
 ## A laser bolt landed on `target`: the hit marker pops if it really took damage
 ## (people, droids, other speeders, ships), as for the guns on foot.
+## J steps the radio, as in a ship (issue #291): the next station, then off,
+## with the same line on screen.
+func radio_next() -> String:
+	var station := Sound.radio_next()
+	var gear_ctl = demo.get("gear") if demo != null else null
+	if gear_ctl != null and gear_ctl.hud != null:
+		gear_ctl.hud.toast(ShipPilot.radio_line(station), 3.0)
+	return station
+
+
 func _on_laser_hit(target: Object) -> void:
 	if feedback != null:
 		feedback.on_hit(target)
@@ -1653,8 +1665,8 @@ func _build_hud() -> void:
 	help.size = Vector2(840, 28)
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var shift := "Drift" if model.ability() == "drift" else "Boost"     # issue #627: the box truck drifts
-	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter on/off (W/S tilt in the air)   [E] Get off" \
-		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] %s   [Space / LMB] Lasers   [E] Get off") % shift
+	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter on/off (W/S tilt in the air)   [J] Radio   [E] Get off" \
+		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] %s   [Space / LMB] Lasers   [J] Radio   [E] Get off") % shift
 	help.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	help.add_theme_constant_override("outline_size", 4)
 	_hud.add_child(help)
