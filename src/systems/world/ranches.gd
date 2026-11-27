@@ -13,10 +13,13 @@ extends Node3D
 ##     buildings are solid boxes in the ship's ground already (WorldGround); this
 ##     node only dresses them and stands the people in them.
 ##
-## The people are the locals': armed ranchers (soldiers/ranch_local.json) hanging
-## about the fire and the gate, and a keeper behind each stand, all run by the
-## ranch's own Townsfolk (their own alarm: a fight out here never reaches the
-## port). The stands sell what the port's do: the gear trader, the food stall and
+## The people: a keeper behind each stand, run by the ranch's own Townsfolk
+## (their own alarm: a fight out here never reaches the port), and guards about
+## the fire and the gate ("points" "locals"). A ranch village's guards are its
+## outpost's holders, so RemnantOutposts stands them (RemnantOutposts.village_spots):
+## the Remnant's troopers while the Remnant hold it, armed ranchers
+## (soldiers/ranch_local.json) while the locals do, swapped with the outpost. A
+## place with no outpost (the racers') stands its own, here, always the locals'. The stands sell what the port's do: the gear trader, the food stall and
 ## the fence are the port's vendors (content/core/vendors, same stock and prices)
 ## added to the gear's list at the stand, and the droid stand is one more droid
 ## merchant (DroidController.vendor_sites). No speeders. A stand shuts while its
@@ -112,7 +115,8 @@ func _place(lm: Dictionary, loc: Dictionary) -> void:
 	var stalls: Dictionary = loc.get("stalls", {})
 	for sid in stalls:
 		parts.append(_add_keeper.bind(r, str(sid)))
-	var spots: Array = loc.get("points", {}).get("locals", [])
+	# A village's guards are its outpost's holders: RemnantOutposts stands them.
+	var spots: Array = [] if loc.has("outpost") else loc.get("points", {}).get("locals", [])
 	for i in spots.size():
 		parts.append(_add_rancher.bind(r, i))
 	_queue = parts + _queue           # this ranch's pieces next, then the others

@@ -348,7 +348,11 @@ func test_outposts_in_the_town_with_guards_droids_and_target() -> void:
 	assert_not_null(o, "the town builds the outposts")
 	var n := Story.OUTPOSTS.size()
 	assert_eq(o.outposts.size(), n, "every outpost round the town")
-	assert_eq(o.guards.size(), n * 3, "three troopers each (issue #76)")
+	var spots := 0
+	for op in o.outposts:
+		spots += o.village_spots(op).size()
+	assert_gt(spots, 0, "the ranch villages have guard spots")
+	assert_eq(o.guards.size(), n * 3 + spots, "three troopers each (issue #76), and the Remnant on a village's guard spots")
 	for g in o.guards:
 		var og: Garrison = o.garrisons.get(str(g.get_meta("outpost")))
 		assert_not_null(og, "each outpost has its own garrison")
@@ -396,6 +400,41 @@ func test_killing_a_trooper_pays_twenty_credits() -> void:
 	other.apply_damage(9999.0)          # nobody we know shot it
 	await wait_physics_frames(2)
 	assert_eq(WorldState.credits, c0 + 20, "a kill that was not the player's pays nothing")
+
+
+## A ranch village's guards (round the fire, by the gate) are whoever holds its
+## outpost: the Remnant's troopers while they do, armed ranchers once the locals
+## take it, and the troopers again when the Remnant are back.
+func test_a_village_is_guarded_by_whoever_holds_it() -> void:
+	var t = _town()
+	await wait_physics_frames(2)
+	var o: RemnantOutposts = t.outposts
+	var v: Dictionary = {}
+	for op in o.outposts:
+		if not o.village_spots(op).is_empty():
+			v = op
+	assert_false(v.is_empty(), "a village outpost")
+	var id := str(v.id)
+	var n: int = o.village_spots(v).size()
+	var on_spots := func(side: String) -> Array:
+		return o.people(v, side).filter(func(g): return str(g.post_id).contains("/village_"))
+	assert_eq(on_spots.call(Territory.REMNANT).size(), n, "the Remnant hold it: troopers on the village's spots")
+	for g in on_spots.call(Territory.REMNANT):
+		assert_eq(str(g.soldier_id), "outpost_trooper")
+		assert_true(o.garrisons[id].members.has(g), "in the outpost's garrison")
+	var ranch_id := str(o.village(v).id)
+	var ranchers: Array = t.ranches.people.filter(func(g): return is_instance_valid(g) \
+		and str(g.get_meta("ranch", "")) == ranch_id and str(g.soldier_id) == "ranch_local")
+	assert_eq(ranchers.size(), 0, "no locals guarding a Remnant village")
+	Territory.take(id)
+	o.swap(v, Territory.LOCALS)
+	assert_eq(on_spots.call(Territory.LOCALS).size(), n, "the locals take it: their ranchers on the spots")
+	for g in on_spots.call(Territory.LOCALS):
+		assert_eq(str(g.soldier_id), "ranch_local")
+		assert_eq(str(g.faction), "locals")
+		assert_true(o.folks[id].members.has(g), "in the locals' garrison there")
+	o.swap(v, Territory.REMNANT)
+	assert_eq(on_spots.call(Territory.REMNANT).size(), n, "the Remnant back: troopers again")
 
 
 func test_town_troopers_come_back_behind_the_barracks() -> void:
