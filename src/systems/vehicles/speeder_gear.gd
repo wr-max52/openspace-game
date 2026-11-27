@@ -185,10 +185,22 @@ func hud_text() -> String:
 	if seekers_max > 0:
 		out += "\nSEEKERS %d/%d [RMB]" % [seekers, seekers_max]
 	if mines_max > 0:
-		out += "\nMINES   %d/%d [G]" % [mines, mines_max]
+		out += "\nMINES   %d/%d [%s]" % [mines, mines_max, key_of("throw", "F")]
 	if deflector:
 		out += "\nDEFLECT %s" % ("UP" if deflector_up else "%.0fs" % maxf(_deflect_left, 0.0))
 	return out
+
+
+## The key bound to `action` in the input map (project.godot), so the HUD can not
+## name a different key from the one SpeederNode listens to. `fallback` if none.
+static func key_of(action: String, fallback: String) -> String:
+	if InputMap.has_action(action):
+		for e in InputMap.action_get_events(action):
+			if e is InputEventKey:
+				var k: Key = e.keycode if e.keycode != KEY_NONE else e.physical_keycode
+				if k != KEY_NONE:
+					return OS.get_keycode_string(k)
+	return fallback
 
 
 static func _empty_content():
