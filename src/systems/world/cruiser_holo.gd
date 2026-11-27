@@ -21,11 +21,12 @@ extends Node3D
 ## smaller, with "here_on": "town" (the port is "here", the cruiser just named);
 ## its parent is in the world's frame, so `cruiser_frame` is only where the cruiser is.
 ##
-## Issue #327: a cruiser holding station by a space station (the belt cruiser,
-## holo.kind "station") shows that station instead (setup_station): both towers
-## floor by floor, the elevator shafts, the tunnels and the covered bay, built from
-## the station's own config (StationHull), the belt of rocks round it, and the
-## cruiser in its true direction from it.
+## Issue #327: a cruiser over another planet's system (the belt cruiser over the
+## ringed giant, holo.kind "system") shows that whole system (setup_system): the
+## giant with its ring, and on their orbits round it the space station (a small
+## model of it), the cruiser and the moon, with the moon's outposts and barracks
+## pinned on it. The station's barracks (its Remnant deck), the cruiser, and the
+## moon's outposts and barracks each say who holds them, by colour and by name.
 
 const SHADER := preload("res://src/systems/look/shaders/holo.gdshader")
 
@@ -41,6 +42,11 @@ var _to_world := Basis.IDENTITY        ## the parent's frame back to the world's
 ## { owner, short, mats, label, flash }: the pin's materials to recolour.
 var places: Dictionary = {}
 var _refresh := 0.0
+## The cruiser's taken flag when it is not the home one (setup_system): Remnant
+## until it is set, then empty. "" for the home cruiser (RemnantCruiser.home_holder).
+var cruiser_flag := ""
+## Labels whose text says who holds something: { label, text: Callable }.
+var _texts: Array = []
 
 
 ## `cruiser_frame` is the cruiser's frame in the world (the parent's), `anchor` the
@@ -87,37 +93,55 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 		_pin(sphere.map_dir(at.x, at.z), wreck_col, 0.16, str(spec.get("lines", {}).get("wreck", "")), false)
 	# The cruiser in its orbit, and the orbit itself (issue #321: not on a planet with none).
 	if not bool(spec.get("no_cruiser", false)):
-		var here := cruiser_frame.origin - sphere.center
-		var ccol := owner_color(CRUISER)       # issue #497: by who holds it
-		var ship := MeshInstance3D.new()
-		ship.name = "Cruiser"
-		var wedge := PrismMesh.new()
-		wedge.size = Vector3(0.09, 0.26, 0.04)
-		ship.mesh = wedge
-		ship.material_override = _mat(ccol, 3.0, 1.0, 0.6, 0.0, 0.0)
-		ship.position = here.normalized() * squeezed(here.length())
-		_turn.add_child(ship)
-		ship.look_at_from_position(ship.position, ship.position + _tangent(here), here.normalized())
-		ship.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
-		_turn.add_child(_ring(here, squeezed(here.length()), ccol, 0.5))
 		var ship_name := str(names.get("cruiser", ""))
-		var ship_label := _label(ship.position + here.normalized() * 0.2, ship_name if here_town else here_line % ship_name, ccol)
-		_turn.add_child(ship_label)
-		_place(CRUISER, { "mats": [ship.material_override], "label": ship_label })
+		_orbiting_cruiser(cruiser_frame, ship_name if here_town else here_line % ship_name)
 	# The moon (any child neighbour): its real direction, its distance squeezed.
-	var mcol := Color(str(spec.get("moon_color", "#a9b8ff")))
 	for m in moons:
-		if not bool(m.get("child", true)):
-			continue
-		var rel: Vector3 = (m.at as Vector3) - sphere.center
-		var r := clampf(float(m.get("radius", 0.0)) / sphere.radius * radius, float(spec.get("moon_min_radius", 0.16)),
-			float(spec.get("moon_max_radius", 0.24)))
-		var moon := _sphere(r, _mat(mcol, 1.0, 0.2, 1.0, 5.0, 0.4))
-		moon.name = "Moon_" + str(m.get("id", ""))
-		moon.position = rel.normalized() * radius * float(spec.get("moon_at", 2.3))
-		_turn.add_child(moon)
-		_turn.add_child(_ring(rel, moon.position.length(), mcol, 0.3))
-		_turn.add_child(_label(moon.position + Vector3(0, r + 0.08, 0), str(names.get(str(m.get("id", "")), "")), mcol))
+		if bool(m.get("child", true)):
+			_moon(m, str(names.get(str(m.get("id", "")), "")))
+
+
+## The cruiser over the ball where it really is (heights squeezed), its bow along
+## the ground, on its orbit, coloured by who holds it (issue #497), and its label
+## (`text`). Returns the label.
+func _orbiting_cruiser(cruiser_frame: Transform3D, text: String) -> Label3D:
+	var here := cruiser_frame.origin - sphere.center
+	var ccol := owner_color(CRUISER)
+	var ship := MeshInstance3D.new()
+	ship.name = "Cruiser"
+	var wedge := PrismMesh.new()
+	wedge.size = Vector3(0.09, 0.26, 0.04)
+	ship.mesh = wedge
+	ship.material_override = _mat(ccol, 3.0, 1.0, 0.6, 0.0, 0.0)
+	ship.position = here.normalized() * squeezed(here.length())
+	_turn.add_child(ship)
+	ship.look_at_from_position(ship.position, ship.position + _tangent(here), here.normalized())
+	ship.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
+	var orbit := _ring(here, squeezed(here.length()), ccol, 0.5)
+	_turn.add_child(orbit)
+	var ship_label := _label(ship.position + here.normalized() * 0.2, text, ccol)
+	_turn.add_child(ship_label)
+	_place(CRUISER, { "mats": [ship.material_override, orbit.material_override], "label": ship_label })
+	return ship_label
+
+
+## A moon (a child neighbour { id, at, radius }): a ball in its real direction at
+## holo.moon_at times the ball's radius, its orbit, and its label (`text`) over it.
+## Returns the ball, its label in its "label" meta.
+func _moon(m: Dictionary, text: String) -> MeshInstance3D:
+	var mcol := Color(str(spec.get("moon_color", "#a9b8ff")))
+	var rel: Vector3 = (m.at as Vector3) - sphere.center
+	var r := clampf(float(m.get("radius", 0.0)) / sphere.radius * radius, float(spec.get("moon_min_radius", 0.16)),
+		float(spec.get("moon_max_radius", 0.24)))
+	var moon := _sphere(r, _mat(mcol, 1.0, 0.2, 1.0, 5.0, 0.4))
+	moon.name = "Moon_" + str(m.get("id", ""))
+	moon.position = rel.normalized() * radius * float(spec.get("moon_at", 2.3))
+	_turn.add_child(moon)
+	_turn.add_child(_ring(rel, moon.position.length(), mcol, 0.3))
+	var label := _label(moon.position + Vector3(0, r + 0.08, 0), text, mcol)
+	_turn.add_child(label)
+	moon.set_meta("label", label)
+	return moon
 
 
 ## The projector under the map: a cone of light from the table top up to `under`
@@ -143,25 +167,145 @@ func _projector(col: Color, top: float, under: float) -> void:
 	add_child(lamp)
 
 
-# ------------------------------------------------------------------ issue #327: a station
+# ------------------------------------------------------------------ the whole system
 
-## The map of a space station (`hull`, hanging at `station_frame`) for a cruiser at
-## `cruiser_frame` holding station by it. `anchor` is the map's middle in the
-## cruiser's frame; `names` labels by key ("station", "cruiser"). The station is
-## turned as the real one is (its bay where it really is) and scaled so its length
-## is holo.width; the cruiser keeps its true direction at holo.cruiser_at.
-func setup_station(cfg: Dictionary, hull: StationHull, station_frame: Transform3D, cruiser_frame: Transform3D,
-		anchor: Vector3, names: Dictionary) -> void:
+## The map of a planet's whole system for a cruiser holding station over it (the
+## belt cruiser over the ringed giant, holo.kind "system"): the planet's ball with
+## its ring (`body`: the planet's look from space, its "ring" in planet radii), and
+## everything that goes round it, each on its orbit: every space station
+## (`stations`: { id (its Territory place, "station_<landmark id>"), hull, frame,
+## name }), this cruiser, and every moon of it (`moons`, the child ones), its
+## outposts and its barracks pinned on it where they really are. Each says who
+## holds it, by colour and by name, and changes live (refresh_owners). `flag` is
+## this cruiser's taken flag (it is empty once taken); `names` labels by key
+## ("cruiser").
+func setup_system(cfg: Dictionary, sp: PlanetSphere, body: Dictionary, cruiser_frame: Transform3D, anchor: Vector3,
+		stations: Array, moons: Array, names: Dictionary, flag: String) -> void:
 	spec = cfg
+	sphere = sp
+	cruiser_flag = flag
 	name = "HoloMap"
+	radius = float(spec.get("radius", 0.7))
 	position = anchor
 	_to_world = cruiser_frame.basis.orthonormalized().inverse()
-	basis = _to_world * station_frame.basis.orthonormalized()
+	basis = _to_world
 	_turn = Node3D.new()
 	_turn.name = "Turn"
 	add_child(_turn)
 	var col := Color(str(spec.get("color", "#3fc8ff")))
-	# The station's footprint (its towers' widest floors and the bay) and height.
+	var ball := _sphere(radius, _mat(col, 0.8, 0.06, 1.0, 0.0, 0.0))
+	ball.name = "Planet"
+	_turn.add_child(ball)
+	_turn.add_child(_sphere(radius * 1.004, _mat(col, 0.7, 0.0, 0.25, float(spec.get("bands", 14.0)), 0.0)))
+	var ring: Dictionary = body.get("ring", {})
+	if not ring.is_empty():
+		_planet_ring(ring)
+	for st in stations:
+		_system_station(st)
+	if not bool(spec.get("no_cruiser", false)):
+		var ship_name := str(spec.get("lines", {}).get("here", "%s")) % str(names.get("cruiser", ""))
+		var label := _orbiting_cruiser(cruiser_frame, "")
+		label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		_texts.append({ "label": label, "text": func() -> String: return _owned(ship_name, CRUISER) })
+	for m in moons:
+		if bool(m.get("child", true)):
+			_system_moon(m)
+	_projector(col, radius * 0.95, radius * 0.6)
+	_relabel()
+
+
+## The planet's ring: a faint flat band from ring.inner to ring.outer planet radii
+## square to ring.normal, and holo.rocks rocks scattered through it.
+func _planet_ring(ring: Dictionary) -> void:
+	var n := WorldGround._v3(ring.get("normal", [0, 1, 0])).normalized()
+	var r0 := float(ring.get("inner", 1.4)) * radius
+	var r1 := float(ring.get("outer", 2.4)) * radius
+	var band := MeshInstance3D.new()
+	band.name = "Ring"
+	var t := TorusMesh.new()
+	t.inner_radius = r0
+	t.outer_radius = r1
+	t.rings = 96
+	t.ring_segments = 6
+	band.mesh = t
+	band.material_override = _mat(Color(str(spec.get("rock_color", "#86c4e0"))), 0.5, 0.25, 0.0, 0.0, 0.0)
+	band.basis = PlanetSphere.tilt_to(n) * Basis.from_scale(Vector3(1.0, 0.03 / maxf(r1 - r0, 0.01), 1.0))
+	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_turn.add_child(band)
+	_rocks(r0, r1, n)
+
+
+## Rocks scattered from holo.seed between `r0` and `r1` round the ball's centre in
+## the plane square to `n`: one MultiMesh of faceted lumps.
+func _rocks(r0: float, r1: float, n: Vector3) -> void:
+	var count := int(spec.get("rocks", 160))
+	if count <= 0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(spec.get("seed", 327))
+	var lump := SphereMesh.new()
+	lump.radius = 0.5
+	lump.height = 1.0
+	lump.radial_segments = 6
+	lump.rings = 3
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = lump
+	mm.instance_count = count
+	var thick := float(spec.get("ring_thick", 0.04))
+	var s0 := float(spec.get("rock_min", 0.008))
+	var s1 := float(spec.get("rock_max", 0.03))
+	var tilt := PlanetSphere.tilt_to(n)
+	for i in count:
+		var a := rng.randf() * TAU
+		var r := lerpf(r0, r1, sqrt(rng.randf()))
+		var y := (rng.randf() + rng.randf() - 1.0) * thick * 0.5
+		var size := lerpf(s0, s1, pow(rng.randf(), 2.0))
+		var b := Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU))
+		b = b.scaled(Vector3(size * rng.randf_range(0.7, 1.3), size * rng.randf_range(0.6, 1.0), size * rng.randf_range(0.8, 1.4)))
+		mm.set_instance_transform(i, Transform3D(tilt * b, tilt * Vector3(cos(a) * r, y, sin(a) * r)))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "Rocks"
+	mmi.multimesh = mm
+	mmi.material_override = _mat(Color(str(spec.get("rock_color", "#86c4e0"))), 1.3, 0.5, 0.9, 0.0, 0.0)
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_turn.add_child(mmi)
+
+
+## A space station on the system's map: a small model of it (its towers, the bay
+## and the tunnels, turned as the real one is) holo.station_width long, over the
+## ball where it really is (at least holo.station_over metres off the ball), on its
+## orbit, with a bead over it and its name coloured by who holds its Remnant deck
+## (the barracks).
+func _system_station(st: Dictionary) -> void:
+	var hull: StationHull = st.hull
+	var frame: Transform3D = st.frame
+	var col := Color(str(spec.get("color", "#3fc8ff")))
+	var rel := frame.origin - sphere.center
+	var r := maxf(squeezed(rel.length()), radius + float(spec.get("station_over", 0.14)))
+	var at := rel.normalized() * r
+	var model := _station_model(hull, float(spec.get("station_width", 0.3)), col)
+	model.name = "Station_" + str(st.id)
+	model.basis = frame.basis.orthonormalized()
+	model.position = at
+	_turn.add_child(model)
+	_turn.add_child(_ring(rel, r, col, 0.3))
+	var id := str(st.id)
+	var bead := _sphere(0.035, _mat(owner_color(id), 3.0, 1.0, 0.6, 0.0, 0.0))
+	bead.position = at + rel.normalized() * float(spec.get("station_bead", 0.12))
+	_turn.add_child(bead)
+	var label := _label(bead.position + Vector3(0, 0.06, 0), "", owner_color(id))
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_turn.add_child(label)
+	var station_name := str(spec.get("lines", {}).get("station", "%s")) % str(st.get("name", ""))
+	_place(id, { "mats": [bead.material_override], "label": label })
+	_texts.append({ "label": label, "text": func() -> String: return _barracks_line(station_name, id) })
+
+
+## A station as a few drums of light: each tower from its lowest floor to its top
+## as wide as its widest floor, the bay, and the tunnels; `width` metres long.
+func _station_model(hull: StationHull, width: float, col: Color) -> Node3D:
+	var root := Node3D.new()
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 	for t in hull.towers:
@@ -177,26 +321,20 @@ func setup_station(cfg: Dictionary, hull: StationHull, station_frame: Transform3
 	var y0 := hull.bottom_y()
 	var y1 := hull.top_y()
 	var mid := Vector3((lo.x + hi.x) * 0.5, (y0 + y1) * 0.5, (lo.y + hi.y) * 0.5)
-	var k := float(spec.get("width", 2.5)) / maxf(maxf(hi.x - lo.x, hi.y - lo.y), 1.0)
-	radius = maxf(hi.x - lo.x, hi.y - lo.y) * k * 0.5
-	var at := func(p: Vector3) -> Vector3: return (p - mid) * k
-	var shell := _mat(col, 1.0, 0.08, 1.1, 0.0, 0.0)
-	var plate := _mat(col, 1.3, 0.35, 0.6, 0.0, 0.0)
+	var k := width / maxf(maxf(hi.x - lo.x, hi.y - lo.y), 1.0)
+	var shell := _mat(col, 1.4, 0.25, 1.1, 0.0, 0.0)
 	var glass := _mat(col.lightened(0.35), 1.8, 0.3, 0.8, 0.0, 0.0)
-	# Each tower: its floors as drums of light with a brighter plate, and the shaft.
 	for t in hull.towers:
-		var c: Vector2 = t.c
-		for f in t.floors:
-			var r := float(f.r) * k
-			var fy := float(f.y)
-			_turn.add_child(_drum(r, hull.floor_h * k, shell, at.call(Vector3(c.x, fy + hull.floor_h * 0.5, c.y)), true))
-			_turn.add_child(_drum(r * 0.995, maxf(hull.plate * k, 0.006), plate, at.call(Vector3(c.x, fy, c.y)), true))
 		var fl: Array = t.floors
-		if fl.size() >= 1:
-			var b := float(fl[0].y)
-			var top := float(fl[-1].y) + hull.floor_h
-			_turn.add_child(_drum(hull.shaft_r * k, (top - b) * k, glass, at.call(Vector3(c.x, (b + top) * 0.5, c.y)), false))
-	# The tunnels between the towers and out to the bay.
+		if fl.is_empty():
+			continue
+		var r := 0.0
+		for f in fl:
+			r = maxf(r, float(f.r))
+		var b := float(fl[0].y)
+		var top := float(fl[-1].y) + hull.floor_h
+		var c: Vector2 = t.c
+		root.add_child(_drum(r * k, (top - b) * k, shell, (Vector3(c.x, (b + top) * 0.5, c.y) - mid) * k, true))
 	for tn in hull.tunnels:
 		var xf: Transform3D = tn.xf
 		var mi := MeshInstance3D.new()
@@ -205,95 +343,84 @@ func setup_station(cfg: Dictionary, hull: StationHull, station_frame: Transform3
 		mi.mesh = bm
 		mi.material_override = glass
 		mi.basis = xf.basis
-		mi.position = at.call(xf * Vector3(float(tn.length) * 0.5, hull.tunnel_h * 0.5, 0.0))
+		mi.position = (xf * Vector3(float(tn.length) * 0.5, hull.tunnel_h * 0.5, 0.0) - mid) * k
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_turn.add_child(mi)
-	# The covered bay: its wall open to space, its deck, and its pads.
+		root.add_child(mi)
 	if not hull.bay.is_empty():
 		var bc: Vector2 = hull.bay.c
 		var bh := float(hull.bay.height)
-		_turn.add_child(_drum(float(hull.bay.r) * k, bh * k, shell, at.call(Vector3(bc.x, bh * 0.5, bc.y)), false))
-		_turn.add_child(_drum(float(hull.bay.r) * k, maxf(hull.plate * k, 0.006), plate, at.call(Vector3(bc.x, 0.0, bc.y)), true))
-		for pd in hull.pads():
-			var pa: Vector3 = pd.at
-			_turn.add_child(_drum(float(pd.radius) * k * 0.8, 0.008, glass, at.call(pa + Vector3(0, 0.6, 0)), true))
-	var station_line := str(spec.get("lines", {}).get("station", "%s"))
-	_turn.add_child(_label(Vector3(0, (y1 - y0) * k * 0.5 + 0.16, 0), station_line % str(names.get("station", "")), col))
-	_belt()
-	_station_cruiser(station_frame.affine_inverse() * cruiser_frame, mid, names)
-	_projector(col, radius * 0.55, (y1 - y0) * k * 0.5)
+		root.add_child(_drum(float(hull.bay.r) * k, bh * k, shell, (Vector3(bc.x, bh * 0.5, bc.y) - mid) * k, true))
+	return root
 
 
-## The belt round the station: rocks scattered from holo.seed between belt_inner
-## and belt_outer, one MultiMesh of faceted lumps.
-func _belt() -> void:
-	var n := int(spec.get("rocks", 160))
-	if n <= 0:
+## A moon on the system's map (_moon), with its barracks pinned on top (where its
+## station is) and its outposts where they really are on it, each coloured by who
+## holds it, and under its name how many outposts each side holds and who holds
+## the barracks. A moon with no front of its own (Territory) is just the ball.
+func _system_moon(m: Dictionary) -> void:
+	var id := str(m.get("id", ""))
+	var moon := _moon(m, "")
+	var f := Territory.front_for_planet(id)
+	var moon_name := str(m.get("name", ""))
+	if f == Territory.HOME:
+		(moon.get_meta("label") as Label3D).text = moon_name
 		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(spec.get("seed", 327))
-	var lump := SphereMesh.new()
-	lump.radius = 0.5
-	lump.height = 1.0
-	lump.radial_segments = 6
-	lump.rings = 3
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = lump
-	mm.instance_count = n
-	var r0 := float(spec.get("belt_inner", 1.6))
-	var r1 := float(spec.get("belt_outer", 2.05))
-	var thick := float(spec.get("belt_thick", 0.16))
-	var s0 := float(spec.get("rock_min", 0.012))
-	var s1 := float(spec.get("rock_max", 0.05))
-	for i in n:
-		var a := rng.randf() * TAU
-		var r := lerpf(r0, r1, sqrt(rng.randf()))
-		var y := (rng.randf() + rng.randf() - 1.0) * thick * 0.5
-		var size := lerpf(s0, s1, pow(rng.randf(), 2.0))
-		var b := Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU))
-		b = b.scaled(Vector3(size * rng.randf_range(0.7, 1.3), size * rng.randf_range(0.6, 1.0), size * rng.randf_range(0.8, 1.4)))
-		mm.set_instance_transform(i, Transform3D(b, Vector3(cos(a) * r, y, sin(a) * r)))
-	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "Belt"
-	mmi.multimesh = mm
-	mmi.material_override = _mat(Color(str(spec.get("rock_color", "#86c4e0"))), 1.3, 0.5, 0.9, 0.0, 0.0)
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_turn.add_child(mmi)
+	var r := float((moon.mesh as SphereMesh).radius)
+	var label := moon.get_meta("label") as Label3D
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.position = moon.position + Vector3(0, r + float(spec.get("outpost_stalk", 0.12)) + 0.06, 0)
+	var mr := maxf(float(m.get("radius", 0.0)), 1.0)
+	var pk := float(spec.get("moon_pin_scale", 0.6))
+	var barracks := Territory.barracks_of(f)
+	_place(barracks, _pin(Vector3.UP, owner_color(barracks), float(spec.get("outpost_stalk", 0.12)) * 0.8, "", true, moon, r, pk))
+	var outposts: Array = Territory.outposts(f)
+	for lm in PlanetGen.build(id).get("cfg", {}).get("landmarks", []):
+		var oid := str(lm.get("id", ""))
+		if outposts.has(oid):
+			var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
+			_place(oid, _pin(_ball_dir(at.x, at.z, mr), owner_color(oid), float(spec.get("outpost_stalk", 0.12)) * 0.6, "", false, moon, r, pk))
+	_texts.append({ "label": moon.get_meta("label"), "text": func() -> String: return _moon_line(moon_name, f) })
 
 
-## The cruiser on the station's map: a wedge in its true direction from the
-## station (`rel`: its frame in the station's) at holo.cruiser_at, its bow where
-## the real bow points, a faint line back to the station, and its name.
-func _station_cruiser(rel: Transform3D, mid: Vector3, names: Dictionary) -> void:
-	var ccol := Color(str(spec.get("cruiser_color", "#ff3030")))
-	var dir := (rel.origin - mid).normalized()
-	var at := dir * float(spec.get("cruiser_at", 1.85))
-	var ship := MeshInstance3D.new()
-	ship.name = "Cruiser"
-	var wedge := PrismMesh.new()
-	wedge.size = Vector3(0.11, 0.32, 0.05)
-	ship.mesh = wedge
-	ship.material_override = _mat(ccol, 3.0, 1.0, 0.6, 0.0, 0.0)
-	_turn.add_child(ship)
-	var bow := -rel.basis.z.normalized()
-	ship.look_at_from_position(at, at + bow, Vector3.UP)
-	ship.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
-	var line := MeshInstance3D.new()
-	line.name = "Bearing"
-	var c := CylinderMesh.new()
-	c.top_radius = 0.004
-	c.bottom_radius = 0.004
-	c.height = at.length()
-	c.radial_segments = 6
-	line.mesh = c
-	line.material_override = _mat(ccol, 0.8, 1.0, 0.0, 0.0, 0.0)
-	line.basis = PlanetSphere.tilt_to(dir)
-	line.position = at * 0.5
-	line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_turn.add_child(line)
-	var here_line := str(spec.get("lines", {}).get("here", "%s"))
-	_turn.add_child(_label(at + Vector3(0, 0.2, 0), here_line % str(names.get("cruiser", "")), ccol))
+## Unit direction from a ball's centre (`r` metres) for its map point (x, z): as
+## PlanetSphere.map_dir, for a ball we have no sphere of.
+static func _ball_dir(x: float, z: float, r: float) -> Vector3:
+	var d := sqrt(x * x + z * z)
+	if d < 0.0001:
+		return Vector3.UP
+	var th := d / r
+	var s := sin(th) / d
+	return Vector3(x * s, cos(th), z * s)
+
+
+## Who holds place `id` as a word (holo.lines.owners: remnant, locals, empty).
+func owner_name(id: String) -> String:
+	var who := _owner(id)
+	return str(spec.get("lines", {}).get("owners", {}).get(who if who != "" else "empty", who))
+
+
+func _owned(what: String, id: String) -> String:
+	return str(spec.get("lines", {}).get("owned", "%s\n%s")) % [what, owner_name(id)]
+
+
+func _barracks_line(what: String, id: String) -> String:
+	return str(spec.get("lines", {}).get("barracks", "%s\nbarracks: %s")) % [what, owner_name(id)]
+
+
+func _moon_line(what: String, f: String) -> String:
+	var held := 0
+	var outposts: Array = Territory.outposts(f)
+	for o in outposts:
+		if Territory.owner(str(o)) == Territory.LOCALS:
+			held += 1
+	var fmt := str(spec.get("lines", {}).get("moon", "%s\noutposts: %d Remnant, %d Locals\nbarracks: %s"))
+	return fmt % [what, outposts.size() - held, held, owner_name(Territory.barracks_of(f))]
+
+
+## Write every owner line again (holo.lines), after a place changes hands.
+func _relabel() -> void:
+	for t in _texts:
+		(t.label as Label3D).text = (t.text as Callable).call()
 
 
 ## A round drum of light `r` wide and `h` tall centred at `at` (caps or open).
@@ -352,11 +479,23 @@ static func owner_of(id: String) -> String:
 	return Territory.owner(id)
 
 
+## This map's holder of a place: owner_of, but a cruiser that is not the home one
+## (cruiser_flag) is the Remnant's until taken and then nobody's ("").
+func _owner(id: String) -> String:
+	if id == CRUISER and cruiser_flag != "":
+		return "" if WorldState.has_flag(cruiser_flag) else Territory.REMNANT
+	return owner_of(id)
+
+
 func owner_color(id: String) -> Color:
 	var cols: Dictionary = spec.get("owner_colors", {})
 	if id == CRUISER:
-		return Color(str(cols.get(owner_of(id), spec.get("cruiser_color", "#ff3030")))) if owner_of(id) == Territory.LOCALS \
-			else Color(str(spec.get("cruiser_color", "#ff3030")))
+		var who := _owner(id)
+		if who == Territory.LOCALS:
+			return Color(str(cols.get(who, spec.get("cruiser_color", "#ff3030"))))
+		if who == "":
+			return Color(str(cols.get("empty", spec.get("cruiser_color", "#ff3030"))))
+		return Color(str(spec.get("cruiser_color", "#ff3030")))
 	var key := Territory.owner(id)
 	if key == Territory.LOCALS and Territory.short_shown(id):
 		key = "short"
@@ -368,21 +507,25 @@ func owner_color(id: String) -> Color:
 ## Recolour every place whose owner (or shortage) changed since the last look;
 ## an outpost that changed hands flashes for holo.flash_s.
 func refresh_owners() -> void:
+	var changed := false
 	for id in places:
 		var p: Dictionary = places[id]
-		var who := owner_of(str(id))
+		var who := _owner(str(id))
 		var is_short := Territory.short_shown(str(id)) if str(id) != CRUISER else false
 		if who == p.owner and is_short == p.short:
 			continue
 		if who != p.owner:
 			p.flash = float(spec.get("flash_s", 3.0))
+			changed = true
 		p.owner = who
 		p.short = is_short
 		_paint(p, owner_color(str(id)))
+	if changed:
+		_relabel()
 
 
 func _place(id: String, pin: Dictionary) -> void:
-	pin["owner"] = owner_of(id)
+	pin["owner"] = _owner(id)
 	pin["short"] = Territory.short_shown(id) if id != CRUISER else false
 	pin["flash"] = 0.0
 	places[id] = pin
@@ -396,40 +539,47 @@ func _paint(p: Dictionary, col: Color) -> void:
 
 
 ## A marker on the ball at `dir`: a stalk of light out of the surface with a bead
-## on top, and its name over it. Returns { mats, label } to recolour it by.
-func _pin(dir: Vector3, col: Color, tall: float, text: String, big: bool) -> Dictionary:
+## on top, and its name over it. Returns { mats, label } to recolour it by. On
+## another ball (a moon on the system's map): `parent` is that ball, `ball` its
+## radius, `k` the pin's size.
+func _pin(dir: Vector3, col: Color, tall: float, text: String, big: bool, parent: Node3D = null, ball := -1.0,
+		k := 1.0) -> Dictionary:
+	if parent == null:
+		parent = _turn
+	if ball < 0.0:
+		ball = radius
 	var out := { "mats": [], "label": null }
 	var stalk := MeshInstance3D.new()
 	var c := CylinderMesh.new()
-	c.top_radius = 0.01
-	c.bottom_radius = 0.02
+	c.top_radius = 0.01 * k
+	c.bottom_radius = 0.02 * k
 	c.height = tall
 	c.radial_segments = 8
 	stalk.mesh = c
 	stalk.material_override = _mat(col, 2.0, 0.8, 0.5, 0.0, 0.0)
 	var up := dir.normalized()
 	stalk.basis = PlanetSphere.tilt_to(up)
-	stalk.position = up * (radius + tall * 0.5)
-	_turn.add_child(stalk)
-	var bead := _sphere(0.05 if big else 0.04, _mat(col, 3.0, 1.0, 0.6, 0.0, 0.0))
-	bead.position = up * (radius + tall)
-	_turn.add_child(bead)
+	stalk.position = up * (ball + tall * 0.5)
+	parent.add_child(stalk)
+	var bead := _sphere((0.05 if big else 0.04) * k, _mat(col, 3.0, 1.0, 0.6, 0.0, 0.0))
+	bead.position = up * (ball + tall)
+	parent.add_child(bead)
 	out.mats.append(stalk.material_override)
 	out.mats.append(bead.material_override)
 	if big:
 		var ring := MeshInstance3D.new()
 		var t := TorusMesh.new()
-		t.inner_radius = 0.1
-		t.outer_radius = 0.125
+		t.inner_radius = 0.1 * k
+		t.outer_radius = 0.125 * k
 		ring.mesh = t
 		ring.material_override = _mat(col, 2.0, 0.8, 0.3, 0.0, 0.0)
 		ring.basis = PlanetSphere.tilt_to(up)
-		ring.position = up * (radius + 0.005)
-		_turn.add_child(ring)
+		ring.position = up * (ball + 0.005)
+		parent.add_child(ring)
 		out.mats.append(ring.material_override)
 	if text != "":
-		out.label = _label(up * (radius + tall + 0.07), text, col)
-		_turn.add_child(out.label)
+		out.label = _label(up * (ball + tall + 0.07), text, col)
+		parent.add_child(out.label)
 	return out
 
 
