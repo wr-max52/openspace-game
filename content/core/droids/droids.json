@@ -503,6 +503,7 @@
     "make_room": "You already run %d droids. Sell one to make room?",
     "sell_wreck": "Sell the %s you just woke to the %s  (%d cr)",
     "sold_wreck": "The %s reboots and heads off to the %s. +%d cr.",
+    "offworld_merchant": "%s on %s",
     "hold": "[E] Open the cargo droid's hold",
     "menu_hold": "Cargo droid hold  -  %d of %d slots  -  the gate never looks in here",
     "hold_full": "The cargo droid's hold is full (%d of %d slots). Upgrade its racks at the droid merchant.",

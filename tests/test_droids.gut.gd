@@ -373,6 +373,25 @@ func test_full_roster_sells_the_welded_wreck_to_the_nearest_merchant() -> void:
 	assert_false(is_instance_valid(wn), "its body de-spawned")
 
 
+## No droid merchant in this world: the home planet's market buys it.
+func test_full_roster_no_merchant_here_sells_to_the_home_planet() -> void:
+	var s := _scene()
+	var ctl: DroidController = s[0]
+	for k in ["floating", "cargo", "cargo"]:
+		WorldState.droids.add(k, DroidRoster.pick_variant(k, rng))
+	var wid := ctl.spawn_wreck(true)
+	var kind := str(WorldState.droids.find_wreck(wid).kind)
+	ctl.vendor_sites = []
+	assert_eq(ctl.weld_wreck(wid), "menu")
+	assert_eq(ctl.menu.options[0].id, "sell_wreck:%d" % wid, "still offered with no merchant here")
+	var home := PlanetGen.display_name(PlanetGen.build(PlanetGen.home_id()))
+	assert_string_contains(str(ctl.menu.options[0].text), home, "the home planet's merchant")
+	var credits := WorldState.credits
+	ctl.menu.choose("sell_wreck:%d" % wid)
+	assert_eq(WorldState.credits, credits + DroidRoster.resale(kind))
+	assert_false(ctl.wreck_nodes.has(wid))
+
+
 # ---- issue #64 ----------------------------------------------------------------
 
 func test_two_of_a_kind_do_not_stack() -> void:
