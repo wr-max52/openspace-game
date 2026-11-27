@@ -99,6 +99,7 @@ var _hud_lap: Label
 var _hud_big: Label
 var _hud_list: Label
 var _big_left := 0.0
+var _list_fade: Tween                 ## the results list's hold-then-fade (results_s)
 var _count := 0
 var _count_left := 0.0
 var _grid_t := 0.0
@@ -721,8 +722,7 @@ func rematch() -> String:
 		if not bool(rc.home) and not (_speeder_ok(rc) and rc.speeder.npc_driven()):
 			_settle_home(rc)
 	_remove_beast()                         # it was crawling off: a fresh one comes in
-	if _hud_list != null:
-		_hud_list.visible = false
+	_hide_results()
 	stake = last_stake
 	_pay(stake)
 	var standing := crowd.size()
@@ -1600,8 +1600,7 @@ func _put_away() -> void:
 	_remove_beast()
 	_player_speeder = null
 	phase = Phase.IDLE
-	if _hud_list != null:
-		_hud_list.visible = false
+	_hide_results()
 	if _hud_lap != null:
 		_hud_lap.visible = false
 
@@ -1801,6 +1800,24 @@ func _show_results(order: Array) -> void:
 		rows.append(str(h.get("results", "%d. %s")) % [i + 1, _name_of(str(order[i]))])
 	_hud_list.text = "\n".join(rows)
 	_hud_list.visible = true
+	# Up for results_s, then faded out over results_fade_s (real seconds, so the
+	# finish cam's slow motion does not stretch it).
+	if _list_fade != null:
+		_list_fade.kill()
+	_hud_list.modulate.a = 1.0
+	_list_fade = _hud_list.create_tween().set_ignore_time_scale(true)
+	_list_fade.tween_interval(rule("results_s", 5.0))
+	_list_fade.tween_property(_hud_list, "modulate:a", 0.0, rule("results_fade_s", 0.6))
+	_list_fade.tween_callback(_hide_results)
+
+
+func _hide_results() -> void:
+	if _list_fade != null:
+		_list_fade.kill()
+		_list_fade = null
+	if _hud_list != null:
+		_hud_list.visible = false
+		_hud_list.modulate.a = 1.0
 
 
 ## The crews on a world (their course's world).
