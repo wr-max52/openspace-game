@@ -221,7 +221,7 @@ func _build_outpost(id: String, world: Dictionary) -> void:
 				parts.append(_add_local.bind(o, str(p), str(posts[p])))
 		else:
 			for p in TROOPER_POSTS:
-				parts.append(_add_guard.bind(o, p))
+				parts.append(_add_guard.bind(o, p, [], _trooper_for(p)))
 		for i in village_spots(o).size():
 			parts.append(_add_village_guard.bind(o, i, str(o.side)))
 		if late:
@@ -270,6 +270,14 @@ func droid_specs() -> Array:
 # ------------------------------------------------------------------ people
 
 const TROOPER_POSTS := ["guard_a", "guard_b", "guard_c"]
+## The one trooper post at each outpost that carries the seeker launcher
+## (soldiers/outpost_launcher.json). The locals' own is territory.json's posts.
+const OUTPOST_LAUNCHER_POST := "guard_c"
+
+
+func _trooper_for(post: String) -> String:
+	return "outpost_launcher" if post == OUTPOST_LAUNCHER_POST else "outpost_trooper"
+
 
 func _add_guard(o: Dictionary, key: String, post: Array = [], soldier := "outpost_trooper") -> NpcBody:
 	if post.is_empty():
@@ -463,7 +471,7 @@ func swap(o: Dictionary, side: String) -> void:
 	else:
 		var mine: Array = []
 		for k in TROOPER_POSTS:
-			var g := _add_guard(o, k)
+			var g := _add_guard(o, k, [], _trooper_for(k))
 			if g != null:
 				mine.append(g)
 		for i in village_spots(o).size():

@@ -85,6 +85,9 @@ var drawn := true
 const WeaponActorT := preload("res://src/systems/combat/weapon_actor.gd")
 var weapon_actor
 var weapon_cfg: Dictionary = {}
+## A guard with the seeker launcher (profile "launcher"): it locks and fires at the
+## ship or speeder you ride (NpcLauncher); null for everyone else.
+var launcher: NpcLauncher = null
 var bolt_parent: Node3D        ## where bolts live (the scene root)
 var aim_point := Vector3.INF   ## where the rifle points (INF = at ease)
 var shots_fired := 0
@@ -208,6 +211,14 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 	health = HealthT.new(max_health)
 	regen_per_s = 0.0
 	weapon_cfg = _weapon_config(soldier.get("weapon", {}))
+	if soldier.get("launcher") is Dictionary:
+		# The seeker launcher instead of the profile's gun: npc_seeker.json, with the
+		# profile's "launcher" keys on top; its "vehicle" block is NpcLauncher's.
+		weapon_cfg = _weapon_config({ "base": "npc_seeker" })
+		for k in soldier.launcher:
+			weapon_cfg[k] = soldier.launcher[k]
+		launcher = NpcLauncher.new(self, weapon_cfg.get("vehicle", {}))
+		add_to_group(NpcLauncher.GROUP)
 	weapon_actor = WeaponActorT.new()
 	weapon_actor.set_weapon(weapon_cfg)
 	weapon_actor.configure_bolt = func(b):
@@ -219,6 +230,13 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 		b.matte = bool(weapon_cfg.get("bolt_matte", false))
 		b.streak_length = float(weapon_cfg.get("bolt_length", b.streak_length))
 		b.streak_radius = float(weapon_cfg.get("bolt_radius", b.streak_radius))
+		if weapon_cfg.has("blast_size"):
+			# The seeker launcher on foot: an unguided seeker that bursts where it lands.
+			b.blast_size = float(weapon_cfg.blast_size)
+			b.splash_radius = float(weapon_cfg.get("splash_radius", 0.0))
+			b.splash_damage = float(weapon_cfg.get("splash_damage", 0.0))
+			if is_inside_tree():
+				Sound.play("ship_missile", global_position)
 	perception = Perception.new(soldier.get("perception", {}))
 	var navc: Dictionary = soldier.get("nav", {})
 	locomotion = NpcLocomotion.new(navc)
@@ -243,6 +261,8 @@ func setup(soldier: Dictionary, at: Vector3, yaw: float, materials: LookMaterial
 			kit.pistol(look_body, false)
 			sidearm = look_body.has_meta("weapon")
 			drawn = not sidearm
+		if launcher != null:
+			kit.launcher(look_body)
 		if look_body.has_meta("weapon"):
 			_rifle_aim_xf = (look_body.get_meta("weapon") as Node3D).transform
 			(look_body.get_meta("weapon") as Node3D).visible = drawn
@@ -321,6 +341,8 @@ func redress(archetype: String, outfit: Dictionary, scale: Vector3) -> void:
 	if bool(profile.get("sidearm", false)) and not look_body.has_meta("weapon"):
 		kit.pistol(look_body, false)
 		sidearm = look_body.has_meta("weapon")
+	if launcher != null:
+		kit.launcher(look_body)
 	if look_body.has_meta("weapon"):
 		_rifle_aim_xf = (look_body.get_meta("weapon") as Node3D).transform
 		(look_body.get_meta("weapon") as Node3D).visible = drawn
@@ -578,6 +600,12 @@ func carry_out(b: GuardBrain, dt: float) -> void:
 	else:
 		clear_face()
 	aim_point = b.aim
+	if launcher != null and launcher.engaged():
+		# The tube is on your ship or speeder (NpcLauncher fires it), not the brain's aim.
+		face_point(launcher.aim)
+		aim_point = launcher.aim
+		hold_fire(dt)
+		return
 	# Issue #87: the rifle has to come up before a bolt leaves it.
 	if b.fire and b.aim != Vector3.INF and carry.on_target():
 		if fire_at(b.aim, dt):
@@ -655,6 +683,11 @@ func _physics_process(delta: float) -> void:
 		_speech_left -= delta
 		if _speech_left <= 0.0:
 			_speech.visible = false
+	if launcher != null:
+		launcher.tick(delta)
+		if launcher.engaged():
+			aim_point = launcher.aim
+			face_point(launcher.aim)
 	carry.step(delta, aim_point != Vector3.INF)
 	if action != "":
 		action_t += delta
@@ -1344,7 +1377,7 @@ func _blade_deg() -> float:
 	var w: Node3D = look_body.get_meta("weapon")
 	if str(w.get_meta("carry", "rifle")) == "pistol" or not w.visible:
 		return 0.0
-	return float((gun_spec("rifle_blaster").get("aim", {}) as Dictionary).get("blade_deg", 0.0))
+	return float((gun_spec(_gun_of(w)).get("aim", {}) as Dictionary).get("blade_deg", 0.0))
 
 
 ## Issue #324: how far the chest is turned from the way the body faces (radians,
@@ -1360,7 +1393,7 @@ func _torso_yaw() -> float:
 ## body aims at. Visual only: shots leave from muzzle_position(). The holder's
 ## transform (chest space).
 func _gun_aim_xf(w: Node3D, kind: String) -> Transform3D:
-	var spec := gun_spec("pistol_blaster" if kind == "pistol" else "rifle_blaster")
+	var spec := gun_spec(_gun_of(w))
 	var a: Dictionary = spec.get("aim", {})
 	if a.is_empty():
 		return _rifle_aim_xf
@@ -1381,6 +1414,14 @@ static func _v3(a) -> Vector3:
 	return Vector3(float(a[0]), float(a[1]), float(a[2])) if a is Array and a.size() >= 3 else Vector3.ZERO
 
 
+## Which hand_weapons.json entry a held gun poses and grips by: its "gun" meta (the
+## seeker launcher's), else the pistol or the rifle by how it is carried.
+static func _gun_of(w: Node3D) -> String:
+	if w.has_meta("gun"):
+		return str(w.get_meta("gun"))
+	return "pistol_blaster" if str(w.get_meta("carry", "rifle")) == "pistol" else "rifle_blaster"
+
+
 ## Issue #324: a gun in hand (the troopers' rifles, a pistol): the right wrist turns
 ## so the gun's grip runs through the skin's fist (HandGrip's frame lined up with
 ## the grip's `bar` and `palm`), and the fingers close on it; the left hand half
@@ -1388,7 +1429,7 @@ static func _v3(a) -> Vector3:
 ## False (and the gun hands let go) when nothing is held.
 func _close_on_gun(w: Node3D) -> bool:
 	var skin: SkinnedBody = look_body.get_meta("skin")
-	var hold := hold_3p("pistol_blaster" if w != null and str(w.get_meta("carry", "rifle")) == "pistol" else "rifle_blaster")
+	var hold := hold_3p(_gun_of(w) if w != null else "rifle_blaster")
 	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
 	if w == null or not w.visible or r.is_empty() or not skin.bone_of.has("r_wrist"):
 		if blade == null:
@@ -1447,7 +1488,7 @@ func _reach_seats(seats: Dictionary, err: Dictionary) -> void:
 ## hand beside the grip). The gun keeps its turn, so its aim does not change.
 func _gun_into_fist(w: Node3D) -> void:
 	var skin: SkinnedBody = look_body.get_meta("skin")
-	var hold := hold_3p("pistol_blaster" if str(w.get_meta("carry", "rifle")) == "pistol" else "rifle_blaster")
+	var hold := hold_3p(_gun_of(w))
 	var r: Dictionary = (hold.get("hands", {}) as Dictionary).get("r", {})
 	var to_chest := SkinnedBody._rel(look_body, joints.chest).affine_inverse()
 	var fist: Vector3 = to_chest * (skin.joint_xf("r_wrist") * skin.grip_frame("r", r).origin)

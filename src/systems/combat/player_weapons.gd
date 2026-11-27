@@ -714,6 +714,7 @@ func fire_seeker() -> Node:
 	b.streak_radius = float(c.get("width", 0.2)) * 0.5
 	b.seek = seeker.seek_node()
 	b.turn_rate = float(c.get("turn_rate", 2.4))
+	b.proximity = float(c.get("proximity", 3.0)) if b.seek != null else 0.0
 	b.blast_size = float(c.get("blast_size", 0.6))
 	b.splash_radius = float(c.get("splash_radius", 5.0))
 	b.splash_damage = float(c.get("splash_damage", 120.0))

@@ -1,0 +1,7 @@
+{
+  "id": "local_launcher",
+  "base": "local_sentry",
+  "label": "Local launcher sentry",
+  "note": "The one seeker launcher guard at each outpost the locals hold (territory.json outposts posts: guard_c). A local sentry with the seeker launcher over the shoulder ('launcher': NpcLauncher, content/core/weapons/npc_seeker.json), orange seekers. The locals never treat your ship or speeder as a threat (Townsfolk do not watch vehicles), so he only fires on foot, if the locals fight you.",
+  "launcher": { "bolt_color": "#ffb02a" }
+}

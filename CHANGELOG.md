@@ -20,6 +20,15 @@ Plain English, newest on top. One entry per milestone.
   traders (the port's and the station's) sell it for 900 cr.
 - For now the look is a plain tube with a scope, the rifle's scope, with the
   range drawn on screen when you look through it.
+- **Launcher guards.** Two of the three roof riflemen on the port's barracks
+  hall (west and east) now carry seeker launchers, and so does one guard at
+  every outpost (the third post, for whoever holds it). Take off from the port
+  while the Remnant hold it, or ride near an outpost that is fighting you, and
+  they turn the tube on you, lock on and fire. Their lock and their seekers
+  sound your ship's seeker warning (ENEMY LOCK – MISSILES INBOUND); a speeder
+  has no warning yet. A hit takes 35 off your shields or hull; turn hard or fly
+  fast and they can lose you. On foot they lob slow seekers that burst where
+  they land. No extra people: they replace riflemen on the same posts.
 
 ## Ships land on and hit the mountains' real rock (2026-11-26)
 
