@@ -58,9 +58,11 @@ extends RefCounted
 ## outposts there are locked (killing every trooper hands nothing over; they come
 ## back, the ranch villages' rule) and their barracks troopers come back; once the
 ## locals hold it (RemnantCruiser.holder_of) the Remnant there are cut off (their
-## outposts run short and give up, a dead barracks trooper stays dead) and the
-## barracks are the locals', as the fleet's defeat does for the port. If the Remnant
-## get it back (the dark master's oath) it turns round again (cruiser_fallen).
+## outposts run short and give up, their troopers stop coming back, a dead barracks
+## trooper stays dead) and the barracks are the locals', as the fleet's defeat does
+## for the port. Then it is the locals who restock (locals_locked): kill every guard
+## at a place of theirs and nothing changes hands; more come out of sight. If the
+## Remnant get it back (the dark master's oath) it turns round again (cruiser_fallen).
 ##
 ## Numbers and lines: content/core/story/territory.json.
 
@@ -206,6 +208,21 @@ static func cruiser_fallen(f: String = HOME) -> bool:
 	if c == "":
 		return Story.cruiser_taken()
 	return RemnantCruiser.holder_of(c) == LOCALS
+
+
+## Who restocks front `f`'s places: a front with a cruiser of its own, whoever holds
+## that cruiser (REMNANT or LOCALS); "" for any other (the story's rules).
+static func restocked_by(f: String = HOME) -> String:
+	if cruiser_of(f) == "":
+		return ""
+	return LOCALS if cruiser_fallen(f) else REMNANT
+
+
+## The locals hold place `id` (an outpost or the barracks) on a front whose cruiser
+## they hold: killing their guards there hands nothing over; more come.
+static func locals_locked(id: String) -> bool:
+	var f := front_of(id)
+	return restocked_by(f) == LOCALS and ((outposts(f) as Array).has(id) or id == barracks_of(f))
 
 
 ## The Remnant on front `f` get no more troopers: the fleet beaten (the story's), or
@@ -387,7 +404,7 @@ static func retake(id: String) -> void:
 ## The locals' guards at an outpost are all dead: the Remnant take it on the next
 ## tick (the moon's, with no clock, at once).
 static func guards_lost(id: String) -> void:
-	if owner(id) != LOCALS or not WorldState.control.get(id) is Dictionary:
+	if owner(id) != LOCALS or not WorldState.control.get(id) is Dictionary or locals_locked(id):
 		return
 	if locals_clocked(front_of(id)):
 		WorldState.control[id].hold = 0.0
@@ -523,8 +540,8 @@ static func barracks_dead(f: String = HOME) -> Array:
 
 ## A local guard on a barracks post died. The last one hands the town to the Remnant.
 static func barracks_guard_died(post: String, f: String = HOME) -> void:
-	if owner(barracks_of(f)) != LOCALS or not barracks_posts(f).has(post):
-		return
+	if owner(barracks_of(f)) != LOCALS or not barracks_posts(f).has(post) or locals_locked(barracks_of(f)):
+		return                                # (locked: they hold the cruiser, another comes)
 	var dead := barracks_dead(f)
 	if not dead.has(post):
 		dead.append(post)

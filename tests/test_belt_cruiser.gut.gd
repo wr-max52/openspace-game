@@ -177,6 +177,16 @@ func test_the_lava_moon_answers_to_it() -> void:
 	assert_true(Territory.remnant_cut_off("lava_moon"), "and the Remnant there run short")
 	assert_eq(Territory.owner(barracks), Territory.LOCALS, "the barracks are the locals'")
 	assert_false(Territory.remnant_cut_off("moon"), "the home moon is untouched")
+	WorldState.control[out] = { "owner": Territory.LOCALS }
+	assert_true(Territory.locals_locked(out), "the locals restock their outposts while they hold it")
+	Territory.guards_lost(out)
+	assert_eq(Territory.owner(out), Territory.LOCALS, "their guards dead: nothing changes hands")
+	for p in Territory.barracks_posts("lava_moon"):
+		Territory.barracks_guard_died(str(p), "lava_moon")
+	assert_eq(Territory.owner(barracks), Territory.LOCALS, "and the barracks")
+	assert_true(Territory.barracks_dead("lava_moon").is_empty(), "the dead come back")
+	assert_false(Territory.locals_locked(Territory.outposts("moon")[0]), "not on the home moon")
+	WorldState.control.erase(out)
 	DarkPact.join()
 	assert_true(Territory.locked(out), "the Remnant have it back on the oath: they restock again")
 	assert_eq(Territory.owner(barracks), Territory.REMNANT)

@@ -1139,10 +1139,41 @@ func _locals_garrison_join(n: NpcBody) -> void:
 		locals_garrison.add_member(n)
 		return
 	locals_garrison = _make_garrison("LocalsGarrison", [n], false, Vector3.INF, false, _town_zones())
-	locals_garrison.respawn_rule = Callable()   # a dead one stays dead (Territory.barracks_dead)
+	locals_garrison.respawn_rule = _barracks_locals_rule   # a dead one stays dead (Territory.barracks_dead),
+	locals_garrison.spawner = _barracks_locals_respawn     # unless they hold this front's cruiser (locals_locked)
 	if townsfolk != null:
 		locals_garrison.alarm_up.connect(townsfolk.join_alarm)
 		townsfolk.alarm_up.connect(locals_garrison.join_alarm)
+
+
+## A local guard on a barracks post comes back only while the locals hold the
+## cruiser this front answers to (Territory.locals_locked: the lava moon's); else a
+## dead one stays dead and the last one hands the town to the Remnant.
+func _barracks_locals_rule(g: NpcBody) -> Dictionary:
+	if not g.has_meta("barracks_locals") or not Territory.locals_locked(Territory.barracks_here()):
+		return {}
+	return { "post": str(g.get_meta("barracks_locals")),
+		"delay": float(Story.remnant_cfg().get("town_respawn_s", 60.0)) }
+
+
+func _barracks_locals_respawn(r: Dictionary) -> NpcBody:
+	if Story.town_garrison() or not Territory.locals_locked(Territory.barracks_here()):
+		return null
+	var post := str(r.get("post", ""))
+	var had = barracks_locals.get(post)
+	if had != null and is_instance_valid(had) and not had.dead:
+		return null
+	barracks_locals.erase(post)
+	var m := town.get_marker(post)
+	if m.is_empty():
+		return null
+	_build_npc(m)
+	var n = barracks_locals.get(post)
+	if n == null or not is_instance_valid(n):
+		return null
+	if townsfolk != null:
+		townsfolk.add_member(n)
+	return n
 
 
 ## The locals at an outpost they hold: a garrison on their side with the
@@ -1327,6 +1358,8 @@ func respawn(r: Dictionary) -> NpcBody:
 		return null
 	if is_outpost and Territory.owner(str(r.outpost)) != Territory.REMNANT:
 		return null                   # issue #187: the locals hold it now
+	if is_outpost and Territory.restocked_by(Territory.front_of(str(r.outpost))) == Territory.LOCALS:
+		return null                   # the locals hold the cruiser this front answers to: cut off
 	_respawned += 1
 	var npc := make_soldier(str(r.soldier), r.at, float(r.yaw), str(r.post),
 		"npc:%s/%s#%d" % [str(town.data.get("id", "town")), str(r.post), _respawned])
