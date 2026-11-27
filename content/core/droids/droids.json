@@ -20,9 +20,10 @@
       "chirp_s": [9.0, 20.0],
       "follow": {
         "side": 1.1,
-        "back": 1.4,
+        "back": 4.0,
         "speed": 7.0,
-        "leash": 4.0,
+        "leash": 6.5,
+        "keep_off": 3.4,
         "settle": 0.35
       },
       "gun": {
@@ -94,9 +95,10 @@
       "upgraded_variant": "gold",
       "follow": {
         "side": -1.2,
-        "back": 1.8,
+        "back": 8.0,
         "speed": 6.5,
-        "leash": 7.0,
+        "leash": 11.0,
+        "keep_off": 5.0,
         "settle": 0.35
       },
       "variants": {
@@ -161,9 +163,10 @@
       },
       "follow": {
         "side": 0.0,
-        "back": 2.6,
+        "back": 5.0,
         "speed": 7.5,
-        "leash": 6.0,
+        "leash": 7.5,
+        "keep_off": 3.6,
         "settle": 0.35
       },
       "gun": {

@@ -246,13 +246,22 @@ func test_controller_buy_sell_follow_and_ship() -> void:
 	for i in 120:
 		await wait_physics_frames(1)
 	var u: Node3D = ctl.companions.values()[0]
-	assert_lt(u.global_position.distance_to(p.global_position), 5.0, "it followed the player")
+	assert_lt(u.global_position.distance_to(p.global_position), 8.0, "it followed the player")
+	assert_gt(DroidController._flat_dist(u.global_position, p.global_position), DroidController.TOGGLE_REACH,
+		"but stopped short of its [E] prompt")
 	p.piloting = true
 	await wait_physics_frames(2)
 	assert_eq(ctl.companions.size(), 0, "gone while flying")
 	p.piloting = false
+	await wait_physics_frames(5)
+	assert_eq(ctl.companions.size(), 0, "not back while the player stands by the hull")
+	p.global_position += Vector3(DroidController.EXIT_WALK_M + 0.5, 0, 0)
 	await wait_physics_frames(2)
-	assert_eq(ctl.companions.size(), 1, "back when the player climbs out")
+	assert_eq(ctl.companions.size(), 1, "back once the player walks off")
+	u = ctl.companions.values()[0]
+	assert_gt(DroidController._flat_dist(u.global_position, p.global_position), DroidController.TOGGLE_REACH,
+		"behind the player, out of reach of its [E] prompt")
+	assert_lt(u.global_position.x, p.global_position.x, "behind the way the player walked")
 	var uid := int(WorldState.droids.owned[0].uid)
 	assert_eq(ctl.sell(uid), 90)
 	assert_eq(WorldState.credits, 190)
@@ -268,6 +277,7 @@ func test_lost_droid_rejoins_on_your_trail_not_at_your_side() -> void:
 	p.global_position = Vector3(-60, 0, 0)
 	await wait_physics_frames(2)
 	# Walk 60 m along x in five seconds (12 m/s).
+	p.velocity = Vector3(12, 0, 0)
 	for i in 300:
 		p.global_position.x += 0.2
 		await wait_physics_frames(1)
@@ -276,7 +286,8 @@ func test_lost_droid_rejoins_on_your_trail_not_at_your_side() -> void:
 	await wait_physics_frames(1)
 	var gap := DroidController._flat_dist(u.global_position, p.global_position)
 	assert_gt(gap, 10.0, "not dropped at the player's side")
-	assert_lt(gap, DroidController.REJOIN_MAX + 3.0, "most of the gap closed")
+	var back := float(DroidRoster.kind_cfg("assassin").follow.back)
+	assert_lt(gap, DroidController.REJOIN_MAX + back + 1.0, "most of the gap closed (its place behind you kept)")
 	assert_lt(u.global_position.x, p.global_position.x, "back along the way the player came")
 	assert_lt(absf(u.global_position.z), 3.0, "on the trail")
 
