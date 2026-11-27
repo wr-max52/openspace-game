@@ -160,6 +160,7 @@ func _ready() -> void:
 		return
 	world = planet.world
 	style = TownStyle.parse(str(planet.get("style", "")))
+	Dressing.use((planet.get("cfg", {}) as Dictionary).get("dressing", ""))   # issue #542: its palette variant(s), if any
 	PlanetGen.reserve_names(planet)
 	town.load_from_dict(planet.town)
 	if town.data.is_empty():

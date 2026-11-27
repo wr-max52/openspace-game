@@ -29,7 +29,6 @@ extends Node3D
 
 const PROP_M := 140.0
 const LIGHT_M := 90.0
-const SCREEN := Color("#1d86b0")      ## the cruiser's console screens
 
 var barge: PartyBarge
 var jazz: ClubProps                   ## the top deck (the cantina's style)
@@ -85,25 +84,25 @@ func build(b: PartyBarge, st: StagedBuild = null) -> void:
 
 ## Each finish of the barge's parts, painted.
 func _materials() -> Dictionary:
-	_solar = (ClubTextures.local(ClubTextures.solar(Color("#3aa8ff"), 0.45, 1.4)).duplicate() as StandardMaterial3D)
+	_solar = (ClubTextures.local(ClubTextures.solar(Dressing.c("barge", "solar", "#3aa8ff"), 0.45, 1.4)).duplicate() as StandardMaterial3D)
 	jazz.pulses.append([_solar, 1.0, 1.8, 4.0, 0.0])
-	var lamp := ClubTextures.glow(Color("#ffb860"), 3.0)
+	var lamp := ClubTextures.glow(Dressing.c("barge", "lamp", "#ffb860"), 3.0)
 	return {
-		"hull": ClubTextures.rust(Color("#5a5450")),
-		"deck": ClubTextures.wood(Color("#9a7448"), 0.2, 0.7),
-		"steerage": ClubTextures.wood(Color("#4a3424"), 0.24, 0.8),
-		"stage": ClubTextures.wood(Color("#6a4024"), 0.12, 0.4),
-		"trim": ClubTextures.rust(Color("#3a3634"), 1.6),
-		"brass": ClubTextures.brushed(Color("#b08e50"), 0.9),
+		"hull": ClubTextures.rust(Dressing.c("barge", "hull", "#5a5450")),
+		"deck": ClubTextures.wood(Dressing.c("barge", "deck", "#9a7448"), 0.2, 0.7),
+		"steerage": ClubTextures.wood(Dressing.c("barge", "steerage", "#4a3424"), 0.24, 0.8),
+		"stage": ClubTextures.wood(Dressing.c("barge", "stage", "#6a4024"), 0.12, 0.4),
+		"trim": ClubTextures.rust(Dressing.c("barge", "trim", "#3a3634"), 1.6),
+		"brass": ClubTextures.brushed(Dressing.c("barge", "brass", "#b08e50"), 0.9),
 		"solar": _solar,
-		"awning": ClubTextures.velvet(Color("#5a1420")),
-		"awning_stripe": ClubTextures.velvet(Color("#d9c9a3")),
-		"velvet": ClubTextures.velvet(Color("#5a1420")),
-		"bar": ClubTextures.panels(Color("#3e2414"), 1.0),
-		"console": ClubTextures.rust(Color("#4a4e52"), 1.6),
-		"crate": ClubTextures.wood(Color("#7a5a38"), 0.15),
+		"awning": ClubTextures.velvet(Dressing.c("barge", "awning", "#5a1420")),
+		"awning_stripe": ClubTextures.velvet(Dressing.c("barge", "awning_stripe", "#d9c9a3")),
+		"velvet": ClubTextures.velvet(Dressing.c("barge", "velvet", "#5a1420")),
+		"bar": ClubTextures.panels(Dressing.c("barge", "bar", "#3e2414"), 1.0),
+		"console": ClubTextures.rust(Dressing.c("barge", "console", "#4a4e52"), 1.6),
+		"crate": ClubTextures.wood(Dressing.c("barge", "crate", "#7a5a38"), 0.15),
 		"lamp": lamp,
-		"screen": ClubTextures.glow(SCREEN, 1.3),
+		"screen": ClubTextures.glow(Dressing.c("barge", "screen", "#1d86b0"), 1.3),
 	}
 
 
@@ -165,14 +164,14 @@ func _skin() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "HullSkin"
 	mi.mesh = st.commit()
-	var m := ClubTextures.local(ClubTextures.rust(Color("#5a5450"))).duplicate() as StandardMaterial3D
+	var m := ClubTextures.local(ClubTextures.rust(Dressing.c("barge", "hull", "#5a5450"))).duplicate() as StandardMaterial3D
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = m
 	barge.look.add_child(mi)
 	_prow_deck()
 	# A lamp on the railing's post at the tip of the prow.
 	var tip: Vector3 = barge.prow_edge()[PartyBarge.PROW_KS.size() - 1] + Vector3(0, 0, 0.22)
-	jazz._sphere(jazz, 0.22, tip + Vector3(0, PartyBarge.RAIL_H + 0.22, 0), ClubTextures.glow(Color("#ffb860"), 4.0))
+	jazz._sphere(jazz, 0.22, tip + Vector3(0, PartyBarge.RAIL_H + 0.22, 0), ClubTextures.glow(Dressing.c("barge", "lamp", "#ffb860"), 4.0))
 
 
 ## The prow's deck: planks like the top deck's (in its own space, so the grain
@@ -223,8 +222,8 @@ func _fan(st: SurfaceTool, poly: PackedVector3Array) -> void:
 ## Round windows down both sides, lit warm from inside, in brass rims.
 func _portholes() -> void:
 	var W := barge._W
-	var rim := ClubTextures.local(ClubTextures.brushed(Color("#b08e50"), 0.9))
-	var glass := ClubTextures.glow(Color("#ffc070"), 2.2)
+	var rim := ClubTextures.local(ClubTextures.brushed(Dressing.c("barge", "brass", "#b08e50"), 0.9))
+	var glass := ClubTextures.glow(Dressing.c("barge", "porthole_glass", "#ffc070"), 2.2)
 	var rims := PrimBatch.new()           # issue #693: nothing read back from the GPU
 	var panes := PrimBatch.new()
 	var ring := CylinderMesh.new()
@@ -259,8 +258,8 @@ func _portholes() -> void:
 ## Four repulsor pods under the hull, glowing blue onto the sand.
 func _repulsors() -> void:
 	var h := float(barge.cfg.get("hover_m", 1.2))
-	var iron := ClubTextures.rust(Color("#3a3634"), 1.6)
-	var glow := ClubTextures.glow(Color("#3aa8ff"), 5.0)
+	var iron := ClubTextures.rust(Dressing.c("barge", "trim", "#3a3634"), 1.6)
+	var glow := ClubTextures.glow(Dressing.c("barge", "repulsor", "#3aa8ff"), 5.0)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var at := Vector3(sx * barge._W * 0.28, h - 0.45, sz * barge._L * 0.3)
@@ -268,7 +267,7 @@ func _repulsors() -> void:
 			jazz._cone(jazz, 0.7, 0.7, 0.06, at - Vector3(0, 0.27, 0), glow)
 	jazz.pulses.append([glow, 3.0, 6.0, 2.0, 0.0])
 	var l := OmniLight3D.new()
-	l.light_color = Color("#3aa8ff")
+	l.light_color = Dressing.c("barge", "repulsor", "#3aa8ff")
 	l.light_energy = 2.0
 	l.omni_range = 9.0
 	l.position = Vector3(0, h - 1.0, 0)
@@ -281,13 +280,13 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 	var W := barge._W
 	var top := _top
 	var stage_end := _bow + PartyBarge.STAGE_D
-	var brass := ClubTextures.brushed(Color("#b08e50"), 0.9)
+	var brass := ClubTextures.brushed(Dressing.c("barge", "brass", "#b08e50"), 0.9)
 	await StagedBuild.slice_of(st)
 	# The checker dance floor between the stage and the awning's far poles, in brass.
 	var fz0 := stage_end
 	var fz1 := -6.8
 	var fw := W - 1.6
-	jazz._put(jazz, LookMeshKit.box(Vector3(fw, 0.012, fz1 - fz0)), Vector3(0, top + 0.006, (fz0 + fz1) * 0.5), ClubTextures.checker(Color("#151312"), Color("#d6c8a8"), 0.6))
+	jazz._put(jazz, LookMeshKit.box(Vector3(fw, 0.012, fz1 - fz0)), Vector3(0, top + 0.006, (fz0 + fz1) * 0.5), ClubTextures.checker(Dressing.c("barge", "floor_check_dark", "#151312"), Dressing.c("barge", "floor_check_light", "#d6c8a8"), 0.6))
 	for z in [fz0 + 0.03, fz1 - 0.03]:
 		jazz._put(jazz, LookMeshKit.box(Vector3(fw + 0.06, 0.016, 0.06)), Vector3(0, top + 0.008, z), brass)
 	for sx in [-1.0, 1.0]:
@@ -305,11 +304,11 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 	# (each on its own brass pole now the wall is gone).
 	var band_at := Vector3(0, top + 1.2, _bow + 2.6)
 	for x in [-3.2, 0.0, 3.2]:
-		jazz.spot(Vector3(x, top + 4.25, stage_end + 0.5), band_at + Vector3(x * 0.4, 0, 0), Color("#ffb468"), 7.0)
+		jazz.spot(Vector3(x, top + 4.25, stage_end + 0.5), band_at + Vector3(x * 0.4, 0, 0), Dressing.c("barge", "band_spot", "#ffb468"), 7.0)
 	for sx in [-1.0, 1.0]:
 		var pole := Vector3(sx * (W * 0.5 - 0.8), top + 0.12, _bow + 0.6)
 		jazz._rod(jazz, pole, pole + Vector3(0, 3.4, 0), 0.04, brass)
-		jazz.spot(pole + Vector3(0, 3.48, 0), band_at + Vector3(-sx * 1.0, -0.6, 1.0), Color("#3a6aff"), 5.0, 10.0)
+		jazz.spot(pole + Vector3(0, 3.48, 0), band_at + Vector3(-sx * 1.0, -0.6, 1.0), Dressing.c("barge", "band_wash", "#3a6aff"), 5.0, 10.0)
 	await StagedBuild.slice_of(st)
 	# Speaker stacks at the stage's front corners, facing aft.
 	for sx in [-1.0, 1.0]:
@@ -339,15 +338,15 @@ func _top_deck(st: StagedBuild = null) -> void:   # issue #693: a section a piec
 ## The club's neon sign, as over the cantina's bar: a cocktail glass and a
 ## crescent moon over a wavy line, on a dark board, facing aft.
 func _sign(at: Vector3) -> void:
-	var board := ClubTextures.brushed(Color("#141210"), 0.4)
+	var board := ClubTextures.brushed(Dressing.c("barge", "sign_board", "#141210"), 0.4)
 	jazz._put(jazz, LookMeshKit.box(Vector3(4.6, 1.9, 0.12)), at, board)
-	jazz._put(jazz, LookMeshKit.box(Vector3(4.7, 0.06, 0.16)), at + Vector3(0, 0.98, 0), ClubTextures.brushed(Color("#b08e50"), 0.9))
+	jazz._put(jazz, LookMeshKit.box(Vector3(4.7, 0.06, 0.16)), at + Vector3(0, 0.98, 0), ClubTextures.brushed(Dressing.c("barge", "brass", "#b08e50"), 0.9))
 	var z := at.z + 0.08
 	var x := at.x - 0.9
 	var y := at.y - 0.2
-	var pink := Color("#ff4aa0")
-	var teal := Color("#3fe8d8")
-	var amber := Color("#ffb040")
+	var pink := Dressing.c("barge", "sign_pink", "#ff4aa0")
+	var teal := Dressing.c("barge", "sign_teal", "#3fe8d8")
+	var amber := Dressing.c("barge", "sign_amber", "#ffb040")
 	jazz.neon(PackedVector3Array([Vector3(x - 0.5, y + 0.85, z), Vector3(x, y + 0.15, z), Vector3(x + 0.5, y + 0.85, z)]), pink, true)
 	jazz.neon(PackedVector3Array([Vector3(x, y + 0.15, z), Vector3(x, y - 0.35, z)]), pink)
 	jazz.neon(PackedVector3Array([Vector3(x - 0.3, y - 0.35, z), Vector3(x + 0.3, y - 0.35, z)]), pink)
@@ -371,34 +370,34 @@ func _sign(at: Vector3) -> void:
 func _piano(at: Transform3D) -> void:
 	var root := jazz._group("Piano", at)
 	var lacquer := StandardMaterial3D.new()
-	lacquer.albedo_color = Color("#0e0b0a")
+	lacquer.albedo_color = Dressing.c("barge", "piano_lacquer", "#0e0b0a")
 	lacquer.roughness = 0.12
 	lacquer.clearcoat_enabled = true
 	lacquer.clearcoat = 1.0
 	jazz._put(root, LookMeshKit.box(Vector3(1.5, 1.25, 0.55)), Vector3(0, 0.625, -0.05), lacquer)
 	jazz._put(root, LookMeshKit.box(Vector3(1.52, 0.06, 0.6)), Vector3(0, 1.28, -0.05), lacquer)
 	jazz._put(root, LookMeshKit.box(Vector3(1.4, 0.06, 0.3)), Vector3(0, 0.74, 0.32), lacquer)
-	jazz._put(root, LookMeshKit.box(Vector3(1.3, 0.025, 0.16)), Vector3(0, 0.78, 0.34), jazz._flat(Color("#f2ece0"), 0.3))
+	jazz._put(root, LookMeshKit.box(Vector3(1.3, 0.025, 0.16)), Vector3(0, 0.78, 0.34), jazz._flat(Dressing.c("barge", "piano_keys", "#f2ece0"), 0.3))
 	for k in 36:
 		if k % 7 in [2, 6]:
 			continue
-		jazz._put(root, LookMeshKit.box(Vector3(0.016, 0.02, 0.09)), Vector3(-0.63 + k * 0.036, 0.8, 0.31), jazz._flat(Color("#0a0a0a"), 0.3))
+		jazz._put(root, LookMeshKit.box(Vector3(0.016, 0.02, 0.09)), Vector3(-0.63 + k * 0.036, 0.8, 0.31), jazz._flat(Dressing.c("barge", "piano_sharps", "#0a0a0a"), 0.3))
 	for side in [-1.0, 1.0]:
 		jazz._put(root, LookMeshKit.box(Vector3(0.08, 0.74, 0.08)), Vector3(side * 0.66, 0.37, 0.4), lacquer)
-	jazz._put(root, LookMeshKit.box(Vector3(0.8, 0.06, 0.36)), Vector3(0, 0.5, 0.85), ClubTextures.leather(Color("#2a1410"), 0.12))
+	jazz._put(root, LookMeshKit.box(Vector3(0.8, 0.06, 0.36)), Vector3(0, 0.5, 0.85), ClubTextures.leather(Dressing.c("barge", "piano_bench", "#2a1410"), 0.12))
 	jazz.candle(root, Vector3(0.5, 1.31, -0.05))
 
 
 ## A saxophone resting on its stand.
 func _sax(at: Transform3D) -> void:
 	var sax := jazz._group("Sax", at)
-	var b := ClubTextures.brushed(Color("#c9a048"), 0.95)
+	var b := ClubTextures.brushed(Dressing.c("barge", "sax_brass", "#c9a048"), 0.95)
 	var path := [Vector3(0.0, 0.95, -0.02), Vector3(0.0, 0.82, 0.0), Vector3(0.0, 0.35, 0.02), Vector3(0.03, 0.22, 0.06),
 		Vector3(0.06, 0.22, 0.13), Vector3(0.07, 0.34, 0.16), Vector3(0.07, 0.5, 0.18)]
 	for k in path.size() - 1:
 		jazz._rod(sax, path[k], path[k + 1], lerpf(0.018, 0.05, float(k) / (path.size() - 1)), b)
 	jazz._cone(sax, 0.09, 0.05, 0.12, Vector3(0.07, 0.56, 0.18), b)
-	var stand := jazz._flat(Color("#1a1a1a"), 0.5, 0.6)
+	var stand := jazz._flat(Dressing.c("barge", "sax_stand", "#1a1a1a"), 0.5, 0.6)
 	jazz._rod(sax, Vector3.ZERO, Vector3(0.02, 0.3, 0.06), 0.012, stand)
 	for k in 3:
 		var a := TAU * k / 3.0
@@ -408,10 +407,10 @@ func _sax(at: Transform3D) -> void:
 ## A warm hanging lamp: a shade, a bulb and its light.
 func _lamp(at: Vector3, energy: float, reach: float, props: ClubProps = null) -> void:
 	var p := props if props != null else jazz
-	p._cone(p, 0.08, 0.28, 0.22, at + Vector3(0, 0.1, 0), ClubTextures.brushed(Color("#2a2420"), 0.8))
-	p._sphere(p, 0.09, at, ClubTextures.glow(Color("#ffc070"), 4.0))
+	p._cone(p, 0.08, 0.28, 0.22, at + Vector3(0, 0.1, 0), ClubTextures.brushed(Dressing.c("barge", "lamp_shade", "#2a2420"), 0.8))
+	p._sphere(p, 0.09, at, ClubTextures.glow(Dressing.c("barge", "lamp_bulb", "#ffc070"), 4.0))
 	var l := OmniLight3D.new()
-	l.light_color = Color("#ffb860")
+	l.light_color = Dressing.c("barge", "lamp", "#ffb860")
 	l.light_energy = energy
 	l.omni_range = reach
 	l.shadow_enabled = false
@@ -449,13 +448,13 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 	var fz0 := _bow + 5.0
 	var cols := 6
 	var rows := 7
-	rave._put(rave, LookMeshKit.box(Vector3(cols + 0.4, 0.03, rows + 0.4)), Vector3(0, y1 + 0.015, fz0 + rows * 0.5), ClubTextures.brushed(Color("#0c0c0e"), 0.6))
+	rave._put(rave, LookMeshKit.box(Vector3(cols + 0.4, 0.03, rows + 0.4)), Vector3(0, y1 + 0.015, fz0 + rows * 0.5), ClubTextures.brushed(Dressing.c("barge", "rave_floor_frame", "#0c0c0e"), 0.6))
 	for cx in cols:
 		for cz in rows:
 			var x := -cols * 0.5 + 0.5 + cx
 			var z := fz0 + 0.5 + cz
 			var m := ClubTextures.glow(Color.from_hsv(0.0, 0.8, 1.0), 1.0)
-			m.albedo_color = Color("#101012")
+			m.albedo_color = Dressing.c("barge", "rave_tile", "#101012")
 			m.roughness = 0.15
 			rave._put(rave, LookMeshKit.box(Vector3(0.92, 0.035, 0.92)), Vector3(x, y1 + 0.02, z), m)
 			rave.cycles.append([m, 0.06, (x + z) * 0.03])
@@ -469,11 +468,11 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 		var yaw := Basis(Vector3.UP, -sx * 0.3)
 		rave.speaker(Transform3D(yaw, foot), Vector3(1.1, 1.0, 0.8))
 		rave.speaker(Transform3D(yaw, foot + Vector3(0, 1.0, 0)), Vector3(0.9, 0.8, 0.7))
-		var strobe := ClubTextures.glow(Color("#ffffff"), 1.0)
+		var strobe := ClubTextures.glow(Dressing.c("barge", "strobe", "#ffffff"), 1.0)
 		rave._put(rave, LookMeshKit.box(Vector3(0.4, 0.14, 0.1)), foot + Vector3(0, 1.9, 0.1), strobe).basis = yaw
 		rave.pulses.append([strobe, 0.0, 30.0, 2.0, 0.0])
 		var flash := OmniLight3D.new()
-		flash.light_color = Color("#e8f0ff")
+		flash.light_color = Dressing.c("barge", "strobe_flash", "#e8f0ff")
 		flash.omni_range = 9.0
 		flash.shadow_enabled = false
 		flash.position = foot + Vector3(0, 2.0, 0.5)
@@ -481,7 +480,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 		rave.lights.append([flash, 0.0, 3.0, 2.0, 0.0])
 	await StagedBuild.slice_of(st)
 	# Moving heads on the ceiling, sweeping over the floor; a mirror ball.
-	var hues := [Color("#ff2bd6"), Color("#2bd9ff"), Color("#7aff5a"), Color("#ff2bd6")]
+	var hues := Dressing.list("barge", "rave_spots", "#ff2bd6", 4)
 	var k := 0
 	for z in [fz0 + 0.5, fz0 + rows - 0.5]:
 		for sx in [-1.0, 1.0]:
@@ -494,13 +493,13 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 	# Neon strips down both walls over the rave, cyan low, magenta high.
 	for sx in [-1.0, 1.0]:
 		var x: float = sx * (W * 0.5 - 0.44)
-		rave.neon(PackedVector3Array([Vector3(x, y1 + 0.35, _bow + 0.6), Vector3(x, y1 + 0.35, -7.2)]), Color("#2bd9ff"), false, 0.025, 4.0)
-		rave.neon(PackedVector3Array([Vector3(x, ceil - 0.25, _bow + 0.6), Vector3(x, ceil - 0.25, -7.2)]), Color("#ff2bd6"), false, 0.025, 4.0)
+		rave.neon(PackedVector3Array([Vector3(x, y1 + 0.35, _bow + 0.6), Vector3(x, y1 + 0.35, -7.2)]), Dressing.c("barge", "neon_cyan", "#2bd9ff"), false, 0.025, 4.0)
+		rave.neon(PackedVector3Array([Vector3(x, ceil - 0.25, _bow + 0.6), Vector3(x, ceil - 0.25, -7.2)]), Dressing.c("barge", "neon_pink", "#ff2bd6"), false, 0.025, 4.0)
 	await StagedBuild.slice_of(st)
 	# The lounge aft: booths on the port wall, a rug, tables and warm lamps.
-	jazz._put(jazz, LookMeshKit.box(Vector3(4.0, 0.012, 7.6)), Vector3(-W * 0.5 + 2.7, y1 + 0.006, 8.4), ClubTextures.rug(Color("#5a1e22"), Color("#c9a058"), 1.2))
+	jazz._put(jazz, LookMeshKit.box(Vector3(4.0, 0.012, 7.6)), Vector3(-W * 0.5 + 2.7, y1 + 0.006, 8.4), ClubTextures.rug(Dressing.c("barge", "rug", "#5a1e22"), Dressing.c("barge", "rug_trim", "#c9a058"), 1.2))
 	for z in [6.2, 10.4]:
-		jazz.booth(Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(-W * 0.5 + 0.42, y1, z)), 3.2, Color("#5a1e1a"))
+		jazz.booth(Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(-W * 0.5 + 0.42, y1, z)), 3.2, Dressing.c("barge", "booth", "#5a1e1a"))
 		jazz.cocktail_table(Vector3(-W * 0.5 + 1.75, y1, z), 0.38, 0.72)
 	jazz.cocktail_table(Vector3(-1.4, y1, 7.0), 0.42, 0.78)
 	jazz.cocktail_table(Vector3(-1.4, y1, 10.6), 0.42, 0.78)
@@ -512,7 +511,7 @@ func _lower_deck(st: StagedBuild = null) -> void:   # issue #693: a section a pi
 ## The hologram wall behind the DJ: see-through panels of light rolling through
 ## the colours, scan lines and a band of light climbing it, over a glowing strip.
 func _hologram(foot: Vector3, width: float, height: float) -> void:
-	var emitter := ClubTextures.glow(Color("#2bd9ff"), 5.0)
+	var emitter := ClubTextures.glow(Dressing.c("barge", "holo_emitter", "#2bd9ff"), 5.0)
 	rave._put(rave, LookMeshKit.box(Vector3(width, 0.06, 0.16)), foot + Vector3(0, 0.03, 0), emitter)
 	rave.cycles.append([emitter, 0.1, 0.0])
 	var y0 := 0.35
@@ -527,7 +526,7 @@ func _hologram(foot: Vector3, width: float, height: float) -> void:
 			tile.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			rave.cycles.append([m, 0.1, cx * 0.035 + cy * 0.06])
 			rave.fades.append([m, 0.05, 0.3, 1.0, absf(cx - (cols - 1) * 0.5) * 0.06])
-	var band_mat := ClubTextures.beam(Color("#e8fbff"), 0.35)
+	var band_mat := ClubTextures.beam(Dressing.c("barge", "holo_beam", "#e8fbff"), 0.35)
 	var band := rave._put(rave, LookMeshKit.box(Vector3(width, 0.1, 0.02)), foot, band_mat)
 	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	rave.scans.append([band, foot + Vector3(0, y0, 0.12), foot + Vector3(0, y0 + height, 0.12), 2.4, 0.0])
@@ -545,7 +544,7 @@ func _steerage() -> void:
 	var y1 := float(barge._y[1])
 	for z in [-9.0, 6.0]:
 		var at := Vector3(0, y1 - 0.75, z)
-		jazz._rod(jazz, at, Vector3(0, y1 - 0.3, z), 0.01, jazz._flat(Color("#1a1a1a"), 0.6))
+		jazz._rod(jazz, at, Vector3(0, y1 - 0.3, z), 0.01, jazz._flat(Dressing.c("barge", "holo_wire", "#1a1a1a"), 0.6))
 		_lamp(at, 1.2, 9.0)
 	jazz.cocktail_table(Vector3(1.4, y0, -2.0), 0.4, 0.74, true)
 
@@ -558,51 +557,51 @@ func _steerage() -> void:
 func _console(st: StagedBuild = null) -> void:   # issue #693: a section a piece
 	var c := jazz._group("Console", Transform3D(Basis.IDENTITY, Vector3(3.6, _top, 16.1)))
 	var face := jazz._group("Face", Transform3D(Basis(Vector3.RIGHT, 0.38), Vector3(0, 1.04, 0.0)), c)
-	jazz._put(face, LookMeshKit.box(Vector3(1.86, 0.05, 0.78)), Vector3.ZERO, ClubTextures.brushed(Color("#26282c"), 0.7))
-	jazz._put(face, LookMeshKit.box(Vector3(1.9, 0.03, 0.04)), Vector3(0, 0.02, 0.4), ClubTextures.brushed(Color("#b08e50"), 0.9))
-	var screen := ClubTextures.glow(SCREEN, 1.3)
+	jazz._put(face, LookMeshKit.box(Vector3(1.86, 0.05, 0.78)), Vector3.ZERO, ClubTextures.brushed(Dressing.c("barge", "console_face", "#26282c"), 0.7))
+	jazz._put(face, LookMeshKit.box(Vector3(1.9, 0.03, 0.04)), Vector3(0, 0.02, 0.4), ClubTextures.brushed(Dressing.c("barge", "brass", "#b08e50"), 0.9))
+	var screen := ClubTextures.glow(Dressing.c("barge", "screen", "#1d86b0"), 1.3)
 	jazz._put(face, LookMeshKit.box(Vector3(0.62, 0.012, 0.5)), Vector3(0, 0.03, 0.0), screen)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.17
 	ring.outer_radius = 0.185
 	ring.rings = 24
-	jazz._put(face, ring, Vector3(0, 0.04, 0.0), ClubTextures.glow(Color("#9fe8ff"), 3.0))
-	jazz._put(face, LookMeshKit.box(Vector3(0.02, 0.012, 0.05)), Vector3(0, 0.04, -0.2), ClubTextures.glow(Color("#ffffff"), 3.0))     # the bow
+	jazz._put(face, ring, Vector3(0, 0.04, 0.0), ClubTextures.glow(Dressing.c("barge", "compass_ring", "#9fe8ff"), 3.0))
+	jazz._put(face, LookMeshKit.box(Vector3(0.02, 0.012, 0.05)), Vector3(0, 0.04, -0.2), ClubTextures.glow(Dressing.c("barge", "compass_bow", "#ffffff"), 3.0))     # the bow
 	needle = Node3D.new()
 	needle.position = Vector3(0, 0.045, 0)
 	face.add_child(needle)
-	jazz._put(needle, LookMeshKit.box(Vector3(0.025, 0.01, 0.17)), Vector3(0, 0, -0.085), ClubTextures.glow(Color("#ffcc33"), 4.0))
+	jazz._put(needle, LookMeshKit.box(Vector3(0.025, 0.01, 0.17)), Vector3(0, 0, -0.085), ClubTextures.glow(Dressing.c("barge", "needle", "#ffcc33"), 4.0))
 	await StagedBuild.slice_of(st)
 	# Buttons either side of the screen, blinking on their own time.
-	var palette := [Color("#3fe8ff"), Color("#2b8cff"), Color("#ffcc33"), Color("#ff4a3a"), Color("#7aff5a")]
+	var palette := Dressing.list("barge", "console_buttons", "#3fe8ff")
 	for sx in [-1.0, 1.0]:
 		for gx in 3:
 			for gz in 4:
 				var b := ClubTextures.glow(palette[(gx * 2 + gz + (1 if sx > 0 else 0)) % palette.size()], 2.0)
 				jazz._put(face, LookMeshKit.box(Vector3(0.07, 0.025, 0.06)), Vector3(sx * (0.45 + gx * 0.11), 0.035, -0.24 + gz * 0.12), b)
 				jazz.pulses.append([b, 0.4, 3.0, [2.0, 3.0, 5.0][(gx + gz) % 3], float(gx * 4 + gz) * 0.13])
-	engage_mat = ClubTextures.glow(Color("#ffcc33"), 3.0)
-	jazz._cone(face, 0.07, 0.07, 0.04, Vector3(0.0, 0.04, 0.33), jazz._flat(Color("#1a1a1c"), 0.5, 0.6))
+	engage_mat = ClubTextures.glow(Dressing.c("barge", "engage", "#ffcc33"), 3.0)
+	jazz._cone(face, 0.07, 0.07, 0.04, Vector3(0.0, 0.04, 0.33), jazz._flat(Dressing.c("barge", "lever_base", "#1a1a1c"), 0.5, 0.6))
 	jazz._cone(face, 0.055, 0.055, 0.05, Vector3(0.0, 0.05, 0.33), engage_mat)
 	lever = Node3D.new()
 	lever.position = Vector3(0.82, 0.03, 0.3)
 	face.add_child(lever)
-	jazz._rod(lever, Vector3.ZERO, Vector3(0, 0.22, 0), 0.015, jazz._flat(Color("#c0c0c4"), 0.3, 0.9))
-	jazz._sphere(lever, 0.04, Vector3(0, 0.24, 0), jazz._flat(Color("#a8322a"), 0.4))
+	jazz._rod(lever, Vector3.ZERO, Vector3(0, 0.22, 0), 0.015, jazz._flat(Dressing.c("barge", "lever_rod", "#c0c0c4"), 0.3, 0.9))
+	jazz._sphere(lever, 0.04, Vector3(0, 0.24, 0), jazz._flat(Dressing.c("barge", "lever_knob", "#a8322a"), 0.4))
 	await StagedBuild.slice_of(st)
 	# The hologram arrow over the panel, turning with the course.
 	arrow = Node3D.new()
 	arrow.position = Vector3(0, 1.75, -0.2)
 	c.add_child(arrow)
-	var holo := ClubTextures.beam(Color("#3fe8ff"), 0.45)
+	var holo := ClubTextures.beam(Dressing.c("barge", "holo_chart", "#3fe8ff"), 0.45)
 	var shaft := jazz._put(arrow, LookMeshKit.box(Vector3(0.06, 0.02, 0.4)), Vector3(0, 0, 0.05), holo)
 	shaft.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var head := jazz._cone(arrow, 0.0, 0.12, 0.2, Vector3(0, 0, -0.25), holo, Vector3(-90, 0, 0))
 	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	jazz.fades.append([holo, 0.25, 0.55, 1.0, 0.0])
-	jazz._cone(c, 0.1, 0.1, 0.02, Vector3(0, 1.33, -0.2), ClubTextures.glow(Color("#3fe8ff"), 2.0))      # its emitter
+	jazz._cone(c, 0.1, 0.1, 0.02, Vector3(0, 1.33, -0.2), ClubTextures.glow(Dressing.c("barge", "chart_emitter", "#3fe8ff"), 2.0))      # its emitter
 	var l := OmniLight3D.new()
-	l.light_color = SCREEN
+	l.light_color = Dressing.c("barge", "screen", "#1d86b0")
 	l.light_energy = 0.8
 	l.omni_range = 3.0
 	l.position = Vector3(0, 1.5, 0.4)
@@ -617,7 +616,7 @@ func show_panel(off: float, under_way: bool, blocked: bool) -> void:
 		return
 	needle.rotation.y = -off
 	arrow.rotation.y = -off
-	var c := Color("#7aff5a") if under_way else (Color("#ff4a3a") if blocked else Color("#ffcc33"))
+	var c: Color = Dressing.c("barge", "panel_go", "#7aff5a") if under_way else (Dressing.c("barge", "panel_blocked", "#ff4a3a") if blocked else Dressing.c("barge", "panel_idle", "#ffcc33"))
 	engage_mat.emission = c
 	engage_mat.albedo_color = c.darkened(0.5)
 	lever.rotation.x = -0.6 if under_way else 0.4

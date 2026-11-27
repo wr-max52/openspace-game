@@ -33,11 +33,13 @@ const TownMarket := preload("res://src/systems/world/town_market.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
 const UP := Vector3.UP
 const RAIL := StationHull.RAIL_H
-const FABRICS := [Color("#2f5d8a"), Color("#7a3b2e"), Color("#4f6b3a"), Color("#5b3f6e"), Color("#8a6a2e"), Color("#2f6f6a")]
+## Issue #542: the palettes are content/look/dressing.json "station_fill" (a
+## floor's own "paints" and "neons" still win), in order: picks step along them.
+var fabrics: Array = Dressing.list("station_fill", "fabrics", "#2f5d8a")
 const HUTS := ["hut_block", "hut_round", "hut_stepped"]
-const PAINTS := [Color("#8a4a32"), Color("#3f6f6a"), Color("#b08a3a"), Color("#6a6e72"), Color("#7a3b4e"), Color("#4a5a7a")]
-const NEONS := [Color("#ff4fa3"), Color("#38e1ff"), Color("#ffd23f"), Color("#7dff6a")]
-const VELVETS := [Color("#5a1e1a"), Color("#2e1e4a"), Color("#1e3a44"), Color("#4a1e36")]
+var paints: Array = Dressing.list("station_fill", "paints", "#8a4a32", 3)
+var neons: Array = Dressing.list("station_fill", "neons", "#ff4fa3", 2)
+var velvets: Array = Dressing.list("station_fill", "velvets", "#5a1e1a", 3)
 
 var kit: TownBuildings
 var mats: LookMaterials
@@ -52,8 +54,8 @@ var nets := {}                      ## "<tower>/<floor>" -> { alleys: [angle], s
 ## keeper stands behind a counter (a curio seller's, or a vendor's: kind is its
 ## marker). StationCrowd stands a person on each.
 var posts := {}
-var _palette: Array = PAINTS        ## the floor being built: its paints (the favela's own "paints")
-var _neons: Array = NEONS           ## and its neon colours
+var _palette: Array = paints        ## the floor being built: its paints (the favela's own "paints")
+var _neons: Array = neons           ## and its neon colours
 var _fv: Dictionary = {}            ## the favela's fill block while it is built ({} on any other floor)
 var _booths: Array = []             ## the favela's booths, chosen before they are queued: [xf, d, w, seed, a, r, out]
 var slowest_ms := 0.0               ## the longest single job (review)
@@ -103,8 +105,8 @@ func begin(parent: Node3D, t: Dictionary, i: int) -> bool:
 	_win_r = float(f.r) - StationHull.WALL
 	var here: Array = hull.rooms_of(str(t.id), str(f.id))
 	_room_n = roundi(PI / float(here[0].half)) if not here.is_empty() else 0
-	_palette = _colors(fc.get("paints", []), PAINTS)
-	_neons = _colors(fc.get("neons", []), NEONS)
+	_palette = _colors(fc.get("paints", []), paints)
+	_neons = _colors(fc.get("neons", []), neons)
 	_fv = fc if str(fc.get("use", "")) == "favela" else {}
 	match str(fc.get("use", "")):
 		"homes":
@@ -510,8 +512,8 @@ func _pendant(at: Vector3, ceil_y: float, shade: Material, r := 0.35) -> void:
 ## A plant in a pot: the pot, soil, a ball of leaves (and a second, smaller one).
 func _plant(at: Vector3, pot: Material, size := 1.0, solid := true) -> void:
 	_p(kit.cyl(0.3 * size, 0.22 * size, 0.55 * size, 10), pot, at + Vector3(0, 0.28 * size, 0), solid)
-	_p(kit.ball(0.55 * size, 0.9 * size, false, 8), _t("foliage", Color("#4f7a3c")), at + Vector3(0, 1.0 * size, 0))
-	_p(kit.ball(0.35 * size, 0.6 * size, false, 8), _t("foliage", Color("#5d8a44")), at + Vector3(0.15 * size, 1.45 * size, 0.1 * size))
+	_p(kit.ball(0.55 * size, 0.9 * size, false, 8), _t("foliage", Dressing.c("station_fill", "foliage", "#4f7a3c")), at + Vector3(0, 1.0 * size, 0))
+	_p(kit.ball(0.35 * size, 0.6 * size, false, 8), _t("foliage", Dressing.c("station_fill", "foliage_light", "#5d8a44")), at + Vector3(0.15 * size, 1.45 * size, 0.1 * size))
 
 
 ## A drum standing at `at` in colour `c` (barrel finish), solid.
@@ -611,8 +613,8 @@ static func _half_w(r: float, half: float) -> float:
 func _home(at: Transform3D, r0: float, r1: float, half: float, k: int, fc: Dictionary) -> void:
 	kit._xf = at
 	var depth := r1 - r0
-	var fabric: Color = FABRICS[k % FABRICS.size()]
-	var accent: Color = FABRICS[(k + 3) % FABRICS.size()]
+	var fabric: Color = fabrics[k % fabrics.size()]
+	var accent: Color = fabrics[(k + 3) % fabrics.size()]
 	var cloth := mats.cloth(fabric)
 	var trim := _m("trim")
 	var wall := _m("wall")
@@ -636,7 +638,7 @@ func _home(at: Transform3D, r0: float, r1: float, half: float, k: int, fc: Dicti
 	var z := flip * (kw - 0.35)
 	_p(kit.box(3.6, 0.9, 0.65), wall, Vector3(kr, 0.45, z), true)
 	_p(kit.box(3.7, 0.05, 0.7), trim, Vector3(kr, 0.925, z))
-	_p(kit.box(0.6, 0.012, 0.42), _glow(Color("#ff6a2a")), Vector3(kr - 0.9, 0.955, z))
+	_p(kit.box(0.6, 0.012, 0.42), _glow(Dressing.c("station_fill", "hotplate", "#ff6a2a")), Vector3(kr - 0.9, 0.955, z))
 	_p(kit.box(0.5, 0.02, 0.4), _m("console"), Vector3(kr + 0.8, 0.955, z))
 	_p(kit.box(3.6, 0.7, 0.4), wall, Vector3(kr, 1.95, flip * (kw - 0.22)))
 	_p(kit.box(0.8, 2.0, 0.7), _m("hull"), Vector3(kr + 2.3, 1.0, z), true)
@@ -652,7 +654,7 @@ func _home(at: Transform3D, r0: float, r1: float, half: float, k: int, fc: Dicti
 	_p(kit.box(1.8, 1.0, 0.06), _m("screen"), Vector3(lr - 0.2, 1.8, -flip * (sw - 0.05)))
 	for q in 3:
 		_p(kit.box(1.4, 0.05, 0.35), trim, Vector3(lr + 3.2, 0.9 + q * 0.55, -flip * (_half_w(lr + 3.2, half) - 0.2)))
-		_p(kit.box(0.3, 0.25, 0.25), mats.cloth(FABRICS[(k + q) % FABRICS.size()]), Vector3(lr + 3.0 + q * 0.2, 1.05 + q * 0.55, -flip * (_half_w(lr + 3.2, half) - 0.25)))
+		_p(kit.box(0.3, 0.25, 0.25), mats.cloth(fabrics[(k + q) % fabrics.size()]), Vector3(lr + 3.0 + q * 0.2, 1.05 + q * 0.55, -flip * (_half_w(lr + 3.2, half) - 0.25)))
 	# A partition across the room with a doorway, between the living space and the
 	# bedroom, lit along its top.
 	var pr := r1 - float(fc.get("partition_from_window", 13.0))
@@ -667,9 +669,9 @@ func _home(at: Transform3D, r0: float, r1: float, half: float, k: int, fc: Dicti
 	_p(kit.box(1.4, 2.2, 0.6), wall, Vector3(br - 2.4, 1.1, flip * (_half_w(br - 2.4, half) - 0.3)), true)
 	_p(kit.box(0.04, 1.9, 0.02), trim, Vector3(br - 2.4, 1.1, flip * (_half_w(br - 2.4, half) - 0.61)))
 	_p(kit.box(2.2, 0.35, 1.7), trim, Vector3(br, 0.175, 0), true)
-	_p(kit.box(2.0, 0.22, 1.6), mats.cloth(Color("#d9d4c8")), Vector3(br, 0.46, 0))
+	_p(kit.box(2.0, 0.22, 1.6), mats.cloth(Dressing.c("station_fill", "bedding", "#d9d4c8")), Vector3(br, 0.46, 0))
 	_p(kit.box(1.25, 0.07, 1.64), cloth, Vector3(br + 0.35, 0.6, 0))
-	_p(kit.box(0.42, 0.12, 1.2), mats.cloth(Color("#ece6d8")), Vector3(br - 0.72, 0.62, 0))
+	_p(kit.box(0.42, 0.12, 1.2), mats.cloth(Dressing.c("station_fill", "pillow_pale", "#ece6d8")), Vector3(br - 0.72, 0.62, 0))
 	_p(kit.box(0.12, 0.95, 1.8), wall, Vector3(br - 1.12, 0.6, 0))
 	_p(kit.box(0.45, 0.5, 0.45), trim, Vector3(br - 0.85, 0.25, -flip * 1.25))
 	_p(kit.ball(0.12, 0.2, false, 8), kit.window_glow, Vector3(br - 0.85, 0.6, -flip * 1.25))
@@ -677,7 +679,7 @@ func _home(at: Transform3D, r0: float, r1: float, half: float, k: int, fc: Dicti
 	# A plant in the window's corner.
 	var plant_z := _half_w(r1 - 1.2, half) - 0.5
 	_p(kit.cyl(0.26, 0.2, 0.5, 8), _m("hull"), Vector3(r1 - 1.2, 0.25, flip * plant_z), true)
-	_p(kit.ball(0.5, 0.8, false, 8), mats.flat(Color("#3f6b34"), 0.8), Vector3(r1 - 1.2, 0.9, flip * plant_z))
+	_p(kit.ball(0.5, 0.8, false, 8), mats.flat(Dressing.c("station_fill", "plant", "#3f6b34"), 0.8), Vector3(r1 - 1.2, 0.9, flip * plant_z))
 
 
 ## A floor lamp: a thin post and a glowing shade.
@@ -741,8 +743,8 @@ func _market(parent: Node3D, t: Dictionary, f: Dictionary, fc: Dictionary) -> vo
 func _market_floor(t: Dictionary, f: Dictionary) -> void:
 	var y := float(f.y)
 	var rw := hull.gap_r + hull.walk
-	_ring_floor(t, y, hull.gap_r + 0.2, rw, _t("tile", Color("#4a4d52")))
-	_ring_floor(t, y, rw, _win_r, _t("pavers", Color("#8a8072")))
+	_ring_floor(t, y, hull.gap_r + 0.2, rw, _t("tile", Dressing.c("station_fill", "tile_floor", "#4a4d52")))
+	_ring_floor(t, y, rw, _win_r, _t("pavers", Dressing.c("station_fill", "pavers", "#8a8072")))
 
 
 ## Stock piled in the gaps behind back-to-back rings of stalls (a ring facing in
@@ -752,7 +754,7 @@ func _market_stock(t: Dictionary, f: Dictionary, fc: Dictionary, lanes: Array) -
 	var y := float(f.y)
 	var rings: Array = fc.get("rings", [])
 	var every := float(fc.get("stock_every_m", 4.5))
-	var drums := [Color("#8a3a2a"), Color("#2f5d8a"), Color("#b08a3a"), Color("#3f6f6a")]
+	var drums := Dressing.list("station_fill", "drums_market", "#8a3a2a")
 	for i in range(rings.size() - 1):
 		var ra: Dictionary = rings[i]
 		var rb: Dictionary = rings[i + 1]
@@ -775,13 +777,13 @@ func _market_stock(t: Dictionary, f: Dictionary, fc: Dictionary, lanes: Array) -
 					for j in 4:
 						_barrel(Vector3((j % 2) * 0.65 - 0.3, 0, (j / 2) * 0.65 - 0.3), drums[(j + k) % drums.size()])
 				2:
-					var sack := mats.canvas(Color("#a08a62"))
+					var sack := mats.canvas(Dressing.c("station_fill", "sack", "#a08a62"))
 					for j in 5:
 						_p(kit.ball(0.4, 0.45, false, 8), sack, Vector3((j % 3) * 0.6 - 0.6, 0.22 + (j / 3) * 0.38, (j / 3) * 0.2 - 0.1))
 					_p(kit.box(1.0, 0.8, 1.0), kit.crate_woods[k % 3], Vector3(0.4, 0.4, 0.9), true)
 				3:
 					_p(kit.box(1.8, 0.9, 1.4), kit.crate_woods[k % 3], Vector3(0, 0.45, 0), true)
-					_p(kit.box(2.0, 0.08, 1.6), mats.canvas(FABRICS[k % FABRICS.size()]), Vector3(0, 0.95, 0), false, Basis(Vector3.BACK, 0.06))
+					_p(kit.box(2.0, 0.08, 1.6), mats.canvas(fabrics[k % fabrics.size()]), Vector3(0, 0.95, 0), false, Basis(Vector3.BACK, 0.06))
 					_barrel(Vector3(0.2, 0, -1.2), drums[k % drums.size()])
 			_count("stock")
 
@@ -803,7 +805,7 @@ func _market_lamps(t: Dictionary, f: Dictionary, fc: Dictionary, lanes: Array) -
 		_p(kit.cyl(0.1, 0.25, 0.25, 10), _m("trim"), Vector3(rl - 0.85, 4.7, 0))
 		_p(kit.ball(0.16, 0.2, false, 8), kit.window_glow, Vector3(rl - 0.85, 4.55, 0))
 		if k % 2 == 0:
-			_plant(Vector3(rl, 0, 1.0), _t("barrel", Color("#6a4a32")), 0.9)
+			_plant(Vector3(rl, 0, 1.0), _t("barrel", Dressing.c("station_fill", "barrel_wood", "#6a4a32")), 0.9)
 		_count("lamp")
 	var rings: Array = fc.get("rings", [])
 	if rings.size() < 2:
@@ -815,7 +817,7 @@ func _market_lamps(t: Dictionary, f: Dictionary, fc: Dictionary, lanes: Array) -
 		var a := (k + 0.5) * TAU / nb
 		kit._xf = radial(t, y, a)
 		var h := 4.0 + (k % 3) * 0.8
-		_p(kit.box(0.06, h, 1.4), mats.canvas(FABRICS[k % FABRICS.size()]), Vector3(rb, top - h * 0.5, 0))
+		_p(kit.box(0.06, h, 1.4), mats.canvas(fabrics[k % fabrics.size()]), Vector3(rb, top - h * 0.5, 0))
 		_p(kit.box(0.08, 0.08, 1.6), _m("rail"), Vector3(rb, top, 0))
 		_p(kit.box(0.08, 0.06, 1.4), _m("trim"), Vector3(rb, top - h, 0))
 		_count("banner")
@@ -1047,7 +1049,7 @@ func _shack(xf: Transform3D, d: float, w: float, h: float, stacked: bool, seed: 
 		var wz := -signf(dz + 0.01) * (w * 0.5 - 0.7)
 		_p(kit.box(0.06, 0.55, 0.8), kit.window_glow, Vector3(d * 0.5 + 0.03, 1.6, wz))
 	if _rng.randf() < 0.4:
-		var fab: Color = FABRICS[_rng.randi() % FABRICS.size()]
+		var fab: Color = fabrics[_rng.randi() % fabrics.size()]
 		_p(kit.box(1.0, 0.05, w * 0.8), mats.cloth(fab) if _fv.is_empty() else _paint(_rng.randi() + 5), Vector3(d * 0.5 + 0.45, 2.45, 0), false,
 			Basis(Vector3.BACK, -0.3))
 	if not _fv.is_empty():
@@ -1089,7 +1091,7 @@ func _booth(xf: Transform3D, d: float, w: float, seed: int, curio := false) -> v
 	kit._xf = xf
 	_rng.seed = seed
 	var paint := _paint(_rng.randi()) if _fv.is_empty() else _wall_mat()
-	var fab: Color = FABRICS[_rng.randi() % FABRICS.size()]
+	var fab: Color = fabrics[_rng.randi() % fabrics.size()]
 	var cloth: Material = mats.cloth(fab) if _fv.is_empty() else _paint(_rng.randi() + 5)     # issue #643: the favela's awnings are scrap sheet
 	_p(kit.box(0.8, 1.0, w - 0.3), kit.crate_woods[_rng.randi() % 3], Vector3(d * 0.5 - 0.4, 0.5, 0), true)
 	_p(kit.box(0.15, 2.6, w), paint, Vector3(-d * 0.5 + 0.08, 1.3, 0), true)
@@ -1108,7 +1110,7 @@ func _booth(xf: Transform3D, d: float, w: float, seed: int, curio := false) -> v
 	var n := 3 + _rng.randi() % 3
 	for k in n:
 		var z := (float(k) + 0.5) / n * (w - 0.8) - (w - 0.8) * 0.5
-		var c: Color = FABRICS[(k + seed) % FABRICS.size()]
+		var c: Color = fabrics[(k + seed) % fabrics.size()]
 		if k % 2 == 0:
 			_p(kit.box(0.3, 0.22, 0.3), mats.flat(c, 0.7), Vector3(d * 0.5 - 0.4, 1.11, z))
 		else:
@@ -1169,7 +1171,7 @@ func _lines(t: Dictionary, y: float, fc: Dictionary, lanes: Array) -> void:
 				var x := lo + u * span
 				var ly := hy - _sag(u, sag)
 				if washing:
-					_p(kit.box(0.4, 0.55, 0.02), mats.cloth(FABRICS[(j + k) % FABRICS.size()]), Vector3(x, ly - 0.3, 0))
+					_p(kit.box(0.4, 0.55, 0.02), mats.cloth(fabrics[(j + k) % fabrics.size()]), Vector3(x, ly - 0.3, 0))
 				else:
 					_p(kit.ball(0.06, 0.12, false, 6), bulbs[(j + k + ri) % bulbs.size()], Vector3(x, ly - 0.08, 0))
 	_count("lines")
@@ -1184,20 +1186,17 @@ static func _sag(u: float, sag: float) -> float:
 # ------------------------------------------------------------------ the favela's junk (issue #643)
 
 ## Few colours, so few materials (the render rules: a floor's draws are one a material).
-const CONTAINERS := [Color("#7a3a22"), Color("#2c4a66"), Color("#2f4a33")]
-const SKINS := [Color("#8f9499"), Color("#6d7a80")]
-const SOLAR := Color("#1d2b4a")
-const FOILS := [Color("#8a6c2e"), Color("#5e4a22")]
-const DARK := Color("#1c1e22")
-const BONE := Color("#cfc6ae")
+var containers: Array = Dressing.list("station_fill", "containers", "#7a3a22")
+var skins: Array = Dressing.list("station_fill", "skins", "#8f9499")
+var foils: Array = Dressing.list("station_fill", "foils", "#8a6c2e")
 
 
 func _skin(k: int) -> Material:
-	return mats.painted(SKINS[absi(k) % SKINS.size()], 0.55, 0.5)
+	return mats.painted(skins[absi(k) % skins.size()], 0.55, 0.5)
 
 
 func _dark() -> Material:
-	return mats.painted(DARK, 0.8, 0.3)
+	return mats.painted(Dressing.c("station_fill", "dark", "#1c1e22"), 0.8, 0.3)
 
 
 ## A glow for the favela: always one of its neons at one strength (shared).
@@ -1252,14 +1251,14 @@ func _roof_junk(d: float, w: float, top: float) -> void:
 		1:
 			_p(kit.cyl(0.05, 0.05, 1.0, 6), _m("rail"), Vector3(-d * 0.2, top + 0.5, 0))
 			var ww := snappedf(minf(w * 0.8, 2.4), 0.25)
-			_p(kit.box(0.05, 0.9, ww), _t("tile", SOLAR), Vector3(-d * 0.2, top + 1.15, 0), false, Basis(Vector3.BACK, 0.45))
+			_p(kit.box(0.05, 0.9, ww), _t("tile", Dressing.c("station_fill", "solar", "#1d2b4a")), Vector3(-d * 0.2, top + 1.15, 0), false, Basis(Vector3.BACK, 0.45))
 			_count("solar")
 		2:
 			var z := w * 0.3
 			_p(kit.cyl(0.03, 0.04, 2.4, 5), _m("rail"), Vector3(-d * 0.25, top + 1.2, z))
 			for k in 3:
 				_p(kit.box(0.04, 0.03, 0.6 - k * 0.15), _m("rail"), Vector3(-d * 0.25, top + 1.0 + k * 0.45, z))
-			_p(kit.ball(0.07, 0.14, false, 6), _glow(Color("#ff3b3b"), 3.0), Vector3(-d * 0.25, top + 2.45, z))
+			_p(kit.ball(0.07, 0.14, false, 6), _glow(Dressing.c("station_fill", "red_lamp", "#ff3b3b"), 3.0), Vector3(-d * 0.25, top + 2.45, z))
 			_count("antenna")
 		_:
 			_p(kit.cyl(0.35, 0.45, 1.3, 10), _m("hull"), Vector3(-d * 0.2, top + 0.65, -w * 0.2))
@@ -1274,7 +1273,7 @@ func _container(xf: Transform3D, d: float, w: float, stacked: bool, seed: int) -
 	kit._xf = xf
 	_rng.seed = seed
 	var h := 2.6
-	var col: Color = CONTAINERS[_rng.randi() % CONTAINERS.size()]
+	var col: Color = containers[_rng.randi() % containers.size()]
 	_p(kit.box(d, h, w), _t("locker", col), Vector3(0, h * 0.5, 0), true)
 	var leaf := _t("locker", col)
 	for s: float in [-1.0, 1.0]:
@@ -1289,7 +1288,7 @@ func _container(xf: Transform3D, d: float, w: float, stacked: bool, seed: int) -
 			_roof_junk(d, w, h)
 		_count("container")
 		return
-	var col2: Color = CONTAINERS[_rng.randi() % CONTAINERS.size()]
+	var col2: Color = containers[_rng.randi() % containers.size()]
 	var off := snappedf(_rng.randf_range(-0.4, 0.4), 0.1)
 	_p(kit.box(d - 0.2, h, w - 0.3), _t("locker", col2), Vector3(-0.1, h * 1.5 + 0.02, off), true)
 	_door(d - 0.2, off - dz * 0.6, _m("hull"))
@@ -1372,7 +1371,7 @@ func _hull_home(xf: Transform3D, d: float, w: float, h: float, seed: int) -> voi
 func _sat_home(xf: Transform3D, d: float, w: float, h: float, seed: int) -> void:
 	kit._xf = xf
 	_rng.seed = seed
-	var foil := _t("brass", FOILS[_rng.randi() % FOILS.size()])
+	var foil := _t("brass", foils[_rng.randi() % foils.size()])
 	_p(kit.box(d, h, w), foil, Vector3(0, h * 0.5, 0), true)
 	var band := _dark()
 	_p(kit.box(d + 0.04, 0.2, w + 0.04), band, Vector3(0, h * 0.55, 0))
@@ -1384,7 +1383,7 @@ func _sat_home(xf: Transform3D, d: float, w: float, h: float, seed: int) -> void
 	_p(kit.cyl(0.06, 0.06, 1.4, 6), _m("rail"), Vector3(-d * 0.1, h + 0.7, 0))
 	var ww := snappedf(minf(w * 0.45, 1.6), 0.25)
 	for s: float in [-1.0, 1.0]:
-		_p(kit.box(0.05, 0.85, ww), _t("tile", SOLAR), Vector3(-d * 0.1, h + 1.25, s * (ww * 0.5 + 0.08)), false,
+		_p(kit.box(0.05, 0.85, ww), _t("tile", Dressing.c("station_fill", "solar", "#1d2b4a")), Vector3(-d * 0.1, h + 1.25, s * (ww * 0.5 + 0.08)), false,
 			Basis(Vector3.BACK, s * 0.25))
 	var x := d * 0.2
 	_p(kit.cyl(0.9, 0.12, 0.32, 10), _skin(0), Vector3(x, h + 0.45, -w * 0.25), false,
@@ -1428,13 +1427,13 @@ func _scrap(x: float, y: float, span: float) -> void:
 		match _rng.randi() % 4:
 			0:
 				_p(kit.ball(0.13, 0.26, false, 8), m, Vector3(x, y + 0.13, z))
-				_p(kit.ball(0.03, 0.06, false, 6), _glow(Color("#ff3b3b"), 3.0), Vector3(x + 0.12, y + 0.16, z))
+				_p(kit.ball(0.03, 0.06, false, 6), _glow(Dressing.c("station_fill", "red_lamp", "#ff3b3b"), 3.0), Vector3(x + 0.12, y + 0.16, z))
 			1:
 				_p(kit.cyl(0.05, 0.05, 0.4, 6), m, Vector3(x, y + 0.05, z), false, Basis(Vector3.RIGHT, PI * 0.5))
 			2:
 				_p(kit.box(0.2, 0.14, 0.12), m, Vector3(x, y + 0.07, z))
 			_:
-				_p(kit.cyl(0.08, 0.08, 0.2, 8), _glow(Color("#7dff6a"), 3.0), Vector3(x, y + 0.1, z))
+				_p(kit.cyl(0.08, 0.08, 0.2, 8), _glow(Dressing.c("station_fill", "neon_green", "#7dff6a"), 3.0), Vector3(x, y + 0.1, z))
 	_count("scrap")
 
 
@@ -1451,25 +1450,25 @@ func _curios(d: float, w: float) -> void:
 		var z := (float(k) + 0.5) / n * span - span * 0.5
 		match (start + k) % 7:
 			0:
-				_p(kit.box(0.16, 0.16, 0.16), _t("brass", FOILS[0]), Vector3(x, y + 0.2, z))
+				_p(kit.box(0.16, 0.16, 0.16), _t("brass", foils[0]), Vector3(x, y + 0.2, z))
 				for s: float in [-1.0, 1.0]:
-					_p(kit.box(0.02, 0.12, 0.2), _t("tile", SOLAR), Vector3(x, y + 0.2, z + s * 0.19))
+					_p(kit.box(0.02, 0.12, 0.2), _t("tile", Dressing.c("station_fill", "solar", "#1d2b4a")), Vector3(x, y + 0.2, z + s * 0.19))
 				_p(kit.cyl(0.02, 0.02, 0.12, 5), _m("rail"), Vector3(x, y + 0.06, z))
 			1:
 				_p(kit.ball(0.16, 0.32, false, 10), _skin(0), Vector3(x, y + 0.16, z))
-				_p(kit.ball(0.05, 0.1, false, 6), _glow(Color("#38e1ff"), 3.0), Vector3(x + 0.14, y + 0.2, z))
+				_p(kit.ball(0.05, 0.1, false, 6), _glow(Dressing.c("station_fill", "neon_cyan", "#38e1ff"), 3.0), Vector3(x + 0.14, y + 0.2, z))
 			2:
-				_p(kit.cyl(0.1, 0.1, 0.28, 10), _glow(Color("#7dff6a"), 3.0), Vector3(x, y + 0.14, z))
+				_p(kit.cyl(0.1, 0.1, 0.28, 10), _glow(Dressing.c("station_fill", "neon_green", "#7dff6a"), 3.0), Vector3(x, y + 0.14, z))
 				_p(kit.cyl(0.11, 0.11, 0.04, 10), _m("rail"), Vector3(x, y + 0.3, z))
 			3:
-				_p(kit.cyl(0.0, 0.08, 0.34, 5), _glow(Color("#b14cff"), 3.0), Vector3(x, y + 0.17, z))
+				_p(kit.cyl(0.0, 0.08, 0.34, 5), _glow(Dressing.c("station_fill", "neon_violet", "#b14cff"), 3.0), Vector3(x, y + 0.17, z))
 			4:
-				_p(kit.ball(0.17, 0.3, true, 10), mats.painted(BONE, 0.7, 0.0), Vector3(x, y, z))
+				_p(kit.ball(0.17, 0.3, true, 10), mats.painted(Dressing.c("station_fill", "bone", "#cfc6ae"), 0.7, 0.0), Vector3(x, y, z))
 				_p(kit.box(0.04, 0.08, 0.2), kit.window_glow, Vector3(x + 0.15, y + 0.12, z))
 			5:
 				_p(kit.box(0.02, 0.36, 0.5), _m("screen"), Vector3(x - 0.15, y + 0.2, z), false, Basis(Vector3.BACK, 0.25))
 			_:
-				_p(kit.ball(0.12, 0.34, false, 8), mats.painted(BONE, 0.7, 0.0), Vector3(x, y + 0.1, z), false,
+				_p(kit.ball(0.12, 0.34, false, 8), mats.painted(Dressing.c("station_fill", "bone", "#cfc6ae"), 0.7, 0.0), Vector3(x, y + 0.1, z), false,
 					Basis(Vector3.BACK, PI * 0.5))
 	_p(kit.cyl(0.01, 0.01, 0.5, 4), _m("rail"), Vector3(x - 0.2, 2.35, 0))
 	_p(kit.ball(0.11, 0.22, false, 8), _neon(_rng.randi()), Vector3(x - 0.2, 2.05, 0))
@@ -1480,7 +1479,7 @@ func _curios(d: float, w: float) -> void:
 func _vendor_booth(xf: Transform3D, d: float, w: float, kind: String, seed: int) -> void:
 	_booth(xf, d, w, seed)
 	kit._xf = xf
-	var sign_c: Color = { "gear": Color("#38e1ff"), "fence": Color("#ff4fa3"), "droids": Color("#7dff6a") }.get(kind, Color("#ffd23f"))
+	var sign_c: Color = { "gear": Dressing.c("station_fill", "neon_cyan", "#38e1ff"), "fence": Dressing.c("station_fill", "neon_pink", "#ff4fa3"), "droids": Dressing.c("station_fill", "neon_green", "#7dff6a") }.get(kind, Dressing.c("station_fill", "neon_yellow", "#ffd23f"))
 	_p(kit.box(0.06, 0.45, w * 0.9), _glow(sign_c, 3.0), Vector3(d * 0.5 + 0.12, 3.35, 0))
 	var x := d * 0.5 - 0.4
 	match kind:
@@ -1530,20 +1529,20 @@ func _suites(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 		_q.append(_suite_more.bind(at, r0, r1, float(room.half), k))
 		k += 1
 		_count("suite")
-	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("carpet", Color("#3a1f2a")), _room_n * 10))
+	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("carpet", Dressing.c("station_fill", "carpet_plum", "#3a1f2a")), _room_n * 10))
 
 
 ## A suite's materials, shared by its two halves: k picks its velvets.
 func _suite_mats(k: int) -> Dictionary:
 	return {
-		"velvet": _t("velvet", VELVETS[k % VELVETS.size()].lightened(0.1)),
-		"velvet2": _t("velvet", VELVETS[(k + 1) % VELVETS.size()].lightened(0.05)),
-		"gold": _t("brass", Color("#d4af37")),
-		"wood": _t("veneer", Color("#5a3826")),
-		"black": _t("marble", Color("#1b1a1f")),
-		"white": _t("marble", Color("#e9e4da")),
-		"linen": _t("cloth", Color("#e6e0d2")),
-		"neon": _glow(NEONS[k % NEONS.size()], 3.0),
+		"velvet": _t("velvet", velvets[k % velvets.size()].lightened(0.1)),
+		"velvet2": _t("velvet", velvets[(k + 1) % velvets.size()].lightened(0.05)),
+		"gold": _t("brass", Dressing.c("station_fill", "gold", "#d4af37")),
+		"wood": _t("veneer", Dressing.c("station_fill", "suite_wood", "#5a3826")),
+		"black": _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f")),
+		"white": _t("marble", Dressing.c("station_fill", "suite_white", "#e9e4da")),
+		"linen": _t("cloth", Dressing.c("station_fill", "suite_linen", "#e6e0d2")),
+		"neon": _glow(neons[k % neons.size()], 3.0),
 	}
 
 
@@ -1566,13 +1565,13 @@ func _suite(at: Transform3D, r0: float, r1: float, half: float, k: int) -> void:
 	var ceil_y := hull.floor_h
 	# The floor: white marble in the foyer by the door, then lacquered planks.
 	_cover(r0, r0 + 6.0, half, m.white)
-	_cover(r0 + 6.0, r1, half, _t("woodfloor", Color("#6a4630")))
+	_cover(r0 + 6.0, r1, half, _t("woodfloor", Dressing.c("station_fill", "suite_floor", "#6a4630")))
 	_skirt(r0, r1, half, wood)
 	# Veneer panelling to 2.4 m with a brass rail, fabric above it to 9 m and a
 	# second rail; neon lines along the floor and under the ceiling.
 	_liner(r0, r1, half, 0.14, 2.26, 0.08, wood)
 	_liner(r0, r1, half, 2.4, 0.08, 0.14, gold)
-	_liner(r0, r1, half, 2.48, 6.5, 0.04, _t("cloth", Color("#3a2a30")))
+	_liner(r0, r1, half, 2.48, 6.5, 0.04, _t("cloth", Dressing.c("station_fill", "liner", "#3a2a30")))
 	_liner(r0, r1, half, 8.98, 0.08, 0.12, gold)
 	_liner(r0, r1, half, ceil_y - 0.5, 0.06, 0.06, neon)
 	_liner(r0, r1, half, 0.14, 0.03, 0.05, neon, 0.2)
@@ -1584,11 +1583,11 @@ func _suite(at: Transform3D, r0: float, r1: float, half: float, k: int) -> void:
 	_p(kit.box(3.4, 0.05, 0.06), gold, Vector3(bx, 0.95, bz - 0.38))
 	_p(kit.box(3.4, 0.04, 0.04), neon, Vector3(bx, 0.1, bz - 0.36))
 	var sz := _half_w(bx, half) - 0.1
-	_p(kit.box(3.2, 2.2, 0.08), _t("marble", Color("#2a2430")), Vector3(bx, 2.05, sz + 0.06))
+	_p(kit.box(3.2, 2.2, 0.08), _t("marble", Dressing.c("station_fill", "marble_dusk", "#2a2430")), Vector3(bx, 2.05, sz + 0.06))
 	for q in 3:
 		_p(kit.box(3.0, 0.04, 0.3), gold, Vector3(bx, 1.5 + q * 0.5, sz))
 	for j in 15:
-		var c: Color = NEONS[(j + k) % NEONS.size()]
+		var c: Color = neons[(j + k) % neons.size()]
 		_p(kit.cyl(0.05, 0.06, 0.32, 6), _glow(c.darkened(0.25), 1.6), Vector3(bx - 1.35 + (j % 5) * 0.68, 1.68 + (j / 5) * 0.5, sz))
 	for j in 3:
 		var stz := bz - 0.85
@@ -1597,22 +1596,22 @@ func _suite(at: Transform3D, r0: float, r1: float, half: float, k: int) -> void:
 	# An aquarium along the other wall by the door: lit water on a marble plinth.
 	var az := -(_half_w(bx, half) - 0.45)
 	_p(kit.box(3.0, 0.5, 0.7), black, Vector3(bx, 0.25, az), true)
-	_p(kit.box(2.9, 1.3, 0.6), _t("water", Color("#2a8fd8")), Vector3(bx, 1.15, az))
+	_p(kit.box(2.9, 1.3, 0.6), _t("water", Dressing.c("station_fill", "pool", "#2a8fd8")), Vector3(bx, 1.15, az))
 	_p(kit.box(3.0, 0.08, 0.7), gold, Vector3(bx, 1.84, az))
 	for j in 5:
-		_p(kit.box(0.04, 0.3 + (j % 3) * 0.15, 0.04), _t("foliage", Color("#4f7a3c")), Vector3(bx - 1.1 + j * 0.55, 0.7 + (j % 3) * 0.07, az))
+		_p(kit.box(0.04, 0.3 + (j % 3) * 0.15, 0.04), _t("foliage", Dressing.c("station_fill", "foliage", "#4f7a3c")), Vector3(bx - 1.1 + j * 0.55, 0.7 + (j % 3) * 0.07, az))
 	# Two lounges: a velvet booth round a cocktail table on a rug, a chandelier over it.
 	for li in 2:
 		var lx := r0 + depth * (0.3 if li == 0 else 0.68)
 		var vm := velvet if li == 0 else velvet2
-		_p(kit.box(5.5, 0.02, minf(6.0, 2.0 * _half_w(lx - 2.75, half))), _t("rug", VELVETS[(k + li + 2) % VELVETS.size()].lightened(0.1)), Vector3(lx, 0.035, 0))
+		_p(kit.box(5.5, 0.02, minf(6.0, 2.0 * _half_w(lx - 2.75, half))), _t("rug", velvets[(k + li + 2) % velvets.size()].lightened(0.1)), Vector3(lx, 0.035, 0))
 		_lounge(lx, vm, gold, black)
 		_chandelier(lx + 0.4, ceil_y, 5.6, gold)
 	# A light-up dance floor between the lounges, like the barge's, a chandelier over it.
 	var dx := r0 + depth * 0.49
 	for i in 5:
 		for j in 5:
-			var c2: Color = NEONS[(k + (i + j) % 2) % NEONS.size()]
+			var c2: Color = neons[(k + (i + j) % 2) % neons.size()]
 			_p(kit.box(0.95, 0.04, 0.95), _glow(c2.darkened(0.35), 1.4), Vector3(dx + (i - 2) * 1.0, 0.05, (j - 2) * 1.0))
 	_p(kit.box(5.2, 0.03, 5.2), black, Vector3(dx, 0.035, 0))
 	_chandelier(dx, ceil_y, 6.4, gold, 1.4)
@@ -1622,7 +1621,7 @@ func _suite(at: Transform3D, r0: float, r1: float, half: float, k: int) -> void:
 		var tz := (_half_w(tx, half) - 1.6) * (1.0 if j % 2 == 0 else -1.0)
 		_p(kit.cyl(0.4, 0.4, 0.04, 12), black, Vector3(tx, 1.05, tz))
 		_p(kit.cyl(0.04, 0.06, 1.05, 6), gold, Vector3(tx, 0.52, tz), true)
-		_p(kit.cyl(0.035, 0.035, 0.1, 6), _glow(Color("#ffb46a"), 3.0), Vector3(tx, 1.12, tz))
+		_p(kit.cyl(0.035, 0.035, 0.1, 6), _glow(Dressing.c("station_fill", "candle", "#ffb46a"), 3.0), Vector3(tx, 1.12, tz))
 	var fx := r0 + depth * 0.58
 	var fz := _half_w(fx, half) - 0.55
 	_p(kit.box(4.5, 0.45, 0.8), velvet2, Vector3(fx, 0.225, fz), true, Basis(UP, -half))
@@ -1638,16 +1637,16 @@ func _suite(at: Transform3D, r0: float, r1: float, half: float, k: int) -> void:
 	if k % 2 == 0:
 		var px := r0 + depth * 0.58
 		var pz := -(_half_w(px, half) - 1.4)
-		var lacquer := mats.flat(Color("#141216"), 0.12, 0.4)
+		var lacquer := mats.flat(Dressing.c("station_fill", "lacquer", "#141216"), 0.12, 0.4)
 		_p(kit.box(1.6, 0.35, 1.4), lacquer, Vector3(px, 0.9, pz), true)
 		_p(kit.box(1.5, 0.04, 1.3), lacquer, Vector3(px - 0.2, 1.4, pz), false, Basis(Vector3.BACK, 0.45))
-		_p(kit.box(0.2, 0.06, 1.2), mats.flat(Color("#ece6d8"), 0.4), Vector3(px + 0.85, 0.98, pz))
+		_p(kit.box(0.2, 0.06, 1.2), mats.flat(Dressing.c("station_fill", "piano_keys", "#ece6d8"), 0.4), Vector3(px + 0.85, 0.98, pz))
 		for s: float in [-0.55, 0.55]:
 			_p(kit.cyl(0.05, 0.05, 0.75, 6), gold, Vector3(px, 0.37, pz + s))
 		_p(kit.box(0.4, 0.5, 1.0), velvet, Vector3(px + 1.4, 0.25, pz), true)
 	# The round bed by the window under a gold canopy, on a rug; nightstands with lamps.
 	var rx := r1 - 4.5
-	_p(kit.box(5.6, 0.02, 5.6), _t("rug", Color("#c9b48a")), Vector3(rx, 0.035, 0))
+	_p(kit.box(5.6, 0.02, 5.6), _t("rug", Dressing.c("station_fill", "rug_sand", "#c9b48a")), Vector3(rx, 0.035, 0))
 	_p(kit.cyl(1.8, 1.8, 0.5, 16), velvet, Vector3(rx, 0.25, 0), true)
 	_p(kit.cyl(1.7, 1.7, 0.1, 16), m.linen, Vector3(rx, 0.55, 0))
 	_p(kit.cyl(1.3, 1.3, 0.04, 16), velvet2, Vector3(rx + 0.4, 0.62, 0))
@@ -1678,7 +1677,7 @@ func _suite_more(at: Transform3D, r0: float, r1: float, half: float, k: int) -> 
 	# The dining table across from the bar's side, six chairs, a rug, pendants.
 	var ex := r0 + 9.6
 	var ez := -(_half_w(ex, half) - 3.2)
-	_p(kit.box(4.8, 0.02, 3.2), _t("rug", Color("#7a6a52")), Vector3(ex, 0.035, ez))
+	_p(kit.box(4.8, 0.02, 3.2), _t("rug", Dressing.c("station_fill", "rug_brown", "#7a6a52")), Vector3(ex, 0.035, ez))
 	_dining(Vector3(ex, 0, ez), 3.2, 1.2, 3, wood, gold, m.velvet)
 	for j in 3:
 		_pendant(Vector3(ex - 1.0 + j * 1.0, 3.1, ez), ceil_y, gold, 0.28)
@@ -1686,7 +1685,7 @@ func _suite_more(at: Transform3D, r0: float, r1: float, half: float, k: int) -> 
 	var tx := r0 + 9.6
 	var tw := _half_w(tx, half)
 	_p(kit.box(3.4, 1.9, 0.06), _m("screen"), Vector3(tx, 3.6, _wall_z(tx, half, 0.04)), false, _along(1.0, half))
-	_p(kit.box(4.4, 0.02, 3.0), _t("rug", Color("#2f3c4a")), Vector3(tx, 0.035, tw - 2.6))
+	_p(kit.box(4.4, 0.02, 3.0), _t("rug", Dressing.c("station_fill", "rug_slate", "#2f3c4a")), Vector3(tx, 0.035, tw - 2.6))
 	_p(kit.box(3.2, 0.45, 0.85), m.velvet2, Vector3(tx, 0.225, tw - 3.6), true)
 	_p(kit.box(3.2, 0.7, 0.22), m.velvet2, Vector3(tx, 0.7, tw - 4.0))
 	for s: float in [-1.0, 1.0]:
@@ -1699,7 +1698,7 @@ func _suite_more(at: Transform3D, r0: float, r1: float, half: float, k: int) -> 
 		var cz := -_wall_z(cx, half, 0.25)
 		var b := _along(-1.0, half)
 		_p(kit.box(2.5, 2.8, 0.5), wood, Vector3(cx, 1.4, cz - 0.02), true, b)
-		_p(kit.box(2.3, 2.4, 0.04), _t("books", Color("#2a1c14")), Vector3(cx, 1.4, cz + 0.25 / cos(half)), false, b)
+		_p(kit.box(2.3, 2.4, 0.04), _t("books", Dressing.c("station_fill", "books", "#2a1c14")), Vector3(cx, 1.4, cz + 0.25 / cos(half)), false, b)
 	# A reading nook on the sofa's side toward the window: two armchairs, a table, a lamp.
 	var nx := r0 + depth * 0.76
 	var nz := _half_w(nx, half) - 2.0
@@ -1716,7 +1715,7 @@ func _suite_more(at: Transform3D, r0: float, r1: float, half: float, k: int) -> 
 	var hx := r1 - 3.6
 	var hz := _half_w(hx, half) - 3.6
 	_p(kit.cyl(1.7, 1.8, 0.75, 20), m.white, Vector3(hx, 0.375, hz), true)
-	_p(kit.cyl(1.5, 1.5, 0.04, 20), _t("water", Color("#2a8fd8")), Vector3(hx, 0.74, hz))
+	_p(kit.cyl(1.5, 1.5, 0.04, 20), _t("water", Dressing.c("station_fill", "pool", "#2a8fd8")), Vector3(hx, 0.74, hz))
 	_p(kit.box(0.6, 0.3, 1.2), m.white, Vector3(hx - 2.0, 0.15, hz))
 	for j in 2:
 		var lz := -(_half_w(hx, half) - 2.6 - j * 1.4)
@@ -1739,7 +1738,7 @@ func _suite_more(at: Transform3D, r0: float, r1: float, half: float, k: int) -> 
 			_p(kit.ball(0.3, 0.6, false, 12), gold, p + Vector3(0, 2.2, 0))
 			_p(kit.cyl(0.22, 0.1, 0.25, 8), m.black, p + Vector3(0, 1.22, 0))
 	# Pictures on both walls over the panelling.
-	var tints := [Color("#b0484a"), Color("#3f7a8a"), Color("#c99a3a"), Color("#6a4a8a")]
+	var tints := Dressing.list("station_fill", "art_tints", "#b0484a")
 	for j in 3:
 		var px := r0 + depth * (0.2 + j * 0.3)
 		for s: float in [-1.0, 1.0]:
@@ -1763,7 +1762,7 @@ func _lounge(lx: float, vm: Material, gold: Material, black: Material) -> void:
 	_p(kit.box(2.2, 0.05, 0.06), gold, Vector3(lx + 0.6, 1.3, -1.8))
 	_p(kit.cyl(0.6, 0.6, 0.05, 14), black, Vector3(lx + 0.4, 0.74, 0))
 	_p(kit.cyl(0.05, 0.08, 0.72, 6), gold, Vector3(lx + 0.4, 0.36, 0), true)
-	_p(kit.cyl(0.04, 0.04, 0.1, 6), _glow(Color("#ffb46a"), 3.0), Vector3(lx + 0.4, 0.82, 0))
+	_p(kit.cyl(0.04, 0.04, 0.1, 6), _glow(Dressing.c("station_fill", "candle", "#ffb46a"), 3.0), Vector3(lx + 0.4, 0.82, 0))
 
 
 ## A chandelier hanging from the ceiling at (x, 0) down to `y`: a gold dish, a
@@ -1810,7 +1809,7 @@ func _remnant(t: Dictionary, f: Dictionary) -> void:
 		_q.append(_remnant_room.bind(r))
 		_count(str(r.use))
 	_q.append(_remnant_walkway.bind(t, f))
-	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("plate", Color("#4a4e55")), _room_n * 12))
+	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("plate", Dressing.c("station_fill", "plate_floor", "#4a4e55")), _room_n * 12))
 
 
 func _remnant_room(r: Dictionary) -> void:
@@ -1824,7 +1823,7 @@ func _remnant_room(r: Dictionary) -> void:
 	var floors := { "control": ["plate", "#4a4e55"], "bunks": ["rubber", "#5a5e55"], "armoury": ["plate", "#4a4e55"],
 		"command": ["carpet", "#4a5470"], "mess": ["tile", "#c9c6bd"] }
 	var fl: Array = floors.get(use, ["plate", "#4a4e55"])
-	_cover(r0, r1, half, _t(str(fl[0]), Color(str(fl[1]))))
+	_cover(r0, r1, half, _t(str(fl[0]), Dressing.c("station_fill", "room_floor_" + use, str(fl[1]))))
 	_skirt(r0, r1, half, _m("trim"))
 	_liner(r0, r1, half, 1.2, 0.1, 0.1, _m("trim"))
 	_p(kit.box(r1 - r0 - 1.0, 0.02, 0.5), _fm("mark"), Vector3((r0 + r1) * 0.5, 0.03, 0))
@@ -1859,7 +1858,7 @@ func _cruiser_room(r: Dictionary) -> void:
 		var c: Vector3 = p.center
 		if id == "floor":
 			c.y += 0.05
-		var m: Material = _glow(Color("#e8f6ff"), 3.0) if str(p.finish) == "glow" else _m(str(p.finish))
+		var m: Material = _glow(Dressing.c("station_fill", "ceiling_glow", "#e8f6ff"), 3.0) if str(p.finish) == "glow" else _m(str(p.finish))
 		_p(kit.box((p.size as Vector3).x, (p.size as Vector3).y, (p.size as Vector3).z), m, c, bool(p.solid), p.basis)
 	kit._xf = r.frame
 
@@ -1873,7 +1872,7 @@ func _control_more(r0: float, r1: float, half: float) -> void:
 			_p(kit.box(1.2, 2.3, 0.7), _m("console"), Vector3(x, 1.15, s * _wall_z(x, half, 0.4)), true, _along(s, half))
 			_p(kit.box(1.0, 0.06, 0.06), _fm("lamp"), Vector3(x, 2.35, s * _wall_z(x, half, 0.8)), false, _along(s, half))
 		x += 1.6
-	var drums := [Color("#3b3f45"), Color("#59604c")]
+	var drums := Dressing.list("station_fill", "drums_barracks", "#3b3f45", 2)
 	for s: float in [-1.0, 1.0]:
 		var c := _corner(half, s, 1.6, 1.4)
 		_p(kit.box(1.2, 1.0, 1.2), _m("cargo"), c + Vector3(0, 0.5, 0), true)
@@ -1886,10 +1885,10 @@ func _control_more(r0: float, r1: float, half: float) -> void:
 ## footlocker at each foot, a reading light over each, lockers along the window,
 ## a screen over them, card tables down the middle, a rifle rack by the door.
 func _bunks(r0: float, r1: float, half: float, band: Material = null) -> void:
-	var frame := mats.painted(Color("#3b3f45"), 0.5, 0.6)
-	var cloth := _t("cloth", Color("#59604c"))
-	var pillow := _t("cloth", Color("#c9c3b2"))
-	var steel := _t("locker", Color("#4c5259"))
+	var frame := mats.painted(Dressing.c("station_fill", "gunmetal", "#3b3f45"), 0.5, 0.6)
+	var cloth := _t("cloth", Dressing.c("station_fill", "olive", "#59604c"))
+	var pillow := _t("cloth", Dressing.c("station_fill", "linen", "#c9c3b2"))
+	var steel := _t("locker", Dressing.c("station_fill", "locker", "#4c5259"))
 	if band == null:
 		band = _fm("band")
 	var x := r0 + 2.5
@@ -1908,18 +1907,18 @@ func _bunks(r0: float, r1: float, half: float, band: Material = null) -> void:
 		_p(kit.box(0.02, 0.05, 0.5), band, at + Vector3(-0.31 * cos(a), 1.7, -0.31 * sin(a)), false, Basis(UP, -a))
 	_p(kit.box(0.08, 1.7, 3.0), _m("screen"), Vector3(rho - 0.2, 3.4, 0))
 	# Card tables down the middle, cups and cards on them.
-	var seat := _t("cloth", Color("#59604c"))
+	var seat := _t("cloth", Dressing.c("station_fill", "olive", "#59604c"))
 	for tx: float in [r0 + 10.0, r0 + 17.0]:
-		_dining(Vector3(tx, 0, 0), 2.4, 1.0, 2, _t("plate", Color("#8a8f96")), frame, seat)
+		_dining(Vector3(tx, 0, 0), 2.4, 1.0, 2, _t("plate", Dressing.c("station_fill", "plate_light", "#8a8f96")), frame, seat)
 		for j in 4:
-			_p(kit.box(0.09, 0.01, 0.06), mats.flat(Color("#e8e4da"), 0.5), Vector3(tx - 0.6 + j * 0.35, 0.795, 0.1 * (j % 2)))
+			_p(kit.box(0.09, 0.01, 0.06), mats.flat(Dressing.c("station_fill", "crockery", "#e8e4da"), 0.5), Vector3(tx - 0.6 + j * 0.35, 0.795, 0.1 * (j % 2)))
 		_p(kit.cyl(0.04, 0.035, 0.1, 6), steel, Vector3(tx + 0.8, 0.84, 0.25))
 	# A rifle rack against the inner wall beside the door.
 	var rz := -(2.6 + 1.6)
 	var rx := sqrt(maxf(0.0, pow(_rin() + 0.25, 2.0) - rz * rz))
 	_p(kit.box(0.35, 1.8, 2.4), _m("trim"), Vector3(rx, 0.9, rz), true)
 	for k in 6:
-		_p(kit.box(0.14, 1.15, 0.08), mats.painted(Color("#1d1f22"), 0.4, 0.7), Vector3(rx + 0.26, 1.0, rz - 1.0 + k * 0.4))
+		_p(kit.box(0.14, 1.15, 0.08), mats.painted(Dressing.c("station_fill", "rack_dark", "#1d1f22"), 0.4, 0.7), Vector3(rx + 0.26, 1.0, rz - 1.0 + k * 0.4))
 
 
 ## One two-high bunk at `c` (along x): posts, frames, mattresses, pillows, a
@@ -1941,12 +1940,12 @@ func _bunk(c: Vector3, s: float, frame: Material, cloth: Material, pillow: Mater
 ## pieces, armour on stands, a hazard line before a cage at the end with racks of
 ## ammunition in it.
 func _armoury(r0: float, r1: float, half: float) -> void:
-	var dark := mats.painted(Color("#1d1f22"), 0.4, 0.7)
+	var dark := mats.painted(Dressing.c("station_fill", "rack_dark", "#1d1f22"), 0.4, 0.7)
 	var x := r0 + 3.0
 	while x < r1 - 6.0:
 		for s: float in [-1.0, 1.0]:
 			var z := s * (_half_w(x, half) - 0.5)
-			_p(kit.box(2.4, 2.0, 0.4), _t("locker", Color("#4c5259")), Vector3(x, 1.0, z), true)
+			_p(kit.box(2.4, 2.0, 0.4), _t("locker", Dressing.c("station_fill", "locker", "#4c5259")), Vector3(x, 1.0, z), true)
 			for k in 6:
 				_p(kit.box(0.08, 1.15, 0.14), dark, Vector3(x - 1.0 + k * 0.4, 1.0, z - s * 0.26))
 			_p(kit.box(2.4, 0.06, 0.06), _fm("lamp"), Vector3(x, 2.05, z - s * 0.22))
@@ -1958,12 +1957,12 @@ func _armoury(r0: float, r1: float, half: float) -> void:
 		var cz := -1.2 + (k / 3) * 2.4
 		_p(kit.box(1.0, 0.7, 0.8), _m("cargo"), Vector3(cx, 0.35 + (0.7 if k == 4 else 0.0), cz), true)
 	_p(kit.box(2.6, 0.95, 1.0), _m("console"), Vector3(r1 - 7.0, 0.48, 0), true)
-	_p(kit.box(2.6, 0.06, 1.1), _t("plate", Color("#8a8f96")), Vector3(r1 - 7.0, 0.98, 0))
+	_p(kit.box(2.6, 0.06, 1.1), _t("plate", Dressing.c("station_fill", "plate_light", "#8a8f96")), Vector3(r1 - 7.0, 0.98, 0))
 	for k in 5:
 		_p(kit.box(0.12 + (k % 2) * 0.5, 0.06, 0.1), dark, Vector3(r1 - 7.9 + k * 0.42, 1.04, -0.2 + (k % 3) * 0.15))
 	_p(kit.box(0.25, 0.2, 0.2), _m("hull"), Vector3(r1 - 5.9, 1.11, 0.3))
 	# Armour on stands, two rows of four.
-	var white := _t("cloth", Color("#c9c3b2"))
+	var white := _t("cloth", Dressing.c("station_fill", "linen", "#c9c3b2"))
 	for s: float in [-1.0, 1.0]:
 		for j in 4:
 			var p := Vector3(r0 + 12.0 + j * 2.0, 0, s * 5.0)
@@ -1975,12 +1974,12 @@ func _armoury(r0: float, r1: float, half: float) -> void:
 			_p(kit.box(0.02, 0.05, 0.2), _fm("band"), p + Vector3(-0.16, 1.5, 0))
 	# The cage: a hazard line before it, bars, and ammunition racks inside.
 	var cw := _half_w(r1 - 3.0, half) - 0.8
-	_p(kit.box(0.5, 0.02, cw * 2.0), _t("hazard", Color("#e0b030")), Vector3(r1 - 4.8, 0.03, 0))
+	_p(kit.box(0.5, 0.02, cw * 2.0), _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030")), Vector3(r1 - 4.8, 0.03, 0))
 	for k in 9:
 		var z := -cw + k * cw * 2.0 / 8.0
 		_p(kit.box(0.06, 3.0, 0.06), _fm("band"), Vector3(r1 - 4.0, 1.5, z))
 	_p(kit.box(0.08, 0.08, cw * 2.0), _fm("lamp"), Vector3(r1 - 4.0, 3.0, 0))
-	var stock := [_m("cargo"), _t("hazard", Color("#e0b030")), _t("locker", Color("#4c5259"))]
+	var stock := [_m("cargo"), _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030")), _t("locker", Dressing.c("station_fill", "locker", "#4c5259"))]
 	for j in 3:
 		var z := (j - 1) * 5.5
 		var rx := minf(r1 - 2.0, sqrt(_win_r * _win_r - pow(absf(z) + 2.2, 2.0)) - 0.9)
@@ -1993,12 +1992,12 @@ func _armoury(r0: float, r1: float, half: float) -> void:
 ## in the window's corners.
 func _command(r0: float, r1: float, half: float) -> void:
 	var dx := r0 + 12.0
-	var wood := _t("veneer", Color("#3a2a22"))
-	var leather := _t("velvet", Color("#3a2418"))
+	var wood := _t("veneer", Dressing.c("station_fill", "office_wood", "#3a2a22"))
+	var leather := _t("velvet", Dressing.c("station_fill", "leather", "#3a2418"))
 	_liner(r0, r1, half, 0.14, 2.06, 0.08, wood)
-	_p(kit.box(4.0, 0.02, 5.0), _t("rug", Color("#3a3f52")), Vector3(dx + 0.3, 0.035, 0))
+	_p(kit.box(4.0, 0.02, 5.0), _t("rug", Dressing.c("station_fill", "rug_navy", "#3a3f52")), Vector3(dx + 0.3, 0.035, 0))
 	_p(kit.box(1.1, 0.8, 3.0), wood, Vector3(dx, 0.4, 0), true)
-	_p(kit.box(1.2, 0.06, 3.1), _t("marble", Color("#1b1a1f")), Vector3(dx, 0.82, 0))
+	_p(kit.box(1.2, 0.06, 3.1), _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f")), Vector3(dx, 0.82, 0))
 	_p(kit.box(0.6, 0.5, 0.6), leather, Vector3(dx + 1.0, 0.45, 0), true)
 	_p(kit.box(0.15, 0.9, 0.6), leather, Vector3(dx + 1.3, 1.1, 0))
 	_p(kit.box(0.4, 0.3, 0.05), _m("screen"), Vector3(dx - 0.1, 1.0, 0.8), false, Basis(UP, PI * 0.5))
@@ -2016,7 +2015,7 @@ func _command(r0: float, r1: float, half: float) -> void:
 			var cx := r0 + 14.5 + j * 2.6
 			var cz := s * _wall_z(cx, half, 0.25)
 			_p(kit.box(2.5, 3.0, 0.5), wood, Vector3(cx, 1.5, cz), true, _along(s, half))
-			_p(kit.box(2.3, 2.6, 0.04), _t("books", Color("#2a1c14")), Vector3(cx, 1.5, cz - s * 0.25 / cos(half)), false, _along(s, half))
+			_p(kit.box(2.3, 2.6, 0.04), _t("books", Dressing.c("station_fill", "books", "#2a1c14")), Vector3(cx, 1.5, cz - s * 0.25 / cos(half)), false, _along(s, half))
 	# The conference table under two lamps, chairs round it.
 	var tx := r0 + 18.5
 	_dining(Vector3(tx, 0, 0), 4.0, 1.4, 4, wood, _m("trim"), leather)
@@ -2026,12 +2025,12 @@ func _command(r0: float, r1: float, half: float) -> void:
 	var cbx := r0 + 3.0
 	var cbz := -(_half_w(cbx, half) - 0.4)
 	_p(kit.box(1.6, 1.0, 0.5), wood, Vector3(cbx, 0.5, cbz), true)
-	_p(kit.box(1.7, 0.05, 0.55), _t("marble", Color("#1b1a1f")), Vector3(cbx, 1.02, cbz))
+	_p(kit.box(1.7, 0.05, 0.55), _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f")), Vector3(cbx, 1.02, cbz))
 	for j in 4:
-		_p(kit.cyl(0.04, 0.05, 0.28, 6), _glow(NEONS[j % NEONS.size()].darkened(0.4), 1.2), Vector3(cbx - 0.5 + j * 0.32, 1.19, cbz))
+		_p(kit.cyl(0.04, 0.05, 0.28, 6), _glow(neons[j % neons.size()].darkened(0.4), 1.2), Vector3(cbx - 0.5 + j * 0.32, 1.19, cbz))
 	_p(kit.cyl(0.2, 0.3, 0.06, 10), _m("trim"), Vector3(dx - 1.6, 0.03, 3.0), true)
 	_p(kit.cyl(0.03, 0.03, 0.9, 6), _m("rail"), Vector3(dx - 1.6, 0.45, 3.0))
-	_p(kit.ball(0.35, 0.7, false, 14), _t("art", Color("#3f6f8a")), Vector3(dx - 1.6, 1.2, 3.0))
+	_p(kit.ball(0.35, 0.7, false, 14), _t("art", Dressing.c("station_fill", "art", "#3f6f8a")), Vector3(dx - 1.6, 1.2, 3.0))
 	# Armchairs round a low table in the window's corners.
 	for s: float in [-1.0, 1.0]:
 		var c := _corner(half, s, 3.2, 2.2)
@@ -2046,12 +2045,12 @@ func _command(r0: float, r1: float, half: float) -> void:
 ## hot food under glass, the kitchen behind it (cooktops under a hood, fridges,
 ## shelves of pots), tile on the walls, bins and a water dispenser by the door.
 func _mess(r0: float, r1: float, half: float) -> void:
-	var tile := _t("tile", Color("#d8d6cf"))
+	var tile := _t("tile", Dressing.c("station_fill", "galley_tile", "#d8d6cf"))
 	_liner(r0, r1, half, 0.14, 1.46, 0.04, tile)
-	var top := _t("plate", Color("#8a8f96"))
-	var tray := mats.flat(Color("#6a7a8a"), 0.6)
-	var bowl := mats.flat(Color("#e8e4da"), 0.5)
-	var food := [mats.flat(Color("#b0703a"), 0.9), mats.flat(Color("#6a8a3a"), 0.9), mats.flat(Color("#c9a04a"), 0.9)]
+	var top := _t("plate", Dressing.c("station_fill", "plate_light", "#8a8f96"))
+	var tray := mats.flat(Dressing.c("station_fill", "tray", "#6a7a8a"), 0.6)
+	var bowl := mats.flat(Dressing.c("station_fill", "crockery", "#e8e4da"), 0.5)
+	var food := [mats.flat(Dressing.c("station_fill", "food_a", "#b0703a"), 0.9), mats.flat(Dressing.c("station_fill", "food_b", "#6a8a3a"), 0.9), mats.flat(Dressing.c("station_fill", "food_c", "#c9a04a"), 0.9)]
 	for z0: float in [-7.2, -2.6, 2.6, 7.2]:
 		_p(kit.box(8.0, 0.08, 1.2), top, Vector3(r0 + 9.0, 0.76, z0))
 		for lx: float in [-3.6, 0.0, 3.6]:
@@ -2068,23 +2067,23 @@ func _mess(r0: float, r1: float, half: float) -> void:
 				_p(kit.box(0.1, 0.04, 0.1), food[(j + int(side * 10.0)) % 3], p + Vector3(0.1, 0.03, 0))
 		_pendant(Vector3(r0 + 9.0, 3.2, z0), hull.floor_h, _m("trim"), 0.3)
 	# The serving counter: steel, hot food under glass along it.
-	_p(kit.box(1.0, 1.05, 6.0), _t("locker", Color("#9aa0a6")), Vector3(r1 - 6.0, 0.52, 0), true)
+	_p(kit.box(1.0, 1.05, 6.0), _t("locker", Dressing.c("station_fill", "locker_light", "#9aa0a6")), Vector3(r1 - 6.0, 0.52, 0), true)
 	_p(kit.box(1.1, 0.06, 6.1), top, Vector3(r1 - 6.0, 1.08, 0))
 	for j in 5:
-		_p(kit.box(0.6, 0.08, 0.9), _glow(Color("#ff9a4a"), 1.2), Vector3(r1 - 6.0, 1.14, -2.4 + j * 1.2))
+		_p(kit.box(0.6, 0.08, 0.9), _glow(Dressing.c("station_fill", "heat_lamp", "#ff9a4a"), 1.2), Vector3(r1 - 6.0, 1.14, -2.4 + j * 1.2))
 		_p(kit.box(0.5, 0.06, 0.8), food[j % 3], Vector3(r1 - 6.0, 1.2, -2.4 + j * 1.2))
 	_p(kit.box(0.04, 0.5, 6.0), _m("glass"), Vector3(r1 - 6.45, 1.4, 0), false, Basis(Vector3.BACK, 0.3))
 	# The kitchen behind it: a back counter with cooktops under a hood, fridges at
 	# its ends, shelves of pots.
 	var kx := r1 - 3.2
-	_p(kit.box(1.0, 0.9, 8.0), _t("locker", Color("#9aa0a6")), Vector3(kx, 0.45, 0), true)
+	_p(kit.box(1.0, 0.9, 8.0), _t("locker", Dressing.c("station_fill", "locker_light", "#9aa0a6")), Vector3(kx, 0.45, 0), true)
 	_p(kit.box(1.05, 0.05, 8.05), top, Vector3(kx, 0.925, 0))
 	for j in 4:
-		_p(kit.box(0.6, 0.02, 0.6), _glow(Color("#ff6a2a"), 2.0), Vector3(kx, 0.96, -2.4 + j * 1.6))
+		_p(kit.box(0.6, 0.02, 0.6), _glow(Dressing.c("station_fill", "hotplate", "#ff6a2a"), 2.0), Vector3(kx, 0.96, -2.4 + j * 1.6))
 		_p(kit.cyl(0.18, 0.16, 0.22, 10), _m("trim"), Vector3(kx, 1.07, -2.4 + j * 1.6))
-	_p(kit.box(1.2, 0.5, 7.0), _t("locker", Color("#9aa0a6")), Vector3(kx + 0.1, 2.6, 0))
+	_p(kit.box(1.2, 0.5, 7.0), _t("locker", Dressing.c("station_fill", "locker_light", "#9aa0a6")), Vector3(kx + 0.1, 2.6, 0))
 	for s: float in [-1.0, 1.0]:
-		_p(kit.box(0.8, 2.1, 1.0), _t("locker", Color("#9aa0a6")), Vector3(kx, 1.05, s * 4.6), true)
+		_p(kit.box(0.8, 2.1, 1.0), _t("locker", Dressing.c("station_fill", "locker_light", "#9aa0a6")), Vector3(kx, 1.05, s * 4.6), true)
 	for q in 2:
 		_p(kit.box(0.4, 0.04, 6.0), _m("trim"), Vector3(kx + 0.3, 1.6 + q * 0.5, 0))
 		for j in 6:
@@ -2094,9 +2093,9 @@ func _mess(r0: float, r1: float, half: float) -> void:
 	var bx := r0 + 1.5
 	var bz := _half_w(bx, half) - 0.6
 	for j in 3:
-		_barrel(Vector3(bx + j * 0.7, 0, bz), Color("#3b3f45"), 0.8, 0.28)
-	_p(kit.box(0.5, 1.3, 0.5), _t("locker", Color("#9aa0a6")), Vector3(bx, 0.65, -bz), true)
-	_p(kit.cyl(0.18, 0.18, 0.45, 10), _t("water", Color("#5fb0e0")), Vector3(bx, 1.52, -bz))
+		_barrel(Vector3(bx + j * 0.7, 0, bz), Dressing.c("station_fill", "gunmetal", "#3b3f45"), 0.8, 0.28)
+	_p(kit.box(0.5, 1.3, 0.5), _t("locker", Dressing.c("station_fill", "locker_light", "#9aa0a6")), Vector3(bx, 0.65, -bz), true)
+	_p(kit.cyl(0.18, 0.18, 0.45, 10), _t("water", Dressing.c("station_fill", "water_jug", "#5fb0e0")), Vector3(bx, 1.52, -bz))
 
 
 ## The walkway in the Remnant's colours: a stripe round it, a banner each side of
@@ -2158,7 +2157,7 @@ func _engines(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 		_count(use)
 		k += 1
 	_q.append(_pipes.bind(t, f))
-	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("plate", Color("#5a6068")), _room_n * 12))
+	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("plate", Dressing.c("station_fill", "plate_dark", "#5a6068")), _room_n * 12))
 	_q.append(_walk_stock.bind(t, f))
 
 
@@ -2172,9 +2171,9 @@ func _in(at: Transform3D, job: Callable) -> void:
 ## the door, pipe runs along both walls, a catwalk round them at 6 m (railed,
 ## with a ladder up), a cable tray down the middle with lamps hung from it.
 func _engine_shell(r0: float, r1: float, half: float, k: int, use: String) -> void:
-	_cover(r0, r1, half, _t("plate", Color("#5a6068")))
+	_cover(r0, r1, half, _t("plate", Dressing.c("station_fill", "plate_dark", "#5a6068")))
 	_skirt(r0, r1, half, _m("trim"))
-	_p(kit.box(0.5, 0.02, 2.0 * _half_w(r0 + 0.9, half)), _t("hazard", Color("#e0b030")), Vector3(r0 + 0.9, 0.03, 0))
+	_p(kit.box(0.5, 0.02, 2.0 * _half_w(r0 + 0.9, half)), _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030")), Vector3(r0 + 0.9, 0.03, 0))
 	var cat_y := 6.0
 	# Pipe runs along both walls (from the inner wall to the window, as _liner).
 	var a := _rin() + 0.05
@@ -2217,7 +2216,7 @@ func _engine_shell(r0: float, r1: float, half: float, k: int, use: String) -> vo
 ## A reactor: a plinth, a tall core in rings of glow, conduits up into the ceiling,
 ## a railing round it and a console by the door.
 func _reactor(r: float, half: float) -> void:
-	var glow := _glow(Color("#5fd0ff"), 3.0)
+	var glow := _glow(Dressing.c("station_fill", "screen", "#5fd0ff"), 3.0)
 	var hull_m := _m("hull")
 	_p(kit.cyl(4.2, 4.6, 0.6, 16), _m("grate"), Vector3(r, 0.3, 0), true)
 	_p(kit.cyl(2.6, 2.9, 9.0, 16), hull_m, Vector3(r, 5.1, 0), true)
@@ -2246,7 +2245,7 @@ func _ring_of(r: float, rad: float, y: float, thick: float, mat: Material, n: in
 ## Round the reactor: a hazard ring on the floor, two coolant tanks by the window
 ## piped to its crown, a bank of consoles by the door, drums in a corner.
 func _reactor_more(r0: float, r1: float, r: float, half: float) -> void:
-	var hz := _t("hazard", Color("#e0b030"))
+	var hz := _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030"))
 	for j in 24:
 		var a := TAU * j / 24.0
 		var x := Vector3(cos(a), 0, sin(a))
@@ -2255,12 +2254,12 @@ func _reactor_more(r0: float, r1: float, r: float, half: float) -> void:
 		var tc := _corner(half, s, 2.2, 2.2)
 		var tx := tc.x
 		var tz := tc.z
-		var white := _t("barrel", Color("#c9ccd0"))
+		var white := _t("barrel", Dressing.c("station_fill", "barrel_white", "#c9ccd0"))
 		_p(kit.cyl(1.5, 1.5, 7.0, 16), white, Vector3(tx, 3.7, tz), true)
 		_p(kit.ball(1.5, 1.4, true, 16), _m("hull"), Vector3(tx, 7.2, tz))
 		_p(kit.cyl(1.7, 1.7, 0.4, 16), _m("grate"), Vector3(tx, 0.2, tz), true)
 		_p(kit.cyl(0.04, 0.04, 2.2, 6), _m("rail"), Vector3(tx - 1.55, 3.0, tz))
-		_p(kit.box(0.05, 0.4, 0.3), _glow(Color("#7dff9a")), Vector3(tx - 1.55, 1.6, tz))
+		_p(kit.box(0.05, 0.4, 0.3), _glow(Dressing.c("station_fill", "status_green", "#7dff9a")), Vector3(tx - 1.55, 1.6, tz))
 		# The coolant line: out of the tank, along under the ceiling, down into the crown.
 		var px := (tx + r) * 0.5
 		var pz := tz * 0.5
@@ -2279,7 +2278,7 @@ func _reactor_more(r0: float, r1: float, r: float, half: float) -> void:
 	_p(kit.cyl(0.25, 0.25, 0.5, 8), _m("trim"), Vector3(cx - 1.0, 0.25, cz))
 	var bx := r0 + 2.0
 	var bz := -(_half_w(bx + 3.0, half) - 1.6)
-	var drums := [Color("#8a3a2a"), Color("#2f5d8a"), Color("#b08a3a")]
+	var drums := Dressing.list("station_fill", "drums", "#8a3a2a", 3)
 	for j in 7:
 		_barrel(Vector3(bx + 2.0 + (j % 4) * 0.65, 0, bz + (j / 4) * 0.65), drums[j % 3])
 
@@ -2309,15 +2308,15 @@ func _cargo(r0: float, r1: float, half: float, with_hatch: bool, seed: int) -> v
 		rows += 1
 	if with_hatch:
 		var hr := (r0 + r1) * 0.5
-		var lock := _glow(Color("#ffb04a"), 2.5)
+		var lock := _glow(Dressing.c("station_fill", "lock_lamp", "#ffb04a"), 2.5)
 		_p(kit.box(4.4, 0.04, 4.4), _m("grate"), Vector3(hr, 0.02, 0))
 		for s: float in [-1.0, 1.0]:
 			_p(kit.box(4.8, 0.06, 0.2), lock, Vector3(hr, 0.04, s * 2.3))
 			_p(kit.box(0.2, 0.06, 4.8), lock, Vector3(hr + s * 2.3, 0.04, 0))
 		_count("drop_hatch")
 	# Pallet racks along both walls, stocked with crates and cases.
-	var orange := _t("barrel", Color("#d8a42a"))
-	var stock := [cargo, kit.crate_woods[0], kit.crate_woods[1], _t("barrel", Color("#2f5d8a"))]
+	var orange := _t("barrel", Dressing.c("station_fill", "barrel_orange", "#d8a42a"))
+	var stock := [cargo, kit.crate_woods[0], kit.crate_woods[1], _t("barrel", Dressing.c("station_fill", "drum_blue", "#2f5d8a"))]
 	for s: float in [-1.0, 1.0]:
 		var x := r0 + 3.0
 		while x + 4.0 < _win_r * cos(half) - 0.3:
@@ -2325,7 +2324,7 @@ func _cargo(r0: float, r1: float, half: float, with_hatch: bool, seed: int) -> v
 				orange, stock, _rng.randi())
 			x += 4.2
 	# A loader by the door: a body, a cab, a mast and forks.
-	var yellow := _t("barrel", Color("#d8a42a"))
+	var yellow := _t("barrel", Dressing.c("station_fill", "barrel_orange", "#d8a42a"))
 	var lx := r0 + 2.6
 	var lz := -5.0
 	_p(kit.box(2.0, 1.0, 1.3), yellow, Vector3(lx, 0.7, lz), true)
@@ -2341,7 +2340,7 @@ func _cargo(r0: float, r1: float, half: float, with_hatch: bool, seed: int) -> v
 	_p(kit.box(1.4, 0.6, 1.2), _m("trim"), Vector3(gx, 10.0, 2.0))
 	_p(kit.cyl(0.03, 0.03, 4.0, 4), _m("rail"), Vector3(gx, 7.7, 2.0))
 	_p(kit.box(0.5, 0.4, 0.3), yellow, Vector3(gx, 5.5, 2.0))
-	var drums := [Color("#8a3a2a"), Color("#2f5d8a"), Color("#b08a3a")]
+	var drums := Dressing.list("station_fill", "drums", "#8a3a2a", 3)
 	for j in 8:
 		_barrel(Vector3(r1 - 1.0 - (j / 4) * 0.65, 0, -1.4 + (j % 4) * 0.7), drums[j % 3])
 
@@ -2357,19 +2356,19 @@ func _pumps(r: float, half: float) -> void:
 		_p(kit.cyl(0.65, 0.65, 0.2, 12), _m("trim"), Vector3(r - 0.9, 1.15, z), false, TownBuildings.AXIS_X)
 		_p(kit.cyl(0.65, 0.65, 0.2, 12), _m("trim"), Vector3(r + 0.9, 1.15, z), false, TownBuildings.AXIS_X)
 		_p(kit.cyl(0.18, 0.18, hull.floor_h - 1.7, 8), _m("rail"), Vector3(r + 1.2, (hull.floor_h + 1.7) * 0.5, z))
-		_p(kit.box(0.05, 0.3, 0.3), _glow(Color("#7dff9a")), Vector3(r - 1.62, 1.3, z))
+		_p(kit.box(0.05, 0.3, 0.3), _glow(Dressing.c("station_fill", "status_green", "#7dff9a")), Vector3(r - 1.62, 1.3, z))
 
 
 ## Round the pumps: a hazard box round them, tanks along both walls with valve
 ## wheels, a manifold of pipes up the window wall, a gauge board by the door.
 func _pumps_more(r0: float, r1: float, r: float, half: float) -> void:
 	var w := _half_w(r, half)
-	var hz := _t("hazard", Color("#e0b030"))
+	var hz := _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030"))
 	var bz := minf(3.2, w * 0.6) + 1.3
 	for s: float in [-1.0, 1.0]:
 		_p(kit.box(4.4, 0.02, 0.4), hz, Vector3(r, 0.03, s * bz))
 		_p(kit.box(0.4, 0.02, bz * 2.0 + 0.4), hz, Vector3(r + s * 2.2, 0.03, 0))
-	var teal := _t("barrel", Color("#3f6f6a"))
+	var teal := _t("barrel", Dressing.c("station_fill", "drum_teal", "#3f6f6a"))
 	for s: float in [-1.0, 1.0]:
 		var x := r0 + 3.5
 		while x < r1 - 3.0:
@@ -2394,7 +2393,7 @@ func _pumps_more(r0: float, r1: float, r: float, half: float) -> void:
 	var gz := _half_w(gx, half) - 0.4
 	_p(kit.box(1.8, 1.4, 0.1), _m("console"), Vector3(gx, 1.5, gz))
 	for j in 6:
-		_p(kit.cyl(0.12, 0.12, 0.04, 10), _glow(Color("#e8f6ff"), 1.5), Vector3(gx - 0.6 + (j % 3) * 0.6, 1.25 + (j / 3) * 0.5, gz - 0.07), false, TownBuildings.AXIS_Z)
+		_p(kit.cyl(0.12, 0.12, 0.04, 10), _glow(Dressing.c("station_fill", "ceiling_glow", "#e8f6ff"), 1.5), Vector3(gx - 0.6 + (j % 3) * 0.6, 1.25 + (j / 3) * 0.5, gz - 0.07), false, TownBuildings.AXIS_Z)
 
 
 ## A workshop: two benches with tools, a rack of glowing parts on the wall, a
@@ -2406,17 +2405,17 @@ func _workshop(r0: float, r1: float, half: float) -> void:
 		var r := mid - 3.0 + j * 6.0
 		var w := _half_w(r, half)
 		var z := (w - 0.6) * (1.0 if j == 0 else -1.0)
-		_p(kit.box(2.4, 0.9, 0.9), _t("locker", Color("#4c5259")), Vector3(r, 0.45, z), true)
-		_p(kit.box(2.5, 0.06, 1.0), _t("plate", Color("#7a7f86")), Vector3(r, 0.93, z))
+		_p(kit.box(2.4, 0.9, 0.9), _t("locker", Dressing.c("station_fill", "locker", "#4c5259")), Vector3(r, 0.45, z), true)
+		_p(kit.box(2.5, 0.06, 1.0), _t("plate", Dressing.c("station_fill", "counter_top", "#7a7f86")), Vector3(r, 0.93, z))
 		for q in 4:
 			_p(kit.box(0.25, 0.12 + q * 0.04, 0.2), _m("console") if q % 2 == 0 else trim,
 				Vector3(r - 0.9 + q * 0.6, 1.0 + q * 0.02, z))
 		_p(kit.box(2.4, 1.2, 0.08), _m("screen"), Vector3(r, 1.9, z + signf(z) * 0.4))
-		_p(kit.box(2.6, 0.02, 1.4), _t("rubber", Color("#2a2c2e")), Vector3(r, 0.035, z - signf(z) * 1.1))
+		_p(kit.box(2.6, 0.02, 1.4), _t("rubber", Dressing.c("station_fill", "rubber_mat", "#2a2c2e")), Vector3(r, 0.035, z - signf(z) * 1.1))
 	_p(kit.cyl(0.6, 0.7, 0.3, 12), _m("grate"), Vector3(mid, 0.15, 0), true)
 	_p(kit.cyl(0.25, 0.3, 1.0, 8), _m("hull"), Vector3(mid, 0.8, 0))
 	_p(kit.ball(0.35, 0.6, false, 10), _m("hull"), Vector3(mid, 1.5, 0))
-	_p(kit.box(0.1, 0.1, 0.1), _glow(Color("#ff4a32"), 3.0), Vector3(mid - 0.3, 1.55, 0))
+	_p(kit.box(0.1, 0.1, 0.1), _glow(Dressing.c("station_fill", "alarm_lamp", "#ff4a32"), 3.0), Vector3(mid - 0.3, 1.55, 0))
 	_p(kit.cyl(0.03, 0.03, hull.floor_h - 4.0, 6), trim, Vector3(mid, (hull.floor_h + 4.0) * 0.5, 0))
 	_p(kit.cyl(0.4, 0.15, 0.3, 10), kit.window_glow, Vector3(mid, 3.9, 0))
 
@@ -2426,8 +2425,8 @@ func _workshop(r0: float, r1: float, half: float) -> void:
 ## window, an engine on a stand, drums and crates in the corners.
 func _workshop_more(r0: float, r1: float, half: float) -> void:
 	var mid := (r0 + r1) * 0.5
-	var red := _t("locker", Color("#8a2e2a"))
-	var grey := _t("locker", Color("#4c5259"))
+	var red := _t("locker", Dressing.c("station_fill", "locker_red", "#8a2e2a"))
+	var grey := _t("locker", Dressing.c("station_fill", "locker", "#4c5259"))
 	for j in 3:
 		var x := mid + 0.2 + j * 0.95
 		var z := _half_w(x, half) - 0.35
@@ -2453,24 +2452,24 @@ func _workshop_more(r0: float, r1: float, half: float) -> void:
 	var wx := mid - 6.0
 	var wz := _half_w(wx, half) - 1.4
 	_p(kit.box(0.9, 0.7, 0.6), grey, Vector3(wx, 0.45, wz), true)
-	_barrel(Vector3(wx - 0.25, 0.8, wz), Color("#3f6f6a"), 1.2, 0.12)
-	_barrel(Vector3(wx + 0.05, 0.8, wz), Color("#8a3a2a"), 1.2, 0.12)
+	_barrel(Vector3(wx - 0.25, 0.8, wz), Dressing.c("station_fill", "drum_teal", "#3f6f6a"), 1.2, 0.12)
+	_barrel(Vector3(wx + 0.05, 0.8, wz), Dressing.c("station_fill", "drum_red", "#8a3a2a"), 1.2, 0.12)
 	_p(kit.cyl(0.18, 0.18, 0.06, 10), _m("trim"), Vector3(wx + 0.3, 0.83, wz))
 	# A parts rack on the drill's wall toward the window.
 	_rack(Vector3(mid + 5.5, 0, -_wall_z(mid + 5.5, half, 0.35)), _along(-1.0, half) * Basis(UP, PI * 0.5), 3.0, 0.6, 2.2, 4,
-		_m("trim"), [_t("barrel", Color("#2f5d8a")), _t("barrel", Color("#b08a3a")), kit.crate_woods[1], _m("cargo")], 4117)
+		_m("trim"), [_t("barrel", Dressing.c("station_fill", "drum_blue", "#2f5d8a")), _t("barrel", Dressing.c("station_fill", "drum_ochre", "#b08a3a")), kit.crate_woods[1], _m("cargo")], 4117)
 	# A speeder up on a lift by the window: the lift's posts and deck, its body.
 	var sx := r1 - 5.0
 	for e: float in [-0.9, 0.9]:
 		_p(kit.box(0.2, 1.2, 0.2), _m("rail"), Vector3(sx, 0.6, e), true)
-	_p(kit.box(3.4, 0.12, 2.0), _t("plate", Color("#8a8f96")), Vector3(sx, 1.2, 0))
+	_p(kit.box(3.4, 0.12, 2.0), _t("plate", Dressing.c("station_fill", "plate_light", "#8a8f96")), Vector3(sx, 1.2, 0))
 	var paint := _paint(2)
 	_p(kit.box(2.6, 0.5, 1.1), paint, Vector3(sx, 1.55, 0))
 	_p(kit.box(0.9, 0.3, 0.9), paint, Vector3(sx + 1.55, 1.45, 0), false, Basis(Vector3.BACK, -0.2))
 	_p(kit.box(0.7, 0.3, 0.8), _m("trim"), Vector3(sx - 0.3, 1.95, 0))
 	for e: float in [-0.75, 0.75]:
 		_p(kit.cyl(0.25, 0.25, 1.4, 10), _m("hull"), Vector3(sx - 0.6, 1.6, e), false, TownBuildings.AXIS_X)
-		_p(kit.cyl(0.2, 0.2, 0.05, 10), _glow(Color("#5fd0ff"), 2.0), Vector3(sx - 1.32, 1.6, e), false, TownBuildings.AXIS_X)
+		_p(kit.cyl(0.2, 0.2, 0.05, 10), _glow(Dressing.c("station_fill", "screen", "#5fd0ff"), 2.0), Vector3(sx - 1.32, 1.6, e), false, TownBuildings.AXIS_X)
 	# An engine on a stand, beside the lift.
 	var ex := r1 - 5.0
 	var ez := _half_w(ex, half) - 3.0
@@ -2478,7 +2477,7 @@ func _workshop_more(r0: float, r1: float, half: float) -> void:
 	_p(kit.cyl(0.4, 0.4, 1.4, 12), _m("hull"), Vector3(ex, 1.1, ez), false, TownBuildings.AXIS_X)
 	_p(kit.cyl(0.45, 0.45, 0.1, 12), _m("rail"), Vector3(ex + 0.7, 1.1, ez), false, TownBuildings.AXIS_X)
 	# Drums and crates in the window's corners, lamps over the benches.
-	var drums := [Color("#8a3a2a"), Color("#2f5d8a"), Color("#b08a3a")]
+	var drums := Dressing.list("station_fill", "drums", "#8a3a2a", 3)
 	for s: float in [-1.0, 1.0]:
 		for j in 3:
 			_barrel(_corner(half, s, 0.9 + j * 0.7, 0.6), drums[(j + int(s) + 3) % 3])
@@ -2498,7 +2497,7 @@ func _walk_stock(t: Dictionary, f: Dictionary) -> void:
 	var rr := hull.gap_r + hull.walk
 	var doors: Array = hull.door_angles(t, y)
 	var n := _room_n if _room_n > 0 else 8
-	var drums := [Color("#8a3a2a"), Color("#2f5d8a"), Color("#b08a3a")]
+	var drums := Dressing.list("station_fill", "drums", "#8a3a2a", 3)
 	for k in n:
 		var a := TAU * k / n
 		var near := false
@@ -2557,7 +2556,7 @@ func _top(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 				_q.append(_in.bind(at, _cantina.bind(r0, r1, half)))
 				_q.append(_in.bind(at, _cantina_floor.bind(r0, r1, half)))
 			"barracks":
-				_q.append(_in.bind(at, _bunks.bind(r0, r1, half, _t("brass", Color("#d4af37")))))
+				_q.append(_in.bind(at, _bunks.bind(r0, r1, half, _t("brass", Dressing.c("station_fill", "gold", "#d4af37")))))
 				_q.append(_in.bind(at, _barracks_more.bind(r0, r1, half)))
 			"lounge":
 				_q.append(_in.bind(at, _observation.bind(r0, r1, half)))
@@ -2566,7 +2565,7 @@ func _top(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 				_q.append(_in.bind(at, _garden_more.bind(r0, r1, half)))
 		_count(use)
 		k += 1
-	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("marble", Color("#cfc9bd")), _room_n * 12))
+	_q.append(_ring_floor.bind(t, float(f.y), hull.gap_r + 0.2, hull.gap_r + hull.walk - 0.25, _t("marble", Dressing.c("station_fill", "marble_pale", "#cfc9bd")), _room_n * 12))
 
 
 ## A frame on side `s`'s wall at `x` out, `off` metres off it: its x runs along
@@ -2579,7 +2578,7 @@ func _wall_xf(s: float, half: float, x: float, off := 0.0) -> Transform3D:
 ## band of light along both walls high up and a light strip down the ceiling.
 func _top_shell(r0: float, r1: float, half: float, use: String) -> void:
 	var fl: Array = TOP_FLOORS.get(use, ["plate", "#4a4e55"])
-	_cover(r0, r1, half, _t(str(fl[0]), Color(str(fl[1]))))
+	_cover(r0, r1, half, _t(str(fl[0]), Dressing.c("station_fill", "top_floor_" + use, str(fl[1]))))
 	_skirt(r0, r1, half, _m("trim"))
 	_liner(r0, r1, half, hull.floor_h - 1.2, 0.1, 0.1, kit.window_glow, 0.05)
 	_p(kit.box(r1 - r0 - 6.0, 0.08, 0.5), kit.window_glow, Vector3((r0 + r1) * 0.5 - 1.0, hull.floor_h - 0.06, 0))
@@ -2592,13 +2591,13 @@ func _top_shell(r0: float, r1: float, half: float, use: String) -> void:
 func _bridge(r0: float, r1: float, half: float) -> void:
 	var desk := _m("console")
 	var screen := _m("screen")
-	var seat := _t("cloth", Color("#2e3a5a"))
-	var lit := _glow(Color("#5fd0ff"), 2.0)
-	var plate := _t("plate", Color("#5a6068"))
+	var seat := _t("cloth", Dressing.c("station_fill", "navy", "#2e3a5a"))
+	var lit := _glow(Dressing.c("station_fill", "screen", "#5fd0ff"), 2.0)
+	var plate := _t("plate", Dressing.c("station_fill", "plate_dark", "#5a6068"))
 	_liner(r0 + 20.0, r1, half, 0.14, 1.6, 0.06, plate)
 	_liner(r0 + 20.0, r1, half, 1.74, 0.06, 0.1, _m("rail"))
 	var dx := r1 - 8.0
-	_p(kit.box(dx - 3.4 - (r0 + 19.5), 0.02, 2.4), _t("carpet", Color("#5a1e2a")), Vector3((r0 + 19.5 + dx - 3.4) * 0.5, 0.035, 0))
+	_p(kit.box(dx - 3.4 - (r0 + 19.5), 0.02, 2.4), _t("carpet", Dressing.c("station_fill", "carpet_red", "#5a1e2a")), Vector3((r0 + 19.5 + dx - 3.4) * 0.5, 0.035, 0))
 	# Four rows of crew desks round the room's middle, an aisle up it.
 	for j in 4:
 		var rho := r0 + 22.5 + j * 4.5
@@ -2620,10 +2619,10 @@ func _bridge(r0: float, r1: float, half: float) -> void:
 	# The command dais: a round platform with a rail round it, steps up, the chair
 	# and its two consoles, a brass ring at its foot.
 	_p(kit.cyl(3.2, 3.4, 0.4, 24), plate, Vector3(dx, 0.2, 0), true)
-	_ring_of(dx, 3.25, 0.42, 0.06, _t("brass", Color("#d4af37")), 24)
+	_ring_of(dx, 3.25, 0.42, 0.06, _t("brass", Dressing.c("station_fill", "gold", "#d4af37")), 24)
 	_ring_of(dx, 3.0, 0.4 + RAIL, 0.06, _m("rail"), 24)
 	_p(kit.box(0.9, 0.2, 2.0), plate, Vector3(dx - 3.6, 0.1, 0), true)
-	var cs := _t("velvet", VELVETS[1].lightened(0.1))
+	var cs := _t("velvet", velvets[1].lightened(0.1))
 	_p(kit.box(0.8, 0.5, 0.8), cs, Vector3(dx - 0.3, 0.65, 0), true)
 	_p(kit.box(0.2, 1.6, 0.8), cs, Vector3(dx - 0.75, 1.2, 0))
 	for e: float in [-1.0, 1.0]:
@@ -2631,8 +2630,8 @@ func _bridge(r0: float, r1: float, half: float) -> void:
 		_p(kit.box(0.9, 0.9, 1.2), desk, Vector3(dx + 0.6, 0.85, e * 1.6), true, Basis(UP, e * 0.5))
 		_p(kit.box(0.6, 0.02, 1.0), lit, Vector3(dx + 0.6, 1.31, e * 1.6), false, Basis(UP, e * 0.5))
 	# Big screens on both walls, framed; banners either side of them.
-	var navy := _t("cloth", Color("#2e3a5a"))
-	var gold := _t("brass", Color("#d4af37"))
+	var navy := _t("cloth", Dressing.c("station_fill", "navy", "#2e3a5a"))
+	var gold := _t("brass", Dressing.c("station_fill", "gold", "#d4af37"))
 	for s: float in [-1.0, 1.0]:
 		var was := kit._xf
 		kit._xf = was * _wall_xf(s, half, r0 + 30.0, 0.1)
@@ -2658,10 +2657,10 @@ const BAR_STOOLS := StationHull.BAR_STOOLS
 ## back bar of lit bottles under a neon sign, taps and pendants over it), velvet
 ## booths down the other, veneer up the walls with a brass rail, chandeliers.
 func _cantina(r0: float, r1: float, half: float) -> void:
-	var wood := _t("veneer", Color("#4a2e1e"))
-	var black := _t("marble", Color("#1b1a1f"))
-	var gold := _t("brass", Color("#d4af37"))
-	var red := _t("velvet", Color("#5a1e1a"))
+	var wood := _t("veneer", Dressing.c("station_fill", "veneer", "#4a2e1e"))
+	var black := _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f"))
+	var gold := _t("brass", Dressing.c("station_fill", "gold", "#d4af37"))
+	var red := _t("velvet", Dressing.c("station_fill", "velvet_red", "#5a1e1a"))
 	_liner(r0, r1, half, 0.14, 1.26, 0.06, wood)
 	_liner(r0, r1, half, 1.4, 0.05, 0.08, gold)
 	# The bar along side -1, from 5 m in to 21 m.
@@ -2672,7 +2671,7 @@ func _cantina(r0: float, r1: float, half: float) -> void:
 	kit._xf = was * _wall_xf(s, half, r0 + BAR_IN + bl * cos(half) * 0.5)
 	_p(kit.box(bl, 1.0, 0.6), wood, Vector3(0, 0.5, inn * BAR_BACK), true)
 	_p(kit.box(bl, 1.8, 0.03), black, Vector3(0, 2.0, inn * 0.02))
-	var bottles := [_glow(Color("#ffb46a"), 3.0), _glow(NEONS[1], 3.0), _glow(NEONS[0], 3.0)]
+	var bottles := [_glow(Dressing.c("station_fill", "candle", "#ffb46a"), 3.0), _glow(neons[1], 3.0), _glow(neons[0], 3.0)]
 	for y: float in [1.4, 1.95, 2.5]:
 		_p(kit.box(bl, 0.04, 0.3), _m("rail"), Vector3(0, y, inn * 0.17))
 		var u := -bl * 0.5 + 0.2
@@ -2681,8 +2680,8 @@ func _cantina(r0: float, r1: float, half: float) -> void:
 			_p(kit.cyl(0.04, 0.045, 0.3, 6), bottles[q % 3], Vector3(u, y + 0.17, inn * 0.17))
 			u += 0.22
 			q += 1
-	_p(kit.box(4.5, 0.14, 0.05), _glow(NEONS[0], 3.0), Vector3(0, 3.6, inn * 0.05))
-	_p(kit.box(3.2, 0.14, 0.05), _glow(NEONS[1], 3.0), Vector3(0, 3.15, inn * 0.05))
+	_p(kit.box(4.5, 0.14, 0.05), _glow(neons[0], 3.0), Vector3(0, 3.6, inn * 0.05))
+	_p(kit.box(3.2, 0.14, 0.05), _glow(neons[1], 3.0), Vector3(0, 3.15, inn * 0.05))
 	_p(kit.box(bl - 2.0, 1.05, 0.7), wood, Vector3(0, 0.525, inn * BAR_COUNTER), true)
 	_p(kit.box(bl - 1.8, 0.06, 0.95), black, Vector3(0, 1.08, inn * BAR_COUNTER))
 	_p(kit.cyl(0.03, 0.03, bl - 2.0, 6), gold, Vector3(0, 0.25, inn * 2.65), false, TownBuildings.AXIS_X)
@@ -2718,9 +2717,9 @@ func _cantina(r0: float, r1: float, half: float) -> void:
 ## the booths, and a stage by the window (a dance floor before it, a truss of
 ## spotlights, speakers, a drum kit and mics, a pleated curtain behind it).
 func _cantina_floor(r0: float, r1: float, half: float) -> void:
-	var wood := _t("veneer", Color("#4a2e1e"))
-	var red := _t("velvet", Color("#5a1e1a"))
-	var candle := _glow(Color("#ffb46a"), 3.0)
+	var wood := _t("veneer", Dressing.c("station_fill", "veneer", "#4a2e1e"))
+	var red := _t("velvet", Dressing.c("station_fill", "velvet_red", "#5a1e1a"))
+	var candle := _glow(Dressing.c("station_fill", "candle", "#ffb46a"), 3.0)
 	var sx := r1 - 7.5
 	var x := r0 + 9.0
 	var row := 0
@@ -2746,12 +2745,12 @@ func _cantina_floor(r0: float, r1: float, half: float) -> void:
 		x += 4.0
 		row += 1
 	# The stage, its front lit, steps up at both ends, a dance floor before it.
-	var stage := _t("woodfloor", Color("#6a4a32"))
+	var stage := _t("woodfloor", Dressing.c("station_fill", "stage_wood", "#6a4a32"))
 	_p(kit.box(5.0, 0.6, 12.0), stage, Vector3(sx, 0.3, 0), true)
-	_p(kit.box(0.05, 0.08, 12.0), _glow(NEONS[0], 3.0), Vector3(sx - 2.52, 0.5, 0))
+	_p(kit.box(0.05, 0.08, 12.0), _glow(neons[0], 3.0), Vector3(sx - 2.52, 0.5, 0))
 	for e: float in [-1.0, 1.0]:
 		_p(kit.box(0.8, 0.3, 2.0), stage, Vector3(sx - 2.9, 0.15, e * 4.5), true)
-	_p(kit.box(6.0, 0.02, 11.0), _t("marble", Color("#1b1a1f")), Vector3(sx - 6.5, 0.03, 0))
+	_p(kit.box(6.0, 0.02, 11.0), _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f")), Vector3(sx - 6.5, 0.03, 0))
 	# The curtain behind it, in pleats.
 	for j in 14:
 		_p(kit.box(0.2, 8.0, 1.02), red, Vector3(sx + 2.8 + 0.12 * (j % 2), 4.0, -6.5 + j * 1.0))
@@ -2760,14 +2759,14 @@ func _cantina_floor(r0: float, r1: float, half: float) -> void:
 	_p(kit.box(0.3, 0.3, 13.0), _m("rail"), Vector3(sx - 2.0, 7.0, 0))
 	for e: float in [-1.0, 1.0]:
 		_p(kit.box(0.3, 6.4, 0.3), _m("rail"), Vector3(sx - 2.0, 3.8, e * 6.3))
-		_p(kit.box(0.9, 1.8, 0.9), _t("marble", Color("#1b1a1f")), Vector3(sx - 1.5, 1.5, e * 5.2), true)
+		_p(kit.box(0.9, 1.8, 0.9), _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f")), Vector3(sx - 1.5, 1.5, e * 5.2), true)
 		_p(kit.cyl(0.3, 0.3, 0.05, 12), _m("trim"), Vector3(sx - 1.08, 1.8, e * 5.2), false, TownBuildings.AXIS_X)
 	for j in 6:
 		var z := -5.0 + j * 2.0
 		_p(kit.cyl(0.15, 0.2, 0.35, 8), _m("trim"), Vector3(sx - 2.0, 6.65, z))
-		_p(kit.ball(0.12, 0.16, false, 8), _glow(NEONS[j % 2], 3.0), Vector3(sx - 2.0, 6.45, z))
+		_p(kit.ball(0.12, 0.16, false, 8), _glow(neons[j % 2], 3.0), Vector3(sx - 2.0, 6.45, z))
 	# A drum kit and two mics.
-	var gold := _t("brass", Color("#d4af37"))
+	var gold := _t("brass", Dressing.c("station_fill", "gold", "#d4af37"))
 	_p(kit.cyl(0.35, 0.35, 0.4, 14), red, Vector3(sx + 0.9, 0.95, 0), false, TownBuildings.AXIS_Z)
 	for e: float in [-1.0, 1.0]:
 		_p(kit.cyl(0.18, 0.18, 0.22, 10), red, Vector3(sx + 0.6, 1.4, e * 0.4))
@@ -2781,10 +2780,10 @@ func _cantina_floor(r0: float, r1: float, half: float) -> void:
 ## The barracks' middle, past the card tables: rows of bunks back to back with an
 ## aisle up the middle, lockers at the ends of the rows, a flag on each wall.
 func _barracks_more(r0: float, r1: float, half: float) -> void:
-	var frame := mats.painted(Color("#3b3f45"), 0.5, 0.6)
-	var cloth := _t("cloth", Color("#59604c"))
-	var pillow := _t("cloth", Color("#c9c3b2"))
-	var steel := _t("locker", Color("#4c5259"))
+	var frame := mats.painted(Dressing.c("station_fill", "gunmetal", "#3b3f45"), 0.5, 0.6)
+	var cloth := _t("cloth", Dressing.c("station_fill", "olive", "#59604c"))
+	var pillow := _t("cloth", Dressing.c("station_fill", "linen", "#c9c3b2"))
+	var steel := _t("locker", Dressing.c("station_fill", "locker", "#4c5259"))
 	var x := r0 + 22.0
 	while x < r1 - 9.0:
 		var hw := _half_w(x, half) - 3.7
@@ -2797,8 +2796,8 @@ func _barracks_more(r0: float, r1: float, half: float) -> void:
 	for s: float in [-1.0, 1.0]:
 		var was := kit._xf
 		kit._xf = was * _wall_xf(s, half, r0 + 22.0, 0.1)
-		_p(kit.box(3.0, 5.0, 0.05), _t("cloth", Color("#2e3a5a")), Vector3(0, 7.0, -s * 0.03))
-		_p(kit.box(3.1, 0.12, 0.08), _t("brass", Color("#d4af37")), Vector3(0, 9.5, -s * 0.05))
+		_p(kit.box(3.0, 5.0, 0.05), _t("cloth", Dressing.c("station_fill", "navy", "#2e3a5a")), Vector3(0, 7.0, -s * 0.03))
+		_p(kit.box(3.1, 0.12, 0.08), _t("brass", Dressing.c("station_fill", "gold", "#d4af37")), Vector3(0, 9.5, -s * 0.05))
 		kit._xf = was
 	for j in 3:
 		_pendant(Vector3(r0 + 24.0 + j * 10.0, 4.6, 0.0), hull.floor_h, _m("trim"), 0.45)
@@ -2809,10 +2808,10 @@ func _barracks_more(r0: float, r1: float, half: float) -> void:
 ## the window in a grid, window seats round the glass, a telescope at its middle,
 ## a grand piano in one corner, plants, chandeliers.
 func _observation(r0: float, r1: float, half: float) -> void:
-	var wood := _t("veneer", Color("#4a2e1e"))
-	var gold := _t("brass", Color("#d4af37"))
-	var black := _t("marble", Color("#1b1a1f"))
-	var vel := [_t("velvet", VELVETS[1].lightened(0.1)), _t("velvet", VELVETS[2].lightened(0.1))]
+	var wood := _t("veneer", Dressing.c("station_fill", "veneer", "#4a2e1e"))
+	var gold := _t("brass", Dressing.c("station_fill", "gold", "#d4af37"))
+	var black := _t("marble", Dressing.c("station_fill", "marble_black", "#1b1a1f"))
+	var vel := [_t("velvet", velvets[1].lightened(0.1)), _t("velvet", velvets[2].lightened(0.1))]
 	_liner(r0, r1, half, 0.14, 2.06, 0.08, wood)
 	_liner(r0, r1, half, 2.2, 0.05, 0.1, gold)
 	# Bookcases by the door, pictures past them.
@@ -2822,12 +2821,12 @@ func _observation(r0: float, r1: float, half: float) -> void:
 			var was := kit._xf
 			kit._xf = was * _wall_xf(s, half, cx, 0.25)
 			_p(kit.box(2.5, 3.2, 0.5), wood, Vector3(0, 1.6, 0), true)
-			_p(kit.box(2.3, 2.8, 0.04), _t("books", Color("#2a1c14")), Vector3(0, 1.6, -s * 0.26))
+			_p(kit.box(2.3, 2.8, 0.04), _t("books", Dressing.c("station_fill", "books", "#2a1c14")), Vector3(0, 1.6, -s * 0.26))
 			kit._xf = was
 		var ax := r0 + 18.0
 		var q := 0
 		while ax < r1 - 8.0:
-			_art(ax, half, s, 4.2, 2.4, 1.6, PAINTS[posmod(q + int(s), 3)])
+			_art(ax, half, s, 4.2, 2.4, 1.6, paints[posmod(q + int(s), 3)])
 			ax += 6.0
 			q += 1
 	# Sofa groups in a grid, each on a rug, opening to the window.
@@ -2840,7 +2839,7 @@ func _observation(r0: float, r1: float, half: float) -> void:
 			var z := (j - (n - 1) * 0.5) * 7.0
 			var was := kit._xf
 			kit._xf = was * Transform3D(Basis(UP, PI), Vector3(x, 0, z))
-			_p(kit.box(4.2, 0.02, 4.6), _t("rug", Color("#6a4a3a")), Vector3(0.3, 0.035, 0))
+			_p(kit.box(4.2, 0.02, 4.6), _t("rug", Dressing.c("station_fill", "rug_rust", "#6a4a3a")), Vector3(0.3, 0.035, 0))
 			_lounge(-0.6, vel[(q2 + j) % 2], gold, black)
 			kit._xf = was
 			_plant(Vector3(x - 2.4, 0, z + 2.6), gold, 0.8)
@@ -2857,7 +2856,7 @@ func _observation(r0: float, r1: float, half: float) -> void:
 		var b := Basis(UP, -a)
 		var at := Vector3(cos(a), 0, sin(a)) * rho
 		_p(kit.box(0.7, 0.45, 2.4), vel[k % 2], at + Vector3(0, 0.225, 0), true, b)
-		_p(kit.box(0.6, 0.12, 2.2), _t("cloth", Color("#c9c3b2")), at + Vector3(0, 0.5, 0), false, b)
+		_p(kit.box(0.6, 0.12, 2.2), _t("cloth", Dressing.c("station_fill", "linen", "#c9c3b2")), at + Vector3(0, 0.5, 0), false, b)
 	# The telescope on its tripod, aimed out and up.
 	var tx := _win_r - 3.0
 	for j in 3:
@@ -2869,7 +2868,7 @@ func _observation(r0: float, r1: float, half: float) -> void:
 	var pc := _corner(half, -1.0, 7.0, 4.0)
 	_p(kit.box(1.5, 0.35, 2.2), black, pc + Vector3(0, 0.85, 0), true)
 	_p(kit.box(1.5, 0.03, 2.2), black, pc + Vector3(0.35, 1.4, 0), false, Basis(Vector3.BACK, 0.6))
-	_p(kit.box(0.3, 0.06, 1.3), _t("marble", Color("#cfc9bd")), pc + Vector3(-0.7, 0.9, 0))
+	_p(kit.box(0.3, 0.06, 1.3), _t("marble", Dressing.c("station_fill", "marble_pale", "#cfc9bd")), pc + Vector3(-0.7, 0.9, 0))
 	for j in 3:
 		_p(kit.cyl(0.05, 0.05, 0.7, 6), black, pc + Vector3(-0.5 + (j % 2) * 1.0, 0.35, -0.8 + j * 0.8))
 	_p(kit.box(0.4, 0.5, 0.8), black, pc + Vector3(-1.3, 0.25, 0))
@@ -2882,11 +2881,11 @@ func _observation(r0: float, r1: float, half: float) -> void:
 ## The garden: raised beds down both walls with trees in them, a pale path up the
 ## middle split round a pond with a fountain, benches and lamp posts along it.
 func _garden(r0: float, r1: float, half: float) -> void:
-	var bed := _t("pavers", Color("#6a6258"))
-	var leaf := _t("foliage", Color("#4f7a3c"))
-	var leaf2 := _t("foliage", Color("#5d8a44"))
-	var bark := _t("veneer", Color("#4a2e1e"))
-	var stone := _t("marble", Color("#cfc9bd"))
+	var bed := _t("pavers", Dressing.c("station_fill", "planter", "#6a6258"))
+	var leaf := _t("foliage", Dressing.c("station_fill", "foliage", "#4f7a3c"))
+	var leaf2 := _t("foliage", Dressing.c("station_fill", "foliage_light", "#5d8a44"))
+	var bark := _t("veneer", Dressing.c("station_fill", "veneer", "#4a2e1e"))
+	var stone := _t("marble", Dressing.c("station_fill", "marble_pale", "#cfc9bd"))
 	_liner(r0 + 2.0, r1, half, 0.0, 0.6, 1.8, bed, 0.0, true)
 	_liner(r0 + 2.0, r1, half, 0.6, 0.12, 1.6, leaf, 0.1)
 	for s: float in [-1.0, 1.0]:
@@ -2901,18 +2900,18 @@ func _garden(r0: float, r1: float, half: float) -> void:
 			q += 1
 	# The path, cut round the pond.
 	var px := r0 + 24.0
-	var path := _t("pavers", Color("#c9bfa8"))
+	var path := _t("pavers", Dressing.c("station_fill", "garden_path", "#c9bfa8"))
 	_p(kit.box(px - 5.2 - r0, 0.02, 3.0), path, Vector3((r0 + px - 5.2) * 0.5, 0.035, 0))
 	_p(kit.box(r1 - 8.0 - (px + 5.2), 0.02, 3.0), path, Vector3((px + 5.2 + r1 - 8.0) * 0.5, 0.035, 0))
 	_p(kit.cyl(6.0, 6.0, 0.02, 28), path, Vector3(px, 0.035, 0))
 	# The pond and its fountain.
 	_p(kit.cyl(4.8, 4.8, 0.5, 28), stone, Vector3(px, 0.25, 0), true)
-	_p(kit.cyl(4.5, 4.5, 0.05, 28), _t("water", Color("#3f7f9a")), Vector3(px, 0.46, 0))
+	_p(kit.cyl(4.5, 4.5, 0.05, 28), _t("water", Dressing.c("station_fill", "pond", "#3f7f9a")), Vector3(px, 0.46, 0))
 	_p(kit.cyl(0.4, 0.6, 1.4, 12), stone, Vector3(px, 0.7, 0))
 	_p(kit.cyl(1.3, 0.5, 0.3, 14), stone, Vector3(px, 1.5, 0))
-	_p(kit.cyl(1.2, 1.2, 0.03, 14), _t("water", Color("#3f7f9a")), Vector3(px, 1.64, 0))
-	_p(kit.cyl(0.08, 0.1, 1.0, 8), _t("water", Color("#3f7f9a")), Vector3(px, 2.15, 0))
-	_p(kit.ball(0.2, 0.3, false, 8), _t("water", Color("#3f7f9a")), Vector3(px, 2.7, 0))
+	_p(kit.cyl(1.2, 1.2, 0.03, 14), _t("water", Dressing.c("station_fill", "pond", "#3f7f9a")), Vector3(px, 1.64, 0))
+	_p(kit.cyl(0.08, 0.1, 1.0, 8), _t("water", Dressing.c("station_fill", "pond", "#3f7f9a")), Vector3(px, 2.15, 0))
+	_p(kit.ball(0.2, 0.3, false, 8), _t("water", Dressing.c("station_fill", "pond", "#3f7f9a")), Vector3(px, 2.7, 0))
 	# Benches facing the path, lamp posts along it.
 	var x2 := r0 + 8.0
 	var q2 := 0
@@ -2936,15 +2935,15 @@ func _garden(r0: float, r1: float, half: float) -> void:
 func _tree(at: Vector3, size: float, bark: Material, leaf: Material) -> void:
 	_p(kit.cyl(0.14 * size, 0.22 * size, 3.0 * size, 8), bark, at + Vector3(0, 1.5 * size, 0))
 	_p(kit.ball(1.5 * size, 2.4 * size, false, 10), leaf, at + Vector3(0, 3.6 * size, 0))
-	_p(kit.ball(1.0 * size, 1.6 * size, false, 8), _t("foliage", Color("#5d8a44")), at + Vector3(0.4 * size, 4.6 * size, 0.2 * size))
+	_p(kit.ball(1.0 * size, 1.6 * size, false, 8), _t("foliage", Dressing.c("station_fill", "foliage_light", "#5d8a44")), at + Vector3(0.4 * size, 4.6 * size, 0.2 * size))
 
 
 ## The garden's far half: island beds with a tree each either side of the path,
 ## hedges along it, and racks of crops under grow lights by the window.
 func _garden_more(r0: float, r1: float, half: float) -> void:
-	var bed := _t("pavers", Color("#6a6258"))
-	var leaf := _t("foliage", Color("#4f7a3c"))
-	var bark := _t("veneer", Color("#4a2e1e"))
+	var bed := _t("pavers", Dressing.c("station_fill", "planter", "#6a6258"))
+	var leaf := _t("foliage", Dressing.c("station_fill", "foliage", "#4f7a3c"))
+	var bark := _t("veneer", Dressing.c("station_fill", "veneer", "#4a2e1e"))
 	for ix: float in [r0 + 11.0, r0 + 34.0]:
 		for s: float in [-1.0, 1.0]:
 			var z := s * maxf(5.5, _half_w(ix, half) * 0.5)
@@ -2955,8 +2954,8 @@ func _garden_more(r0: float, r1: float, half: float) -> void:
 		for hx: float in [r0 + 31.0, r0 + 38.0]:
 			_p(kit.box(4.5, 0.8, 0.6), leaf, Vector3(hx, 0.4, s * 3.6))
 	# Hydroponic racks across the room by the window, grow lights over them.
-	var crops := [leaf, _t("foliage", Color("#5d8a44"))]
-	var grow := _glow(Color("#c58aff"), 2.5)
+	var crops := [leaf, _t("foliage", Dressing.c("station_fill", "foliage_light", "#5d8a44"))]
+	var grow := _glow(Dressing.c("station_fill", "grow_lamp", "#c58aff"), 2.5)
 	var rx := r1 - 7.5
 	var hw := _half_w(rx, half) - 3.5
 	var z := -hw + 2.0

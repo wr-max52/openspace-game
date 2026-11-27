@@ -20,12 +20,13 @@ extends RefCounted
 const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const CANOPIES := ["slant", "peak", "parasol"]
 const WARES := ["pottery", "produce", "fabric", "tech", "water", "spice"]
-const CLOTHS := [LookMaterials.CLOTH_MADDER, LookMaterials.CLOTH_TEAL, LookMaterials.CLOTH_SAFFRON,
-	Color("#e6dccb"), Color("#5b3f6e"), Color("#2f5d8a")]
-const TERRACOTTA := [Color("#a8603a"), Color("#c27b4a"), Color("#8e4b2e"), Color("#d9b48a"), Color("#2f7f7a")]
-const FRUIT := [Color("#e08a2a"), Color("#7aa63a"), Color("#5a2a4a"), Color("#b8322a"), Color("#e2c04a")]
-const SPICE := [Color("#b8322a"), Color("#d99a2b"), Color("#7a4a2a"), Color("#e2c04a"), Color("#5f7a3a")]
-const CRYSTAL := Color("#7fe0ff")
+## Issue #542: the colours are content/look/dressing.json "market", read as the
+## market is made (so a planet's "dressing" variant applies). In order: the
+## stalls pick by position and by their seeded rng.
+var cloths: Array = Dressing.list("market", "cloths", "#a8322a")
+var terracotta: Array = Dressing.list("market", "terracotta", "#a8603a", 3)
+var fruit: Array = Dressing.list("market", "fruit", "#e08a2a")
+var spice: Array = Dressing.list("market", "spice", "#b8322a")
 
 var kit: TownBuildings        ## shared parts, batching and glows
 var mats: LookMaterials
@@ -49,9 +50,9 @@ var _lift := 0.0              ## issue #237: how much higher this stall's canopy
 func _init(building_kit: TownBuildings) -> void:
 	kit = building_kit
 	mats = kit.mats
-	_wood = mats.wood(Color("#6b4a32"), 0.85)
-	_wood_top = mats.wood(Color("#8a6444"), 0.8)
-	_iron = mats.painted(Color("#4a4440"), 0.55, 0.5)
+	_wood = mats.wood(Dressing.c("market", "wood", "#6b4a32"), 0.85)
+	_wood_top = mats.wood(Dressing.c("market", "wood_top", "#8a6444"), 0.8)
+	_iron = mats.painted(Dressing.c("market", "iron", "#4a4440"), 0.55, 0.5)
 
 
 ## `backs`: back panel boxes by id ("<stall id>_back"). `trades`: stall id ->
@@ -120,13 +121,13 @@ func _stall(parent: Node3D, b: Dictionary, i: int, back: Dictionary, trade: Dict
 		_panel_top = bmx.y
 
 	# The table: cabinet, a wider top, a dyed drape on the customer side.
-	var drape: Color = CLOTHS[(i * 2 + 1) % CLOTHS.size()] if str(b.get("wares", "")) != "rave" else Color("#141418")
+	var drape: Color = cloths[(i * 2 + 1) % cloths.size()] if str(b.get("wares", "")) != "rave" else Dressing.c("market", "rave_drape", "#141418")
 	kit.part(kit.box(lx - 0.12, h - 0.1, lz - 0.12), _wood, Vector3(0, (h - 0.1) * 0.5, 0))
 	kit.part(kit.box(lx + 0.3, 0.1, lz + 0.25), _wood_top, Vector3(0, h - 0.05, 0))
 	kit.part(kit.box(0.03, 0.8, lz - 0.2), mats.canvas(drape), Vector3(lx * 0.5 - 0.03, h - 0.5, 0))
 
 	var kind: String = CANOPIES[(i + i / 3) % CANOPIES.size()]
-	var color: Color = CLOTHS[(i * 5 + 2) % CLOTHS.size()]
+	var color: Color = cloths[(i * 5 + 2) % cloths.size()]
 	if str(b.get("wares", "")) == "rave":
 		kind = "neon"                 # issue #392: under the dome there is no sun to keep off
 	canopies[id] = kind
@@ -136,7 +137,7 @@ func _stall(parent: Node3D, b: Dictionary, i: int, back: Dictionary, trade: Dict
 		"peak":
 			_peak(parent, id, lx, lz, h, color)
 		"parasol":
-			_parasols(parent, id, lx, lz, h, color, CLOTHS[(i * 5 + 4) % CLOTHS.size()])
+			_parasols(parent, id, lx, lz, h, color, cloths[(i * 5 + 4) % cloths.size()])
 		"neon":
 			_neon_frame(lz)
 
@@ -285,19 +286,19 @@ func _wares_pottery(_lx: float, lz: float, h: float) -> void:
 	for p in _row(6, lz, 0.05, h):
 		var r := _rng.randf_range(0.11, 0.2)
 		var tall := r * _rng.randf_range(1.8, 2.8)
-		var c: Color = TERRACOTTA[_rng.randi() % TERRACOTTA.size()]
+		var c: Color = terracotta[_rng.randi() % terracotta.size()]
 		var m := mats.flat(c, 0.75)
 		kit.part(kit.ball(r, tall, false, 12), m, p + Vector3(0, tall * 0.5, 0))
 		kit.part(kit.cyl(r * 0.45, r * 0.5, 0.08, 10), m, p + Vector3(0, tall + 0.02, 0))
 	for p in _row(4, lz, -0.3, h):
-		kit.part(kit.cyl(0.12, 0.08, 0.1, 10), mats.flat(TERRACOTTA[_rng.randi() % 3], 0.75), p + Vector3(0, 0.05, 0))
+		kit.part(kit.cyl(0.12, 0.08, 0.1, 10), mats.flat(terracotta[_rng.randi() % 3], 0.75), p + Vector3(0, 0.05, 0))
 
 
 func _wares_produce(_lx: float, lz: float, h: float) -> void:
-	var basket := mats.flat(Color("#9a7a4a"), 0.95)
+	var basket := mats.flat(Dressing.c("market", "basket", "#9a7a4a"), 0.95)
 	for p in _row(3, lz, 0.0, h):
 		kit.part(kit.cyl(0.32, 0.26, 0.14, 14), basket, p + Vector3(0, 0.07, 0))
-		var m := mats.flat(FRUIT[_rng.randi() % FRUIT.size()], 0.6)
+		var m := mats.flat(fruit[_rng.randi() % fruit.size()], 0.6)
 		var r := _rng.randf_range(0.06, 0.09)
 		for k in 7:
 			var a := TAU * k / 7.0
@@ -309,10 +310,10 @@ func _wares_fabric(_lx: float, lz: float, h: float) -> void:
 	var n := 7
 	for k in n:
 		var z := (float(k) / (n - 1) - 0.5) * (lz - 0.6)
-		var c: Color = CLOTHS[(k + _rng.randi()) % CLOTHS.size()]
+		var c: Color = cloths[(k + _rng.randi()) % cloths.size()]
 		kit.part(kit.cyl(0.11, 0.11, 0.75, 10), mats.cloth(c), Vector3(0, h + 0.11, z), kit.AXIS_X)
 		if k < n - 1:
-			var c2: Color = CLOTHS[(k + 3) % CLOTHS.size()]
+			var c2: Color = cloths[(k + 3) % cloths.size()]
 			kit.part(kit.cyl(0.1, 0.1, 0.7, 10), mats.cloth(c2.lightened(0.1)), Vector3(0, h + 0.3, z + (lz - 0.6) / (n - 1) * 0.5), kit.AXIS_X)
 
 
@@ -328,11 +329,11 @@ func _wares_tech(_lx: float, lz: float, h: float) -> void:
 
 
 func _wares_water(_lx: float, lz: float, h: float) -> void:
-	var can := mats.flat(Color("#5b6f78"), 0.4, 0.6)
+	var can := mats.flat(Dressing.c("market", "water_can", "#5b6f78"), 0.4, 0.6)
 	for row in [-0.15, 0.2]:
 		for p in _row(6, lz - 0.9, row, h):
 			kit.part(kit.cyl(0.09, 0.1, 0.38, 10), can, p + Vector3(0, 0.19, -0.45))
-	kit.part(kit.cyl(0.3, 0.32, 0.55, 14), mats.flat(Color("#3f5a63"), 0.45, 0.5), Vector3(0, h + 0.275, lz * 0.5 - 0.4))
+	kit.part(kit.cyl(0.3, 0.32, 0.55, 14), mats.flat(Dressing.c("market", "water_drum", "#3f5a63"), 0.45, 0.5), Vector3(0, h + 0.275, lz * 0.5 - 0.4))
 	kit.part(kit.box(0.2, 0.05, 0.05), kit.metal, Vector3(0.38, h + 0.1, lz * 0.5 - 0.4))
 
 
@@ -341,9 +342,9 @@ func _wares_spice(_lx: float, lz: float, h: float) -> void:
 	for p in _row(5, lz - 0.8, 0.0, h):
 		var q: Vector3 = p + Vector3(0, 0, -0.4)
 		kit.part(kit.ball(0.22, 0.34, false, 12), sack, q + Vector3(0, 0.15, 0))
-		kit.part(kit.cyl(0.16, 0.16, 0.04, 12), mats.flat(SPICE[_rng.randi() % SPICE.size()], 1.0), q + Vector3(0, 0.3, 0))
+		kit.part(kit.cyl(0.16, 0.16, 0.04, 12), mats.flat(spice[_rng.randi() % spice.size()], 1.0), q + Vector3(0, 0.3, 0))
 	# A brass balance at the end.
-	var brass := mats.flat(Color("#b08a3a"), 0.4, 0.8)
+	var brass := mats.flat(Dressing.c("market", "brass", "#b08a3a"), 0.4, 0.8)
 	var z := lz * 0.5 - 0.4
 	kit.part(kit.cyl(0.08, 0.1, 0.35, 8), brass, Vector3(0, h + 0.175, z))
 	kit.part(kit.box(0.04, 0.03, 0.5), brass, Vector3(0, h + 0.37, z))
@@ -356,31 +357,31 @@ func _wares_spice(_lx: float, lz: float, h: float) -> void:
 ## The food stall: baskets of fruit at the back, stacks of flatbread and a row of
 ## clay jars toward the customer (its quartz case, what it buys, is an item).
 func _wares_food(_lx: float, lz: float, h: float) -> void:
-	var basket := mats.flat(Color("#9a7a4a"), 0.95)
+	var basket := mats.flat(Dressing.c("market", "basket", "#9a7a4a"), 0.95)
 	for p in _row(3, lz, -0.25, h):
 		kit.part(kit.cyl(0.26, 0.2, 0.14, 14), basket, p + Vector3(0, 0.07, 0))
-		var m := mats.flat(FRUIT[_rng.randi() % FRUIT.size()], 0.6)
+		var m := mats.flat(fruit[_rng.randi() % fruit.size()], 0.6)
 		for k in 6:
 			var a := TAU * k / 6.0
 			var off := Vector3(cos(a), 0, sin(a)) * (0.0 if k == 0 else 0.13)
 			kit.part(kit.ball(0.07, 0.14, false, 8), m, p + off + Vector3(0, 0.15 + (0.04 if k == 0 else 0.0), 0))
-	var bread := mats.flat(Color("#c99a5a"), 0.95)
+	var bread := mats.flat(Dressing.c("market", "bread", "#c99a5a"), 0.95)
 	for k in 2:
 		var p := Vector3(0.2, h, -lz * 0.3 + k * 0.36)
 		for n in 4:
 			kit.part(kit.cyl(0.16, 0.16, 0.03, 12), bread, p + Vector3(_rng.randf_range(-0.02, 0.02), 0.015 + n * 0.032, 0))
 	for p in _row(3, lz * 0.35, 0.25, h):
-		var c := mats.flat(TERRACOTTA[_rng.randi() % 3], 0.75)
+		var c := mats.flat(terracotta[_rng.randi() % 3], 0.75)
 		kit.part(kit.ball(0.1, 0.22, false, 10), c, p + Vector3(0, 0.11, lz * 0.3))
 
 
 ## The gear trader: a coil of rope, a dark helmet and a rack of charged cells at
 ## the back; the jetpack and the cases it trades in are items.
 func _wares_gear(_lx: float, lz: float, h: float) -> void:
-	var rope := mats.flat(Color("#9a8460"), 0.95)
+	var rope := mats.flat(Dressing.c("market", "rope", "#9a8460"), 0.95)
 	for k in 3:
 		kit.part(kit.ring(0.1, 0.17, 0.0, 0.05, 14), rope, Vector3(-0.3, h + k * 0.05, -lz * 0.5 + 0.45))
-	kit.part(kit.ball(0.17, 0.26, true, 12), mats.painted(Color("#3a3c40"), 0.45, 0.5), Vector3(-0.3, h, lz * 0.5 - 0.4))
+	kit.part(kit.ball(0.17, 0.26, true, 12), mats.painted(Dressing.c("market", "helmet", "#3a3c40"), 0.45, 0.5), Vector3(-0.3, h, lz * 0.5 - 0.4))
 	kit.part(kit.box(0.2, 0.06, 0.7), _iron, Vector3(-0.32, h + 0.03, 0))
 	for k in 5:
 		kit.part(kit.cyl(0.04, 0.04, 0.2, 8), kit.door_glow, Vector3(-0.32, h + 0.16, -0.28 + k * 0.14))
@@ -391,21 +392,21 @@ func _wares_gear(_lx: float, lz: float, h: float) -> void:
 func _wares_contraband(_lx: float, lz: float, h: float) -> void:
 	var z := -lz * 0.5 + 0.5
 	kit.part(kit.box(0.6, 0.35, 0.6), kit.trim, Vector3(-0.25, h + 0.175, z))
-	kit.part(kit.box(0.66, 0.03, 0.4), mats.canvas(Color("#5f5a48")), Vector3(-0.25, h + 0.365, z + 0.12), Basis(Vector3.RIGHT, 0.1))
-	var crystal := mats.glow(CRYSTAL)
+	kit.part(kit.box(0.66, 0.03, 0.4), mats.canvas(Dressing.c("market", "tarp", "#5f5a48")), Vector3(-0.25, h + 0.365, z + 0.12), Basis(Vector3.RIGHT, 0.1))
+	var crystal := mats.glow(Dressing.c("market", "crystal", "#7fe0ff"))
 	crystal.emission_energy_multiplier = 0.6
 	for k in 4:
 		var p := Vector3(-0.3 + _rng.randf_range(-0.05, 0.05), h, lz * 0.5 - 0.35 - k * 0.12)
 		kit.part(kit.cyl(0.0, 0.035, 0.12 + k * 0.02, 5), crystal, p + Vector3(0, 0.06 + k * 0.01, 0), Basis(Vector3.BACK, _rng.randf_range(-0.4, 0.4)))
-	kit.part(kit.box(0.35, 0.22, 0.25), mats.painted(Color("#2f3a34"), 0.5, 0.55), Vector3(-0.32, h + 0.11, 0.0))
+	kit.part(kit.box(0.35, 0.22, 0.25), mats.painted(Dressing.c("market", "strongbox", "#2f3a34"), 0.5, 0.55), Vector3(-0.32, h + 0.11, 0.0))
 
 
 ## The droid merchant: droid heads with one lit eye each, arm segments and a servo
 ## ring at the back; a power cell case is an item.
 func _wares_droids(_lx: float, lz: float, h: float) -> void:
-	var shell := mats.painted(Color("#8a8278"), 0.5, 0.55)
-	var dark := mats.painted(Color("#2e3034"), 0.5, 0.5)
-	var eye := mats.glow(Color("#ff5a3a"))
+	var shell := mats.painted(Dressing.c("market", "droid_shell", "#8a8278"), 0.5, 0.55)
+	var dark := mats.painted(Dressing.c("market", "droid_dark", "#2e3034"), 0.5, 0.5)
+	var eye := mats.glow(Dressing.c("market", "droid_eye", "#ff5a3a"))
 	eye.emission_energy_multiplier = 1.2
 	for p in _row(3, lz * 0.55, -0.3, h):
 		var q: Vector3 = p + Vector3(0, 0, -lz * 0.2)
@@ -425,7 +426,7 @@ const RAVE_GOODS := ["beads", "glow", "shirts", "vials", "snacks", "signs"]
 ## Two kinds of goods a stall, never the same two as the stall before it.
 const RAVE_MIXES := [["beads", "glow"], ["shirts", "vials"], ["snacks", "signs"], ["glow", "shirts"],
 	["vials", "beads"], ["signs", "snacks"]]
-const NEON := [Color("#ff2bd6"), Color("#2bd9ff"), Color("#7aff5a"), Color("#ffe14a"), Color("#a05bff")]
+var neons: Array = Dressing.list("market", "neons", "#ff2bd6")   ## the moon rave's (issue #542: dressing.json)
 var rave_goods := {}          ## stall id -> [goods] (tests, review)
 var _rave_n := 0
 var _rave_id := ""
@@ -439,7 +440,7 @@ func _wares_rave(lx: float, lz: float, h: float) -> void:
 	var mix: Array = RAVE_MIXES[_rave_n % RAVE_MIXES.size()]
 	_rave_n += 1
 	rave_goods[_rave_id] = mix
-	var tube := _neon_mat(NEON[_rave_n % NEON.size()])
+	var tube := _neon_mat(neons[_rave_n % neons.size()])
 	kit.part(kit.box(0.03, 0.03, lz + 0.2), tube, Vector3(lx * 0.5 + 0.14, h - 0.08, 0))
 	kit.part(kit.box(0.03, 0.03, lz + 0.2), tube, Vector3(lx * 0.5 + 0.14, 0.12, 0))
 	for k in mix.size():
@@ -450,7 +451,7 @@ func _wares_rave(lx: float, lz: float, h: float) -> void:
 ## Issue #392: a rave stall's "canopy": a neon tube round the top of its back
 ## panel (or a frame on posts where it has none), in this stall's colour.
 func _neon_frame(lz: float) -> void:
-	var m := _neon_mat(NEON[(_rave_n + 3) % NEON.size()])
+	var m := _neon_mat(neons[(_rave_n + 3) % neons.size()])
 	var x := _back_x + 0.03
 	var top := _panel_top if _panel_top > 0.0 else 2.4
 	if _panel_top <= 0.0:
@@ -474,12 +475,12 @@ func _rave_beads(z0: float, z1: float, h: float) -> void:
 	kit.part(kit.cyl(0.012, 0.012, z1 - z0, 6), _iron, Vector3(-0.2, h + 0.5, (z0 + z1) * 0.5), kit.AXIS_Z)
 	var n := int((z1 - z0) / 0.12)
 	for k in n:
-		var c: Color = NEON[(k + _rave_n) % NEON.size()]
+		var c: Color = neons[(k + _rave_n) % neons.size()]
 		var m := mats.flat(c, 0.25, 0.3)
 		var z := z0 + 0.06 + k * (z1 - z0 - 0.12) / maxf(n - 1, 1)
 		kit.part(kit.ring(0.11, 0.125, 0.0, 0.02, 14), m, Vector3(-0.2, h + 0.39, z), Basis(Vector3.BACK, PI * 0.5))
 	for k in 4:
-		var m := mats.flat(NEON[(k * 2 + _rave_n) % NEON.size()], 0.25, 0.3)
+		var m := mats.flat(neons[(k * 2 + _rave_n) % neons.size()], 0.25, 0.3)
 		kit.part(kit.ring(0.06, 0.08, 0.0, 0.025, 12), m, Vector3(0.2, h, lerpf(z0, z1, (k + 0.5) / 4.0)))
 
 
@@ -491,10 +492,10 @@ func _rave_glow(z0: float, z1: float, h: float) -> void:
 		for j in 6:
 			var a := TAU * j / 6.0
 			var tilt := Basis(Vector3(cos(a), 0, sin(a)).cross(Vector3.UP).normalized(), 0.18)
-			kit.part(kit.cyl(0.008, 0.008, 0.3, 6), _neon_mat(NEON[(j + k) % NEON.size()]),
+			kit.part(kit.cyl(0.008, 0.008, 0.3, 6), _neon_mat(neons[(j + k) % neons.size()]),
 				Vector3(-0.15 + cos(a) * 0.04, h + 0.18, z + sin(a) * 0.04), tilt)
 	for j in 5:
-		kit.part(kit.cyl(0.008, 0.008, 0.28, 6), _neon_mat(NEON[j % NEON.size()]),
+		kit.part(kit.cyl(0.008, 0.008, 0.28, 6), _neon_mat(neons[j % neons.size()]),
 			Vector3(0.22, h + 0.01 + (j % 2) * 0.016, lerpf(z0, z1, 0.2 + j * 0.15)), kit.AXIS_X)
 
 
@@ -506,9 +507,10 @@ func _rave_shirts(z0: float, z1: float, h: float) -> void:
 	var n := maxi(3, int((z1 - z0) / 0.16))
 	for k in n:
 		var z := lerpf(z0 + 0.15, z1 - 0.15, float(k) / maxf(n - 1, 1))
-		var c: Color = [Color("#141418"), Color("#2a1038"), Color("#0e2a30"), Color("#3a0e1e")][k % 4]
+		var shirts := Dressing.list("market", "rave_shirts", "#141418")
+		var c: Color = shirts[k % shirts.size()]
 		kit.part(kit.box(0.42, 0.5, 0.03), mats.cloth(c), Vector3(-0.1, h + 0.66, z), Basis(Vector3.UP, PI * 0.5))
-		kit.part(kit.box(0.2, 0.14, 0.032), _neon_mat(NEON[(k + _rave_n) % NEON.size()]), Vector3(-0.1, h + 0.72, z), Basis(Vector3.UP, PI * 0.5))
+		kit.part(kit.box(0.2, 0.14, 0.032), _neon_mat(neons[(k + _rave_n) % neons.size()]), Vector3(-0.1, h + 0.72, z), Basis(Vector3.UP, PI * 0.5))
 
 
 func _rave_vials(z0: float, z1: float, h: float) -> void:
@@ -522,8 +524,8 @@ func _rave_vials(z0: float, z1: float, h: float) -> void:
 			var tall := 0.07 + float((r + k) % 3) * 0.035
 			var glass := mats.flat(Color(0.8, 0.9, 1.0), 0.05, 0.2)
 			kit.part(kit.cyl(0.028, 0.03, tall, 8), glass, p + Vector3(0, tall * 0.5, 0))
-			kit.part(kit.cyl(0.022, 0.022, tall * 0.55, 8), _neon_mat(NEON[(r * 2 + k) % NEON.size()]), p + Vector3(0, tall * 0.3, 0))
-			kit.part(kit.cyl(0.02, 0.02, 0.02, 8), mats.flat(Color("#1a1a1e"), 0.6), p + Vector3(0, tall + 0.01, 0))
+			kit.part(kit.cyl(0.022, 0.022, tall * 0.55, 8), _neon_mat(neons[(r * 2 + k) % neons.size()]), p + Vector3(0, tall * 0.3, 0))
+			kit.part(kit.cyl(0.02, 0.02, 0.02, 8), mats.flat(Dressing.c("market", "vial_cap", "#1a1a1e"), 0.6), p + Vector3(0, tall + 0.01, 0))
 
 
 func _rave_snacks(z0: float, z1: float, h: float) -> void:
@@ -531,8 +533,8 @@ func _rave_snacks(z0: float, z1: float, h: float) -> void:
 	var n := maxi(2, int((z1 - z0) / 0.4))
 	for k in n:
 		var p := Vector3(-0.05 + (k % 2) * 0.15, h, lerpf(z0 + 0.2, z1 - 0.2, float(k) / maxf(n - 1, 1)))
-		kit.part(kit.cyl(0.18, 0.12, 0.1, 14), mats.painted(Color("#26262a"), 0.4, 0.6), p + Vector3(0, 0.05, 0))
-		var m := mats.flat(NEON[(k + _rave_n + 2) % NEON.size()].lerp(Color.WHITE, 0.2), 0.7)
+		kit.part(kit.cyl(0.18, 0.12, 0.1, 14), mats.painted(Dressing.c("market", "snack_bowl", "#26262a"), 0.4, 0.6), p + Vector3(0, 0.05, 0))
+		var m := mats.flat(neons[(k + _rave_n + 2) % neons.size()].lerp(Color.WHITE, 0.2), 0.7)
 		for j in 7:
 			var a := TAU * j / 7.0
 			var off := Vector3(cos(a), 0, sin(a)) * (0.0 if j == 0 else 0.09)
@@ -544,7 +546,7 @@ func _rave_signs(z0: float, z1: float, h: float) -> void:
 	var n := 3
 	for k in n:
 		var z := lerpf(z0 + 0.2, z1 - 0.2, float(k) / (n - 1))
-		var m := _neon_mat(NEON[(k + _rave_n + 1) % NEON.size()])
+		var m := _neon_mat(neons[(k + _rave_n + 1) % neons.size()])
 		kit.part(kit.box(0.04, 0.4, 0.04), _iron, Vector3(-0.2, h + 0.2, z))
 		kit.part(kit.box(0.06, 0.02, 0.36), kit.trim, Vector3(-0.2, h + 0.01, z))
 		var c := Vector3(-0.2, h + 0.58, z)
@@ -610,7 +612,7 @@ func _items(parent: Node3D, id: String, looks: Array, lx: float, lz: float, h: f
 
 ## Strings of bulbs across the aisle, from each stall to the one facing it.
 func _string_lights(parent: Node3D, _stalls: Array) -> void:
-	var cable := mats.flat(Color("#2b2522"), 0.7)
+	var cable := mats.flat(Dressing.c("market", "cable", "#2b2522"), 0.7)
 	var bulb := kit.ball(0.06, 0.12, false, 6)
 	var ids := anchors.keys()
 	ids.sort()
@@ -661,24 +663,24 @@ func _back_panel(lz: float, ware: String, drape: Color) -> void:
 		var p := Vector3(_back_x + 0.17, sy + 0.025, z)
 		match ware:
 			"pottery":
-				kit.part(kit.ball(0.09, 0.22, false, 10), mats.flat(TERRACOTTA[k % TERRACOTTA.size()], 0.75), p + Vector3(0, 0.11, 0))
+				kit.part(kit.ball(0.09, 0.22, false, 10), mats.flat(terracotta[k % terracotta.size()], 0.75), p + Vector3(0, 0.11, 0))
 			"produce":
-				kit.part(kit.ball(0.08, 0.16, false, 8), mats.flat(FRUIT[k % FRUIT.size()], 0.6), p + Vector3(0, 0.08, 0))
+				kit.part(kit.ball(0.08, 0.16, false, 8), mats.flat(fruit[k % fruit.size()], 0.6), p + Vector3(0, 0.08, 0))
 			"fabric":
-				kit.part(kit.box(0.25, 0.12, 0.3), mats.cloth(CLOTHS[k % CLOTHS.size()]), p + Vector3(0, 0.06, 0))
+				kit.part(kit.box(0.25, 0.12, 0.3), mats.cloth(cloths[k % cloths.size()]), p + Vector3(0, 0.06, 0))
 			"tech":
 				kit.part(kit.cyl(0.05, 0.05, 0.2, 8), kit.door_glow, p + Vector3(0, 0.1, 0))
 			"water":
-				kit.part(kit.cyl(0.08, 0.09, 0.3, 10), mats.flat(Color("#5b6f78"), 0.4, 0.6), p + Vector3(0, 0.15, 0))
+				kit.part(kit.cyl(0.08, 0.09, 0.3, 10), mats.flat(Dressing.c("market", "water_can", "#5b6f78"), 0.4, 0.6), p + Vector3(0, 0.15, 0))
 			"food":
-				kit.part(kit.cyl(0.13, 0.13, 0.03, 12), mats.flat(Color("#c99a5a"), 0.95), p + Vector3(0, 0.015, 0))
-				kit.part(kit.ball(0.07, 0.14, false, 8), mats.flat(FRUIT[k % FRUIT.size()], 0.6), p + Vector3(0, 0.1, 0))
+				kit.part(kit.cyl(0.13, 0.13, 0.03, 12), mats.flat(Dressing.c("market", "bread", "#c99a5a"), 0.95), p + Vector3(0, 0.015, 0))
+				kit.part(kit.ball(0.07, 0.14, false, 8), mats.flat(fruit[k % fruit.size()], 0.6), p + Vector3(0, 0.1, 0))
 			"gear", "contraband":
 				kit.part(kit.box(0.26, 0.16, 0.3), kit.trim, p + Vector3(0, 0.08, 0))
 			"droids":
-				kit.part(kit.ball(0.09, 0.16, false, 10), mats.painted(Color("#8a8278"), 0.5, 0.55), p + Vector3(0, 0.08, 0))
+				kit.part(kit.ball(0.09, 0.16, false, 10), mats.painted(Dressing.c("market", "droid_shell", "#8a8278"), 0.5, 0.55), p + Vector3(0, 0.08, 0))
 			"rave":
-				kit.part(kit.cyl(0.05, 0.05, 0.18, 8), _neon_mat(NEON[(k + _rave_n) % NEON.size()]), p + Vector3(0, 0.09, 0))
+				kit.part(kit.cyl(0.05, 0.05, 0.18, 8), _neon_mat(neons[(k + _rave_n) % neons.size()]), p + Vector3(0, 0.09, 0))
 			_:
-				kit.part(kit.cyl(0.07, 0.08, 0.16, 10), mats.flat(SPICE[k % SPICE.size()], 0.9), p + Vector3(0, 0.08, 0))
+				kit.part(kit.cyl(0.07, 0.08, 0.16, 10), mats.flat(spice[k % spice.size()], 0.9), p + Vector3(0, 0.08, 0))
 
