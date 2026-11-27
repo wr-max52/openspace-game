@@ -1,7 +1,7 @@
 {
   "id": "basin_run",
   "label": "Basin Run",
-  "note": "Issue #615: the basin crew's course, a quick loop over the dunes 3.9 km out south-south-east of the port (planet layout spread: moved there with its outpost and droid relay, turned round the ball as one piece), its start/finish line about 165 m from the racers' outpost in its infield (the basin crew's hangout) and 280 m from the basin's droid post. Same shape as hoodoo_run.json (read its note); no track beast here.",
+  "note": "Issue #615: the basin crew's course, a quick loop over the dunes 3.9 km out south-south-east of the port (planet layout spread: moved there with its outpost and droid relay, turned round the ball as one piece), its start/finish line about 170 m from the racers' outpost in its infield (the basin crew's hangout) and 280 m from the basin's droid post. After the move every gate sat on new dunes (up to 12 m of slope under a pad), so the gates were slid along the same line onto its level stretches (test_race_course: under 3.5 m across a checkpoint, 2.5 m under the start and its grid). Same shape as hoodoo_run.json (read its note); no track beast here.",
   "world": "port_desert",
   "near": "outpost",
   "laps": 2,
@@ -18,27 +18,27 @@
   "gates": [
     {
       "id": "start",
-      "at": [1288.3, 3615.7]
+      "at": [1301.1, 3678.6]
     },
     {
       "id": "c1",
-      "at": [1569.4, 3377.6]
+      "at": [1368.0, 3467.8]
     },
     {
       "id": "c2",
-      "at": [1903.2, 3382.7]
+      "at": [1634.9, 3366.4]
     },
     {
       "id": "c3",
-      "at": [2137.2, 3579.9]
+      "at": [2132.8, 3555.3]
     },
     {
       "id": "c4",
-      "at": [2037.4, 3767.7]
+      "at": [1926.4, 3826.9]
     },
     {
       "id": "c5",
-      "at": [1615.8, 3862.7]
+      "at": [1577.7, 3855.6]
     }
   ],
   "line": [
