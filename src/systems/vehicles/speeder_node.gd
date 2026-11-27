@@ -9,7 +9,8 @@ extends Node3D
 ##   A / D         -- steer
 ##   Shift         -- boost
 ##   Space or LMB  -- both lasers at once   V -- chase / close camera
-##   Space         -- with a Grav Lifter fitted (issue #95): hop and hang; LMB fires
+##   Space         -- with a Grav Lifter fitted (issue #95): hop and hold, Space again
+##                    drops it; W/S tilt the nose in the air (Shift boosts there too); LMB fires
 ##
 ## `rideable = false` is the one on Skrugs's display pad: it just sits there.
 ## Bolts hit the hull (a StaticBody child; bolts call apply_damage on its parent):
@@ -83,6 +84,11 @@ var _flames: Array = []              ## the turbo boosters' flames (scaled by bo
 var _roof: Node3D                    ## the soft-top's hinge (folds back while you ride)
 var _roof_fold := 0.0                ## 0 = up, 1 = folded
 var _lift_glow := 0.0                ## the hover glow's flare while the Grav Lifter holds it up
+var _belly_k := 0.0                  ## 0..1, the light under it while the Grav Lifter holds it up
+var _belly: Node3D                   ## that light: a glowing pad under the hull and a lamp on the sand
+var _belly_mat: StandardMaterial3D
+var _belly_lamp: OmniLight3D
+var _lift_held := false              ## a bot's lift last frame (its lift is a button: one press, one toggle)
 ## Issue #609: NPC riders.
 var brain: SpeederBrain              ## drives while an NPC sits in the driver's seat (its owner sets the mode)
 var npc_seats: Dictionary = {}       ## seat ("driver" | "rider") -> NpcBody sitting there
@@ -442,6 +448,7 @@ func _ride(dt: float) -> void:
 		if _just("interact") and not model.airborne and not _hijack_claims():
 			dismount()
 			return
+		_lift_held = false               # the keys have it: a bot's next lift is a fresh press
 		var throttle := _axis("move_back", "move_forward")
 		var steer := _axis("move_left", "move_right")
 		model.set_command(throttle, steer, _held("sprint_mod") or _held("flight_boost"))
@@ -462,8 +469,7 @@ func _ride(dt: float) -> void:
 		model.set_command(float(_external.get("throttle", 0.0)), float(_external.get("steer", 0.0)),
 			bool(_external.get("boost", false)))
 		fire = bool(_external.get("fire", false))
-		if bool(_external.get("lift", false)):
-			model.lift()
+		_bot_lift(bool(_external.get("lift", false)))
 	for e in model.step(dt):
 		log_events.append(e)
 	_fire(dt, fire)
@@ -546,18 +552,79 @@ func _aim_point(b: Basis) -> Vector3:
 func _sync() -> void:
 	global_transform = model.transform()
 	if visual != null:
-		# Lean into turns and pitch with the climb, for the eye only.
+		# Lean into turns and pitch with the climb and the air tilt (W/S), for the eye only.
 		var steer_now := float(_npc_cmd.get("steer", 0.0)) if npc_driven() else float(_external.get("steer", 0.0))
 		var lean := clampf(model.speed / 40.0, -1.0, 1.0) * (_axis("move_left", "move_right") if riding and _external.is_empty() else steer_now)
 		_lean.y = lerpf(_lean.y, -lean * 0.25, 0.15)
-		_lean.x = lerpf(_lean.x, clampf(model.vy / 30.0, -0.35, 0.35), 0.2)
+		_lean.x = lerpf(_lean.x, clampf(clampf(model.vy / 30.0, -0.35, 0.35) + model.air_pitch, -0.6, 0.6), 0.2)
 		visual.transform = Transform3D(Basis.from_euler(Vector3(_lean.x, 0.0, _lean.y)), Vector3(0, 0.04 * sin(_t * 3.0), 0)) * _jolt_xf
 	if _fan != null:
 		_fan.rotation.z += 0.3 + absf(model.speed) * 0.02
-	_lift_glow = move_toward(_lift_glow, 1.0 if model.float_left > 0.0 else 0.0, 0.08)
+	_lift_glow = move_toward(_lift_glow, 1.0 if model.lifting() else 0.0, 0.08)
 	if _glow_mat != null:
 		_glow_mat.emission_energy_multiplier = 1.5 + absf(model.speed) / 10.0 + 6.0 * _lift_glow
+	_sync_lift_glow()
 	_sync_parts()
+
+
+## The underside lights up while the Grav Lifter holds it up: a glowing pad under
+## the hull and a lamp just below it that lights the belly and the sand, in the
+## speeder's glow colour (the lifter's "glow" block sizes it). Built once with the
+## lifter (hidden, so the first lift does not hitch on it); one light, no shadow,
+## and only while lifting (docs/RENDER_RULES.md 7).
+func _sync_lift_glow() -> void:
+	if not model.has_lifter() or visual == null:
+		if _belly != null and is_instance_valid(_belly):
+			_belly.visible = false
+		return
+	if _belly == null or not is_instance_valid(_belly):
+		_build_lift_glow()
+	_belly_k = move_toward(_belly_k, 1.0 if model.lifting() else 0.0, 0.1)
+	_belly.visible = _belly_k > 0.01
+	if not _belly.visible:
+		return
+	var g: Dictionary = model.lifter().get("glow", {})
+	var hum := 1.0 + 0.08 * sin(_t * 23.0)       # a little hum in it
+	_belly_mat.emission_energy_multiplier = (2.0 + 4.0 * _belly_k) * hum
+	_belly_lamp.light_energy = float(g.get("light_energy", 3.0)) * _belly_k * hum
+	_belly.scale = Vector3.ONE * lerpf(0.6, 1.0, _belly_k)
+
+
+func _build_lift_glow() -> void:
+	var lk: Dictionary = cfg.get("look", {})
+	var g: Dictionary = model.lifter().get("glow", {})
+	var col := Color(str(lk.get("glow", "#7fe0d0")))
+	var length := float(lk.get("length", 4.6))
+	var base_y := float(lk.get("base_y", -0.65))
+	_belly = Node3D.new()
+	_belly.name = "LiftGlow"
+	_belly.position = Vector3(0, base_y - 0.08, 0)
+	_belly.visible = false
+	visual.add_child(_belly)
+	# The hover glow's own kind of material (unshaded, emissive), so no new shader.
+	_belly_mat = StandardMaterial3D.new()
+	_belly_mat.albedo_color = col
+	_belly_mat.emission_enabled = true
+	_belly_mat.emission = col
+	_belly_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var pad := MeshInstance3D.new()
+	pad.name = "Pad"
+	pad.mesh = _cyl(0.5, 0.5, 0.02)
+	pad.scale = Vector3(length * float(g.get("width", 0.42)), 1.0, length * float(g.get("length", 0.8)))
+	pad.material_override = _belly_mat
+	pad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_belly.add_child(pad)
+	_belly_lamp = OmniLight3D.new()
+	_belly_lamp.name = "Lamp"
+	_belly_lamp.light_color = col
+	_belly_lamp.light_energy = 0.0
+	_belly_lamp.omni_range = float(g.get("light_range", 6.0))
+	_belly_lamp.shadow_enabled = false
+	_belly_lamp.distance_fade_enabled = true
+	_belly_lamp.distance_fade_begin = 80.0
+	_belly_lamp.distance_fade_length = 20.0
+	_belly_lamp.position = Vector3(0, -0.35, 0)
+	_belly.add_child(_belly_lamp)
 
 
 # ------------------------------------------------------------------ hijacking (Hijack)
@@ -784,8 +851,7 @@ func _npc_drive(dt: float) -> void:
 		_npc_cmd = _external
 	model.set_command(float(_npc_cmd.get("throttle", 0.0)), float(_npc_cmd.get("steer", 0.0)),
 		bool(_npc_cmd.get("boost", false)))
-	if bool(_npc_cmd.get("lift", false)):
-		model.lift()
+	_bot_lift(bool(_npc_cmd.get("lift", false)))
 	for e in model.step(dt):
 		log_events.append(e)
 	_fire(dt, bool(_npc_cmd.get("fire", false)))
@@ -794,6 +860,14 @@ func _npc_drive(dt: float) -> void:
 		if not _engine.playing:
 			_engine.play()
 		_engine.pitch_scale = 1.1 + clampf(absf(model.speed) / 40.0, 0.0, 1.0) * 0.6
+
+
+## A bot's lift is held in its command from frame to frame; the Grav Lifter is a
+## button (press on, press off), so only the frame it goes down counts.
+func _bot_lift(held: bool) -> void:
+	if held and not _lift_held:
+		model.lift()
+	_lift_held = held
 
 
 ## Seated bodies go where the speeder goes, facing its way.
@@ -1579,7 +1653,7 @@ func _build_hud() -> void:
 	help.size = Vector2(840, 28)
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var shift := "Drift" if model.ability() == "drift" else "Boost"     # issue #627: the box truck drifts
-	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter   [E] Get off" \
+	help.text = ("[W/S] Throttle   [A/D] Steer   [Shift] %s   [LMB] Lasers   [Space] Grav Lifter on/off (W/S tilt in the air)   [E] Get off" \
 		if model.has_lifter() else "[W/S] Throttle   [A/D] Steer   [Shift] %s   [Space / LMB] Lasers   [E] Get off") % shift
 	help.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	help.add_theme_constant_override("outline_size", 4)
@@ -1623,6 +1697,11 @@ func _update_hud() -> void:
 		elif Welder.owned():
 			_readout.text += "  [HOLD E] WELD"
 	if model.has_lifter():
-		_readout.text += "\nLIFTER %s" % ("READY [SPACE]" if model.lift_ready() else "%.1fs" % model.lift_cooldown)
+		var lifter_text := "%.1fs" % model.lift_cooldown
+		if model.lifting():
+			lifter_text = "ON %.1fs [SPACE] drop" % model.float_left
+		elif model.lift_ready():
+			lifter_text = "READY [SPACE]"
+		_readout.text += "\nLIFTER %s" % lifter_text
 	if gear != null and gear.has_any():
 		_readout.text += gear.hud_text()

@@ -2,6 +2,25 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The Grav Lifter, with control (2026-11-26)
+
+- **Gentler.** Space hops you about 2.5 m and holds you there. You no longer
+  shoot straight up: a climb you already had (off a ramp or a dune face) carries
+  on, then eases off.
+- **Tilt in the air.** W tips the nose down and S tips it up, on any speeder.
+  With the lifter on, nose up climbs and slows you, nose down sinks and speeds
+  you up, and level holds your height. Tip down onto flat ground to land.
+- **Boost works in the air**, with or without the lifter, and you don't need W
+  held (up there W is the tilt). Boosting with the nose up or down climbs or
+  sinks faster.
+- **Space again drops the lifter.** It holds you for up to 4 s. Drop it early
+  and it recharges faster: the recharge matches how long it was on, from 1 s
+  up to 4 s.
+- **The underside glows while the lifter is on:** a pad of light under the
+  hull and a lamp that lights the belly and the sand below, in the speeder's
+  glow colour. One light, no shadow, and only while you're lifting.
+- The HUD shows "LIFTER ON 2.3s [SPACE] drop" while you hover.
+
 ## New version is 1.7.4 (2026-11-26)
 
 - Share builds are now **OpenSpace V1.7.4**. Everything below, down to "New

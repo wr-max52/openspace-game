@@ -1,6 +1,6 @@
 extends GutTest
 ## Issue #95: the mechanic's speeder upgrades. The parts' rules (tiers, slots,
-## paint), what they do to the numbers, the Grav Lifter's hop and hang, the yard out
+## paint), what they do to the numbers, the Grav Lifter's hop, hold, tilt and drop, the yard out
 ## in the desert, buying and fitting at the bay, the save, and selling for scrap.
 
 const TownDemo := preload("res://scenes/town_demo.gd")
@@ -115,34 +115,60 @@ func test_no_lifter_no_lift() -> void:
 	assert_false(m.airborne)
 
 
-func test_the_lifter_hops_hangs_then_falls() -> void:
+func test_the_lifter_hops_holds_then_falls() -> void:
 	var m := _lifter_model()
 	var hover := float(cfg.hover_height)
 	assert_true(m.lift())
-	assert_false(m.lift(), "recharging: one lift at a time")
 	var ev: Array = m.step(1.0 / 60.0)
 	assert_eq(str(ev[0].type), "lift")
 	assert_true(m.airborne, "off the ground")
-	# Up, then the hang: about a second with almost no drop.
+	assert_true(m.lifting())
+	# Up, then the hold: level, it keeps its height.
 	var peak := 0.0
-	for i in 60:
+	for i in 90:
 		m.step(1.0 / 60.0)
 		peak = maxf(peak, m.position.y)
 	assert_gt(peak - hover, 1.5, "a real hop")
-	var t := 0
-	while m.float_left <= 0.0 and t < 120:
+	var hold_start := m.position.y
+	for i in 60:
 		m.step(1.0 / 60.0)
-		t += 1
-	var hang_start := m.position.y
-	for i in 50:
-		m.step(1.0 / 60.0)
-	assert_lt(hang_start - m.position.y, 0.5, "hangs: gravity is off")
+	assert_almost_eq(m.position.y, hold_start, 0.5, "holds: gravity is off")
 	var landed := false
-	for i in 300:
+	for i in 600:
 		for e in m.step(1.0 / 60.0):
 			landed = landed or str(e.type) == "landed"
-	assert_true(landed, "and comes down")
+	assert_true(landed, "and comes down when its time is up")
 	assert_true(m.lift_ready(), "recharged by now")
+
+
+func test_the_lifter_is_not_a_rocket() -> void:
+	# Hands off, the hop rises a few metres and stops: no runaway climb.
+	var m := _lifter_model()
+	var hover := float(cfg.hover_height)
+	m.lift()
+	var peak := 0.0
+	while m.lifting():
+		m.step(1.0 / 60.0)
+		peak = maxf(peak, m.position.y - hover)
+	assert_lt(peak, 4.0, "a hop and a hold, not a launch")
+	assert_almost_eq(m.lift_cooldown, float(m.lifter().recharge_s), 0.05, "held to the end: the full recharge")
+
+
+func test_space_again_drops_the_lifter() -> void:
+	var m := _lifter_model()
+	m.lift()
+	for i in 30:
+		m.step(1.0 / 60.0)
+	assert_true(m.lifting())
+	assert_true(m.lift(), "Space again turns it off")
+	assert_false(m.lifting())
+	var vy_was := m.vy
+	var ev: Array = m.step(1.0 / 60.0)
+	assert_true(ev.any(func(e): return str(e.type) == "drop"), "it says so")
+	assert_almost_eq(m.vy, vy_was - float(cfg.gravity) / 60.0, 0.01, "and gravity has it again")
+	var full := float(m.lifter().recharge_s)
+	assert_lt(m.lift_cooldown, full, "a short lift recharges quicker")
+	assert_false(m.lift(), "but it still recharges")
 
 
 func test_the_lifter_keeps_the_climb_issue_100() -> void:
@@ -151,9 +177,11 @@ func test_the_lifter_keeps_the_climb_issue_100() -> void:
 	m.vy = 5.0
 	m.position.y = 20.0
 	assert_true(m.lift())
-	for i in 30:
+	m.step(1.0 / 60.0)
+	assert_gt(m.vy, 4.5, "the climb it had carries on")
+	for i in 180:
 		m.step(1.0 / 60.0)
-	assert_almost_eq(m.vy, 5.0, 0.01, "gravity off: going up keeps going up")
+	assert_lt(m.vy, 1.0, "then eases off, hands off: no runaway")
 	var m2 := _lifter_model()
 	m2.airborne = true
 	m2.vy = -6.0
@@ -163,6 +191,58 @@ func test_the_lifter_keeps_the_climb_issue_100() -> void:
 	assert_gte(m2.vy, 0.0, "and no downward momentum")
 
 
+func test_tilt_steers_the_lift() -> void:
+	# S tilts the nose up: it climbs and slows. W tilts it down: it sinks, speeds
+	# up and lands, and landing ends the lift.
+	var up := _lifter_model()
+	up.speed = 20.0
+	up.lift()
+	up.set_command(-1.0, 0.0)
+	var y0 := up.position.y
+	for i in 120:
+		up.step(1.0 / 60.0)
+	assert_gt(up.air_pitch, 0.2, "nose up")
+	assert_gt(up.position.y - y0, 4.0, "climbs")
+	assert_lt(up.speed, 20.0, "and slows")
+	var down := _lifter_model()
+	down.speed = 20.0
+	down.airborne = true
+	down.position.y += 3.0
+	down.lift()
+	down.set_command(1.0, 0.0)
+	var landed := false
+	for i in 300:
+		for e in down.step(1.0 / 60.0):
+			landed = landed or str(e.type) == "landed"
+		if landed:
+			break
+	assert_true(landed, "nose down sinks it to the ground")
+	assert_gt(down.speed, 20.0, "picking up speed on the way")
+	assert_false(down.lifting(), "and the lifter lets go on touching down")
+	assert_eq(down.air_pitch, 0.0, "level on the ground")
+
+
+func test_boost_works_in_the_air() -> void:
+	var m := _lifter_model()
+	m.speed = 20.0
+	m.lift()
+	m.set_command(0.0, 0.0, true)      # boost, no throttle (W is the tilt up there)
+	for i in 30:
+		m.step(1.0 / 60.0)
+	assert_gt(m.speed, 22.0, "boost pushes it on while lifted")
+	var g := WorldGround.new()
+	g.setup({ "terrain": { "extent": 2000.0 } })
+	var plain := HoverModel.new(cfg, g)
+	plain.place(Vector3(500, 0, 0), 0.0)
+	plain.airborne = true
+	plain.position.y = 30.0
+	plain.speed = 20.0
+	plain.set_command(0.0, 0.0, true)
+	for i in 30:
+		plain.step(1.0 / 60.0)
+	assert_gt(plain.speed, 22.0, "and off a ramp without the lifter")
+
+
 func test_off_a_cliff_the_lifter_keeps_it_up_longer() -> void:
 	var a := _lifter_model()
 	var b := _lifter_model()
@@ -170,7 +250,7 @@ func test_off_a_cliff_the_lifter_keeps_it_up_longer() -> void:
 		m.airborne = true
 		m.vy = 0.0
 		m.position.y = 40.0
-	a.lift()       # in the air already: the hang starts at once
+	a.lift()       # in the air already: the hold starts at once
 	var ta := 0.0
 	var tb := 0.0
 	while a.airborne and ta < 20.0:
@@ -179,7 +259,7 @@ func test_off_a_cliff_the_lifter_keeps_it_up_longer() -> void:
 	while b.airborne and tb < 20.0:
 		b.step(1.0 / 60.0)
 		tb += 1.0 / 60.0
-	assert_gt(ta, tb + 0.8, "about a second more in the air")
+	assert_gt(ta, tb + 0.8, "longer in the air")
 
 
 # ---- the yard ------------------------------------------------------------------------
@@ -308,5 +388,20 @@ func test_space_lifts_and_mouse_fires_with_a_lifter() -> void:
 	s.set_external_command({ "lift": true })
 	s._physics_process(1.0 / 60.0)
 	assert_true(s.model.airborne, "it hops")
+	s._physics_process(1.0 / 60.0)
+	assert_true(s.model.lifting(), "a held lift is one press, not one a frame")
+	var glow := s.visual.get_node_or_null("LiftGlow") as Node3D
+	assert_not_null(glow, "the lifter lights the underside")
+	for i in 10:
+		s._physics_process(1.0 / 60.0)
+	assert_true(glow.visible, "lit while it holds you up")
+	s.set_external_command({})
+	s._physics_process(1.0 / 60.0)
+	s.set_external_command({ "lift": true })
+	s._physics_process(1.0 / 60.0)
+	assert_false(s.model.lifting(), "pressed again, it drops")
+	for i in 20:
+		s._physics_process(1.0 / 60.0)
+	assert_false(glow.visible, "and the glow goes out")
 	s.set_external_command({})
 	s.dismount()
