@@ -103,6 +103,7 @@ var _shapes: Array = []               ## every CollisionShape3D on the body
 var _plank_shapes: Array = []         ## the gangplank's
 var _boss_home := Vector3.ZERO
 var _prompt: Label
+var _keys: Label                     ## the panel's keys, a smaller line under the prompt
 var _music: ClubMusic
 var party_built := false              ## the people on board exist (built near, see party_m)
 var _pending: Array = []              ## people still to build: { look, at, deck, kind, yaw, perform }
@@ -1151,7 +1152,7 @@ func hurt_boss(amount: float) -> void:
 func buy() -> bool:
 	if owned:
 		return false
-	var price := int(cfg.get("boss", {}).get("price", 1500))
+	var price := int(cfg.get("boss", {}).get("price", 5000))
 	if WorldState.credits < price:
 		return false
 	WorldState.credits -= price
@@ -1187,7 +1188,7 @@ func line(key: String) -> String:
 	if v is Array:
 		v = v[_rng.randi() % v.size()] if not (v as Array).is_empty() else ""
 	return str(v).replace("{name}", barge_name).replace("{boss}", boss_name) \
-		.replace("{price}", str(int(cfg.get("boss", {}).get("price", 1500))))
+		.replace("{price}", str(int(cfg.get("boss", {}).get("price", 5000))))
 
 
 func _toast(text: String) -> void:
@@ -1337,6 +1338,7 @@ func _read_input(dt: float) -> void:
 		return
 	var e := InputMap.has_action("interact") and Input.is_action_just_pressed("interact")
 	var text := ""
+	var keys := ""
 	var gear = demo.get("gear") if demo != null else null
 	var gear_busy: bool = gear != null and not (gear.focus as Dictionary).is_empty()
 	if at_console:
@@ -1359,6 +1361,7 @@ func _read_input(dt: float) -> void:
 			elif halt:
 				all_stop()
 			text = line("console_under_way" if autopilot else "console").replace("{course}", course_text())
+			keys = line("console_keys_under_way" if autopilot else "console_keys")
 	elif not player.locked and not bool(player.get("piloting")) and not gear_busy:
 		if near_console():
 			text = line("console_prompt")
@@ -1368,7 +1371,7 @@ func _read_input(dt: float) -> void:
 				else:
 					_toast(line("console_locked"))
 		elif near_boss():
-			var can_buy := WorldState.credits >= int(cfg.get("boss", {}).get("price", 1500))
+			var can_buy := WorldState.credits >= int(cfg.get("boss", {}).get("price", 5000))
 			text = line("buy_prompt" if can_buy else "talk_prompt")
 			if e:
 				if can_buy:
@@ -1378,6 +1381,9 @@ func _read_input(dt: float) -> void:
 	if _prompt != null:
 		_prompt.text = text
 		_prompt.visible = text != ""
+	if _keys != null:
+		_keys.text = keys
+		_keys.visible = keys != ""
 
 
 func _axis(neg: String, pos: String) -> float:
@@ -1557,6 +1563,8 @@ func explode() -> void:
 	_party_changed()
 	if _prompt != null:
 		_prompt.visible = false
+	if _keys != null:
+		_keys.visible = false
 	_toast(line("exploded"))
 	exploded.emit()
 
@@ -1597,3 +1605,14 @@ func _build_prompt() -> void:
 	_prompt.visible = false
 	RetroUI.prompt(_prompt)
 	layer.add_child(_prompt)
+	# The panel's keys: a smaller line under the status, like the speeder's help
+	# line, so the whole thing fits on screen.
+	_keys = Label.new()
+	_keys.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_keys.position = Vector2(-420, -120)
+	_keys.size = Vector2(840, 28)
+	_keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_keys.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_keys.add_theme_constant_override("outline_size", 4)
+	_keys.visible = false
+	layer.add_child(_keys)
