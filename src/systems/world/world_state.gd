@@ -1155,6 +1155,7 @@ static func from_save(d: Dictionary) -> void:
 	game_hours = float(d.get("game_hours", 0.0))
 	mode = STORY if str(d.get("mode", FREEPLAY)) == STORY else FREEPLAY    # issue #200: older saves are freeplay
 	quests = d.get("quests", {}).duplicate(true)
+	RaceCrew.tidy_quests()     # one race line per crew; older saves could hold three
 	ship_fits = d.get("ship_fits", {}).duplicate(true)
 	wreck_ship = str(d.get("wreck_ship", ""))
 	kept_ships = d.get("kept_ships", []).duplicate(true)
