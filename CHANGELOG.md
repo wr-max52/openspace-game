@@ -2,6 +2,15 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Heavier explosion sounds (2026-11-27)
+
+- **Every ship, speeder, grenade and blast now goes up with a deeper, heavier
+  boom.** The four explosion sounds are swapped for real recorded blasts from
+  the USC film sound libraries on the Internet Archive (CC0, nothing to
+  license or credit). The old set was thin and two of its four were short pops.
+  Same key (`vehicle_boom`), same four files, same volume; nothing else
+  changed.
+
 ## New version is 1.7.5 (2026-11-27)
 
 - Share builds are now **OpenSpace V1.7.5**. Everything below, down to "New
