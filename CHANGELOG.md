@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Coming down: the last big hitches (2026-11-27)
+
+- **The switch to the home planet is lighter:** the blowing sand comes in a
+  moment after the planet takes over (nobody sees it from that high up), and
+  the planet's level pads are worked out once a session, not on every arrival.
+- **The cantina's first table, the upright bass, the barge's hull and the
+  cruiser's glass no longer stall the way down.** Their see-through and glowing
+  materials are made once a session and shared; made new each time, the game
+  had to prepare them again on every arrival.
+- **The stair tower, the pit and the lookout** are worked out once a session.
+- **The town's cloth and glowing props** keep their material kinds for the
+  session, so the town's decor no longer prepares them again on each arrival.
+
 ## Coming down from the gas giant: no more long freezes (2026-11-27)
 
 - **Flying home from the gas giant is much smoother.** That flight loads the

@@ -328,6 +328,7 @@ func build_plan(staged_build: bool) -> Array:
 			if terrain != null:
 				_dress_desert()
 			return true)
+		add.call("dust", LATER, func(): _add_dust(); return true)
 		var landforms_step := func(st: StagedBuild) -> void:
 			await DesertLandforms.finish_prepared(st)      # issue #714: the rocks, made on a worker on the way in
 			if terrain != null:
@@ -771,15 +772,11 @@ func _build_box(root: Node3D, b: Dictionary) -> void:
 	if b.kind == "ramp":
 		var rt := TownLayout.ramp_transform(b)
 		node = Greybox.make_box(b.id, rt.center, rt.size, color, rt.basis)
-	elif b.kind == "spiral":
-		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.tower_parts(b)), color)
-	elif b.kind == "bowl":
-		node = Greybox.make_trimesh(b.id, StairTower.merged(PitBowl.parts(b, town)), color)
+	elif b.kind in ["spiral", "bowl", "lookout"]:
+		var kept := _trimesh_of(b)
+		node = Greybox.make_trimesh(b.id, kept[0], color, kept[1])
 	elif b.kind == "ring":
 		node = RingWall.make_body(b, color)       # issue #237: a round wall
-	elif b.kind == "lookout":
-		var tower: Dictionary = town.get_box(str(b.get("stair", "")))
-		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.lookout_parts(b, tower)), color)
 	else:
 		var cs := Greybox.center_size(b)
 		var tb := Greybox.turned(b)        # a crooked market stall or hut: its turned box inside
@@ -792,6 +789,27 @@ func _build_box(root: Node3D, b: Dictionary) -> void:
 				ch.disabled = true
 	root.add_child(node)
 	built_boxes += 1
+
+
+## Issue #716: a stair tower's, the pit's or a lookout's merged mesh and its
+## triangles, made once a session per box (merging reads every part back from
+## the GPU: the longest town box on every arrival, ~47 ms). [mesh, faces].
+static var _trimesh_kept := {}
+
+
+func _trimesh_of(b: Dictionary) -> Array:
+	var key := "%s|%s|%d" % [str(town.data.get("id", "")), str(b.id), hash(b)]
+	if not _trimesh_kept.has(key):
+		var mesh: ArrayMesh
+		match str(b.kind):
+			"spiral":
+				mesh = StairTower.merged(StairTower.tower_parts(b))
+			"bowl":
+				mesh = StairTower.merged(PitBowl.parts(b, town))
+			_:
+				mesh = StairTower.merged(StairTower.lookout_parts(b, town.get_box(str(b.get("stair", "")))))
+		_trimesh_kept[key] = [mesh, mesh.get_faces()]
+	return _trimesh_kept[key]
 
 
 func _build_markers() -> void:
@@ -2079,12 +2097,20 @@ func _dress_desert() -> void:
 	_desert_dressed = true
 	_hide_desert_floors()
 	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
-	# Issue #93: wind you can see over the sand (not on a snow world).
-	if str(planet.get("type", "sand")) != "snow":
-		dust = DustWind.new()
-		add_child(dust)
-		var wd = terrain.material.get_shader_parameter("wind_dir")
-		dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+
+
+## Issue #93: wind you can see over the sand (not on a snow world). Issue #716:
+## its own step after the switch (~21 ms on the switch frame, and from up where
+## a ship comes in nobody can see it).
+func _add_dust() -> void:
+	if not _desert_dressed or dust != null or str(planet.get("type", "sand")) == "snow":
+		return
+	dust = DustWind.new()
+	add_child(dust)
+	var wd = terrain.material.get_shader_parameter("wind_dir")
+	dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+	if detail != null:
+		detail.add_group("weather", [dust])
 
 
 var _desert_dressed := false

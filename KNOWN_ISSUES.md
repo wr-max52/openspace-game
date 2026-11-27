@@ -20,20 +20,18 @@ each PR checked and measured, are in the archive under "The per-PR log".
 
 ## 1. Freezes, hitches and crashes
 
-1. **Long frames coming down to a planet.** Flying in from the gas giant (home
-   loading fresh, `DESCENT_WARM=ringed_giant`): 27 frames over the 33 ms budget,
-   worst ~115 ms, p99 ~20 ms. Left on that route only: the first rock
-   material (~42 ms, the rock shader made the first time a session uses it),
-   the first wreck plates (~60 ms piece, the wreck shader likewise) and the
-   first native camp (21 pipelines). With home loaded once already: 18 frames
-   over, worst ~90-97 ms; the switch is ~60-97 ms (desert, its dust,
-   the ship's pilot, 96 far-ball uploads). Single pieces left on both routes:
-   the club room's booths (~80-90 ms), the barge's first commit and hull skin
-   (~40-50 each), the cruiser's first hull piece (~42-62), decor step 7 (~41),
-   a town box (~30-35), the player's body (~34), each native camp's tent
-   (35-45), NPC bodies (a patron ~43, a vendor ~31), an outpost (~28). Nothing
-   is let go once built, and only the home planet builds by sight. *(#573,
-   #574, #693, #714, 2026-11-27; fix: #716, #715, #717)*
+1. **Long frames coming down to a planet.** With home loaded once already: 13
+   frames over the 33 ms budget, worst ~61 ms, p99 ~16 ms; the switch is
+   ~50 ms, ~65 on a bad frame (the ship's pilot ~15-30 ms: its ground,
+   SpaceTravel's neighbour balls ~13). Single pieces left: the barge's first
+   piece (~41 ms), the player's body (~35), the gear (~31), the town's first
+   boxes (~30), the native camps (~41-44 with their tents), an outpost (~27).
+   Flying in from the gas giant (home loading fresh, `DESCENT_WARM=ringed_giant`):
+   23 frames over, worst ~118 ms; on top of the above, the first time a
+   session makes a kind of material (the rock, the wreck plates, the club's
+   booths, the barge's decks: 40-85 ms each) and the first native camp (21
+   pipelines). Only the home planet builds by sight. *(#573, #574, #693, #714,
+   #716, 2026-11-27; fix: #717)*
 2. **A first descent on a fresh install** has ~14 s of ~450 ms frames between
    2.1 and 1.4 km: shader compiles, once per install (with the disk shader
    cache a shader's first draw is ~1.5 ms). Everyone who gets a share build

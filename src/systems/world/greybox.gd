@@ -66,7 +66,9 @@ static func make_box(id: String, center: Vector3, size: Vector3, color: Color,
 
 ## A static body that collides with exactly `mesh`'s triangles (the stair tower,
 ## the lookout room). Same node layout as make_box: "Mesh" then the shape.
-static func make_trimesh(id: String, mesh: ArrayMesh, color: Color) -> StaticBody3D:
+## `faces` (issue #716): the mesh's triangles when the caller has them already
+## (reading them back from the mesh waits on the GPU).
+static func make_trimesh(id: String, mesh: ArrayMesh, color: Color, faces := PackedVector3Array()) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = id
 	var mat := StandardMaterial3D.new()
@@ -78,7 +80,7 @@ static func make_trimesh(id: String, mesh: ArrayMesh, color: Color) -> StaticBod
 	mesh.surface_set_material(0, mat)
 	body.add_child(mi)
 	var shape := ConcavePolygonShape3D.new()
-	shape.set_faces(mesh.get_faces())
+	shape.set_faces(faces if not faces.is_empty() else mesh.get_faces())
 	shape.backface_collision = true
 	var col := CollisionShape3D.new()
 	col.shape = shape
