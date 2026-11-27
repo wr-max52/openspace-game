@@ -229,6 +229,11 @@ func build(st: StagedBuild) -> void:
 
 # ------------------------------------------------------------------ ground
 
+## The sand point under the barge's middle, wherever it is now (the Map page's pin).
+func ground_spot() -> Vector3:
+	return _ground
+
+
 func _surface(m: Vector2) -> Vector3:
 	var sp := ground.sphere() if ground != null else null
 	if sp != null:
