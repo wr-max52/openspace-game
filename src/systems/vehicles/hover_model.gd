@@ -35,6 +35,9 @@ extends RefCounted
 ## boost_speed, at air_boost_scale of its accel, with no throttle needed (W is the
 ## tilt up there). Boosting under the lifter climbs or sinks boost_climb times as
 ## fast. Without the lifter the tilt is only for the eye: gravity has the height.
+## On the ground W/S tip the nose a little too (`ground_pitch`, up to
+## ground_pitch_deg at ground_pitch_rate_deg a second), for the eye only, so the
+## tilt shows without a jump or the lifter.
 ##
 ## Issue #77: on the home planet's ball "up" turns with the ground. The heading is
 ## a direction slid along the ground as it drives (so straight stays straight round
@@ -71,6 +74,7 @@ var top_height := 0.0                ## highest clearance over the ground on the
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
 var air_pitch := 0.0                 ## radians, nose up +, in the air only (W/S tilt it); 0 on the ground
+var ground_pitch := 0.0              ## radians, nose up +, the small W/S tip on the ground (for the eye only); eases to 0 in the air
 var _float_used := 0.0               ## seconds the lifter has been on this lift (sets the recharge)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
@@ -333,6 +337,8 @@ func _drive(dt: float) -> void:
 				speed = move_toward(speed, 0.0, push)                 # nose up: it bleeds off
 	else:
 		air_pitch = 0.0
+	var gp := 0.0 if airborne else -throttle * deg_to_rad(p("ground_pitch_deg", 6.0))
+	ground_pitch = move_toward(ground_pitch, gp, deg_to_rad(p("ground_pitch_rate_deg", 40.0)) * dt)
 	# Turning: quicker when slow, a little in the air, faster in a drift.
 	var k := clampf(absf(speed) / maxf(p("max_speed", 36.0), 1.0), 0.0, 1.0)
 	var turn := deg_to_rad(lerpf(p("turn_rate_deg", 110.0), p("turn_rate_fast_deg", 62.0), k))
