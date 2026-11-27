@@ -129,6 +129,13 @@ func map_dir(x: float, z: float) -> Vector3:
 	return Vector3(x * s, cos(th), z * s)
 
 
+## Metres along the ground between map points `a` and `b`. Near the port it is
+## their map distance; far round the ball the map is stretched across (up to 8
+## times), so a short step sideways there is a long way on the map.
+func ground_dist(a: Vector2, b: Vector2) -> float:
+	return map_dir(a.x, a.y).angle_to(map_dir(b.x, b.y)) * radius
+
+
 ## Map (x, z) for a direction from the centre (the far pole maps to a circle).
 func dir_map(dir: Vector3) -> Vector2:
 	var h := Vector2(dir.x, dir.z)

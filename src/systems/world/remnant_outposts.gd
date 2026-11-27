@@ -581,16 +581,29 @@ func _build_ground(o: Dictionary) -> void:
 	cs.scale = Vector3(GROUND_STEP, 1.0, GROUND_STEP)
 	body.add_child(cs)
 	add_child(body)
-	body.global_position = Vector3(c.x, 0.0, c.z)
+	var sp := _ball(ground.terrain)
+	if sp != null:
+		var m := sp.world_to_map(c)
+		body.global_transform = sp.patch_frame(m.x, m.y)   # on the ball's own up there (see _ground_heights)
+	else:
+		body.global_position = Vector3(c.x, 0.0, c.z)
 
 
 var _heights := {}                  ## issue #693: outpost id -> { at, task, out }: its ground's heights on a worker
 
 
 ## The sand round an outpost's anchor, GROUND_STEP apart (~1,700 samples: work
-## for a worker thread, started when the outpost comes into sight).
+## for a worker thread, started when the outpost comes into sight). On a ball, a
+## patch on the plane tangent to it there (heights along its up), as the near
+## ground is built: far round the ball "up" is nowhere near the world's +y (on the
+## far side it points nearly down), and a world-vertical heightmap of an outpost
+## out there stood on the other side of the planet, so its people fell through.
 static func _ground_heights(terrain: WorldTerrain, c: Vector3) -> PackedFloat32Array:
 	var n := int(GROUND_HALF * 2.0 / GROUND_STEP) + 1
+	var sp := _ball(terrain)
+	if sp != null:
+		var m := sp.world_to_map(c)
+		return sp.patch_rows(m.x, m.y, n - 1, GROUND_STEP, 2.0, 0, n).heights   # 2.0: height_at's own grow
 	var heights := PackedFloat32Array()
 	heights.resize(n * n)
 	for j in n:
@@ -599,6 +612,10 @@ static func _ground_heights(terrain: WorldTerrain, c: Vector3) -> PackedFloat32A
 			var z := c.z - GROUND_HALF + j * GROUND_STEP
 			heights[j * n + i] = terrain.height_at(x, z)
 	return heights
+
+
+static func _ball(terrain: WorldTerrain) -> PlanetSphere:
+	return terrain.sphere if terrain != null else null
 
 
 func _prepare_ground(id: String, at: Vector3) -> void:
