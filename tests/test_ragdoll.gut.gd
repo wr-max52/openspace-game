@@ -25,9 +25,9 @@ func before_each() -> void:
 	await wait_physics_frames(2)
 
 
-func _drop(kick: Vector3, seconds := 4.0) -> Ragdoll:
+func _drop(kick: Vector3, seconds := 4.0, up := Vector3.UP) -> Ragdoll:
 	var r := Ragdoll.new(body.get_meta("joints"))
-	r.start(Vector3.ZERO, kick, world.get_world_3d().direct_space_state)
+	r.start(Vector3.ZERO, kick, world.get_world_3d().direct_space_state, [], up)
 	var dt := 1.0 / 60.0
 	for i in int(seconds * 60.0):
 		r.step(dt)
@@ -88,6 +88,34 @@ func test_stop_puts_the_pose_back() -> void:
 	r.stop()
 	for jn in j:
 		assert_eq((j[jn] as Node3D).transform, before[jn], jn + " is back")
+
+
+## Far round the home planet's ball (the Blue Basin, ~32 degrees from town) the
+## ground and the body are turned with the ball. Falling along world down, a body
+## killed there slid off across the slope; falling along the ground's own down it
+## lands and lies just as it does on flat ground in town.
+func test_on_ground_turned_with_the_ball_it_lies_where_it_falls() -> void:
+	var flat := _drop(Vector3(3, 0, 0), 6.0)
+	var flat_pelvis := flat.point("pelvis")
+	flat.stop()
+	world.basis = Basis(Vector3.RIGHT, deg_to_rad(32.0))
+	await wait_physics_frames(2)
+	var up := world.global_basis.y
+	var r := _drop(world.global_basis * Vector3(3, 0, 0), 6.0, up)
+	var pelvis := world.global_transform.affine_inverse() * r.point("pelvis")
+	assert_almost_eq(pelvis.y, flat_pelvis.y, 0.1, "it lies on the turned ground (%s)" % pelvis)
+	assert_lt(Vector2(pelvis.x - flat_pelvis.x, pelvis.z - flat_pelvis.z).length(), 0.3,
+		"and where it fell, not slid off down the slope (%s vs flat %s)" % [pelvis, flat_pelvis])
+	assert_true(r.asleep, "and it goes to sleep")
+
+
+func test_kick_runs_along_the_ground_it_stands_on() -> void:
+	var cfg := Ragdoll.load_config()
+	var up := Basis(Vector3.RIGHT, deg_to_rad(32.0)).y
+	var k := Ragdoll.kick_for(Vector3(5, 0, 0), Vector3.ZERO, 20.0, cfg, up)
+	assert_gt(k.x, 0.0, "away from the shooter")
+	assert_gt(k.dot(up), 0.0, "lifted off the turned ground, not world up")
+	assert_almost_eq(k.normalized().dot(up), float(cfg.kick_up) / Vector2(1.0, float(cfg.kick_up)).length(), 0.001)
 
 
 func test_kick_points_away_from_the_shooter() -> void:

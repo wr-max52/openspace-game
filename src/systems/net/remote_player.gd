@@ -219,9 +219,9 @@ func _ragdolled(dt: float, down: bool) -> bool:
 		var hit: Array = _s.get("hit", [])
 		var from: Vector3 = hit[0] if hit.size() >= 2 and hit[0] is Vector3 else Vector3.INF
 		var amount := float(hit[1]) if hit.size() >= 2 else 0.0
-		var kick := Ragdoll.kick_for(global_position, from, amount, cfg)
+		var kick := Ragdoll.kick_for(global_position, from, amount, cfg, tilt.y)
 		ragdoll = Ragdoll.new(avatar.joints, cfg)
-		ragdoll.start(_s.vel, kick, get_world_3d().direct_space_state, [get_rid()])
+		ragdoll.start(_s.vel, kick, get_world_3d().direct_space_state, [get_rid()], tilt.y)
 		var w := avatar.weapon_node(avatar.current)
 		if w != null and w.visible:
 			_hidden_weapon = w

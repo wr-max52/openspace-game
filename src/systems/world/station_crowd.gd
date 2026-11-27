@@ -759,7 +759,9 @@ func _kill(p: Dictionary, amount := 0.0, by: Node = null, sweep := Vector3.ZERO)
 	elif by is Node3D and is_instance_valid(by):
 		from = (by as Node3D).global_position
 	var rd := Ragdoll.new(body.get_meta("joints"), rc)
-	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc), get_world_3d().direct_space_state, [(p.hit as CrowdHit).get_rid()])
+	var up: Vector3 = station.frame.basis.y
+	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc, up), get_world_3d().direct_space_state,
+		[(p.hit as CrowdHit).get_rid()], up)
 	p.ragdoll = rd
 
 

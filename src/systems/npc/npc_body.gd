@@ -1124,15 +1124,17 @@ func _go_limp(was_moving: Vector3) -> void:
 	if look_body == null or joints.is_empty() or not is_inside_tree():
 		return
 	var cfg := Ragdoll.load_config()
-	var kick := Ragdoll.kick_for(global_position, last_hit_from, _last_damage, cfg)
+	var kick := Ragdoll.kick_for(global_position, last_hit_from, _last_damage, cfg, tilt.y)
 	if _blade_sweep != Vector3.ZERO:
 		# Cut down by the sword: the whole body goes flying sideways along the blade.
 		was_moving += _blade_sweep * float(cfg.get("blade_fling", 8.0)) \
-			+ Vector3.UP * float(cfg.get("blade_fling_up", 5.5))
+			+ tilt.y * float(cfg.get("blade_fling_up", 5.5))
 	if _blast_from != Vector3.INF:
 		was_moving += Ragdoll.blast_fling(global_position, _blast_from, _blast_reach, tilt.y, cfg)
 	ragdoll = Ragdoll.new(joints, cfg)
-	ragdoll.start(was_moving, kick, get_world_3d().direct_space_state, [get_rid()])
+	# Falls along the ground's own down: far round the ball (the Blue Basin) world
+	# down runs into the slope and the body slid away.
+	ragdoll.start(was_moving, kick, get_world_3d().direct_space_state, [get_rid()], tilt.y)
 	if look_body.has_meta("skin"):
 		(look_body.get_meta("skin") as SkinnedBody).holds.clear()   # issue #324: the hands let go
 	if look_body.has_meta("weapon"):

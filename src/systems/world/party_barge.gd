@@ -1003,7 +1003,8 @@ func _go_limp(p: Dictionary, amount: float, by: Node, sweep: Vector3) -> void:
 	elif by is Node3D and is_instance_valid(by):
 		from = (by as Node3D).global_position
 	var rd := Ragdoll.new(body.get_meta("joints"), rc)
-	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc), get_world_3d().direct_space_state, [(p.hit as PartyHit).get_rid()])
+	rd.start(fling, Ragdoll.kick_for(at, from, amount, rc, _up(at)), get_world_3d().direct_space_state,
+		[(p.hit as PartyHit).get_rid()], _up(at))
 	p.ragdoll = rd
 
 
