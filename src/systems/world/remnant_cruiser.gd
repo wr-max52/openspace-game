@@ -32,7 +32,8 @@ extends Node3D
 ## station near the ringed giant's space station. Only the home one is the story's:
 ## its general's death ends Oda's story, its steps are the fleet chapter's and the
 ## dark master waits in its bay. Any other is taken on its own (its config's "flag",
-## saved with the world), pays its own reward and touches nothing else.
+## saved with the world), pays its own reward and touches nothing else; once taken
+## the locals crew it as they do the home one (its "holders", RemnantCruiser.holder_of).
 
 const SHADER := preload("res://src/systems/look/shaders/cruiser_metal.gdshader")
 const TownDecor := preload("res://src/systems/world/town_decor.gd")
@@ -157,15 +158,27 @@ static func home_holder() -> String:
 	return Territory.REMNANT if DarkPact.joined() else Territory.LOCALS
 
 
+## Who holds the cruiser config `cfg_id` names, from flags alone: the home one by
+## home_holder; any other (the belt cruiser) the Remnant's until its general dies
+## (its config's flag), then the locals', as the home one once the dark master has
+## left it, or his Remnant's on his oath (he never waits aboard any but the home one).
+static func holder_of(cfg_id: String) -> String:
+	if cfg_id == "" or cfg_id == CruiserHull.HOME_ID:
+		return home_holder()
+	if not WorldState.has_flag(str(CruiserHull.data_for(cfg_id).get("flag", ""))):
+		return Territory.REMNANT
+	return Territory.REMNANT if DarkPact.joined() else Territory.LOCALS
+
+
 ## Who crews this cruiser now: "remnant" (its own crew, before it falls), "locals"
 ## or "oath" (its "holders" block, once taken), "" (nobody: the dark master is
 ## aboard, or a cruiser with no holders).
 func holder() -> String:
 	if not taken():
 		return "remnant"
-	if not is_home() or (cfg.get("holders", {}) as Dictionary).is_empty():
+	if (cfg.get("holders", {}) as Dictionary).is_empty():
 		return ""
-	match home_holder():
+	match holder_of(cfg_id):
 		Territory.LOCALS:
 			return "locals"
 		Territory.REMNANT:

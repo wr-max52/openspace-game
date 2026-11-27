@@ -379,14 +379,22 @@ func _tick_control(dt: float, p: Node3D) -> void:
 			o.told = false                      # they are back: say it again next time
 		var away: float = p.global_position.distance_to(o.origin) if p != null else INF
 		if want == o.side:
-			o.wait = 0.0
+			if not bool(o.get("restock", false)):
+				o.wait = 0.0
 			if not people(o, o.side).is_empty() and _alive_at(o, o.side) == 0:
 				if o.side == Territory.REMNANT and Territory.locked(id):
 					# A ranch village's: they answer to the cruiser. Nothing changes
 					# hands; the troopers come back on the outposts' respawn.
 					if not bool(o.get("told", false)):
 						o.told = true
-						_toast(Territory.line("locked") % o.label)
+						_toast(Territory.fline(Territory.front_of(id), "locked") % o.label)
+				elif o.side == Territory.LOCALS and Territory.locals_locked(id):
+					# The locals hold the cruiser this front answers to: nothing changes
+					# hands, and a fresh lot moves in out of sight (below).
+					if not bool(o.get("told", false)):
+						o.told = true
+						_toast(Territory.fline(Territory.front_of(id), "locals_locked") % o.label)
+					o.restock = true
 				else:
 					if o.side == Territory.REMNANT:
 						Territory.take(id)          # every trooper dead: the locals have it
@@ -401,6 +409,11 @@ func _tick_control(dt: float, p: Node3D) -> void:
 			elif o.side == Territory.REMNANT and Territory.can_deliver_remnant(id) and away <= Territory.n("supply_reach", 25.0):
 				var pay := Territory.deliver_remnant(id)     # issue #425: a load for the Remnant
 				_toast(Territory.line("remnant_supplied") % [o.label, pay])
+			if bool(o.get("restock", false)):
+				o.wait = float(o.wait) + dt
+				if ready_to_swap(float(o.wait), away) and not _on_screen(o):
+					o.restock = false
+					swap(o, o.side, true)       # the same side again: the dead go, fresh guards come
 			continue
 		o.wait = float(o.wait) + dt
 		# Change hands out of sight only: cleared a while, you well away, not on screen.
@@ -432,7 +445,9 @@ func _up_at(at: Vector3) -> Vector3:
 
 
 ## Outpost `o` is `side`'s now: the other side's people and droids go, this side's come.
-func swap(o: Dictionary, side: String) -> void:
+## `restock`: the same side again (Territory.locals_locked): its dead go and fresh
+## guards come, with no toast and no swap counted.
+func swap(o: Dictionary, side: String, restock := false) -> void:
 	var id := str(o.id)
 	var p: Node3D = demo._player if demo != null else null
 	var seen: bool = p != null and p.global_position.distance_to(o.origin) <= Territory.n("swap_dist", 110.0)
@@ -446,7 +461,9 @@ func swap(o: Dictionary, side: String) -> void:
 	o.side = side
 	o.wait = 0.0
 	o.cleared = false
-	swaps += 1
+	o.restock = false
+	if not restock:
+		swaps += 1
 	if demo.use_look:
 		demo._flat_mats().repaint(side, id)      # issue #393: the band, door frame, lamps and banner
 		_repaint_ship(o, side)                   # and the ship parked beside it
@@ -467,7 +484,8 @@ func swap(o: Dictionary, side: String) -> void:
 		else:
 			for g in mine:
 				folk.add_member(g)
-		_toast(Territory.line("taken") % o.label)
+		if not restock:
+			_toast(Territory.line("taken") % o.label)
 	else:
 		var mine: Array = []
 		for k in TROOPER_POSTS:

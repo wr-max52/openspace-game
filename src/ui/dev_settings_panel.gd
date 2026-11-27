@@ -532,6 +532,13 @@ func _legend_row(side: Control, row: String) -> void:
 				{ "test": func(p): return str(p.kind) == "camp" and bool(p.get("hostile", false)) })
 		"@terrain":
 			_legend_add(side, GlobeView.pin_look({ "kind": "mountain" }), GlobeMap.line("legend_terrain"), { "special": "terrain" })
+		"@racers":
+			# one line: the races you have heard of, or, while a race runs, the
+			# rival racers in their place (_legend_texts swaps them)
+			_legend_add(side, GlobeView.pin_look({ "kind": "race" }), _kind_legend("race"),
+				{ "kind": "race", "when": func(): return not _racing() })
+			_legend_add(side, GlobeView.pin_look({ "kind": "speeder_rival" }), _kind_legend("speeder_rival"),
+				{ "kind": "speeder_rival", "when": _racing })
 		"@held":
 			_legend_add(side, pins_look.get("remnant_outpost", {}), GlobeMap.line("legend_held"),
 				{ "test": func(p): return str(p.get("owner", "")) == Territory.LOCALS and not bool(p.get("short", false)) }, locals)
@@ -543,6 +550,15 @@ func _legend_row(side: Control, row: String) -> void:
 				{ "test": func(p): return float(p.get("hold", -1.0)) >= 0.0 }, locals)
 		_:
 			_legend_add(side, GlobeView.pin_look({ "kind": row }), _kind_legend(row), { "kind": row })
+
+
+## Whether a race runs on the globe shown: its rival racers are on it
+## (GlobeMap.vehicles has them only while their race runs).
+func _racing() -> bool:
+	for p in globe.pins:
+		if str(p.kind) == "speeder_rival":
+			return true
+	return false
 
 
 func _kind_legend(kind: String) -> String:
@@ -570,6 +586,7 @@ func _legend_add(side: Control, look: Dictionary, text: String, e: Dictionary, c
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.add_child(b)
 	e["button"] = b
+	e["row"] = row
 	e["text"] = text
 	b.pressed.connect(_legend_pick.bind(e))
 	_legend.append(e)
@@ -697,12 +714,15 @@ func _centre_on_waypoint() -> void:
 
 
 ## Each legend row's count ("Village (5)", or "Village  2/5" when the waypoint is
-## the second), greyed out when there are none on the globe shown.
+## the second), greyed out when there are none on the globe shown. A row with a
+## `when` (the races / rival racers line) shows only while it holds.
 func _legend_texts() -> void:
 	for e in _legend:
 		var b: Button = e.get("button")
 		if b == null or not is_instance_valid(b):
 			continue
+		if e.has("when"):
+			(e.row as Control).visible = (e["when"] as Callable).call()
 		var hits := _legend_hits(e)
 		b.disabled = hits.is_empty()
 		if e.has("special"):

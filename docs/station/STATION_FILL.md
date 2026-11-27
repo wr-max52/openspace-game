@@ -88,7 +88,11 @@ About 80 people (the config's `"crowd"`), each with a home floor. They walk the
 walkways, go down the alleys and aisles to stand at a stall, a booth or a shack
 door (the fill's walking net, `StationFill.nets`), look into open rooms, ride
 the elevators (they board only when the car has stopped at their floor with its
-doors open) and cross the tunnels to the other tower. Hurt one and the nearest
+doors open) and cross the tunnels to the other tower. Nobody shares a spot: a
+stall stop is one person's from the walk there to the walk back (the scared take
+the nearest free one), and those waiting for a car spread over its bridge
+(`lift_queue`, `spot_gap` apart). Two puppets on one spot in one pose read as a
+single body in two outfits, flickering through each other. Hurt one and the nearest
 armed people on your floor (no more than `rouse_max`) become real locals where
 they stand, run by a Townsfolk of the station's own; they walk again once the
 alarm has been down a while. The dead fall as ragdolls and are back later.

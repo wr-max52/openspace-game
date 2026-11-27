@@ -80,7 +80,7 @@ func test_taking_it_takes_it_alone_and_survives_a_reload() -> void:
 	assert_eq(int(WorldState.standing.get("locals", 0)), locals)
 	assert_eq(WorldState.on_cruiser_taken("General Test", belt.cfg.reward, "", belt.flag()), 0, "never paid twice")
 	WorldState.from_save(WorldState.to_save())
-	assert_true(belt.taken(), "reloaded: the belt cruiser is empty")
+	assert_true(belt.taken(), "reloaded: the belt cruiser is still taken")
 	assert_false(home.taken(), "and the home one is not")
 
 
@@ -175,3 +175,55 @@ func test_its_escort_meets_you_flying_for_it_not_away() -> void:
 	assert_false(belt.wants_escort(from, -toward), "leaving the other way")
 	WorldState.set_flag("belt_cruiser_taken")
 	assert_false(belt.wants_escort(from, toward), "nobody once it is taken")
+
+
+func test_once_taken_the_locals_crew_it_as_the_home_one() -> void:
+	var belt := _cruiser(BELT)
+	assert_eq(belt.holder(), "remnant", "its own crew before it falls")
+	assert_eq(RemnantCruiser.holder_of(BELT), Territory.REMNANT)
+	WorldState.on_cruiser_taken("General Test", belt.cfg.reward, belt.line("event_taken"), belt.flag())
+	assert_eq(belt.holder(), "locals", "the locals move in")
+	assert_eq(RemnantCruiser.holder_of(BELT), Territory.LOCALS)
+	var posts: Dictionary = belt.holder_cfg("locals").posts
+	assert_eq(belt.crew_plan().size(), posts.size(), "on the home one's locals' posts")
+	assert_false(belt.crew_always_hostile(), "they go by your standing with the locals")
+	WorldState.standing["locals"] = 40
+	assert_eq(belt.lender(), "locals", "a friend borrows a bay ship")
+	assert_eq(RemnantCruiser.home_holder(), Territory.REMNANT, "the home cruiser is untouched")
+	var row: Dictionary = GlobeMap.off_planet([]).filter(
+		func(o): return str(o.kind) == "cruiser" and str(o.cfg) == BELT).front()
+	assert_eq(str(row.owner), Territory.LOCALS, "the Map page's row shows the locals")
+	DarkPact.join()
+	assert_eq(belt.holder(), "oath", "his Remnant on the dark master's oath")
+
+
+## The lava moon orbits the giant, so its ground answers to this cruiser: the
+## Remnant there restock while they hold it, and are cut off once the locals do.
+func test_the_lava_moon_answers_to_it() -> void:
+	var out := str(Territory.outposts("lava_moon")[0])
+	var barracks := Territory.barracks_of("lava_moon")
+	assert_eq(Territory.cruiser_of("lava_moon"), BELT)
+	assert_eq(Territory.cruiser_of("moon"), "", "the home moon answers to the story's cruiser")
+	assert_true(Territory.locked(out), "the Remnant restock while they hold it")
+	assert_false(Territory.remnant_cut_off("lava_moon"))
+	WorldState.set_flag("remnant_fleet_beaten")
+	assert_eq(Territory.owner(barracks), Territory.REMNANT, "the fleet's defeat does not hand it over")
+	WorldState.set_flag("remnant_fleet_beaten", false)
+	WorldState.set_flag("belt_cruiser_taken")
+	assert_false(Territory.locked(out), "the locals hold it: the outposts can be taken")
+	assert_true(Territory.remnant_cut_off("lava_moon"), "and the Remnant there run short")
+	assert_eq(Territory.owner(barracks), Territory.LOCALS, "the barracks are the locals'")
+	assert_false(Territory.remnant_cut_off("moon"), "the home moon is untouched")
+	WorldState.control[out] = { "owner": Territory.LOCALS }
+	assert_true(Territory.locals_locked(out), "the locals restock their outposts while they hold it")
+	Territory.guards_lost(out)
+	assert_eq(Territory.owner(out), Territory.LOCALS, "their guards dead: nothing changes hands")
+	for p in Territory.barracks_posts("lava_moon"):
+		Territory.barracks_guard_died(str(p), "lava_moon")
+	assert_eq(Territory.owner(barracks), Territory.LOCALS, "and the barracks")
+	assert_true(Territory.barracks_dead("lava_moon").is_empty(), "the dead come back")
+	assert_false(Territory.locals_locked(Territory.outposts("moon")[0]), "not on the home moon")
+	WorldState.control.erase(out)
+	DarkPact.join()
+	assert_true(Territory.locked(out), "the Remnant have it back on the oath: they restock again")
+	assert_eq(Territory.owner(barracks), Territory.REMNANT)
