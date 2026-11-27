@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Laser droid settings in the Ledger (2026-11-27)
+
+- **Your laser droid's settings are two buttons on its row in the Ledger (I):**
+  **Lasers** turns the lasers on or off, and **Music** steps through Cantina,
+  Rave and Off. They are separate now: music with the lasers dark, or lasers
+  with no music. Both are saved with the droid.
+- **E next to a laser droid is its safety,** like any armed droid of yours.
+- **Buying the laser rig says where to find them:** "Press [I] to change laser
+  droid settings" follows the fitted message.
+- A new rig is dark and quiet. Older saves keep what they had: lasers on still
+  plays its music, lasers off stays quiet.
+
 ## Smoke looks like smoke (2026-11-27)
 
 - **Smoke is lit by the sun.** Each puff shades like a lumpy ball: bright on
