@@ -180,10 +180,23 @@ func park(at: Vector3, yaw: float) -> void:
 	flight.position = at + u * (0.5 + clearance)
 	if ground != null:
 		flight.position -= up() * agl()
+		flight.position += u * sunk_under_floor(flight.position - u * clearance, u, clearance)
 	flight.speed = 0.0
 	flight.throttle = 0.0
 	_command.throttle = 0.0
 	state = State.PARKED
+
+
+## How far a ship with its belly at `belly` sits under a floor that runs through its
+## hull (a save from when one could sink through the pit's floor): the top of a
+## floor straight over the belly, less than the hull's height (2 x clearance) up.
+## 0.0 when nothing cuts through her. A roof higher than her hull is left alone.
+func sunk_under_floor(belly: Vector3, u: Vector3, clear: float) -> float:
+	if ground == null:
+		return 0.0
+	var reach := maxf(2.0 * clear, 0.5)
+	var lift := reach - ground.height_above(belly + u * reach)
+	return lift if lift > 0.05 and lift <= reach else 0.0
 
 
 ## Place the ship in the air, flying (a re-entry arrival or a test).
@@ -365,7 +378,7 @@ func _collide(before: Vector3, dt: float) -> void:
 		events.append({ "type": "bump", "what": hit_id })
 		return
 	var u := up()
-	var h := ground.height_above(pos - u * clearance)
+	var h := _height_swept(pos - u * clearance, (before - pos).dot(u))
 	if h <= 0.0:
 		var vertical: float = maxf(0.0, (before - pos).dot(u) / maxf(dt, 0.0001))
 		if flight.speed > p("crash_speed", 32.0) and vertical > 4.0:
@@ -409,13 +422,26 @@ func _step_adrift(dt: float) -> void:
 		flight.speed = drift.length()
 		events.append({ "type": "bump", "what": hit_id })
 		return
-	var h := agl()
+	var h := minf(agl(), _height_swept(flight.position - u * clearance, (before - flight.position).dot(u)))
 	if h <= 0.0:
 		if flight.speed > p("crash_speed", 32.0):
 			_crash(flight.position - u * (clearance + h), "ground")
 			return
 		drift = Vector3.ZERO
+		flight.position -= u * minf(h, 0.0)       # back on top of a floor she fell into
 		_touch_down()
+
+
+## The belly's height over the ground, counting a floor she went through this
+## frame: `fell` metres down since last frame. The ground only counts a top less
+## than half a metre over the point asked about, so one big step could pass a thin
+## floor (the pit's is half a metre) and land her on the sand under it. Asked from
+## where the belly was as well, the floor is found and h comes out under zero.
+func _height_swept(belly: Vector3, fell: float) -> float:
+	var h := ground.height_above(belly)
+	if fell > 0.25:
+		h = minf(h, ground.height_above(belly + up() * fell) - fell)
+	return h
 
 
 func _touch_down() -> void:

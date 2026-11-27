@@ -147,6 +147,9 @@ func clear_external_command() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _unbury_next_tick:
+		_unbury_next_tick = false
+		unbury()
 	_tick_health(delta)
 	var yaw: float = -rotation.y
 	if locked or move_blocked or (not use_external_command and DroidMenu.any_open()):   # a menu's W/S move its cursor
@@ -336,6 +339,7 @@ func _update_tilt(force: bool = false) -> void:
 func align_to_ground(clear_motion: bool = true) -> void:
 	if clear_motion:
 		velocity = Vector3.ZERO
+	_unbury_next_tick = true
 	_update_tilt(true)
 	controller.body_pos = global_position
 	controller.velocity = tilt.inverse() * velocity
@@ -395,6 +399,53 @@ func _set_crouch_shape(on: bool) -> void:
 
 
 ## Room to stand up here: a full-height capsule would not hit anything.
+## Set by align_to_ground (every hard move: a respawn, a load, out of a ship): the
+## next tick checks the body is not stuck inside a floor first (unbury()).
+var _unbury_next_tick := false
+
+
+## Stuck inside a floor after a hard move (a save from a spot under the pit's floor,
+## a ship that sank through it): stand on top of the floor you are inside instead.
+## Only the geometry the capsule is in counts, and only a floor (facing up) less than
+## a body's height over your feet, with room to stand on it. True when it moved you.
+func unbury() -> bool:
+	if not is_inside_tree():
+		return false
+	var space := get_world_3d().direct_space_state
+	var u := tilt.y
+	var cap := CapsuleShape3D.new()
+	cap.radius = capsule_radius * 0.95
+	cap.height = capsule_height
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = cap
+	q.transform = Transform3D(tilt, global_position + u * (capsule_height * 0.5 + 0.06))
+	q.exclude = [get_rid()]
+	q.collision_mask = collision_mask
+	q.collide_with_areas = false
+	var inside := {}
+	for hit in space.intersect_shape(q, 8):
+		inside[hit.rid] = true
+	if inside.is_empty():
+		return false
+	var top := global_position + u * (capsule_height + 0.6)
+	var r := PhysicsRayQueryParameters3D.create(top, global_position, collision_mask, [get_rid()])
+	var hit := space.intersect_ray(r)
+	if hit.is_empty() or not inside.has(hit.rid) or (hit.normal as Vector3).dot(u) < 0.7:
+		return false
+	var at: Vector3 = hit.position + u * 0.02
+	if (at - global_position).dot(u) < 0.05:
+		return false
+	q.transform.origin = at + u * (capsule_height * 0.5 + 0.06)
+	if not space.intersect_shape(q, 1).is_empty():
+		return false
+	global_position = at
+	velocity = Vector3.ZERO
+	controller.body_pos = at
+	controller.velocity = Vector3.ZERO
+	reset_render_origin()
+	return true
+
+
 func can_stand() -> bool:
 	if not is_inside_tree():
 		return true

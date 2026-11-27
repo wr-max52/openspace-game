@@ -242,3 +242,56 @@ func test_dogfight_flight_is_unchanged() -> void:
 	assert_eq(fm.speed_scale, 1.0)
 	assert_eq(fm.max_speed(), float(content.get_ship("interceptor").flight.max_speed),
 		"space speeds are the M10 numbers")
+
+
+## The round port's pit: its floor is a half metre slab (top y -6) with the sand
+## two metres under it, as on the home planet. `at` is a clear spot on that floor.
+func _pit_ground() -> Vector3:
+	var town = TownLayout.new()
+	town.load_town("port_town", "port_round")
+	ground = WorldGround.new()
+	ground.setup(content.get_world("port_desert"), town, content, func(_x: float, _z: float) -> float: return -8.0, 4000.0)
+	a = AtmoFlight.new()
+	a.setup(content.get_ship("interceptor"), ground)
+	return Vector3(-25, -6, 20)
+
+
+## A belly `d` metres over (under, if negative) the pit floor at `at`.
+func _belly_y() -> float:
+	return a.position().y - a.clearance
+
+
+func test_a_fast_touch_down_in_one_big_step_stays_on_a_thin_floor() -> void:
+	var at := _pit_ground()
+	a.place_flying(at + Vector3(0, a.clearance + 0.3, 0), Vector3.FORWARD, 20.0, 0.0)
+	var before := a.position()
+	a.flight.position = at + Vector3(0, a.clearance - 0.9, 0)    # a hitch: 1.2 m down in one step
+	a._collide(before, 1.0 / 20.0)
+	assert_almost_eq(_belly_y(), -6.0, 0.01, "on the pit floor, not on the sand under it")
+
+
+func test_falling_adrift_through_a_thin_floor_lands_on_it() -> void:
+	var at := _pit_ground()
+	a.place_flying(at + Vector3(0, a.clearance + 0.4, 0), Vector3.FORWARD, 0.0, 0.0)
+	a.state = AtmoFlight.State.ADRIFT
+	a.drift = Vector3(0, -25.0, 0)
+	a.step(1.0 / 20.0)
+	assert_eq(a.state, AtmoFlight.State.PARKED)
+	assert_almost_eq(_belly_y(), -6.0, 0.01, "on the pit floor")
+
+
+func test_parking_a_ship_saved_under_a_floor_puts_her_back_on_it() -> void:
+	var at := _pit_ground()
+	a.park(Vector3(at.x, -8.0, at.z), 0.0)        # a save from when she had sunk to the sand
+	assert_almost_eq(_belly_y(), -6.0, 0.01, "stood back on the floor")
+	a.park(at, 0.0)
+	assert_almost_eq(_belly_y(), -6.0, 0.01, "one parked on it stays put")
+	assert_eq(a.sunk_under_floor(at, Vector3.UP, a.clearance), 0.0)
+
+
+func test_a_roof_above_her_hull_is_not_a_floor_she_sank_through() -> void:
+	var roof: Dictionary = ground.boxes.filter(func(b): return b.id == "watchtower")[0]
+	var c: Vector3 = ((roof.min as Vector3) + (roof.max as Vector3)) * 0.5
+	var under := Vector3(c.x, ground.ground_at(c.x, c.z, (roof.min as Vector3).y - 0.1), c.z)
+	var tall := (roof.max as Vector3).y - under.y
+	assert_eq(a.sunk_under_floor(under, Vector3.UP, tall * 0.5 - 1.0), 0.0, "the roof is over her, not through her")
