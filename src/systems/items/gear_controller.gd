@@ -611,11 +611,14 @@ func _trade(v: Dictionary) -> String:
 
 ## Issue #305: a keeper with a brain (the fence) talks first; his stall's menu is
 ## a keyword in the chat. Not while a run for his stall waits on the sale: then
-## the goods go straight on his menu, as before.
+## the goods go straight on his menu, as before. Nor while you carry contraband he
+## buys, drop or not (refined quantonium from a weld stash or a trooper): his
+## menu opens on it, with Talk on the menu.
 func talks_first(v: Dictionary) -> bool:
 	var talk: Callable = vendor_talk.get(str(v.get("id", "")), Callable())
 	return talk.is_valid() and not WorldState.fence_run_open(str(v.get("location", ""))) \
-		and not (bool(v.get("bounties", false)) and Heist.collectable("fence"))
+		and not (bool(v.get("bounties", false)) and Heist.collectable("fence")) \
+		and not _sellable(v).any(func(id): return bool(content.get_item(str(id)).get("contraband", false)))
 
 
 ## Issue #305: the fence's offers on sale now, as his offer_item's wares.

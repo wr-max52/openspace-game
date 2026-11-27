@@ -62,6 +62,18 @@ func test_no_job_rows_without_an_open_run() -> void:
 	assert_true(rows.all(func(r): return not bool(r.get("job", false))))
 
 
+func test_loose_quantonium_opens_the_fence_stall_without_a_run() -> void:
+	var gear := _gear()
+	gear.vendor_talk = { "fence": func(): pass }     # a real chat to open
+	var fence: Dictionary = content.get_vendor("fence")
+	assert_true(gear.talks_first(fence), "nothing for him: he talks first")
+	WorldState.inventory.add("refined_quantonium", 2)
+	assert_false(WorldState.fence_run_open("port_town"), "no drop taken")
+	assert_false(gear.talks_first(fence), "flasks in your pockets: his stall opens first")
+	assert_true(gear.trade_options(fence).any(func(r): return str(r.id) == "sell:refined_quantonium"))
+	assert_eq(gear.sell_item("refined_quantonium", fence), "sold", "he buys one, drop or not")
+
+
 func test_another_towns_fence_does_not_close_it() -> void:
 	_carry_the_drop()
 	assert_false(WorldState.fence_run_open("grit_station_town"))
