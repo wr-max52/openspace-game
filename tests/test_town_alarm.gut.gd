@@ -186,11 +186,11 @@ func test_alarm_toast_names_the_place() -> void:
 	for kind in ["town_remnant", "town_locals_barracks", "town_locals", "station", "station_remnant", "station_guards"]:
 		assert_false(TownAlarm.place_name(kind, "").contains("%"), kind + " unnamed")
 	# The guards' alarm bark is said everywhere (outposts, the cruiser), so it names no one place.
-	var lines: Dictionary = CharacterKit._read_json("res://content/core/dialogue/gate_guard_lines.json").get("lines", {})
+	var lines: Dictionary = CoreScript.read_json("res://content/core/dialogue/gate_guard_lines.json").get("lines", {})
 	for l in lines.get("alarm", []):
 		assert_false(str(l).to_lower().contains("gate"), str(l))
 	assert_false((lines.get("hunt", []) as Array).is_empty(), "the guards have hunt calls")
-	var locals: Dictionary = CharacterKit._read_json("res://content/core/dialogue/locals_lines.json").get("lines", {})
+	var locals: Dictionary = CoreScript.read_json("res://content/core/dialogue/locals_lines.json").get("lines", {})
 	assert_false((locals.get("hunt", []) as Array).is_empty(), "and the locals")
 
 

@@ -71,7 +71,7 @@ func _ready() -> void:
 	kit = ShipKit.new()
 	view = DogfightView.new(kit)
 	add_child(view)
-	_space = ShipKit._read_json(SPACE_PATH)
+	_space = CoreContent.read_json(SPACE_PATH)
 	_build_space()
 	camera = Camera3D.new()
 	camera.name = "FlightCamera"

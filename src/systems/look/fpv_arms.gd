@@ -28,6 +28,7 @@ const PATH := "res://content/look/fpv_arms.json"
 const META := "fpv_arm"
 const GLOVE := preload("res://src/systems/look/shaders/fpv_glove.gdshader")
 const GLOVE_FADE := preload("res://src/systems/look/shaders/fpv_glove_fade.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 var spec: Dictionary = {}
 var joints: Dictionary = {}
@@ -48,7 +49,7 @@ static func attach(joints_in: Dictionary, kit: CharacterKit) -> FpvArms:
 	var a := FpvArms.new()
 	a._kit = kit
 	a.joints = joints_in
-	a.spec = CharacterKit._read_json(PATH)
+	a.spec = CoreContent.read_json(PATH)
 	for side in ["l", "r"]:
 		a._build_side(side)
 		a.weights[side] = a._pose_weights("relaxed")

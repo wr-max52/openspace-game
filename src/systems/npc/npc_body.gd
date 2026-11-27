@@ -83,6 +83,7 @@ var drawn := true
 ## M15: the rifle. A brain sets aim_point and calls fire_at(); the body owns the
 ## weapon state (ammo, rate, reload) and spawns real bolts.
 const WeaponActorT := preload("res://src/systems/combat/weapon_actor.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 var weapon_actor
 var weapon_cfg: Dictionary = {}
 ## A guard with the seeker launcher (profile "launcher"): it locks and fires at the
@@ -357,7 +358,7 @@ func redress(archetype: String, outfit: Dictionary, scale: Vector3) -> void:
 
 static func sound_cfg() -> Dictionary:
 	if _sound_cfg.is_empty():
-		_sound_cfg = CharacterKit._read_json(SOUNDS_PATH)
+		_sound_cfg = CoreContent.read_json(SOUNDS_PATH)
 	return _sound_cfg
 
 
@@ -1368,7 +1369,7 @@ const HALF_GRIP := 0.45     ## how far the left hand closes on a gun it cannot r
 
 static func hold_3p(id: String) -> Dictionary:
 	if _holds.is_empty():
-		var all := CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+		var all := CoreContent.read_json(CharacterKit.HAND_WEAPONS_PATH)
 		for k in all:
 			if all[k] is Dictionary and (all[k] as Dictionary).has("hold_3p"):
 				_holds[k] = all[k].hold_3p
@@ -1388,7 +1389,7 @@ static var _guns: Dictionary = {}
 
 static func gun_spec(id: String) -> Dictionary:
 	if _guns.is_empty():
-		_guns = CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+		_guns = CoreContent.read_json(CharacterKit.HAND_WEAPONS_PATH)
 	return _guns.get(id, {})
 
 

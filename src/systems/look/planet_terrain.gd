@@ -137,6 +137,7 @@ const GAS_SHADER := preload("res://src/systems/look/shaders/gas_giant.gdshader")
 ## Issue #272: lava in the rock's low ground (lava_rock.gdshader), when the ball's
 ## surface has a "lava" block (AsteroidSphere.lava).
 const LAVA_SHADER := preload("res://src/systems/look/shaders/lava_rock.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 
 ## A ball type's surface: its rock colours, and its lava if it has any.
@@ -296,7 +297,7 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		var location_id := str(lm.get("location", ""))
 		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_") or location_id == "outpost"):
 			continue
-		var loc = ItemKit._read_json("res://content/core/locations/%s.json" % location_id)
+		var loc = CoreContent.read_json("res://content/core/locations/%s.json" % location_id)
 		if not (loc is Dictionary) or not bool(loc.get("pad", true)):
 			continue             # a ranch village's outpost: the ranch's yard levels it
 		var half := 0.0

@@ -27,6 +27,7 @@ const GunSights := preload("res://src/systems/look/gun_sights.gd")
 const WeaponMotion := preload("res://src/systems/look/weapon_motion.gd")
 const FLASH := preload("res://src/systems/look/shaders/muzzle_flash.gdshader")
 const CharBody := preload("res://src/systems/player/character_body.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const LOOK_PATH := "res://content/look/hand_weapons.json"
 
 const POLE_R := Vector3(-0.5, -0.7, -0.5)
@@ -113,7 +114,7 @@ var _kit_chest: Array = []         ## the chest's own children, as the kit built
 func _init(materials: LookMaterials = null, outfit = null) -> void:
 	name = "Avatar"
 	kit = CharacterKit.new(materials if materials != null else LookMaterials.new(), -1000.0)
-	look = CharacterKit._read_json(LOOK_PATH)
+	look = CoreContent.read_json(LOOK_PATH)
 	process_priority = 1000          # after the camera rig, so the sight never lags it
 	_build_body(PlayerOutfit.load_outfit() if outfit == null else outfit)
 	_collect_meshes()

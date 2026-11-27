@@ -5,6 +5,8 @@ extends SceneTree
 ## Uses real WorldScenery colliders and a player-sized capsule to check the
 ## sand-to-breach-to-deck route. Optional photos show the approach and town vista.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 var scene: Node3D
 var ground: WorldGround
 var scenery: WorldScenery
@@ -31,7 +33,7 @@ func _check(ok: bool, label: String) -> void:
 func _review() -> void:
 	scene = Node3D.new()
 	root.add_child(scene)
-	var cfg: Dictionary = ItemKit._read_json("res://content/core/worlds/port_desert.json")
+	var cfg: Dictionary = CoreContent.read_json("res://content/core/worlds/port_desert.json")
 	cfg = cfg.duplicate(true)
 	cfg.landmarks = cfg.landmarks.filter(func(lm): return str(lm.kind) == "wreck")
 	sand = PlanetTerrain.new()
@@ -47,7 +49,7 @@ func _review() -> void:
 	sand.collider_center = WorldGround._v3(landmark.at)
 	# Match the real port's sand seating, so a wall-height vista is not taken
 	# from inside an unflattened dune. No town/NPC scenes need to be loaded.
-	var town: Dictionary = ItemKit._read_json("res://content/core/towns/port_square.json")
+	var town: Dictionary = CoreContent.read_json("res://content/core/towns/port_square.json")
 	var floor_rect := Rect2()
 	var sunken: Array = []
 	for b in town.boxes:
@@ -153,7 +155,7 @@ func _review() -> void:
 	_check(queries_match, "flight_ground_matches_physics_on_route")
 	# Exercise the actual flight model's descent, not just the geometry queries.
 	var ship := AtmoFlight.new()
-	ship.setup(ItemKit._read_json("res://content/core/ships/interceptor.json"), ground)
+	ship.setup(CoreContent.read_json("res://content/core/ships/interceptor.json"), ground)
 	ship.place_flying(deck_xf * Vector3(20, 70, 180), deck_xf.basis.z, 0.0, 0.0)
 	_check(ship.land(), "ship_can_start_landing_on_wreck")
 	for i in 1200:

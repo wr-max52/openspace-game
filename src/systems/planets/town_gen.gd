@@ -172,7 +172,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 				ramps.append(_ramp_toward(side, half))
 		_pit(px, drop, ramps, lanes)
 		var hall_end := px - half - pring
-		_box("hall_floor", "hall", "floor", [rc.x + rw, -0.5, -hw], [hall_end, 0, hw])
+		_layout_box("hall_floor", "hall", "floor", [rc.x + rw, -0.5, -hw], [hall_end, 0, hw])
 		_zones.append({ "id": "hall", "min": [rc.x + rw, -hw], "max": [hall_end, hw] })
 		_marker("desert_exit", [snappedf((rc.x + rw + hall_end) * 0.5, 0.5), 0, 0], "waypoint")
 		station = {
@@ -244,7 +244,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 ## Issue #99: the round station's floor: one square of paving under the whole
 ## ring (AsteroidWorld draws it round), the gate on the main street.
 func _ground_round(c: Vector2, r: float) -> void:
-	_box("ground", "ground", "floor", [c.x - r, -0.5, c.y - r], [c.x + r, 0, c.y + r])
+	_layout_box("ground", "ground", "floor", [c.x - r, -0.5, c.y - r], [c.x + r, 0, c.y + r])
 	_marker("gate", [c.x + r - 1.0, 0, c.y], "waypoint")
 
 
@@ -252,14 +252,14 @@ func _ground(_town_id: String, x0: float, x1: float, z0: float, z1: float, wt: f
 	var h := float(wall.get("height", 6.0))
 	var gh := float(wall.get("gate_width", 12.0)) * 0.5
 	var apron := float(kit.get("apron", 30.0))
-	_box("ground", "ground", "floor", [x0, -0.5, z0], [x1, 0, z1])
-	_box("gate_apron", "ground", "floor", [x1, -0.5, z0], [x1 + apron, 0, z1])
-	_box("wall_east_s", "perimeter", "wall", [x1 - wt, 0, z0], [x1, h, -gh])
-	_box("wall_east_n", "perimeter", "wall", [x1 - wt, 0, gh], [x1, h, z1])
-	_box("gate_lintel", "perimeter", "overhead", [x1 - wt, h - 1.0, -gh], [x1, h, gh])
-	_box("wall_west", "perimeter", "wall", [x0, 0, z0], [x0 + wt, h, z1])
-	_box("wall_north", "perimeter", "wall", [x0 + wt, 0, z1 - wt], [x1 - wt, h, z1])
-	_box("wall_south", "perimeter", "wall", [x0 + wt, 0, z0], [x1 - wt, h, z0 + wt])
+	_layout_box("ground", "ground", "floor", [x0, -0.5, z0], [x1, 0, z1])
+	_layout_box("gate_apron", "ground", "floor", [x1, -0.5, z0], [x1 + apron, 0, z1])
+	_layout_box("wall_east_s", "perimeter", "wall", [x1 - wt, 0, z0], [x1, h, -gh])
+	_layout_box("wall_east_n", "perimeter", "wall", [x1 - wt, 0, gh], [x1, h, z1])
+	_layout_box("gate_lintel", "perimeter", "overhead", [x1 - wt, h - 1.0, -gh], [x1, h, gh])
+	_layout_box("wall_west", "perimeter", "wall", [x0, 0, z0], [x0 + wt, h, z1])
+	_layout_box("wall_north", "perimeter", "wall", [x0 + wt, 0, z1 - wt], [x1 - wt, h, z1])
+	_layout_box("wall_south", "perimeter", "wall", [x0 + wt, 0, z0], [x1 - wt, h, z0 + wt])
 	_marker("gate", [x1 - wt * 0.5, 0, 0], "waypoint")
 	_marker("desert_exit", [x1 + 6.0, 0, 0], "waypoint")
 
@@ -277,13 +277,13 @@ func _cantina(x0: float, l: float, w: float, h: float, door: float, opts: Dictio
 		_core.append(Rect2(x0, z0, l, w))
 		_zones.append({ "id": "cantina", "min": [dome.position.x, dome.position.y], "max": [dome.end.x, dome.end.y] })
 		return { "x0": x0, "end": x1, "z0": z0, "z1": z1 }
-	_box("cantina_wall_w", "cantina", "wall", [x0, 0, z0], [x0 + 0.5, h, z1])
-	_box("cantina_wall_n", "cantina", "wall", [x0 + 0.5, 0, z1 - 0.5], [x1 - 0.5, h, z1])
-	_box("cantina_wall_s", "cantina", "wall", [x0 + 0.5, 0, z0], [x1 - 0.5, h, z0 + 0.5])
-	_box("cantina_wall_e_s", "cantina", "wall", [x1 - 0.5, 0, z0], [x1, h, -door])
-	_box("cantina_wall_e_n", "cantina", "wall", [x1 - 0.5, 0, door], [x1, h, z1])
-	_box("cantina_door_lintel", "cantina", "overhead", [x1 - 0.5, 3.0, -door], [x1, h, door])
-	_box("cantina_roof", "cantina", "roof", [x0, h, z0], [x1, h + 0.3, z1])
+	_layout_box("cantina_wall_w", "cantina", "wall", [x0, 0, z0], [x0 + 0.5, h, z1])
+	_layout_box("cantina_wall_n", "cantina", "wall", [x0 + 0.5, 0, z1 - 0.5], [x1 - 0.5, h, z1])
+	_layout_box("cantina_wall_s", "cantina", "wall", [x0 + 0.5, 0, z0], [x1 - 0.5, h, z0 + 0.5])
+	_layout_box("cantina_wall_e_s", "cantina", "wall", [x1 - 0.5, 0, z0], [x1, h, -door])
+	_layout_box("cantina_wall_e_n", "cantina", "wall", [x1 - 0.5, 0, door], [x1, h, z1])
+	_layout_box("cantina_door_lintel", "cantina", "overhead", [x1 - 0.5, 3.0, -door], [x1, h, door])
+	_layout_box("cantina_roof", "cantina", "roof", [x0, h, z0], [x1, h + 0.3, z1])
 	var cx0 := _cantina_bar(x0, l, w, opts)
 	var cz0 := snappedf(-w * 0.3, 0.1)
 	var cz1 := snappedf(w * 0.18, 0.1)
@@ -292,7 +292,7 @@ func _cantina(x0: float, l: float, w: float, h: float, door: float, opts: Dictio
 	var sd := float(st.get("full" if full else "small", 4.0))
 	var sz1 := z1 - 0.6
 	var sx := x0 + l * float(st.get("at", 0.68))
-	_box("cantina_stage", "cantina", "cover", [snappedf(sx - sd * 0.5, 0.1), 0, snappedf(sz1 - sd, 0.1)],
+	_layout_box("cantina_stage", "cantina", "cover", [snappedf(sx - sd * 0.5, 0.1), 0, snappedf(sz1 - sd, 0.1)],
 		[snappedf(sx + sd * 0.5, 0.1), float(st.get("height", 0.6)), snappedf(sz1, 0.1)], { "shape": "round", "look": "stage", "standable": true })
 	if bool(opts.get("stage_dancer", false)):
 		var stage_y := float(st.get("height", 0.6))
@@ -321,7 +321,7 @@ func _cantina_bar(x0: float, l: float, w: float, opts: Dictionary) -> float:
 	var cx0 := x0 + 0.5 + maxf(4.0, l * 0.25)
 	var cz0 := snappedf(-w * 0.3, 0.1)
 	var cz1 := snappedf(w * 0.18, 0.1)
-	_box("bar_counter", "cantina", "counter", [cx0, 0, cz0], [cx0 + 2.0, 1.1, cz1])
+	_layout_box("bar_counter", "cantina", "counter", [cx0, 0, cz0], [cx0 + 2.0, 1.1, cz1])
 	var owner := { "id": "cantina_owner", "pos": [cx0 - 2.0, 0, 0], "role": "npc", "npc": "cantina_owner" }
 	if opts.has("cantina_card"):
 		owner["card"] = str(opts.cantina_card)
@@ -345,7 +345,7 @@ func _club_dome(dome: Rect2, opts: Dictionary = {}) -> void:
 	var at := c + _v2(st.get("at", [0.0, 0.0]))
 	var r := float(st.get("diameter", 8.0)) * 0.5
 	var h := float(st.get("height", 0.9))
-	_box("cantina_stage", "cantina", "cover", [at.x - r, 0, at.y - r], [at.x + r, h, at.y + r],
+	_layout_box("cantina_stage", "cantina", "cover", [at.x - r, 0, at.y - r], [at.x + r, h, at.y + r],
 		{ "shape": "round", "standable": true, "band": true, "note": "Issue #261: the rave's stage; the DJ plays here alone." })
 	var floor_mid: Vector2 = c + (_v2(k.floor.min) + _v2(k.floor.max)) * 0.5
 	var dj := at + (floor_mid - at).normalized() * -0.6
@@ -384,7 +384,7 @@ func _dome_bar(c: Vector2, k: Dictionary, floor_mid: Vector2, opts: Dictionary) 
 	var hl := float(b.get("length", 12.0)) * 0.5
 	var hd := float(b.get("depth", 3.0)) * 0.5
 	var front := signf(floor_mid.y - at.y) if not is_equal_approx(floor_mid.y, at.y) else -1.0   # +1: its front faces +z
-	_box("bar_counter", "cantina", "counter", [at.x - hl, 0, at.y - hd], [at.x + hl, float(b.get("height", 1.1)), at.y + hd],
+	_layout_box("bar_counter", "cantina", "counter", [at.x - hl, 0, at.y - hd], [at.x + hl, float(b.get("height", 1.1)), at.y + hd],
 		{ "front": "+z" if front > 0.0 else "-z", "note": "Issue #392: the rave's long bar, across the floor from the stage." })
 	var oz := at.y - front * (hd + float(b.get("owner", 2.0)))
 	var owner := { "id": "cantina_owner", "pos": [at.x, 0, oz], "role": "npc", "npc": "cantina_owner",
@@ -420,11 +420,11 @@ func _dome_lounge(c: Vector2, k: Dictionary) -> void:
 		var hl := float(b.get("length", 3.0)) * 0.5
 		var a := at - across * hl
 		var e := at + across * hl + face * float(bk.get("depth", 0.7))
-		_box("lounge_booth_%d" % n, "cantina", "cover", [minf(a.x, e.x), 0, minf(a.y, e.y)], [maxf(a.x, e.x), float(bk.get("height", 1.2)), maxf(a.y, e.y)],
+		_layout_box("lounge_booth_%d" % n, "cantina", "cover", [minf(a.x, e.x), 0, minf(a.y, e.y)], [maxf(a.x, e.x), float(bk.get("height", 1.2)), maxf(a.y, e.y)],
 			{ "face": str(b.get("face", "-z")), "back": [at.x, at.y] })
 		var t := at + face * float(bk.get("table_at", 1.15))
 		var tr := float(bk.get("table_r", 0.38))
-		_box("lounge_booth_table_%d" % n, "cantina", "cover", [t.x - tr, 0, t.y - tr], [t.x + tr, float(bk.get("table_h", 0.72)), t.y + tr],
+		_layout_box("lounge_booth_table_%d" % n, "cantina", "cover", [t.x - tr, 0, t.y - tr], [t.x + tr, float(bk.get("table_h", 0.72)), t.y + tr],
 			{ "shape": "round" })
 		# Its people stand on the open side, either side of the way the seat looks.
 		var ang := face.angle()
@@ -436,7 +436,7 @@ func _dome_lounge(c: Vector2, k: Dictionary) -> void:
 	for tb in l.get("tables", []):
 		var t := c + _v2(tb.at)
 		var r := float(tk.get("r", 0.4))
-		_box("lounge_table_%d" % n, "cantina", "cover", [t.x - r, 0, t.y - r], [t.x + r, float(tk.get("h", 1.08)), t.y + r],
+		_layout_box("lounge_table_%d" % n, "cantina", "cover", [t.x - r, 0, t.y - r], [t.x + r, float(tk.get("h", 1.08)), t.y + r],
 			{ "shape": "round" })
 		var count := int(tb.get("people", 0))
 		for i in count:
@@ -477,10 +477,10 @@ func _dome_stall(id: String, keeper: String, at: Vector2, face_s: String, k: Dic
 	var extra := { "look": "stall", "face": face_s }
 	if wares != "":
 		extra["wares"] = wares
-	_box(id, "cantina", "cover", [at.x - ext.x, 0, at.y - ext.y], [at.x + ext.x, float(sk.get("height", 1.1)), at.y + ext.y], extra)
+	_layout_box(id, "cantina", "cover", [at.x - ext.x, 0, at.y - ext.y], [at.x + ext.x, float(sk.get("height", 1.1)), at.y + ext.y], extra)
 	var bc := at - face * float(sk.get("back", 3.3))
 	var bext := across.abs() * size.x * 0.5 + face.abs() * 0.2
-	_box(id + "_back", "cantina", "solid", [bc.x - bext.x, 0, bc.y - bext.y], [bc.x + bext.x, float(sk.get("back_h", 2.6)), bc.y + bext.y],
+	_layout_box(id + "_back", "cantina", "solid", [bc.x - bext.x, 0, bc.y - bext.y], [bc.x + bext.x, float(sk.get("back_h", 2.6)), bc.y + bext.y],
 		{ "look": "stall_back" })
 	var m := at - face * float(sk.get("keeper", 1.8))
 	_markers.append({ "id": keeper, "pos": [snappedf(m.x, 0.01), 0, snappedf(m.y, 0.01)], "role": "ambient", "soldier": "local_merchant",
@@ -509,9 +509,9 @@ func _front_stalls(x0: float, length: float, n: int, sh: float) -> void:
 		var c1 := sg * (sh + 2.0)
 		var b0 := sg * (sh + 4.6)
 		var b1 := sg * (sh + 5.0)
-		_box(id, "square", "cover", [sx, 0, minf(c0, c1)], [sx + 4.0, 1.1, maxf(c0, c1)],
+		_layout_box(id, "square", "cover", [sx, 0, minf(c0, c1)], [sx + 4.0, 1.1, maxf(c0, c1)],
 			{ "look": "stall", "face": "-z" if north else "+z" })
-		_box(id + "_back", "square", "solid", [sx, 0, minf(b0, b1)], [sx + 4.0, 2.6, maxf(b0, b1)], { "look": "stall_back" })
+		_layout_box(id + "_back", "square", "solid", [sx, 0, minf(b0, b1)], [sx + 4.0, 2.6, maxf(b0, b1)], { "look": "stall_back" })
 		_markers.append({ "id": "vendor_%d" % (i + 1), "pos": [sx + 2.0, 0, sg * (sh + 3.3)], "role": "ambient",
 			"soldier": "local_merchant", "face": [sx + 2.0, 0, 0] })
 	_core.append(Rect2(x0, -(sh + 5.5), length, 2.0 * (sh + 5.5)))
@@ -532,7 +532,7 @@ func _cantina_homes(cantina: Dictionary, sh: float) -> void:
 			var extra := { "look": looks[side][k], "face": "-z" if north else "+z", "style": "gray" }
 			if looks[side][k] == "hut_round":
 				extra["shape"] = "round"
-			_box("cantina_home_%s_%02d" % ["n" if north else "s", k + 1], "cantina_homes", "solid",
+			_layout_box("cantina_home_%s_%02d" % ["n" if north else "s", k + 1], "cantina_homes", "solid",
 				[x0, 0, minf(sg * z0, sg * (z0 + 6.0))], [x0 + 6.0, h, maxf(sg * z0, sg * (z0 + 6.0))], extra)
 	var x := float(cantina.end) - 2.0
 	_core.append(Rect2(x, -(z0 + 6.0), 16.0, 2.0 * (z0 + 6.0)))
@@ -585,10 +585,10 @@ func _pit(cx: float, drop: Array = [], ramps: Array = [], lanes: Array = []) -> 
 		nb["min"] = [float(b.min[0]) + cx, b.min[1], b.min[2]]
 		nb["max"] = [float(b.max[0]) + cx, b.max[1], b.max[2]]
 		_boxes.append(nb)
-	_box("bay_ground_n", "landing_bay", "floor", [cx - o, -0.5, half], [cx + o, 0, o])
-	_box("bay_ground_s", "landing_bay", "floor", [cx - o, -0.5, -o], [cx + o, 0, -half])
-	_box("bay_ground_w", "landing_bay", "floor", [cx - o, -0.5, -half], [cx - half, 0, half])
-	_box("bay_ground_e", "landing_bay", "floor", [cx + half, -0.5, -half], [cx + o, 0, half])
+	_layout_box("bay_ground_n", "landing_bay", "floor", [cx - o, -0.5, half], [cx + o, 0, o])
+	_layout_box("bay_ground_s", "landing_bay", "floor", [cx - o, -0.5, -o], [cx + o, 0, -half])
+	_layout_box("bay_ground_w", "landing_bay", "floor", [cx - o, -0.5, -half], [cx - half, 0, half])
+	_layout_box("bay_ground_e", "landing_bay", "floor", [cx + half, -0.5, -half], [cx + o, 0, half])
 	var sp: Array = pk.get("spawn", [6, -6, 13])
 	_marker("player_spawn", [float(sp[0]) + cx, float(sp[1]), float(sp[2])], "spawn")
 	_zones.append({ "id": "landing_bay", "min": [cx - o, -o], "max": [cx + o, o] })
@@ -640,7 +640,7 @@ func _dome_box(id: String, zone: String, kind: String, c: Vector2, g: Vector2, a
 		b0: float, b1: float, y0: float, y1: float, extra: Dictionary = {}) -> void:
 	var p := _dl(c, g, a0, b0)
 	var q := _dl(c, g, a1, b1)
-	_box(id, zone, kind, [snappedf(minf(p.x, q.x), 0.01), y0, snappedf(minf(p.y, q.y), 0.01)],
+	_layout_box(id, zone, kind, [snappedf(minf(p.x, q.x), 0.01), y0, snappedf(minf(p.y, q.y), 0.01)],
 		[snappedf(maxf(p.x, q.x), 0.01), y1, snappedf(maxf(p.y, q.y), 0.01)], extra)
 
 
@@ -655,11 +655,11 @@ func _dome_wing(wd: Dictionary, d: Vector2, pit: Vector2, half: float, pring: fl
 	var far := half + pring + hall_min
 	var c := pit + d * (far + rw)
 	var g := -d
-	_box("dome_%s_ground" % id, "dome_" + id, "floor", [c.x - rw, -0.5, c.y - rw], [c.x + rw, 0, c.y + rw])
+	_layout_box("dome_%s_ground" % id, "dome_" + id, "floor", [c.x - rw, -0.5, c.y - rw], [c.x + rw, 0, c.y + rw])
 	_zones.append({ "id": "dome_" + id, "min": [c.x - rw, c.y - rw], "max": [c.x + rw, c.y + rw] })
 	var hl := _lane(d, half + pring, far, hw)
 	hl.position += pit
-	_box("hall_%s_floor" % id, "hall_" + id, "floor", [hl.position.x, -0.5, hl.position.y], [hl.end.x, 0, hl.end.y])
+	_layout_box("hall_%s_floor" % id, "hall_" + id, "floor", [hl.position.x, -0.5, hl.position.y], [hl.end.x, 0, hl.end.y])
 	_zones.append({ "id": "hall_" + id, "min": [hl.position.x, hl.position.y], "max": [hl.end.x, hl.end.y] })
 	var mid := _dl(c, g, rw * 0.5, 0.0)       # half way in from the gate: clear of what fills it
 	_marker("dome_" + id, [snappedf(mid.x, 0.5), 0, snappedf(mid.y, 0.5)], "waypoint")
@@ -756,7 +756,7 @@ func _spaceport(x0: float, cols: int, bays: int, sh: float, cell: float) -> Dict
 		if i > 0:
 			extra = { "ship": ship_id, "parked_yaw_deg": 90 if north else -90 }
 		var id := "ship" if i == 0 else "ship_%d" % (i + 1)
-		_box(id, "spaceport", "ship", [snappedf(cx - hx, 0.01), 0, snappedf(cz - hz, 0.01)],
+		_layout_box(id, "spaceport", "ship", [snappedf(cx - hx, 0.01), 0, snappedf(cz - hz, 0.01)],
 			[snappedf(cx + hx, 0.01), float(dims[1]), snappedf(cz + hz, 0.01)], extra)
 		if i == 0:
 			_marker("player_spawn", [cx, 0, z_n0 + 1.5], "spawn")
@@ -784,11 +784,11 @@ func _market(x0: float, stalls: int, merchants: int, sh: float, _opts: Dictionar
 			var sx := x0 + i * 8.0
 			var id := "stall_%s%d" % ["n" if north else "s", i + 1]
 			if north:
-				_box(id, "market", "cover", [sx, 0, za + 4.0], [sx + 4.0, 1.1, za + 5.0], { "look": "stall", "face": "-z" })
-				_box(id + "_back", "market", "solid", [sx, 0, za + 8.6], [sx + 4.0, 2.6, za + 9.0], { "look": "stall_back" })
+				_layout_box(id, "market", "cover", [sx, 0, za + 4.0], [sx + 4.0, 1.1, za + 5.0], { "look": "stall", "face": "-z" })
+				_layout_box(id + "_back", "market", "solid", [sx, 0, za + 8.6], [sx + 4.0, 2.6, za + 9.0], { "look": "stall_back" })
 			else:
-				_box(id, "market", "cover", [sx, 0, za - 5.0], [sx + 4.0, 1.1, za - 4.0], { "look": "stall", "face": "+z" })
-				_box(id + "_back", "market", "solid", [sx, 0, za - 9.0], [sx + 4.0, 2.6, za - 8.6], { "look": "stall_back" })
+				_layout_box(id, "market", "cover", [sx, 0, za - 5.0], [sx + 4.0, 1.1, za - 4.0], { "look": "stall", "face": "+z" })
+				_layout_box(id + "_back", "market", "solid", [sx, 0, za - 9.0], [sx + 4.0, 2.6, za - 8.6], { "look": "stall_back" })
 			if vendor < merchants:
 				vendor += 1
 				var mz := za + 7.3 if north else za - 7.3
@@ -800,7 +800,7 @@ func _market(x0: float, stalls: int, merchants: int, sh: float, _opts: Dictionar
 
 
 func _barracks(x0: float, z0: float) -> void:
-	_box("barracks_hall", "barracks", "solid", [x0, 0, z0 + 2.0], [x0 + 30.0, 6.0, z0 + 20.0],
+	_layout_box("barracks_hall", "barracks", "solid", [x0, 0, z0 + 2.0], [x0 + 30.0, 6.0, z0 + 20.0],
 		{ "look": "hall", "face": "-z", "style": "garrison", "interior": "barracks" })   # issue #321: you walk in (BarracksHall)
 	_core.append(Rect2(x0, z0, 30.0, 22.0))
 	_zones.append({ "id": "barracks", "min": [x0, z0], "max": [x0 + 30.0, z0 + 22.0] })
@@ -808,7 +808,7 @@ func _barracks(x0: float, z0: float) -> void:
 
 func _watchtower(xi1: float) -> Rect2:
 	var r := Rect2(xi1 - 10.0, 13.0, 6.0, 6.0)
-	_box("watchtower", "gatehouse", "solid", [r.position.x, 0, r.position.y], [r.end.x, 12.0, r.end.y],
+	_layout_box("watchtower", "gatehouse", "solid", [r.position.x, 0, r.position.y], [r.end.x, 12.0, r.end.y],
 		{ "look": "watchtower", "face": "-x", "style": "garrison" })
 	_core.append(r)
 	_zones.append({ "id": "gatehouse", "min": [r.position.x, r.position.y], "max": [r.end.x, r.end.y] })
@@ -909,7 +909,7 @@ func _building(id: String, lot: Rect2, look: Dictionary, north: bool) -> void:
 	var extra := { "look": str(look.look), "face": "-z" if north else "+z" }
 	if round:
 		extra["shape"] = "round"
-	_box(id, "residential_e" if north else "residential_w", "solid",
+	_layout_box(id, "residential_e" if north else "residential_w", "solid",
 		[c.x - bw * 0.5, 0, c.y - bd * 0.5], [c.x + bw * 0.5, h, c.y + bd * 0.5], extra)
 
 
@@ -922,7 +922,7 @@ func _zone_list(xi0: float, xi1: float, zi0: float, zi1: float, _sh: float) -> A
 
 # ------------------------------------------------------------------ helpers
 
-func _box(id: String, zone: String, kind: String, mn: Array, mx: Array, extra: Dictionary = {}) -> void:
+func _layout_box(id: String, zone: String, kind: String, mn: Array, mx: Array, extra: Dictionary = {}) -> void:
 	var b := { "id": id, "zone": zone, "kind": kind, "min": mn, "max": mx }
 	for k in extra:
 		b[k] = extra[k]

@@ -24,6 +24,8 @@ extends Node3D
 ## grenades and ship cannon like anything else with apply_damage. Gameplay numbers
 ## are territory.json "outposts" "refinery".
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 signal blown
 
 const LOOK_PATH := "res://content/look/refinery.json"
@@ -61,7 +63,7 @@ static var _pulsed_frame := -1
 
 
 static func look_cfg() -> Dictionary:
-	return ItemKit._read_json(LOOK_PATH)
+	return CoreContent.read_json(LOOK_PATH)
 
 
 static func game_cfg() -> Dictionary:
@@ -278,7 +280,7 @@ func _build_look(mats: LookMaterials, wall: Material, red: Material) -> void:
 	_light.light_energy = float(lc.get("energy", 2.2))
 	_light.omni_range = float(lc.get("range", 16.0)) * float(look.get("scale", 1.0))
 	_light.shadow_enabled = false
-	var dd: Dictionary = ItemKit._read_json(DrawDistance.LOOK_PATH).get("draw_distance", {})
+	var dd: Dictionary = CoreContent.read_json(DrawDistance.LOOK_PATH).get("draw_distance", {})
 	_light.distance_fade_enabled = true
 	_light.distance_fade_begin = float(dd.get("rules", {}).get("outdoor", {}).get("light_m", 300.0))
 	_light.distance_fade_length = float(dd.get("light_fade_m", 20.0))
@@ -329,26 +331,6 @@ static func _at(p: Vector3, b := Basis.IDENTITY) -> Transform3D:
 	return Transform3D(b, p)
 
 
-static func _cyl(r: float, h: float, seg := 16, r_top := -1.0) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = r if r_top < 0.0 else r_top
-	c.bottom_radius = r
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
-static func _ball(r: float, seg := 20, rings := 10, half := false) -> SphereMesh:
-	var m := SphereMesh.new()
-	m.radius = r
-	m.height = r * 2.0          # PrimBatch's dome is half the height given (half: from its middle up)
-	m.is_hemisphere = half
-	m.radial_segments = seg
-	m.rings = rings
-	return m
-
-
 static func _ring(r: float, tube: float, seg := 32) -> TorusMesh:
 	var t := TorusMesh.new()
 	t.inner_radius = r - tube
@@ -385,7 +367,7 @@ func _pipe(set: String, mat: String, a: Vector3, b: Vector3, r: float) -> void:
 	var d := b - a
 	var y := d.normalized()
 	var x := y.cross(Vector3.FORWARD if absf(y.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
-	_p(set, mat, _cyl(r, d.length(), 8), _at((a + b) * 0.5, Basis(x, y, x.cross(y))))
+	_p(set, mat, LookMeshKit.cyl(r, r, d.length(), 8, 1), _at((a + b) * 0.5, Basis(x, y, x.cross(y))))
 
 
 ## Burnt plates thrown about the plinth (the ruin).
@@ -410,13 +392,13 @@ func _globe(sink: float) -> void:
 	_top = cy + R + 3.6
 	_mid = cy
 	var ph := 0.6 + sink
-	_p("keep", "black", _cyl(5.4, ph, 24), _at(Vector3(0, 0.6 - ph * 0.5, 0)))
+	_p("keep", "black", LookMeshKit.cyl(5.4, 5.4, ph, 24, 1), _at(Vector3(0, 0.6 - ph * 0.5, 0)))
 	_shape("keep", _cyl_shape(5.4, ph), Vector3(0, 0.6 - ph * 0.5, 0))
 	for i in legs:
 		var a := TAU * float(i) / legs
 		var foot := Vector3(cos(a) * lr, 0.0, sin(a) * lr)
 		_p("keep", "steel", Vector3(0.9, 0.3, 0.9), _at(foot + Vector3(0, 0.75, 0), Basis(Vector3.UP, -a)))
-		_p("intact", "steel", _cyl(0.3, 7.4, 8), _at(foot + Vector3(0, 4.3, 0)))
+		_p("intact", "steel", LookMeshKit.cyl(0.3, 0.3, 7.4, 8, 1), _at(foot + Vector3(0, 4.3, 0)))
 		var a2 := TAU * float(i + 1) / legs
 		var foot2 := Vector3(cos(a2) * lr, 0.0, sin(a2) * lr)
 		var lo := 1.2 if i % 2 == 0 else 6.6
@@ -425,9 +407,9 @@ func _globe(sink: float) -> void:
 		_rod("intact", "black", foot + Vector3(0, 7.2, 0), foot2 + Vector3(0, 7.2, 0), 0.16)
 		# The ruin: the legs snapped off, leaning.
 		var stub := _rng.randf_range(0.8, 3.2)
-		_p("ruin", "black", _cyl(0.3, stub, 8), _at(foot + Vector3(0, 0.6 + stub * 0.5, 0),
+		_p("ruin", "black", LookMeshKit.cyl(0.3, 0.3, stub, 8, 1), _at(foot + Vector3(0, 0.6 + stub * 0.5, 0),
 			Basis(Vector3(sin(a), 0, -cos(a)), _rng.randf_range(-0.3, 0.3))))
-	_p("intact", "hull", _ball(R, 24, 12), _at(Vector3(0, cy, 0)))
+	_p("intact", "hull", LookMeshKit.ball(R, 24, 12), _at(Vector3(0, cy, 0)))
 	_p("intact", "red", _ring(R + 0.05, 0.22), _at(Vector3(0, cy, 0)))
 	_p("intact", "steel", _ring(R * 0.8, 0.12), _at(Vector3(0, cy + R * 0.6, 0)))
 	# The quantonium: a band glowing round its belly, portholes, a conduit up its middle.
@@ -437,25 +419,25 @@ func _globe(sink: float) -> void:
 		var a := TAU * (float(i) + 0.5) / 6.0
 		var h := 1.3
 		var rr := sqrt(R * R - h * h)
-		_p("intact", "glow", _ball(0.42, 10, 5), _at(Vector3(cos(a) * rr, cy + h, sin(a) * rr)))
+		_p("intact", "glow", LookMeshKit.ball(0.42, 10, 5), _at(Vector3(cos(a) * rr, cy + h, sin(a) * rr)))
 		_p("intact", "black", _ring(0.42, 0.08, 12), _at(Vector3(cos(a) * rr, cy + h, sin(a) * rr),
 			Basis.looking_at(Vector3(cos(a), h / R, sin(a))) * Basis(Vector3.RIGHT, PI * 0.5)))
 	_p("keep", "steel", Vector3(2.4, 1.6, 2.4), _at(Vector3(0, 1.4, 0)))
-	_p("intact", "glow", _cyl(0.38, 3.4, 10), _at(Vector3(0, 3.9, 0)))
+	_p("intact", "glow", LookMeshKit.cyl(0.38, 0.38, 3.4, 10, 1), _at(Vector3(0, 3.9, 0)))
 	_p("intact", "black", _ring(0.46, 0.1, 12), _at(Vector3(0, 3.0, 0)))
 	_p("intact", "black", _ring(0.46, 0.1, 12), _at(Vector3(0, 4.8, 0)))
 	_pipe("keep", "steel", Vector3(1.2, 1.0, 0), Vector3(5.6, 1.0, 0), 0.28)
 	# A hatch, a vent and a lamp on top.
-	_p("intact", "steel", _cyl(1.3, 0.6, 12), _at(Vector3(0, cy + R + 0.1, 0)))
-	_p("intact", "black", _cyl(0.24, 3.0, 8), _at(Vector3(0.6, cy + R + 1.8, 0)))
-	_p("intact", "glow", _ball(0.36, 10, 5), _at(Vector3(0.6, cy + R + 3.4, 0)))
+	_p("intact", "steel", LookMeshKit.cyl(1.3, 1.3, 0.6, 12, 1), _at(Vector3(0, cy + R + 0.1, 0)))
+	_p("intact", "black", LookMeshKit.cyl(0.24, 0.24, 3.0, 8, 1), _at(Vector3(0.6, cy + R + 1.8, 0)))
+	_p("intact", "glow", LookMeshKit.ball(0.36, 10, 5), _at(Vector3(0.6, cy + R + 3.4, 0)))
 	_p("intact", "steel", Vector3(0.12, 8.2, 0.7), _at(Vector3(lr + 0.35, 4.7, 0)))   # a ladder up a leg
 	var ball := SphereShape3D.new()
 	ball.radius = R
 	_shape("intact", ball, Vector3(0, cy, 0))
 	_shape("intact", _cyl_shape(lr + 0.3, 7.6), Vector3(0, 4.4, 0))
 	# The ruin: the pump crushed, a half shell of the sphere, plates everywhere.
-	_p("ruin", "hull", _ball(R * 0.7, 16, 6, true), _at(Vector3(1.2, 0.5, -0.8), Basis(Vector3(1, 0, 1).normalized(), 2.6)))
+	_p("ruin", "hull", LookMeshKit.ball(R * 0.7, 16, 6, -1.0, true), _at(Vector3(1.2, 0.5, -0.8), Basis(Vector3(1, 0, 1).normalized(), 2.6)))
 	_shape("ruin", _cyl_shape(3.4, 2.4), Vector3(1.0, 1.2, -0.6))
 	_debris(14, 5.2, Vector2(0.8, 2.2))
 
@@ -472,8 +454,8 @@ func _silo(sink: float) -> void:
 	var ph := 0.5 + sink
 	_p("keep", "black", Vector3(9.6, ph, 9.4), _at(Vector3(-0.9, 0.5 - ph * 0.5, 0)))
 	_shape("keep", _box_shape(Vector3(9.6, ph, 9.4)), Vector3(-0.9, 0.5 - ph * 0.5, 0))
-	_p("intact", "hull", _cyl(R, H, 24), _at(Vector3(0, y0 + H * 0.5, 0)))
-	_p("intact", "hull", _ball(R, 24, 8, true), _at(Vector3(0, y0 + H, 0)))
+	_p("intact", "hull", LookMeshKit.cyl(R, R, H, 24, 1), _at(Vector3(0, y0 + H * 0.5, 0)))
+	_p("intact", "hull", LookMeshKit.ball(R, 24, 8, -1.0, true), _at(Vector3(0, y0 + H, 0)))
 	_shape("intact", _cyl_shape(R, H + R), Vector3(0, y0 + (H + R) * 0.5, 0))
 	for y in [2.0, 7.0]:
 		_p("intact", "steel", _ring(R + 0.04, 0.14), _at(Vector3(0, y0 + y, 0)))
@@ -487,7 +469,7 @@ func _silo(sink: float) -> void:
 				+ Basis(Vector3.UP, a) * Vector3(0, 0, side), Basis(Vector3.UP, a)))
 	# A catwalk round it with a rail.
 	var cw := y0 + 10.0
-	_p("intact", "steel", _cyl(R + 0.9, 0.14, 24), _at(Vector3(0, cw, 0)))
+	_p("intact", "steel", LookMeshKit.cyl(R + 0.9, R + 0.9, 0.14, 24, 1), _at(Vector3(0, cw, 0)))
 	_p("intact", "steel", _ring(R + 0.85, 0.05), _at(Vector3(0, cw + 1.0, 0)))
 	for i in 12:
 		var a := TAU * float(i) / 12.0
@@ -497,31 +479,31 @@ func _silo(sink: float) -> void:
 		var c := Vector3(-3.9, 0, 2.3 * sz)
 		var r := 1.5
 		var h := 8.5
-		_p("intact", "hull", _cyl(r, h, 16), _at(c + Vector3(0, y0 + h * 0.5, 0)))
-		_p("intact", "hull", _ball(r, 16, 6, true), _at(c + Vector3(0, y0 + h, 0)))
+		_p("intact", "hull", LookMeshKit.cyl(r, r, h, 16, 1), _at(c + Vector3(0, y0 + h * 0.5, 0)))
+		_p("intact", "hull", LookMeshKit.ball(r, 16, 6, -1.0, true), _at(c + Vector3(0, y0 + h, 0)))
 		_p("intact", "red", _ring(r + 0.04, 0.16, 24), _at(c + Vector3(0, y0 + h - 0.5, 0)))
 		_p("intact", "glow", Vector3(0.4, 5.6, 0.14), _at(c + Vector3(0, y0 + 4.0, (r + 0.04) * sz)))
 		_pipe("intact", "steel", c + Vector3(0, y0 + 2.6, 0), Vector3(0, y0 + 2.6, 0), 0.3)
 		_pipe("intact", "glow", c + Vector3(0.5, y0 + h + 0.6, 0), Vector3(-1.2, y0 + H + 0.9, 0), 0.16)
 		_shape("intact", _cyl_shape(r, h + r), c + Vector3(0, y0 + (h + r) * 0.5, 0))
 		var stub := _rng.randf_range(1.4, 2.6)
-		_p("ruin", "black", _cyl(r, stub, 12), _at(c + Vector3(0, y0 + stub * 0.5, 0)))
+		_p("ruin", "black", LookMeshKit.cyl(r, r, stub, 12, 1), _at(c + Vector3(0, y0 + stub * 0.5, 0)))
 	# The pump by the doorway side and a flare stack with a burning tip.
 	_p("keep", "steel", Vector3(1.8, 1.4, 1.8), _at(Vector3(3.6, y0 + 0.7, 0)))
 	_pipe("intact", "steel", Vector3(R - 0.1, y0 + 1.0, 0), Vector3(3.6, y0 + 1.0, 0), 0.3)
 	var fs := Vector3(2.6, 0, -3.4)
-	_p("intact", "steel", _cyl(0.3, 18.0, 8), _at(fs + Vector3(0, y0 + 9.0, 0)))
+	_p("intact", "steel", LookMeshKit.cyl(0.3, 0.3, 18.0, 8, 1), _at(fs + Vector3(0, y0 + 9.0, 0)))
 	_p("intact", "black", _ring(0.34, 0.08, 10), _at(fs + Vector3(0, y0 + 17.6, 0)))
-	_p("intact", "glow", _ball(0.55, 10, 5), _at(fs + Vector3(0, y0 + 18.4, 0)))
+	_p("intact", "glow", LookMeshKit.ball(0.55, 10, 5), _at(fs + Vector3(0, y0 + 18.4, 0)))
 	_shape("intact", _cyl_shape(0.4, 18.0), fs + Vector3(0, y0 + 9.0, 0))
 	# The ruin: a burst stump of the big tank, the stack toppled, plates about.
-	_p("ruin", "black", _cyl(R, 3.2, 16), _at(Vector3(0, y0 + 1.6, 0)))
+	_p("ruin", "black", LookMeshKit.cyl(R, R, 3.2, 16, 1), _at(Vector3(0, y0 + 1.6, 0)))
 	for i in 7:
 		var a := TAU * float(i) / 7.0 + _rng.randf() * 0.4
 		_p("ruin", "hull", Vector3(1.4, _rng.randf_range(1.2, 2.6), 0.16), _at(Vector3(cos(a) * R, y0 + 3.4, sin(a) * R),
 			Basis(Vector3.UP, -a + PI * 0.5) * Basis(Vector3.RIGHT, _rng.randf_range(-0.5, 0.5))))
 	_shape("ruin", _cyl_shape(R, 3.2), Vector3(0, y0 + 1.6, 0))
-	_p("ruin", "black", _cyl(0.3, 12.0, 8), _at(fs + Vector3(1.5, y0 + 0.3, 5.0), Basis(Vector3.RIGHT, PI * 0.5) * Basis(Vector3.FORWARD, 0.3)))
+	_p("ruin", "black", LookMeshKit.cyl(0.3, 0.3, 12.0, 8, 1), _at(fs + Vector3(1.5, y0 + 0.3, 5.0), Basis(Vector3.RIGHT, PI * 0.5) * Basis(Vector3.FORWARD, 0.3)))
 	_debris(12, 5.0, Vector2(0.7, 1.8))
 
 
@@ -534,10 +516,10 @@ func _core(sink: float) -> void:
 	_top = y0 + H + 4.4
 	_mid = y0 + H * 0.5
 	var ph := 1.0 + sink
-	_p("keep", "black", _cyl(5.4, ph, 8), _at(Vector3(0, y0 - ph * 0.5, 0), Basis(Vector3.UP, PI / 8.0)))
+	_p("keep", "black", LookMeshKit.cyl(5.4, 5.4, ph, 8, 1), _at(Vector3(0, y0 - ph * 0.5, 0), Basis(Vector3.UP, PI / 8.0)))
 	_shape("keep", _cyl_shape(5.2, ph), Vector3(0, y0 - ph * 0.5, 0))
-	_p("keep", "steel", _cyl(2.4, 1.6, 16), _at(Vector3(0, y0 + 0.8, 0)))
-	_p("intact", "glow", _cyl(1.25, H, 16), _at(Vector3(0, y0 + H * 0.5, 0)))
+	_p("keep", "steel", LookMeshKit.cyl(2.4, 2.4, 1.6, 16, 1), _at(Vector3(0, y0 + 0.8, 0)))
+	_p("intact", "glow", LookMeshKit.cyl(1.25, 1.25, H, 16, 1), _at(Vector3(0, y0 + H * 0.5, 0)))
 	for i in 8:
 		var a := TAU * float(i) / 8.0
 		_p("intact", "steel", Vector3(0.24, H + 0.4, 0.36), _at(Vector3(cos(a) * 1.9, y0 + H * 0.5, sin(a) * 1.9), Basis(Vector3.UP, -a)))
@@ -546,10 +528,10 @@ func _core(sink: float) -> void:
 	for k in 5:
 		var y := y0 + 1.6 + k * (H - 2.2) / 4.0
 		_p("intact", "red" if k == 2 else "steel", _ring(1.98, 0.16 if k == 2 else 0.12), _at(Vector3(0, y, 0)))
-	_p("intact", "black", _cyl(2.6, 1.4, 16), _at(Vector3(0, y0 + H + 0.6, 0)))
+	_p("intact", "black", LookMeshKit.cyl(2.6, 2.6, 1.4, 16, 1), _at(Vector3(0, y0 + H + 0.6, 0)))
 	_p("intact", "red", _ring(2.62, 0.12), _at(Vector3(0, y0 + H + 0.6, 0)))
-	_p("intact", "steel", _cyl(1.2, 2.2, 12, 0.22), _at(Vector3(0, y0 + H + 2.4, 0)))
-	_p("intact", "glow", _ball(0.5, 12, 6), _at(Vector3(0, y0 + H + 3.7, 0)))
+	_p("intact", "steel", LookMeshKit.cyl(0.22, 1.2, 2.2, 12, 1), _at(Vector3(0, y0 + H + 2.4, 0)))
+	_p("intact", "glow", LookMeshKit.ball(0.5, 12, 6), _at(Vector3(0, y0 + H + 3.7, 0)))
 	_shape("intact", _cyl_shape(2.6, H + 3.6), Vector3(0, y0 + (H + 3.6) * 0.5, 0))
 	# The two tanks lying on cradles either side, glowing pipes into the cage.
 	for sx in [-1.0, 1.0]:
@@ -557,10 +539,10 @@ func _core(sink: float) -> void:
 		var r := 1.35
 		var L := 5.4
 		var lie := Basis(Vector3.RIGHT, PI * 0.5)
-		_p("intact", "hull", _cyl(r, L, 16), _at(c, lie))
+		_p("intact", "hull", LookMeshKit.cyl(r, r, L, 16, 1), _at(c, lie))
 		for sz in [-1.0, 1.0]:
 			var cap := lie if sz > 0 else lie * Basis(Vector3.RIGHT, PI)     # domes out of each end
-			_p("intact", "hull", _ball(r, 16, 6, true), _at(c + Vector3(0, 0, L * 0.5 * sz), cap))
+			_p("intact", "hull", LookMeshKit.ball(r, 16, 6, -1.0, true), _at(c + Vector3(0, 0, L * 0.5 * sz), cap))
 			_p("keep", "black", Vector3(2.2, 1.0, 0.5), _at(Vector3(c.x, y0 + 0.5, 1.7 * sz)))
 		_p("intact", "red", _ring(r + 0.03, 0.12, 24), _at(c, lie))
 		_p("intact", "glow", Vector3(0.5, 0.14, L * 0.8), _at(c + Vector3(0, r + 0.02, 0)))
@@ -568,8 +550,8 @@ func _core(sink: float) -> void:
 		_pipe("intact", "steel", top, top + Vector3(0, 1.4, 0), 0.24)
 		_pipe("intact", "glow", top + Vector3(0, 1.4, 0), Vector3(1.9 * sx, top.y + 1.4, 0), 0.18)
 		_shape("intact", _box_shape(Vector3(2.8, 2.8, L + 2.6)), c)
-		_p("ruin", "black", _cyl(r, 2.0, 12), _at(c + Vector3(0, -0.4, 1.2 * sx), lie * Basis(Vector3.FORWARD, 0.4 * sx)))
-	_p("ruin", "black", _cyl(2.2, 1.0, 12), _at(Vector3(0, y0 + 2.1, 0)))
+		_p("ruin", "black", LookMeshKit.cyl(r, r, 2.0, 12, 1), _at(c + Vector3(0, -0.4, 1.2 * sx), lie * Basis(Vector3.FORWARD, 0.4 * sx)))
+	_p("ruin", "black", LookMeshKit.cyl(2.2, 2.2, 1.0, 12, 1), _at(Vector3(0, y0 + 2.1, 0)))
 	_shape("ruin", _cyl_shape(2.4, 2.6), Vector3(0, y0 + 1.3, 0))
 	_debris(14, 5.0, Vector2(0.7, 1.9))
 

@@ -138,7 +138,7 @@ func test_the_map_row_flashes_when_it_changes_hands() -> void:
 	WorldState.new_game(WorldState.STORY)
 	var panel := DevSettingsPanel.new()
 	add_child_autofree(panel)
-	panel.demo = { "world": ItemKit._read_json("res://content/core/worlds/port_desert.json"), "planet": {}, "town": null }
+	panel.demo = { "world": CoreContent.read_json("res://content/core/worlds/port_desert.json"), "planet": {}, "town": null }
 	panel.tabs.add_child(panel._map_tab())     # the Map page alone: the others want a real town
 	panel.tabs.current_tab = panel._map_page.get_index()
 	panel.visible = true

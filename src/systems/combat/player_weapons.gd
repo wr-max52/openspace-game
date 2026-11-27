@@ -42,6 +42,7 @@ const Ads := preload("res://src/systems/look/ads.gd")
 const WheelView := preload("res://src/ui/weapon_wheel_view.gd")
 const DigitalReticle := preload("res://src/ui/digital_reticle.gd")
 const BoltScene := preload("res://scenes/entities/bolt.tscn")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const LOOK_PATH := "res://content/look/hand_weapons.json"
 
 signal fired(weapon_id: String)
@@ -128,13 +129,13 @@ func setup(p: CharacterBody3D, a: PlayerAvatar, rig: Node3D, bolts_into: Node3D)
 	avatar = a
 	rig_node = rig
 	bolt_parent = bolts_into
-	look = CharacterKit._read_json(LOOK_PATH)
+	look = CoreContent.read_json(LOOK_PATH)
 	for id in holder.weapon_ids():
-		cfg[id] = GearUpgrades.apply(CharacterKit._read_json("res://content/core/weapons/%s.json" % id), id)
+		cfg[id] = GearUpgrades.apply(CoreContent.read_json("res://content/core/weapons/%s.json" % id), id)
 		if id != "energy_blade" and id != Welder.ITEM:
 			guns[id] = Weapon.new(cfg[id])
 	combo = SwordCombo.new(cfg.get("energy_blade", {}))
-	grenade_cfg = CharacterKit._read_json(Grenade.CFG_PATH)
+	grenade_cfg = CoreContent.read_json(Grenade.CFG_PATH)
 	seeker.configure(cfg.get(LAUNCHER, {}))
 	holder.can_draw = func(id): return WorldState.weapon_allowed(id)      # issue #200: a story save starts with the pistol only
 	_setup_wheel()
@@ -186,7 +187,7 @@ func run_action(id: String) -> bool:
 ## every upgrade on (the magazine keeps its rounds).
 func refit() -> void:
 	for id in guns:
-		cfg[id] = GearUpgrades.apply(CharacterKit._read_json("res://content/core/weapons/%s.json" % id), id)
+		cfg[id] = GearUpgrades.apply(CoreContent.read_json("res://content/core/weapons/%s.json" % id), id)
 		(guns[id] as Weapon).config = cfg[id]
 	seeker.configure(cfg.get(LAUNCHER, {}))
 
@@ -897,13 +898,13 @@ func on_clash() -> void:
 # ------------------------------------------------------------------ audio + hud
 
 func _build_sfx() -> void:
-	var sounds: Dictionary = CharacterKit._read_json(LOOK_PATH).get("sounds", {})
+	var sounds: Dictionary = CoreContent.read_json(LOOK_PATH).get("sounds", {})
 	var map := {
 		"swap": sounds.get("swap", ""), "blade_on": sounds.get("blade_on", ""),
 		"blade_off": sounds.get("blade_off", ""), "blade_swing": sounds.get("blade_swing", ""),
 		"blade_clash": sounds.get("blade_clash", ""), "blade_deflect": sounds.get("blade_deflect", ""),
 	}
-	var lk: Dictionary = CharacterKit._read_json(LOOK_PATH)
+	var lk: Dictionary = CoreContent.read_json(LOOK_PATH)
 	var blade_vol: Dictionary = lk.get("blade_volume", {})
 	for id in lk:
 		if lk[id] is Dictionary and str(lk[id].get("sound", "")) != "":

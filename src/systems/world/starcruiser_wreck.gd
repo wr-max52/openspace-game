@@ -296,23 +296,23 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 			out.append(rib[0])
 
 	# The entire lower deck is traversable; no invisible box across the breach.
-	_box(out, "lower_deck", Vector3(66, 2, 570), Vector3(0, DECK_Y - 1.0, 0), "rib")
+	_part_box(out, "lower_deck", Vector3(66, 2, 570), Vector3(0, DECK_Y - 1.0, 0), "rib")
 	out[-1]["floor"] = true
 	# Wreck cleanup: the floor runs on to the stern bulkhead, no pit at the top of the ramp.
-	_box(out, "lower_deck_stern", Vector3(66, 2, 12.6), Vector3(0, DECK_Y - 1.0, 291.2), "rib")
+	_part_box(out, "lower_deck_stern", Vector3(66, 2, 12.6), Vector3(0, DECK_Y - 1.0, 291.2), "rib")
 	out[-1]["floor"] = true
 	# An upper gallery only on the intact flank leaves the breach a tall atrium.
-	_box(out, "upper_gallery", Vector3(17, 1.4, 270), Vector3(-22, -4, 100), "rib")
+	_part_box(out, "upper_gallery", Vector3(17, 1.4, 270), Vector3(-22, -4, 100), "rib")
 	out[-1]["floor"] = true
 	for z in [-100.0, -40.0, 20.0, 80.0, 140.0, 200.0, 260.0]:
 		# Wreck poses: a stanchion stops short of any deck or ramp the pose hangs across it.
 		var top := _column_top(inner, Vector2(-29, z), 0.7, -23.5, 23.5)
-		_box(out, "stanchion_%d" % int(z), Vector3(1.4, top + 23.5, 1.4), Vector3(-29, (top - 23.5) * 0.5, z), "rib")
+		_part_box(out, "stanchion_%d" % int(z), Vector3(1.4, top + 23.5, 1.4), Vector3(-29, (top - 23.5) * 0.5, z), "rib")
 		# 2.2 m high, 1.1 m wide door frames (open, not painted doors).
 		for x in [-1.1, 1.1]:
-			_box(out, "door_%d_%s" % [int(z), str(x)], Vector3(0.18, 2.2, 0.22),
+			_part_box(out, "door_%d_%s" % [int(z), str(x)], Vector3(0.18, 2.2, 0.22),
 				Vector3(-18 + x, DECK_Y + 1.1, z), "marking")
-		_box(out, "lintel_%d" % int(z), Vector3(2.4, 0.18, 0.22),
+		_part_box(out, "lintel_%d" % int(z), Vector3(2.4, 0.18, 0.22),
 			Vector3(-18, DECK_Y + 2.3, z), "marking")
 
 	# Peeled, pointed fragments make an irregular fracture rather than a cut-out.
@@ -340,7 +340,7 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 		var h := 18.0 + sin(float(i) / 5.0 * PI) * 12.0
 		var radiator: Array = []
 		var rz := 104.0 + i * 29.0
-		_box(radiator, "radiator_%d" % i, Vector3(3, h, 11), Vector3(0, 39.0 + h * 0.5, rz), "rib")
+		_part_box(radiator, "radiator_%d" % i, Vector3(3, h, 11), Vector3(0, 39.0 + h * 0.5, rz), "rib")
 		# Issue #148: the bridge platform stands where one was; wreck poses: and
 		# none stands over the torn hatch, where its plates are gone.
 		var section := int(round((rz + 285.0) / 30.0))
@@ -349,13 +349,13 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 		out.append(radiator[0])
 	# Oxblood identification bands, kept to a few large, quiet accents.
 	for z in [-150.0, 135.0, 255.0]:
-		_box(out, "hull_band_%d" % int(z), Vector3(2.4, 17, 7),
+		_part_box(out, "hull_band_%d" % int(z), Vector3(2.4, 17, 7),
 			Vector3(-47, 0, z), "marking")
 	# Keep the same four engine positions and overall stern; detail only the bells.
 	# Layered housings, flared lips, recessed black throats and mechanical braces.
 	# There is deliberately no glow, exhaust, flame, light or powered animation.
-	_box(out, "buried_bow", Vector3(38, 50, 3), Vector3(0, 0, -299), "scorch")
-	_box(out, "stern_bulkhead", Vector3(68, 52, 3), Vector3(0, 0, 299), "hull")
+	_part_box(out, "buried_bow", Vector3(38, 50, 3), Vector3(0, 0, -299), "scorch")
+	_part_box(out, "stern_bulkhead", Vector3(68, 52, 3), Vector3(0, 0, 299), "hull")
 	for engine in 4:
 		var center := Vector3(-22 if engine % 2 == 0 else 22, -16 if engine < 2 else 16, 315)
 		var prefix := "engine_%d_" % engine
@@ -366,16 +366,16 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 		_engine_ring(out, prefix + "rim", center + Vector3(0, 0, 14), 15.2, 2.0, 2.4, "rib")
 		_engine_ring(out, prefix + "inner_lip", center + Vector3(0, 0, 11), 11.6, 0.9, 3, "nozzle")
 		_engine_ring(out, prefix + "throat", center + Vector3(0, 0, -1), 9.1, 1.6, 20, "nozzle")
-		_box(out, prefix + "dark_back", Vector3(17, 17, 1), center + Vector3(0, 0, -12), "nozzle")
+		_part_box(out, prefix + "dark_back", Vector3(17, 17, 1), center + Vector3(0, 0, -12), "nozzle")
 		for i in 12:
 			var a := TAU * i / 12.0
 			var radial := Vector3(cos(a), sin(a), 0)
 			var rot := Basis(Vector3.BACK, a)
-			_box(out, prefix + "brace_%d" % i, Vector3(1.1, 1.4, 19),
+			_part_box(out, prefix + "brace_%d" % i, Vector3(1.1, 1.4, 19),
 				center + radial * 14.0 + Vector3(0, 0, 2), "rib", rot)
-			_box(out, prefix + "vent_%d" % i, Vector3(0.7, 2.8, 4.8),
+			_part_box(out, prefix + "vent_%d" % i, Vector3(0.7, 2.8, 4.8),
 				center + radial * 12.5 + Vector3(0, 0, -6), "nozzle", rot)
-			_box(out, prefix + "vane_%d" % i, Vector3(4.3, 0.6, 0.9),
+			_part_box(out, prefix + "vane_%d" % i, Vector3(4.3, 0.6, 0.9),
 				center + radial * 5.3 + Vector3(0, 0, -10), "rib", Basis(Vector3.BACK, a + 0.3))
 	if variant.has("skip"):
 		return out.filter(func(p): return not _skipped(str(p.id), variant))
@@ -648,7 +648,7 @@ static func _wall_x(v: float, w: float, pose: Pose) -> float:
 ## frame), stored in the hull frame like every other part.
 static func _level(out: Array, id: String, size: Vector3, center: Vector3, finish: String,
 		pose: Pose, basis: Basis = Basis.IDENTITY) -> void:
-	_box(out, id, size, pose.hull(center), finish, pose.to_hull * basis)
+	_part_box(out, id, size, pose.hull(center), finish, pose.to_hull * basis)
 
 
 ## A level floor `thick` metres thick with its top at v.
@@ -751,11 +751,11 @@ static func _facet(out: Array, id: String, rx: float, ry: float, facet: int,
 	var p := Vector3(cos(a) * rx, sin(a) * ry, z)
 	var q := Vector3(cos(b) * rx, sin(b) * ry, z)
 	var edge := q - p
-	_box(out, id, Vector3(edge.length() + 0.5, thickness, length), (p + q) * 0.5,
+	_part_box(out, id, Vector3(edge.length() + 0.5, thickness, length), (p + q) * 0.5,
 		finish, Basis(Vector3.BACK, atan2(edge.y, edge.x)))
 
 
-static func _box(out: Array, id: String, size: Vector3, center: Vector3,
+static func _part_box(out: Array, id: String, size: Vector3, center: Vector3,
 		finish: String, basis: Basis = Basis.IDENTITY) -> void:
 	out.append({ "id": id, "size": size, "xf": Transform3D(basis, center), "finish": finish })
 
@@ -768,13 +768,13 @@ static func _engine_ring(out: Array, id: String, center: Vector3, radius: float,
 		var p := Vector3(cos(a), sin(a), 0) * radius
 		var q := Vector3(cos(b), sin(b), 0) * radius
 		var edge := q - p
-		_box(out, id + "_%d" % i, Vector3(edge.length() + 0.12, thickness, length),
+		_part_box(out, id + "_%d" % i, Vector3(edge.length() + 0.12, thickness, length),
 			center + (p + q) * 0.5, finish, Basis(Vector3.BACK, atan2(edge.y, edge.x)))
 
 
 static func _shard(out: Array, id: String, size: Vector3, center: Vector3,
 		finish: String, basis: Basis) -> void:
-	_box(out, id, size, center, finish, basis)
+	_part_box(out, id, size, center, finish, basis)
 	out[-1]["shard"] = true
 
 

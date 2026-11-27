@@ -30,11 +30,11 @@ static func build(parent: Node3D, xf: Transform3D, nr: float, fh: float, pal: Di
 	var tail := Color(str(pal.tail))
 	var mouth := minf(0.3, nr * 0.1)
 	var parts := [
-		[_cyl(nr * 0.95, nr * 0.95, mouth, seg + 8), _plume(hot.lerp(Color.WHITE, 0.5), 6.0, 1.0), -mouth * 0.5],
-		[_cyl(nr * 0.55, 0.0, fh * 0.4, seg), _plume(hot.lerp(Color.WHITE, 0.3), 5.0, 0.9), -fh * 0.2],
-		[_cyl(nr * 0.85, nr * 0.1, fh * 0.75, seg), _plume(hot.lerp(body, 0.5), 3.0, 0.6), -fh * 0.375],
-		[_cyl(nr * 1.05, 0.0, fh, seg), _plume(body.lerp(outer, 0.5), 2.2, 0.45), -fh * 0.5],
-		[_cyl(nr * 1.4, nr * 0.3, fh * 0.85, seg), _plume(tail, 1.4, 0.16), -fh * 0.5],
+		[LookMeshKit.cyl(nr * 0.95, nr * 0.95, mouth, seg + 8, 1), _plume(hot.lerp(Color.WHITE, 0.5), 6.0, 1.0), -mouth * 0.5],
+		[LookMeshKit.cyl(nr * 0.55, 0.0, fh * 0.4, seg, 1), _plume(hot.lerp(Color.WHITE, 0.3), 5.0, 0.9), -fh * 0.2],
+		[LookMeshKit.cyl(nr * 0.85, nr * 0.1, fh * 0.75, seg, 1), _plume(hot.lerp(body, 0.5), 3.0, 0.6), -fh * 0.375],
+		[LookMeshKit.cyl(nr * 1.05, 0.0, fh, seg, 1), _plume(body.lerp(outer, 0.5), 2.2, 0.45), -fh * 0.5],
+		[LookMeshKit.cyl(nr * 1.4, nr * 0.3, fh * 0.85, seg, 1), _plume(tail, 1.4, 0.16), -fh * 0.5],
 	]
 	for i in 4:
 		var s := SphereMesh.new()
@@ -67,13 +67,3 @@ static func _plume(color: Color, energy: float, alpha: float) -> StandardMateria
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return m
-
-
-static func _cyl(top: float, bottom: float, h: float, seg: int) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c

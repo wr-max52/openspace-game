@@ -6,6 +6,7 @@ extends Node
 ## them; this node only reads them every frame.
 
 const BodyAnimator := preload("res://src/systems/anim/body_animator.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const LOOK_PATH := "res://content/look/hand_weapons.json"
 
 var player: CharacterBody3D
@@ -46,7 +47,7 @@ func _ready() -> void:
 	if rig_node != null and rig_node.has_signal("view_changed"):
 		rig_node.view_changed.connect(_on_view_changed)
 		_on_view_changed(rig_node.rig.is_first_person())
-	var sounds: Dictionary = CharacterKit._read_json(LOOK_PATH).get("sounds", {})
+	var sounds: Dictionary = CoreContent.read_json(LOOK_PATH).get("sounds", {})
 	_steps = _player_for(str(sounds.get("step", "")), -14.0)
 	if _steps != null and _steps.stream is AudioStreamOggVorbis:
 		(_steps.stream as AudioStreamOggVorbis).loop = true

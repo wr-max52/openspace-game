@@ -75,15 +75,15 @@ func _build_look(size: Vector3, mats: LookMaterials) -> Node3D:
 	var snout := _mat(mats, Color(str(lk.get("snout", "#7a4e3a"))))
 	var dark := _mat(mats, Color(str(lk.get("dark", "#3a2a20"))))
 	var leg_h := size.y * 0.35
-	_box(root, Vector3(size.x, size.y * 0.65, size.z * 0.8), hide, Vector3(0, leg_h + size.y * 0.32, 0))
-	_box(root, Vector3(size.x * 0.8, size.y * 0.2, size.z * 0.7), belly, Vector3(0, leg_h + size.y * 0.05, 0))
-	_box(root, Vector3(size.x * 0.7, size.y * 0.55, size.z * 0.3), hide, Vector3(0, leg_h + size.y * 0.45, -size.z * 0.5))
-	_box(root, Vector3(size.x * 0.4, size.y * 0.25, size.z * 0.12), snout, Vector3(0, leg_h + size.y * 0.35, -size.z * 0.68))
+	LookMeshKit.mi(root, LookMeshKit.box(Vector3(size.x, size.y * 0.65, size.z * 0.8)), hide, Vector3(0, leg_h + size.y * 0.32, 0))
+	LookMeshKit.mi(root, LookMeshKit.box(Vector3(size.x * 0.8, size.y * 0.2, size.z * 0.7)), belly, Vector3(0, leg_h + size.y * 0.05, 0))
+	LookMeshKit.mi(root, LookMeshKit.box(Vector3(size.x * 0.7, size.y * 0.55, size.z * 0.3)), hide, Vector3(0, leg_h + size.y * 0.45, -size.z * 0.5))
+	LookMeshKit.mi(root, LookMeshKit.box(Vector3(size.x * 0.4, size.y * 0.25, size.z * 0.12)), snout, Vector3(0, leg_h + size.y * 0.35, -size.z * 0.68))
 	for sx in [-1.0, 1.0]:
-		_box(root, Vector3(0.12, 0.18, 0.06), dark, Vector3(sx * size.x * 0.25, leg_h + size.y * 0.78, -size.z * 0.5))
+		LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.12, 0.18, 0.06)), dark, Vector3(sx * size.x * 0.25, leg_h + size.y * 0.78, -size.z * 0.5))
 		for sz2 in [-1.0, 1.0]:
-			_box(root, Vector3(0.16, leg_h, 0.16), dark, Vector3(sx * size.x * 0.32, leg_h * 0.5, sz2 * size.z * 0.28))
-	_box(root, Vector3(0.06, 0.06, 0.3), dark, Vector3(0, leg_h + size.y * 0.5, size.z * 0.45))
+			LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.16, leg_h, 0.16)), dark, Vector3(sx * size.x * 0.32, leg_h * 0.5, sz2 * size.z * 0.28))
+	LookMeshKit.mi(root, LookMeshKit.box(Vector3(0.06, 0.06, 0.3)), dark, Vector3(0, leg_h + size.y * 0.5, size.z * 0.45))
 	return root
 
 
@@ -126,16 +126,6 @@ static func _mat(mats: LookMaterials, c: Color) -> Material:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	return m
-
-
-static func _box(root: Node3D, size: Vector3, mat: Material, at: Vector3) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.material_override = mat
-	mi.position = at
-	root.add_child(mi)
 
 
 # ------------------------------------------------------------------ frame

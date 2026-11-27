@@ -14,6 +14,8 @@ extends Node
 ## canisters) keeps it. Pure maths in end_for() and light_begin_for(), for tests.
 ## Low graphics' "draw" piece (apply_low_graphics) shortens every range it gave out by one scale.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LOOK_PATH := "res://content/look/world.json"
 const PERSON := "person"
 const BASE := "draw_distance_m"      ## meta: the range a node got, before `scale`
@@ -34,7 +36,7 @@ func _init() -> void:
 
 func setup(cfg: Dictionary = {}) -> void:
 	if cfg.is_empty():
-		cfg = ItemKit._read_json(LOOK_PATH).get("draw_distance", {})
+		cfg = CoreContent.read_json(LOOK_PATH).get("draw_distance", {})
 	fade_margin = float(cfg.get("fade_margin", fade_margin))
 	light_fade_m = float(cfg.get("light_fade_m", light_fade_m))
 	reach_x = float(cfg.get("reach_x", reach_x))

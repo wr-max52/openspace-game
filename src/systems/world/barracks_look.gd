@@ -17,6 +17,7 @@ extends Node3D
 ## Nothing here collides: the pieces are town boxes (BarracksHall.pieces).
 
 const ROOM_SHADER := preload("res://src/systems/look/shaders/cruiser_metal.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const FINISHES := { "console": 7, "screen": 12, "bridge": 9, "wall": 3, "deck": 2, "trim": 1 }   ## RemnantCruiser's
 const SHELL := ["back", "end_l", "end_r", "front_l", "front_r", "door_lintel", "roof"]   ## the kit draws these (plaster)
 
@@ -243,7 +244,7 @@ func _alarm_lamp(at: Vector3, basis: Basis) -> OmniLight3D:
 ## The draw distance of an outpost's control room (content/look/world.json room_m).
 func _near_only(n: Node3D) -> void:
 	if _draw.is_empty():
-		_draw = ItemKit._read_json(DrawDistance.LOOK_PATH).get("draw_distance", {})
+		_draw = CoreContent.read_json(DrawDistance.LOOK_PATH).get("draw_distance", {})
 	var end := float(_draw.get("room_m", 50.0))
 	n.set_meta(DrawDistance.BASE, end)
 	if n is Light3D:
