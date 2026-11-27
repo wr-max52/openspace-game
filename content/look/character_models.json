@@ -849,7 +849,8 @@
     "flatten": [],
     "reweight": {
       "to": "Spine1",
-      "radius": 0.11
+      "radius": 0.11,
+      "hand_radius": 0.25
     },
     "cut": [
       {

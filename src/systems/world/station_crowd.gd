@@ -33,7 +33,6 @@ const BodyAnimatorT := preload("res://src/systems/anim/body_animator.gd")
 const CoreContentScript := preload("res://src/systems/dataload/core_content.gd")
 const LAYER_ENEMIES := 1 << 3
 const CYCLE := 24
-const ARMS := ["l_shoulder", "l_elbow", "l_wrist", "r_shoulder", "r_elbow", "r_wrist"]
 const UP := Vector3.UP
 
 var station                         ## SpaceStation
@@ -153,8 +152,7 @@ func _add(floor_id: String) -> void:
 		"speed": _rng.randf_range(float(sp[0]), float(sp[1])), "phase": _rng.randf() * TAU, "moving": false,
 		"legs": [], "hp": float(cfg.get("person_hp", 60)), "dead": false, "back_at": 0.0, "fighter": null,
 		"ragdoll": null, "armed": _rng.randf() < float(own.get("armed_share", cfg.get("armed_share", 0.5))), "shown": false, "shadow": true,
-		"meshes": body.find_children("*", "GeometryInstance3D", true, false), "home": floor_id, "rest": body.transform,
-		"still_arms": bool(own.get("still_arms", false)) }
+		"meshes": body.find_children("*", "GeometryInstance3D", true, false), "home": floor_id, "rest": body.transform }
 	p.hit = _hit_for(p)
 	people.append(p)
 	_place(p)
@@ -163,8 +161,6 @@ func _add(floor_id: String) -> void:
 ## A floor's own crowd settings (the config's "floor_crowd" block): the looks
 ## those who live there wear and their armed_share instead of the crowd's, and
 ## whether the floor is private (its people stay home and nobody else goes up).
-## still_arms: their arms keep the pose they were built in (the barge boss's rig
-## weights the pipes on its belly to its arms, so a swung arm drags them out).
 func floor_cfg(floor_id: String) -> Dictionary:
 	return (cfg.get("floor_crowd", {}) as Dictionary).get(floor_id, {})
 
@@ -278,10 +274,7 @@ func _pose(p: Dictionary) -> void:
 		else (BodyAnimatorT.cower_pose() if bool(p.get("cower", false)) else _stand)
 	var joints: Dictionary = body.get_meta("joints")
 	var jr: Dictionary = fr.joints
-	var still := bool(p.get("still_arms", false))
 	for jn in jr:
-		if still and ARMS.has(jn):
-			continue                    # the barge boss's rig drags its belly pipes with a swung arm
 		var j = joints.get(jn)
 		if j != null:
 			(j as Node3D).rotation_degrees = jr[jn]
