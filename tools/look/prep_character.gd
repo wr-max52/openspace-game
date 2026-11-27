@@ -12,7 +12,8 @@ extends SceneTree
 ##   it leaves a hole, while flattening it leaves a closed patch of coat leather.
 ## - reweight: auto-rigging weights some of the long coat to the arms, so raising an
 ##   arm drags a plank of coat up with it. Any arm-chain influence on a vertex farther
-##   than `radius` from that bone's segment moves to `to` (the hips).
+##   than `radius` from that bone's segment moves to `to` (the hips); `hand_radius`,
+##   if set, for the hand and finger bones (a spread hand reaches farther).
 ## - cut: drop every triangle whose centroid falls in a box (mesh space, metres).
 ## - drop the small loose islands a cut leaves behind.
 ## - emission: attach the separate glow texture (goggles, wrist lights).
@@ -518,6 +519,14 @@ func _reweight(arr: Array, mi: MeshInstance3D, r: Dictionary) -> void:
 			if str(nm).begins_with(side + "Hand"):
 				seg[by_name[nm]] = [head[hand], tip]
 	var radius := float(r.get("radius", 0.11))
+	# A spread hand reaches farther from its segment than an arm does: past `radius`
+	# its fingertips went to `to` and stayed where the hand was bound, stretched into
+	# bars once the arm came down (the barge duke's thumbs).
+	var hand_radius := float(r.get("hand_radius", radius))
+	var hand_binds := {}
+	for nm in by_name:
+		if str(nm).begins_with("LeftHand") or str(nm).begins_with("RightHand"):
+			hand_binds[by_name[nm]] = true
 	var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 	var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
 	var weights: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
@@ -531,7 +540,7 @@ func _reweight(arr: Array, mi: MeshInstance3D, r: Dictionary) -> void:
 				continue
 			var s: Array = seg[bones[j]]
 			var p := Geometry3D.get_closest_point_to_segment(v[i], s[0], s[1])
-			if p.distance_to(v[i]) > radius:
+			if p.distance_to(v[i]) > (hand_radius if hand_binds.has(bones[j]) else radius):
 				bones[j] = to
 				hit = true
 		if hit:
