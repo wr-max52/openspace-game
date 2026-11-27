@@ -70,6 +70,8 @@ var cfg: Dictionary = {}
 var labels: Dictionary = {}
 var menu: DroidMenu
 var companions: Dictionary = {}     ## uid -> DroidUnit (yours, following)
+const HOLD_ICON := "res://assets/ui/menu_icons/droid.svg"         ## the hold menu's "In the droid" heading
+const BACKPACK_ICON := "res://assets/ui/menu_icons/backpack.svg"  ## and its "In your backpack" heading
 const LENT_UID := -310               ## issue #310: a borrowed droid's uid (never a roster uid)
 var lent: Dictionary = {}            ## issue #310: the droid a heist lends you: { kind, variant } ({} = none)
 var lent_down := false               ## ... it was knocked out: it is gone for this heist
@@ -323,7 +325,7 @@ func interact() -> String:
 			return "menu"
 		"cargo":
 			var opts := hold_options(int(focus.uid))
-			if opts.is_empty():
+			if not has_hold_actions(opts):
 				_toast(_l("empty_hold"))
 				return ""
 			_open_hold(int(focus.uid), opts)
@@ -575,31 +577,21 @@ func _on_make_room(id: String, then: Callable, declined: Callable) -> void:
 ## A cargo droid's hold menu. keep_cursor: reopened after a stash, so you can stash
 ## one more without starting over.
 func _open_hold(uid: int, opts: Array, keep_cursor := false) -> void:
-	var d := roster().find(uid)
-	_open_menu(_l("menu_hold") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)], opts, _on_hold.bind(uid), keep_cursor)
+	_open_menu(_l("menu_hold"), opts, _on_hold.bind(uid), keep_cursor)
 
 
-## Stash what the hold has a slot for (or already holds some of), take back what it
-## holds, and unload. Enter (or "Stash one" / "Take one") moves one of a stack;
-## Shift+Enter (or "Stash all" / "Take all") the whole stack. "Unload everything"
-## shows once the hold has more than one kind.
+## Two sections, each under a heading with its icon: what the droid holds (take it
+## back, or unload; "The droid is empty." when it holds nothing), then what is in
+## your backpack that the hold has a slot for (or already holds some of). Enter (or
+## "Take one" / "Stash one") moves one of a stack; Shift+Enter (or "Take all" /
+## "Stash all") the whole stack. "Unload everything" shows once the hold has more
+## than one kind. Headings and notes can not be picked (has_hold_actions).
 func hold_options(uid: int) -> Array:
 	var out := []
 	var inv := WorldState.inventory
 	var d := roster().find(uid)
-	for id in inv.item_ids():
-		if not DroidRoster.hold_has_room(d, str(id)):
-			continue
-		var it: Dictionary = WorldState._item(str(id))
-		var row := { "id": "stash:" + str(id), "text": _l("stash") % [str(it.get("label", id)), inv.count(str(id))] }
-		if inv.count(str(id)) > 1:
-			row["alt"] = "stash_all:" + str(id)
-			row["alt_hint"] = _l("stash_all_hint")
-			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_one_button") },
-				{ "id": "stash_all:" + str(id), "text": _l("stash_all_button") }]
-		else:
-			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_button") }]
-		out.append(row)
+	out.append({ "id": "", "heading": true, "icon": HOLD_ICON,
+		"text": _l("hold_section_droid") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)] })
 	var held: Array = []
 	var cargo_ids: Array = d.get("cargo", {}).keys()
 	cargo_ids.sort()
@@ -616,9 +608,39 @@ func hold_options(uid: int) -> Array:
 		else:
 			row["buttons"] = [{ "id": "take:" + str(id), "text": _l("take_button") }]
 		out.append(row)
-	if held.size() > 1:
+	if held.is_empty():
+		out.append({ "id": "", "note": true, "text": _l("hold_section_droid_empty") })
+	elif held.size() > 1:
 		out.append({ "id": "unload", "text": _l("unload") % ", ".join(held) })
+	out.append({ "id": "", "heading": true, "icon": BACKPACK_ICON,
+		"text": _l("hold_section_backpack") % [inv.slots_used(), Inventory.backpack_slots()] })
+	var stashable := 0
+	for id in inv.item_ids():
+		if not DroidRoster.hold_has_room(d, str(id)):
+			continue
+		stashable += 1
+		var it: Dictionary = WorldState._item(str(id))
+		var row := { "id": "stash:" + str(id), "text": _l("stash") % [str(it.get("label", id)), inv.count(str(id))] }
+		if inv.count(str(id)) > 1:
+			row["alt"] = "stash_all:" + str(id)
+			row["alt_hint"] = _l("stash_all_hint")
+			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_one_button") },
+				{ "id": "stash_all:" + str(id), "text": _l("stash_all_button") }]
+		else:
+			row["buttons"] = [{ "id": "stash:" + str(id), "text": _l("stash_button") }]
+		out.append(row)
+	if stashable == 0:
+		out.append({ "id": "", "note": true,
+			"text": _l("hold_section_backpack_empty" if inv.item_ids().is_empty() else "hold_section_backpack_no_room") })
 	return out
+
+
+## Some row of `opts` can be picked (not just headings and notes).
+static func has_hold_actions(opts: Array) -> bool:
+	for o in opts:
+		if not bool(o.get("heading", false)) and not bool(o.get("note", false)):
+			return true
+	return false
 
 
 func _on_hold(id: String, uid: int) -> void:
@@ -637,7 +659,7 @@ func _on_hold(id: String, uid: int) -> void:
 			if gear != null:
 				gear.sync_gear()        # a jetpack back in your pack goes on your back
 			var opts := hold_options(uid)
-			if not opts.is_empty():
+			if has_hold_actions(opts):
 				_open_hold(uid, opts, true)     # stay open: take the next one
 		else:
 			_toast(_l("take_no_room") % label)
@@ -652,7 +674,7 @@ func _on_hold(id: String, uid: int) -> void:
 			if gear != null:
 				gear.sync_gear()        # a stashed jetpack comes off your back
 			var opts := hold_options(uid)
-			if not opts.is_empty():
+			if has_hold_actions(opts):
 				_open_hold(uid, opts, true)     # stay open: stash the next one
 		elif not DroidRoster.hold_has_room(d, item):
 			_toast(_l("hold_full") % [d.get("cargo", {}).size(), DroidRoster.cargo_slots(d)])
