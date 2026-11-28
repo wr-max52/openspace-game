@@ -243,6 +243,69 @@ func test_boost_works_in_the_air() -> void:
 	assert_gt(plain.speed, 22.0, "and off a ramp without the lifter")
 
 
+func test_w_s_tilt_only_under_the_lifter() -> void:
+	var g := WorldGround.new()
+	g.setup({ "terrain": { "extent": 2000.0 } })
+	var ground := HoverModel.new(cfg, g)
+	ground.place(Vector3(500, 0, 0), 0.0)
+	ground.set_command(1.0, 0.0)
+	var jump := HoverModel.new(cfg, g)
+	jump.place(Vector3(600, 0, 0), 0.0)
+	jump.airborne = true
+	jump.position.y = 30.0
+	jump.speed = 20.0
+	jump.set_command(-1.0, 0.0)
+	for i in 30:
+		ground.step(1.0 / 60.0)
+		jump.step(1.0 / 60.0)
+	assert_eq(ground.air_pitch, 0.0, "no tilt on the ground")
+	assert_eq(jump.air_pitch, 0.0, "nor off a plain jump")
+	var lifted := _lifter_model()
+	lifted.lift()
+	lifted.set_command(-1.0, 0.0)
+	for i in 30:
+		lifted.step(1.0 / 60.0)
+	assert_gt(lifted.air_pitch, 0.2, "under the lifter S lifts the nose")
+	lifted.drop_lift()
+	lifted.position.y += 50.0
+	for i in 30:
+		lifted.step(1.0 / 60.0)
+	assert_eq(lifted.air_pitch, 0.0, "and it levels out when the lifter lets go")
+
+
+func test_boost_in_the_air_goes_where_the_nose_points() -> void:
+	# Nose up + boost climbs far faster than nose up alone; nose down + boost dives.
+	var plain := _lifter_model()
+	var boosted := _lifter_model()
+	var dive := _lifter_model()
+	for m in [plain, boosted, dive]:
+		m.speed = 30.0
+		m.airborne = true
+		m.position.y += 20.0
+		m.lift()
+	plain.set_command(-1.0, 0.0)
+	boosted.set_command(-1.0, 0.0, true)
+	dive.set_command(1.0, 0.0, true)
+	var y0 := plain.position.y
+	for i in 60:
+		for m in [plain, boosted, dive]:
+			m.step(1.0 / 60.0)
+	assert_gt(boosted.position.y - y0, (plain.position.y - y0) * 2.0, "boost climbs along a raised nose")
+	assert_lt(dive.vy, -5.0, "and dives along a lowered one")
+	# A/D + boost turns the way it goes, not only the nose.
+	var turn := _lifter_model()
+	turn.speed = 30.0
+	turn.lift()
+	turn.set_command(0.0, 1.0, true)
+	var before := turn.velocity()
+	for i in 60:
+		turn.step(1.0 / 60.0)
+	var v := turn.velocity()
+	var flat := Vector3(v.x, 0.0, v.z).normalized()
+	assert_gt(flat.angle_to(Vector3(before.x, 0.0, before.z).normalized()), 0.2, "D + boost carries it round")
+	assert_almost_eq(flat.dot(turn.forward()), 1.0, 0.01, "moving the way it faces")
+
+
 func test_off_a_cliff_the_lifter_keeps_it_up_longer() -> void:
 	var a := _lifter_model()
 	var b := _lifter_model()

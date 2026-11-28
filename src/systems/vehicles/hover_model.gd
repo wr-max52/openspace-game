@@ -31,14 +31,13 @@ extends RefCounted
 ## it lands. Then it falls as usual, and the lifter recharges for recharge_s times
 ## the share of float_s it was on (at least min_recharge_s).
 ##
-## In the air, any speeder: W/S tilt the nose down/up (`air_pitch`, up to
-## air_pitch_deg, back to level when let go) and boost still pushes it on toward
-## boost_speed, at air_boost_scale of its accel, with no throttle needed (W is the
-## tilt up there). Boosting under the lifter climbs or sinks boost_climb times as
-## fast. Without the lifter the tilt is only for the eye: gravity has the height.
-## On the ground W/S tip the nose a little too (`ground_pitch`, up to
-## ground_pitch_deg at ground_pitch_rate_deg a second), for the eye only, so the
-## tilt shows without a jump or the lifter.
+## Under the Grav Lifter, and only then, W/S tilt the nose down/up (`air_pitch`,
+## up to air_pitch_deg, back to level when let go or when the lifter lets go). On
+## the ground and off a plain jump W/S do not tilt it. In the air boost pushes it
+## the way the nose points, toward boost_speed at air_boost_scale of its accel,
+## with no throttle needed: A/D turn the nose (and the way it goes), and under the
+## lifter a tilted nose climbs or dives along it (at least boost_climb times the
+## plain climb), so W/A/S/D + boost flies it where it faces.
 ##
 ## Issue #77: on the home planet's ball "up" turns with the ground. The heading is
 ## a direction slid along the ground as it drives (so straight stays straight round
@@ -74,8 +73,7 @@ var air_time := 0.0                  ## of the current (or last) jump
 var top_height := 0.0                ## highest clearance over the ground on the last jump
 var float_left := 0.0                ## issue #95: seconds the Grav Lifter has left this lift (gravity off)
 var lift_cooldown := 0.0             ## issue #95: until the Grav Lifter can fire again
-var air_pitch := 0.0                 ## radians, nose up +, in the air only (W/S tilt it); 0 on the ground
-var ground_pitch := 0.0              ## radians, nose up +, the small W/S tip on the ground (for the eye only); eases to 0 in the air
+var air_pitch := 0.0                 ## radians, nose up +, under the Grav Lifter only (W/S tilt it); 0 otherwise
 var _float_used := 0.0               ## seconds the lifter has been on this lift (sets the recharge)
 var tow := 0.0                       ## issue #618: 0..1, how far into another speeder's draft it is (its node sets it)
 var drift_dir := Vector3.ZERO        ## issue #627: where a drift is carrying it (along the ground; ZERO = not drifting)
@@ -385,12 +383,15 @@ func _drive(dt: float) -> void:
 		rate = p("brake", 34.0)
 	if not airborne and not drift:
 		speed = move_toward(speed, target, rate * dt)    # issue #627: a drift holds the speed it had
-	# The air: W/S tilt the nose (down/up), back to level when let go; boost still
-	# pushes it on; under the lifter the tilt also trades height for speed.
+	# The air: under the lifter W/S tilt the nose (down/up), back to level when let
+	# go or when the lifter lets go. Boost pushes it on the way the nose points (its
+	# climb or dive is in _hover); without boost the lifter's tilt trades height
+	# for speed.
 	if airborne:
-		air_pitch = move_toward(air_pitch, -throttle * deg_to_rad(p("air_pitch_deg", 25.0)), deg_to_rad(p("air_pitch_rate_deg", 110.0)) * dt)
+		var want := -throttle * deg_to_rad(p("air_pitch_deg", 25.0)) if lifting() else 0.0
+		air_pitch = move_toward(air_pitch, want, deg_to_rad(p("air_pitch_rate_deg", 110.0)) * dt)
 		if boost:
-			speed = move_toward(speed, p("boost_speed", 52.0), p("accel", 16.0) * p("air_boost_scale", 0.6) * dt)
+			speed = move_toward(speed, p("boost_speed", 52.0) * cos(air_pitch), p("accel", 16.0) * p("air_boost_scale", 0.6) * dt)
 		elif lifting() and not drift:
 			var f := tilt()
 			var push := p("accel", 16.0) * float(lifter().get("tilt_accel", 0.5)) * absf(f) * dt
@@ -400,8 +401,6 @@ func _drive(dt: float) -> void:
 				speed = move_toward(speed, 0.0, push)                 # nose up: it bleeds off
 	else:
 		air_pitch = 0.0
-	var gp := 0.0 if airborne else -throttle * deg_to_rad(p("ground_pitch_deg", 6.0))
-	ground_pitch = move_toward(ground_pitch, gp, deg_to_rad(p("ground_pitch_rate_deg", 40.0)) * dt)
 	# Turning: quicker when slow, a little in the air, faster in a drift.
 	var k := clampf(absf(speed) / maxf(p("max_speed", 36.0), 1.0), 0.0, 1.0)
 	var turn := deg_to_rad(lerpf(p("turn_rate_deg", 110.0), p("turn_rate_fast_deg", 62.0), k))
@@ -512,8 +511,15 @@ func _hover(dt: float) -> void:
 			var h := lifter()
 			float_left = maxf(0.0, float_left - dt)
 			_float_used += dt
-			var climb := float(h.get("climb", 3.0)) * (float(h.get("boost_climb", 1.6)) if boosting() else 1.0)
-			vy = lerpf(vy, tilt() * climb, clampf(dt * float(h.get("hold_damp", 2.0)), 0.0, 1.0))
+			var climb := float(h.get("climb", 3.0))
+			var want := tilt() * climb
+			if boosting():
+				# Boost flies it where the nose points: the climb (or dive) that keeps
+				# it moving along the nose, at least boost_climb times the plain one.
+				var along := speed * tan(air_pitch)
+				var least := want * float(h.get("boost_climb", 1.6))
+				want = along if absf(along) > absf(least) else least
+			vy = lerpf(vy, want, clampf(dt * float(h.get("hold_damp", 2.0)), 0.0, 1.0))
 			if float_left <= 0.0:
 				_end_lift(true)            # its time is up
 		else:

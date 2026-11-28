@@ -19,8 +19,6 @@
   "air_turn_scale": 0.25,
   "air_pitch_deg": 25.0,
   "air_pitch_rate_deg": 110.0,
-  "ground_pitch_deg": 6.0,
-  "ground_pitch_rate_deg": 40.0,
   "air_boost_scale": 0.6,
   "boost_time": 4.0,
   "boost_recharge": 0.4,
