@@ -2362,3 +2362,24 @@ Issue #875 (epic #873): the red desert world.
 - **The town's people are a soldier swap.** `locals` rewrites the generated
   markers' soldier ids, so a new look is a profile and an archetype, not code.
 
+
+## A sister station is a copy with its look and its dressing laid over (2026-11-28)
+
+Issue #876 (epic #873): the red system's ring station and cruiser.
+
+- **Copy the numbers, override the colours.** The station file copies the home
+  ring station's towers, rooms, bay and owners, so the hull, the dock path and
+  the Remnant deck are the same code paths, already tested. What makes it its own
+  is three blocks: `look` (the metal shader's colours), `fill.dressing` (the
+  shared station palette, name by name) and `fill.top_floors` (room finishes).
+  A data test fails if a copied block drifts from the home station's.
+- **Colours lay over the shared palette, they do not replace it.** A name the
+  station leaves out keeps `dressing.json`'s colour, so a new palette entry for
+  the home station reaches the sister station too.
+- **Its own place, on no front.** The deck is `station_dark_station`, taken for
+  good like the home station's was before the belt front, and the cruiser does
+  not lock the red front's outposts: the red world's outposts stay takeable from
+  the first day, and the station and the cruiser are the next two fights up.
+- **Placed beside the climb, not on it.** 450 m off the town's middle at 1000 m,
+  so a ship lifting straight out of the pit never meets its engine deck, and
+  4.8 km from the cruiser, so Z never has two dock targets at once.

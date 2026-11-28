@@ -1,6 +1,6 @@
 {
   "id": "port_red",
-  "note": "Issues #874 and #875: the red system's main world, the planet a warp points you at. A generated ball 80% the home world's size (sphere_radius) on the red_desert type, in the red system (near its sun), so it hangs in no sky of the home system. About half of it (the side the map calls south, longitude -90 to 90) is mountain country: close-packed pockets of the home world's climbable mountains in the planet's red rock, with valleys between them wide enough for a speeder road and six tunnel ranges; the other half is open red dunes, where the native packs camp and the party barge is moored. The port city sits at the north pole, on the edge of the mountain half: a big generated town built tall (town_kit) in the planet's own dark red stone (style), its people in the red locals' look (locals). Five Remnant outposts are a Territory front ('red'); climbing out of the air starts the orbital skirmish. Issue #877 adds the mountain towns, #882 the roads and races, #878 the worm. See docs/planets/PLANETS.md.",
+  "note": "Issues #874 and #875: the red system's main world, the planet a warp points you at. A generated ball 80% the home world's size (sphere_radius) on the red_desert type, in the red system (near its sun), so it hangs in no sky of the home system. About half of it (the side the map calls south, longitude -90 to 90) is mountain country: close-packed pockets of the home world's climbable mountains in the planet's red rock, with valleys between them wide enough for a speeder road and six tunnel ranges; the other half is open red dunes, where the native packs camp and the party barge is moored. The port city sits at the north pole, on the edge of the mountain half: a big generated town built tall (town_kit) in the planet's own dark red stone (style), its people in the red locals' look (locals). Five Remnant outposts are a Territory front ('red'); climbing out of the air starts the orbital skirmish. Issue #876 hangs a ring station over the port and a Remnant cruiser in its sky; #877 adds the mountain towns, #882 the roads and races, #878 the worm. See docs/planets/PLANETS.md.",
   "name": "",
   "type": "red_desert",
   "system": "red_reach",
@@ -512,6 +512,32 @@
       ],
       "yaw_deg": 175,
       "clear": 60
+    },
+    {
+      "id": "dark_station",
+      "kind": "station",
+      "station": "dark_station",
+      "at": [
+        450,
+        0,
+        0
+      ],
+      "altitude": 1000,
+      "yaw_deg": 0,
+      "note": "Issue #876: the red system's ring station (content/core/stations/dark_station.json), hung over the port city: 'at' is 450 m east along the ball from the town's middle, so a ship climbing straight out of the pit passes beside it, not into its engine deck, and from the street it stands high overhead; 'altitude' is metres over the ball's radius, under this sky's cloud deck (1250 m), so you see it from town on a clear day and fly up to it without leaving the air. Its bay's mouth turns toward the port (StationHull.frame_for). Its Remnant deck is the Territory place 'station_dark_station'."
+    },
+    {
+      "id": "red_cruiser",
+      "kind": "cruiser",
+      "cruiser": "red_cruiser",
+      "at": [
+        -2600,
+        0,
+        0
+      ],
+      "altitude": 3000,
+      "yaw_deg": 0,
+      "note": "Issue #876: the red system's Remnant star cruiser (content/core/cruiser/red_cruiser.json, the home one's ship), holding about 3 km out from the station on the far side of the port, past the bay's mouth: 'at' is 2.6 km west along the ball from the town's middle, 'altitude' metres over the ball's radius, over the cloud deck (1250 m) and under the black of space (3500 m), so it hangs in this sky as you climb, its escort meets you when you fly for it, and its bay is this scene. Arriving on the warp you come in at 2600 m, 3.25 km out (the red_desert type's arrival), so it is in view as you drop toward the port."
     }
   ],
   "barge": {
