@@ -348,3 +348,86 @@ func test_player_health_regens_and_downs() -> void:
 	assert_eq(body.health.hp, body.max_health)
 	body.apply_damage(50.0)
 	assert_eq(body.health.hp, body.max_health, "a grace period after waking up")
+
+
+## A squad on the same alarm leaves its cover to hunt one by one: each guard's
+## delay is hunt_after_s plus its own share of hunt_stagger_s.
+func test_a_squad_comes_out_to_hunt_staggered() -> void:
+	var starts: Array = []
+	var lo := 0.0
+	var hi := 0.0
+	for k in 6:
+		var b := GuardBrain.new(prof, 11 + k * 7)
+		b.patrol_points = [Vector3(95, 0, 9)]
+		b.pos = Vector3(95, 0, 9)
+		b.visible = false
+		b.alarm_pos = Vector3(110, 0, 4)
+		b.engage()
+		lo = b.c("hunt_after_s", 6.0)
+		hi = lo + b.c("hunt_stagger_s", 0.0)
+		var t := 0.0
+		while t < hi + 2.0 and not b.hunting():
+			b.want_cover = false
+			b.cover = Vector3.INF
+			_run(b, DT)
+			t += DT
+		assert_true(b.hunting(), "guard %d hunts in the end" % k)
+		starts.append(t)
+	assert_gt(hi, lo, "the profile staggers them")
+	for t in starts:
+		assert_between(t, lo - 0.1, hi + 0.1, "between hunt_after_s and that plus hunt_stagger_s")
+	assert_gt(starts.max() - starts.min(), 1.5, "not all at once (%s)" % [starts])
+
+
+## A hunter who spots them pops out shooting, then chases: once they break sight
+## it runs at where they were, never back to cover.
+func test_a_hunter_who_finds_you_shoots_then_chases() -> void:
+	var b := _brain()
+	b.visible = false
+	b.alarm_pos = Vector3(110, 0, 4)
+	b.engage()
+	for i in 60 * 30:
+		b.want_cover = false
+		b.cover = Vector3.INF
+		_run(b, DT)
+		if b.hunting():
+			break
+	assert_true(b.hunting(), "hunting first")
+	b.visible = true
+	b.target_pos = b.pos + Vector3(10, 0, 4)
+	var fired := false
+	for i in 60 * 2:
+		_run(b, DT)
+		fired = fired or b.fire
+	assert_true(fired, "pops out shooting")
+	assert_true(b.chasing(), "and is after them")
+	var seen_at: Vector3 = b.target_pos
+	b.last_seen = seen_at
+	b.alarm_pos = seen_at          # the garrison shares the newest sighting
+	b.visible = false
+	var asked_cover := false
+	var ran := false
+	var start := b.pos
+	for i in 60 * 3:
+		_run(b, DT)
+		asked_cover = asked_cover or b.want_cover
+		if b.go_to != Vector3.INF and b.sprint and Vector2(b.go_to.x - seen_at.x, b.go_to.z - seen_at.z).length() < 1.0:
+			ran = true
+	assert_false(asked_cover, "no going back to cover")
+	assert_true(ran, "runs at where they were")
+	assert_lt(b.pos.distance_to(seen_at), start.distance_to(seen_at) - 2.0, "and closes on it")
+
+
+## A guard who never hunted (in cover when they appear) still fights from cover:
+## the chase is a hunter's.
+func test_from_cover_it_still_goes_to_cover() -> void:
+	var b := _brain()
+	b.visible = true
+	b.target_pos = b.pos + Vector3(12, 0, 0)
+	b.engage()
+	var asked := false
+	for i in 60 * 2:
+		_run(b, DT)
+		asked = asked or b.want_cover
+	assert_false(b.chasing())
+	assert_true(asked, "after its opening burst it wants cover")
