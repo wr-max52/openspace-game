@@ -702,7 +702,11 @@ static func supply_target() -> String:
 	for id in Story.OUTPOSTS:
 		if short(str(id)) and bool(WorldState.quests.get(quest_id(str(id)), {}).get("waypoint", false)):
 			return str(id)
-	for id in clocked_outposts():
+	# Issue #886: each cantina sends you to its own planet's outposts: the station
+	# city's to the belt's skimmers, the port's Oda to the desert's.
+	var f := here()
+	var pool: Array = outposts(f) if clocked_by_barracks(f) else Story.OUTPOSTS
+	for id in pool:
 		if short(str(id)) and (best == "" or hold_left(str(id)) < hold_left(best)):
 			best = str(id)
 	return best

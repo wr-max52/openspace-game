@@ -666,3 +666,19 @@ func test_taking_the_interceptor_raises_the_decks_alarm() -> void:
 	t.pilot._steal(i)
 	assert_true(g.alarm.active(), "taking its ship sets off the deck's alarm")
 	assert_true(bool(t.pilot.berths[i].stolen), "stolen")
+
+
+## Issue #886: a supply run to a skimmer points at its bay.
+func test_the_supply_runs_pointer_finds_the_skimmers_bay() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	var hud := ObjectiveHud.new()
+	hud.demo = t
+	add_child_autofree(hud)
+	var at: Vector3 = hud.where("outpost:station_skimmer_east")
+	assert_ne(at, Vector3.INF, "the pointer has somewhere to go")
+	assert_lt(at.distance_to(s.objective_point("bay")), 0.01, "the skimmer's bay")
+	assert_eq(hud.where("outpost:station_nowhere"), Vector3.INF, "a station that is not here: nowhere")
