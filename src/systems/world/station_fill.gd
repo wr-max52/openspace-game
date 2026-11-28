@@ -2607,7 +2607,7 @@ const TOP_FLOORS := { "bridge": ["plate", "#3e434a"], "cantina": ["woodfloor", "
 
 ## The main tower's top floor: its open rooms by use in turn (the fill block's
 ## "rooms": bridge, cantina, barracks, lounge, garden), a marble runner round the
-## walkway. The look only: issue #314 brings the people who work and drink here.
+## walkway. The look only: the people are StationRemnant's top posts (issue #314).
 func _top(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 	var r0 := hull.gap_r + hull.walk + 0.4
 	var r1 := float(f.r) - StationHull.WALL

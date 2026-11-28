@@ -1,0 +1,16 @@
+{
+  "id": "station_off_duty",
+  "base": "cruiser_trooper",
+  "label": "Off-duty trooper",
+  "note": "Issue #314: a Remnant trooper off duty in the ring station's top-floor barracks (content/core/stations/orbital_station.json 'remnant' 'top'), standing round the card tables. Slower to notice you and to react than a trooper on duty, and they fight where they stand (hold_ground): no navmesh aboard, so they never run across the station. Part of the station's Remnant: the station is taken only once they are dead too. Only the blocks below differ from cruiser_trooper.json.",
+  "hp": 70,
+  "perception": {
+    "sight_range": 30.0,
+    "fov_deg": 110.0,
+    "reaction_s": 1.1
+  },
+  "combat": {
+    "hold_ground": true,
+    "hold_radius": 5.0
+  }
+}

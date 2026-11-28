@@ -19,6 +19,13 @@ extends Node3D
 ##
 ## Pure layout (rooms(), posts(), control_room()) is in the station's frame, so the
 ## look and the people agree, and the deck plays without the look layer.
+##
+## The top floor (the config's "remnant" "top", issue #314): the general and his
+## honour guard on the main tower's bridge and troopers off duty in its barracks are
+## the same place's people (posts with "top"). The station falls only once they are
+## dead too, and the locals' guards take their posts with the deck's. They have a
+## garrison of their own (_top_garrison) and hold their ground, so an alarm on the
+## deck does not send them walking across the towers.
 
 const UP := Vector3.UP
 
@@ -31,6 +38,7 @@ var group := ""                     ## its faction materials' group (LookMateria
 var troopers: Array = []            ## NpcBody, the Remnant's (the commander too)
 var guards: Array = []              ## NpcBody, the locals' once they hold it
 var garrison: Garrison
+var top_garrison: Garrison           ## the top floor's (issue #314): its own, not the deck's
 var woke := false
 var taken_here := false             ## the last trooper died in this scene
 var holo: Node3D
@@ -161,6 +169,43 @@ static func posts(h: StationHull) -> Array:
 				var a := a0 + j * TAU / 8.0
 				loop.append(Vector3(c.x + cos(a) * rr2, ry, c.y + sin(a) * rr2))
 			out.append({ "id": "roof_%d" % k, "at": loop[0], "face": Vector3(cos(a0), 0, sin(a0)), "soldier": "roof", "patrol": loop })
+	out.append_array(top_posts(h))
+	return out
+
+
+## Issue #314: the top floor's posts (the "remnant" block's "top"): for each open
+## room of that floor whose use has "spots", one post a spot, in the station's frame
+## ({ id, at, face, soldier: the spot's "who", top: true }). [] with no "top" block
+## (the skimmer outposts) or no such floor.
+static func top_posts(h: StationHull) -> Array:
+	var out: Array = []
+	var tc: Dictionary = h.cfg.get("remnant", {}).get("top", {})
+	if tc.is_empty():
+		return out
+	var t := h.tower(str(tc.get("tower", "")))
+	if t.is_empty():
+		return out
+	var fi := -1
+	for i in (t.floors as Array).size():
+		if str(t.floors[i].id) == str(tc.get("floor", "")):
+			fi = i
+	if fi < 0:
+		return out
+	var y := float(t.floors[fi].y)
+	var spots: Dictionary = tc.get("spots", {})
+	for room in h.floor_rooms(t, fi):
+		if not bool(room.open) or not spots.has(str(room.use)):
+			continue
+		var frame := _radial(t, y, float(room.a))
+		for sp: Dictionary in spots[str(room.use)]:
+			var x := float(room.r1) - float(sp.get("x", 0.0)) if str(sp.get("from", "door")) == "window" else float(room.r0) + float(sp.get("x", 0.0))
+			var at := frame * Vector3(x, float(sp.get("y", 0.0)), float(sp.get("z", 0.0)))
+			var fv: Array = sp.get("face", [])
+			var face: Vector3 = -(frame.basis.x)
+			if fv.size() == 2:
+				face = (frame.basis * Vector3(float(fv[0]), 0.0, float(fv[1]))).normalized()
+			out.append({ "id": "top_%s_%d_%d" % [str(room.use), int(room.k), out.size()], "at": at, "face": face,
+				"soldier": str(sp.get("who", "off_duty")), "top": true })
 	return out
 
 
@@ -201,6 +246,9 @@ func _wake() -> void:
 
 
 func _add_trooper(p: Dictionary) -> void:
+	if bool(p.get("top", false)):
+		_add_top_trooper(p)
+		return
 	var key: String = str({ "commander": "commander", "roof": "roof_trooper" }.get(str(p.soldier), "trooper"))
 	var profile := str(cfg.get(key, cfg.get("trooper", "outpost_trooper")))
 	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0), _yaw(p.face),
@@ -225,6 +273,31 @@ func _add_trooper(p: Dictionary) -> void:
 	var route: Array = p.get("patrol", [])
 	if route.size() >= 2 and garrison != null and garrison.brains.has(g):
 		garrison.brains[g].patrol_points = route.map(func(r): return station.to_world(r))
+
+
+## Issue #314: one of the top floor's Remnant (the general, an honour guard, a
+## trooper off duty), the profile its "who" names in the "top" block, on the top
+## floor's own garrison.
+func _add_top_trooper(p: Dictionary) -> void:
+	var tc: Dictionary = cfg.get("top", {})
+	var profile := str(tc.get(str(p.soldier), cfg.get("trooper", "outpost_trooper")))
+	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0), _yaw(p.face),
+		"%s/%s" % [place, str(p.id)], "npc:%s/%s" % [place, str(p.id)], self)
+	if g == null:
+		return
+	g.set_meta("outpost", place)
+	g.disable_mode = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
+	g.nav = null
+	g.free_walk = true
+	troopers.append(g)
+	g.died.connect(_on_trooper_died)
+	if not bool(demo.get("npc_brains")):
+		return
+	if top_garrison == null:
+		top_garrison = demo._make_garrison("Garrison_" + place + "_top", [g], false, station.to_world(p.at), true)
+		top_garrison.place = TownAlarm.place_name("station_remnant", str(station.vessel_name))
+	else:
+		top_garrison.add_member(g)
 
 
 ## A facing in the station's frame as the soldiers' yaw (they face -Z).
@@ -372,6 +445,8 @@ func reset_people() -> void:
 		if is_instance_valid(g):
 			if garrison != null and is_instance_valid(garrison):
 				garrison.remove_member(g)
+			if top_garrison != null and is_instance_valid(top_garrison):
+				top_garrison.remove_member(g)
 			_forget(g)
 	for g in guards:
 		if is_instance_valid(g):

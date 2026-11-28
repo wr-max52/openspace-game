@@ -24,7 +24,7 @@
       { "id": "homes_2", "y": 52.0, "radius": 54.0, "rooms": 10 }
     ] }
   ],
-  "fill_note": "Issue #315: what is in the floors (src/systems/world/station_fill.gd, the render rules in docs/station/STATION_FILL.md). Each floor id with a 'use' is dressed: favela (the lower homes: rings of shacks, booths and the town's huts packed back to back at r metres, doors facing in or out, depth and h ranges in metres, booth_share/hut_share/stack_share of the pieces, alleys radial alleys alley_half wide and lane_half to the tunnel doors kept clear, lines_per_ring cables and washing lines over each alley), suites (the upper homes: every room a big suite dressed like the cantina's club and the barge), homes (the floor's open_rooms are furnished studios, the rest locked: lounge_at and kitchen_at are fractions of the way from the door to the window, partition_from_window and bed_from_window metres), market (rings of stalls at r metres from the tower's middle, every_m apart round the ring, facing in or out, huts in every other spot of a ring with huts: true (hut_h: the heights they take, a few so they share materials), or a packed ring of shacks and booths like the favela's with pack: true; nothing within lane_half metres of a tunnel door's line; paved in stone flags with tiles round the walkway, stock piled every stock_every_m metres in the gap behind back-to-back rings, lamps lamp posts round the walkway's edge, banners hung from the ceiling), engines (its rooms by turn), top (the main tower's top floor: its open rooms by turn, bridge (the cruiser's control room with crew desks and a command dais past it), cantina, barracks, lounge (an observation lounge) or garden; issue #314 brings the people). Every room's floor, walls and furniture are textured with the station shader's room finishes (carpet, tile, tread plate, marble, velvet, veneer...: StationFill._t), laid out in the room's own frame. A floor's fill is built budget_ms a physics tick (merging merge_verts vertices at a time, a material cut into meshes of at most mesh_verts), and drawn only while the camera is within show_dy metres of its height and show_m of its glass. A floor's 'rooms' may be a count: the suites' floor has 10, of which the two either side of its tunnel's corridor have no door, so 8 suites; the favela's floor has none (it is open from the walkway to the glass).",
+  "fill_note": "Issue #315: what is in the floors (src/systems/world/station_fill.gd, the render rules in docs/station/STATION_FILL.md). Each floor id with a 'use' is dressed: favela (the lower homes: rings of shacks, booths and the town's huts packed back to back at r metres, doors facing in or out, depth and h ranges in metres, booth_share/hut_share/stack_share of the pieces, alleys radial alleys alley_half wide and lane_half to the tunnel doors kept clear, lines_per_ring cables and washing lines over each alley), suites (the upper homes: every room a big suite dressed like the cantina's club and the barge), homes (the floor's open_rooms are furnished studios, the rest locked: lounge_at and kitchen_at are fractions of the way from the door to the window, partition_from_window and bed_from_window metres), market (rings of stalls at r metres from the tower's middle, every_m apart round the ring, facing in or out, huts in every other spot of a ring with huts: true (hut_h: the heights they take, a few so they share materials), or a packed ring of shacks and booths like the favela's with pack: true; nothing within lane_half metres of a tunnel door's line; paved in stone flags with tiles round the walkway, stock piled every stock_every_m metres in the gap behind back-to-back rings, lamps lamp posts round the walkway's edge, banners hung from the ceiling), engines (its rooms by turn), top (the main tower's top floor: its open rooms by turn, bridge (the cruiser's control room with crew desks and a command dais past it), cantina, barracks, lounge (an observation lounge) or garden; issue #314's people stand in the bridge and barracks: the 'remnant' block's 'top'). Every room's floor, walls and furniture are textured with the station shader's room finishes (carpet, tile, tread plate, marble, velvet, veneer...: StationFill._t), laid out in the room's own frame. A floor's fill is built budget_ms a physics tick (merging merge_verts vertices at a time, a material cut into meshes of at most mesh_verts), and drawn only while the camera is within show_dy metres of its height and show_m of its glass. A floor's 'rooms' may be a count: the suites' floor has 10, of which the two either side of its tunnel's corridor have no door, so 8 suites; the favela's floor has none (it is open from the walkway to the glass).",
   "fill": {
     "budget_ms": 2.0,
     "merge_verts": 4000,
@@ -122,7 +122,28 @@
     "guard_share": 0.5,
     "wake_within": 700.0,
     "sleep_m": 120.0,
-    "locals_after_s": 8.0
+    "locals_after_s": 8.0,
+    "top_note": "Issue #314: the Remnant on the main tower's top floor, part of the deck's place (one Territory place, 'station_<landmark id>'): the station is taken only once these are dead too, and whoever holds the deck holds them (the locals' guards take every other post, guard_share). 'tower' and 'floor': the floor. 'spots': who stands where in each room of that use (the fill's top 'rooms'): 'x' metres in from the room's door ('from': 'door') or out from its window ('from': 'window'), 'z' across it (+z its side +1), 'y' up (the general on the bridge's dais), 'face' [x, z] in the room's frame (x out toward the window; default facing the door), 'who' the profile key below. Bridge: the general on the command dais by the glass, an honour guard either side of its steps. Barracks: troopers off duty round the card tables and in the bunk aisle. They have their own garrison (StationRemnant._top_garrison), not the deck's, so a fight on the deck does not send them across the towers; they hold their ground.",
+    "top": {
+      "tower": "main",
+      "floor": "top",
+      "general": "cruiser_general",
+      "honour": "cruiser_honour_guard",
+      "off_duty": "station_off_duty",
+      "spots": {
+        "bridge": [
+          { "who": "general", "from": "window", "x": 9.6, "z": 0.0, "y": 0.45 },
+          { "who": "honour", "from": "window", "x": 12.4, "z": 1.7 },
+          { "who": "honour", "from": "window", "x": 12.4, "z": -1.7 }
+        ],
+        "barracks": [
+          { "who": "off_duty", "x": 8.3, "z": 0.0, "face": [1, 0] },
+          { "who": "off_duty", "x": 11.7, "z": 0.0, "face": [-1, 0] },
+          { "who": "off_duty", "x": 10.4, "z": 1.5, "face": [0, -1] },
+          { "who": "off_duty", "x": 15.3, "z": 0.0, "face": [1, 0] }
+        ]
+      }
+    }
   },
   "map_note": "The F11 Map page's side view of the station and its floor plans (src/ui/station_map_view.gd, GlobeMap.orbital_pins). 'owners': who holds each room, by its use (StationHull.floor_rooms: the top deck's and the engine deck's fill 'rooms', the Remnant deck's 'remnant' rooms, a 'suite', a locked 'home'). 'remnant' rooms follow the Remnant deck: once you take it (Territory 'station_<landmark id>') they are the locals' too. The owners' names and colours: content/core/flow/map.json 'station_owners', content/look/map.json 'station_view'. 'floors': what an open floor is (the markets, the favela), named on the map in place of its rooms.",
   "map": {
