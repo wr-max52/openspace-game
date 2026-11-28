@@ -1,0 +1,7 @@
+{
+  "id": "highfold_barkeep",
+  "base": "local_merchant",
+  "label": "Barkeep",
+  "archetype": "highfold_folk",
+  "note": "Issue #877: Highfold's barkeep, behind the cantina's bar (the cantina owner's spot), selling food and drink there; ducks behind the bar when the town fights. In Highfold's look ('highfold_folk')."
+}

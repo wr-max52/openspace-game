@@ -1,0 +1,6 @@
+{
+  "id": "soot_merchant",
+  "base": "local_merchant",
+  "archetype": "soot_folk",
+  "note": "Issue #877: a stall keeper of Sootwell, in Sootwell's look ('soot_folk'). Everything else is local_merchant's."
+}

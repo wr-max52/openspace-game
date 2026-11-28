@@ -137,6 +137,7 @@ var barracks_locals: Dictionary = {}  ## issue #303: barracks post id -> the loc
 @export var with_outposts := true     ## issue #64: the Remnant's three desert outposts (needs with_ship: they share the ship's ground)
 var outposts: RemnantOutposts
 var ranches: Ranches                  ## the ranch villages round three far outposts (their houses, stands and locals)
+var settlements: Settlements          ## issue #877: the mountain towns on their peaks (a planet's "settlements")
 @export var with_cruiser := true      ## issue #193: the Remnant's star cruiser in orbit (needs with_ship and the home ball)
 var cruiser: RemnantCruiser
 @export var with_stations := true     ## space stations in this planet's sky (its "station" landmarks: content/core/stations/)
@@ -234,6 +235,8 @@ func _build_by_sight() -> void:
 		return outposts != null and is_instance_valid(outposts) and outposts.late_step())
 	staged.add_trickle("ranches_late", func() -> bool:       # issue #717
 		return ranches != null and is_instance_valid(ranches) and ranches.late_step())
+	staged.add_trickle("settlements_late", func() -> bool:   # issue #877
+		return settlements != null and is_instance_valid(settlements) and settlements.late_step())
 
 
 ## Issue #693: everything a handoff is still holding back, built now (tests).
@@ -396,7 +399,8 @@ func build_plan(staged_build: bool) -> Array:
 		if staged_build:
 			# One piece of an outpost a frame: its ground, nav, look, ship or a trooper.
 			add.call("outpost_sites", LATER, func(_left): return (outposts == null or outposts.build_step()) \
-				and (ranches == null or ranches.build_step()), true)
+				and (ranches == null or ranches.build_step()) \
+				and (settlements == null or settlements.build_step()), true)
 		add.call("npc_brains", LATER, func(st: StagedBuild) -> void: await _npc_brains(st), "sliced")
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
 	var speeders_step := func(st: StagedBuild) -> void:     # issue #693: the post, then a speeder a piece
@@ -1106,6 +1110,12 @@ func _build_outposts(now: bool = true) -> void:
 	# The Remnant's outposts are the port's desert's (issue #75: not on other planets),
 	# and the moon's own (Territory's "moon" front).
 	var pid := str(planet.get("id", ""))
+	if pilot != null and pilot.ground != null and not (planet.get("cfg", {}).get("settlements", {}) as Dictionary).is_empty():
+		settlements = Settlements.new()       # issue #877: the mountain towns
+		settlements.setup(self, pilot.ground, planet)
+		add_child(settlements)
+		if now:
+			settlements.build()
 	var front := Territory.front_for_planet(pid)
 	var has_outposts := pid == PlanetGen.home_id() or (front != Territory.HOME and not Territory.outposts(front).is_empty())
 	if with_outposts and pilot != null and has_outposts:
@@ -1172,6 +1182,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 			_locals_garrison_join(n)
 	if npc_brains and ranches != null:
 		ranches.start_brains()           # each ranch's locals, their own alarm; its stands' open rule
+	if npc_brains and settlements != null:
+		settlements.start_brains()       # issue #877: each mountain town's folk, likewise
 	if npc_brains and outposts != null:
 		# Issue #187: the locals at each outpost they hold have their own alarm.
 		for o in outposts.outposts:
@@ -1182,6 +1194,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 		outposts.late = true             # issue #693: an outpost that comes into sight from now on starts its own
 	if ranches != null:
 		ranches.late = true              # issue #717: a ranch likewise
+	if settlements != null:
+		settlements.late = true          # issue #877: a mountain town likewise
 	if npc_brains:
 		# Issue #541: the town's own people think less far off and sleep past the
 		# draw distance (content/core/npcs/wake_rings.json).

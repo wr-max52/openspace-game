@@ -1,0 +1,6 @@
+{
+  "id": "pilgrim_resident",
+  "base": "local_resident",
+  "archetype": "pilgrim_folk",
+  "note": "Issue #877: a pilgrim of the Pilgrims' Rest (a mountain town on the red world, src/systems/world/settlements.gd) in its own look (content/look/characters.json 'pilgrim_folk'); the ledge hamlets of the same folk too. Everything else is local_resident's ('base')."
+}

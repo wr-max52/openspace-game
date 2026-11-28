@@ -148,10 +148,27 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 	var bp := barge_pin(planet)
 	if not bp.is_empty():
 		out.append(bp)
+	out.append_array(settlement_pins(planet))
 	out.append_array(race_pins(str(world.get("id", "")), world))
 	out.append_array(place_pins(world))
 	for t in town:
 		out.append(t)
+	return out
+
+
+## Issue #877: the mountain towns (the planet's "settlements"), each a village
+## pin on its peak.
+static func settlement_pins(planet: Dictionary) -> Array:
+	var places: Array = planet.get("cfg", {}).get("settlements", {}).get("places", [])
+	if places.is_empty() or kind_cfg("village").is_empty():
+		return []
+	var sp := PlanetTerrain.for_planet(planet).sphere
+	if sp == null:
+		return []
+	var out: Array = []
+	for p in places:
+		out.append(_pin("settlement_" + str(p.id), "village", _cap(str(p.get("name", p.id))),
+			sp.map_from_lat_lon(float(p.get("lat", 0.0)), float(p.get("lon", 0.0)))))
 	return out
 
 

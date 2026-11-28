@@ -2383,3 +2383,31 @@ Issue #876 (epic #873): the red system's ring station and cruiser.
 - **Placed beside the climb, not on it.** 450 m off the town's middle at 1000 m,
   so a ship lifting straight out of the pit never meets its engine deck, and
   4.8 km from the cruiser, so Z never has two dock targets at once.
+
+
+## A mountain town is a town on a peak, built by sight (2026-11-28)
+
+Issue #877 (epic #873): the red world's mountain towns.
+
+- **The town generator, without its bay.** A mountain town is `TownGen` with
+  `bay: "none"` and the place's `kit` laid over the shared one, so the streets,
+  the cantina, the stalls and the markers are the port's own, already tested.
+  The mining town keeps `TownGen`'s square proportions rather than the port
+  square's; it is a smaller town and reads better that way.
+- **The peak is a mountain, the town sits on its top.** `settlement_buttes` adds
+  each place's peak to the landforms' mountains, so the rock, its collider and the
+  ships' ground are the mountain code paths. A data test fails if a town would
+  overhang its top.
+- **A lift for the tall towns, a road for the mining town, nothing for a ledge.**
+  The lift is the station elevator's car in a glass tube, standing off the rock so
+  it never clips it. The road curls once round its peak at a 10% grade (a speeder
+  climbs it without a boost) and never runs over itself; its pieces are sloped
+  ground boxes, so ships and feet both read it.
+- **Built by sight, asleep by distance.** Seven places at once would cost the
+  town's frame, so each is built in steps when its peak comes in sight, and its
+  folk only walk inside `wake_m`. The trace checks the town costs no more frame
+  than the port's street.
+- **Their own folk, not the port's.** The residents, keepers and guards are three
+  folk of their own (profiles that copy the port's locals), and they carry the
+  place's id so the port's townsfolk never take them over.
+

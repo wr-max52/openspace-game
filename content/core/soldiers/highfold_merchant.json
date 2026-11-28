@@ -1,0 +1,6 @@
+{
+  "id": "highfold_merchant",
+  "base": "local_merchant",
+  "archetype": "highfold_folk",
+  "note": "Issue #877: a stall keeper of Highfold, in Highfold's look ('highfold_folk'). Everything else is local_merchant's."
+}

@@ -45,7 +45,9 @@ func _init(kit_data: Dictionary = {}) -> void:
 ##   cantina_card / cantina_look  -- who runs its cantina (on the cantina_owner marker)
 ##   cantina_planet               -- issue #75: the planet whose own Oda runs it
 ##                                   (a generated card: see PlanetOwner)
-##   bay                          -- "pit": the port's landing pit outside the gate
+##   bay                          -- "pit": the port's landing pit outside the gate;
+##                                   "none" (issue #877: a town on a peak): no bays and
+##                                   no pit, nothing lands inside its walls
 ##   pit_clear                    -- how far past the walls (x their half-width) the
 ##                                   pit must start (the asteroid's dome)
 ##   club_dome                    -- issue #261 (a round station only): no cantina
@@ -98,6 +100,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 	var cw := float(cdim.get("width", 14.0))
 	var roamers := count("roamers", size)
 	var pit := str(opts.get("bay", "")) == "pit"
+	var no_bay := str(opts.get("bay", "")) == "none"
 	# Issue #75: every merchant works a stall in the square in front of the cantina;
 	# the stalls nobody keeps fill the market (if there are two or more).
 	var front := maxi(1, merchants)
@@ -105,7 +108,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 	var market := rest >= 2
 	var barracks := size >= int(kit.get("barracks_from_size", 25)) and guards >= 3
 	var tower := size >= int(kit.get("tower_from_size", 35)) and guards >= 4
-	var cols := 0 if pit else int(ceil(bays / 2.0))
+	var cols := 0 if pit or no_bay else int(ceil(bays / 2.0))
 	var market_w := ceili(rest / 2.0) * 8.0 if market else 0.0
 	var district_need := maxf(market_w, 32.0 if barracks else 0.0) + 16.0      # + gate clearance
 	var square := maxf(float(kit.get("square", 8.0)), ceili(front / 2.0) * 8.0 + 4.0)
@@ -193,7 +196,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 		var half := float(kit.get("pit", {}).get("half", 28.0))
 		var start := maxf(xi1 + wt + float(kit.get("apron", 30.0)), (xi0 + xi1) * 0.5 + (xi1 - xi0 + 2.0 * wt) * 0.5 * spread + 6.0)
 		_pit(ceilf(start + ring + half))     # whole metres: the zone check is exact
-	else:
+	elif not no_bay:
 		_spaceport(x, cols, bays, sh, bay)
 	x += cols * bay
 	var district_x0 := x + lane
@@ -234,7 +237,7 @@ func build(town_id: String, size: int, seed: int, opts: Dictionary = {}) -> Dict
 		"garrison": { "alarm": alarms.get("garrison", {}), "klaxon_marker": klaxon },
 		"locals": { "alarm": alarms.get("locals", {}) },
 		"counts": { "guards": guards, "residents": residents, "roamers": roamers, "stalls": stalls, "merchants": front,
-			"bays": 1 if pit else bays },
+			"bays": 1 if pit else (0 if no_bay else bays) },
 		"club": dome.duplicate(),
 	}
 

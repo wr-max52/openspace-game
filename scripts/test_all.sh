@@ -374,6 +374,17 @@ if [ ! -f test_results/red_world_trace.txt ]; then
 fi
 echo "CI: red world trace present ($(wc -l < test_results/red_world_trace.txt) lines)"
 
+# Issue #877: the mountain towns: every place stands on its peak with its folk,
+# the lift carries you from the sand to the top, the road up Sootwell's peak is
+# ground the whole way, and the town costs no more frame than the street.
+echo "CI: generating mountain towns trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/mountain_towns_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/mountain_towns_trace.txt ]; then
+  echo "CI: ERROR -- mountain towns trace was not generated" >&2
+  exit 1
+fi
+echo "CI: mountain towns trace present ($(wc -l < test_results/mountain_towns_trace.txt) lines)"
+
 # Issue #876: the red system's ring station over the port (its own name and darker
 # metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
 # its cruiser's general killed (only that cruiser's flag).

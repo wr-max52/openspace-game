@@ -1,0 +1,6 @@
+{
+  "id": "highfold_patron",
+  "base": "local_patron",
+  "archetype": "highfold_folk",
+  "note": "Issue #877: a drinker in Highfold's cantina, in Highfold's look ('highfold_folk'). Everything else is local_patron's."
+}

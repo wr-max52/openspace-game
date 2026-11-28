@@ -1,0 +1,7 @@
+{
+  "id": "soot_barkeep",
+  "base": "local_merchant",
+  "label": "Barkeep",
+  "archetype": "soot_folk",
+  "note": "Issue #877: Sootwell's barkeep, behind the cantina's bar (the cantina owner's spot), selling food and drink there; ducks behind the bar when the town fights. In Sootwell's look ('soot_folk')."
+}
