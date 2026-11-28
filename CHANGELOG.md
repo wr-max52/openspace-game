@@ -2,6 +2,12 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The seeker launcher's tube is gray (2026-11-28)
+
+- **The seeker launcher's tube is painted gray** instead of olive, so it sits
+  with the gray and black rifle and pistol. Its dark bands, grips and blue
+  panel sight are the same. It stays the simple-shapes tube; no new model.
+
 ## The race crews stop getting stuck on the rocks (2026-11-28)
 
 - **Every race crew drives one of three good tracks round their course**, a

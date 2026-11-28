@@ -37,7 +37,7 @@ static func build(spec: Dictionary, viewmodel := false) -> Node3D:
 	# The tube and its trim in the station favela's painted metal (chipped, grimy,
 	# seamed); "tex_scale" tiles a metre.
 	var ts := float(spec.get("tex_scale", 3.0))
-	var tube := _mat(str(tint.get("tube", "#4f5a48")), 0.25, 0.6, solid, ts)
+	var tube := _mat(str(tint.get("tube", "#6e7275")), 0.25, 0.6, solid, ts)
 	var trim := _mat(str(tint.get("trim", "#2a2c2e")), 0.6, 0.45, solid, ts)
 	var grip := _mat(str(tint.get("grip", "#1d1e20")), 0.0, 0.85, solid)
 	var bore := _mat("#0a0a0b", 0.0, 1.0, solid)
