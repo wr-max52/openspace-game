@@ -17,6 +17,7 @@
   "turn_rate_deg": 250.0,
   "perception": {
     "sight_range": 40.0,
+    "vehicle_sight_range": 200.0,
     "fov_deg": 130.0,
     "reaction_s": 0.8
   },

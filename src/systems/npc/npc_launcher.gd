@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## While the guard's side counts your vehicle hostile (NpcBody.hostile_vehicle, and
 ## either the Remnant garrison and a ship off the ground in town, or a guard who
-## is already fighting you: anything you ride near an outpost)
+## is already fighting you: anything you ride near an outpost, or anywhere in
+## reach once you have shot at a town's garrison and its alarm is up)
 ## and it is within lock_range and in sight, the tube comes up and turns to it
 ## (`aim`; NpcBody faces and aims there instead of where its brain says) and
 ## MissileLock, the ship seekers' lock, builds over lock_time. Locked, and the
@@ -51,9 +52,10 @@ func locked_on(h: Node) -> bool:
 func tick(dt: float) -> void:
 	_cool = maxf(0.0, _cool - dt)
 	var v: Node = body.hostile_vehicle() if body.has_method("hostile_vehicle") else null
-	if v != null and not bool(body.get("hostile")):
+	if v != null and not bool(body.get("hostile")) and body.get("vehicle_fight") != true:
 		# Not fighting you yet: only the Remnant garrison opens up on a ship off the
-		# ground in town (the troopers' rule); out of town, only once they fight you.
+		# ground in town (the troopers' rule); out of town, only once they fight you
+		# (its brain in combat, or its garrison's alarm up: vehicle_fight).
 		var town_threat: bool = v.has_method("hostile_in_town") and v.hostile_in_town() \
 			and str(body.get("faction")) == "imperial_remnant"
 		if not town_threat:

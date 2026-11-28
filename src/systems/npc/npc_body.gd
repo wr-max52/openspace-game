@@ -62,6 +62,10 @@ var sees_vehicles := false
 ## An outpost's trooper watches the speeder or ship the target is in wherever it
 ## is (the vehicle's targetable()): out there it is just you, harder to hit.
 var vehicles_anywhere := false
+## Its garrison is fighting you (the alarm is up): the speeder or ship you are in
+## is a target wherever it is, as at an outpost. You shot first; staying outside
+## the town's footprint, or in a story save, is no cover (Garrison sets it each tick).
+var vehicle_fight := false
 ## Issue #96: a desert pack walks open ground with no navmesh: straight at its
 ## goal, along the ground (the ball's up), instead of standing still.
 var free_walk := false
@@ -878,9 +882,13 @@ func _sense(dt: float) -> void:
 	var tpos := Vector3.INF
 	# A player in a ship's seat is not someone on foot to watch; a trooper still
 	# watches the speeder or ship they are in while it is a threat in town.
-	if target != null and is_instance_valid(target) and target.is_inside_tree() \
-			and (target.get("piloting") != true or hostile_vehicle() != null):
-		tpos = target.global_position
+	var hv: Node = null
+	if target != null and is_instance_valid(target) and target.is_inside_tree():
+		var riding: bool = target.get("piloting") == true
+		hv = hostile_vehicle() if riding else null
+		if not riding or hv != null:
+			tpos = target.global_position
+	perception.on_vehicle = hv != null       # a ship is seen much further off than a man
 	var crouched := _target_crouched()
 	var armed: bool = guest_target().armed() if guest_target() != null \
 		else (target_armed.call() if target_armed.is_valid() else false)
@@ -963,7 +971,7 @@ func hostile_vehicle(of: Node3D = null) -> Node:
 	var v = who.get("vehicle")
 	if v == null or not is_instance_valid(v):
 		return null
-	if not v.hostile_in_town() and not (vehicles_anywhere and v.targetable()):
+	if not v.hostile_in_town() and not ((vehicles_anywhere or vehicle_fight) and v.targetable()):
 		return null
 	return v
 
