@@ -82,6 +82,39 @@ func test_the_computers_are_solid() -> void:
 	assert_gt(casings, 30, "terminals down the corridor, on the landings, in the rooms, banks on the bridge")
 
 
+## The walls do not flicker: no drawn part of another finish has a face in the
+## same plane as a wall's face, facing the same way, over any of it (two faces in
+## one plane z-fight; the ramp shaft's walls flickered hull against wall where the
+## tower's plinth and the shaft's caps ran into them). Square boxes only, as every
+## wall is.
+func test_no_other_finish_shows_a_face_flush_in_a_wall() -> void:
+	var boxes: Array = []
+	for p in CruiserHull.parts():
+		var xf: Transform3D = p.xf
+		if str(p.finish) == "hidden" or not xf.basis.is_equal_approx(Basis.IDENTITY):
+			continue
+		boxes.append({ "id": str(p.id), "finish": str(p.finish), "lo": xf.origin - p.size * 0.5, "hi": xf.origin + p.size * 0.5 })
+	var walls := 0
+	var flush: Array = []
+	for w in boxes:
+		if w.finish != "wall":
+			continue
+		walls += 1
+		for o in boxes:
+			if o.finish == "wall":
+				continue
+			for a in 3:
+				var du := minf(w.hi[(a + 1) % 3], o.hi[(a + 1) % 3]) - maxf(w.lo[(a + 1) % 3], o.lo[(a + 1) % 3])
+				var dv := minf(w.hi[(a + 2) % 3], o.hi[(a + 2) % 3]) - maxf(w.lo[(a + 2) % 3], o.lo[(a + 2) % 3])
+				if du <= 0.01 or dv <= 0.01:
+					continue
+				for side in ["lo", "hi"]:
+					if absf(float(w[side][a]) - float(o[side][a])) < 0.02:
+						flush.append("%s / %s (%s), %.1f m2" % [w.id, o.id, o.finish, du * dv])
+	assert_gt(walls, 30, "the bay's, corridor's, rooms', shaft's and bridge's walls")
+	assert_eq(flush, [], "faces flush in a wall")
+
+
 func test_six_flights_climb_from_the_deck_to_the_bridge() -> void:
 	assert_eq(CruiserHull.DECK_Y + CruiserHull.FLIGHTS * CruiserHull.FLIGHT_RISE, CruiserHull.BRIDGE_Y)
 	var run := CruiserHull.FLIGHT_Z.y - CruiserHull.FLIGHT_Z.x
