@@ -86,7 +86,40 @@ static func town(place: Dictionary, cfg: Dictionary = {}) -> Dictionary:
 	var out := TownGen.generate(str(place.get("id", "settlement")), int(place.get("size", 6)),
 		int(place.get("seed", 1)), opts, kit)
 	_pack_houses(out, kit, place)
+	_storyteller(out, place)
 	return out
+
+
+## Issue #878: a town with a "storyteller" gets one more person in its cantina,
+## the soldier the place names (Settlements makes them talk): in the corner
+## across the room from the bar and away from the stage, `corner_m` in from the
+## walls, facing the bar, so the barkeep's [E] and theirs never overlap.
+static func _storyteller(out: Dictionary, place: Dictionary) -> void:
+	var st: Dictionary = place.get("storyteller", {})
+	if st.is_empty():
+		return
+	var zone := {}
+	for z in out.get("zones", []):
+		if str(z.get("id", "")) == "cantina":
+			zone = z
+	if zone.is_empty():
+		return
+	var lo := Vector2(float(zone.min[0]), float(zone.min[1]))
+	var hi := Vector2(float(zone.max[0]), float(zone.max[1]))
+	var mid := (lo + hi) * 0.5
+	var bar := mid
+	var stage := mid
+	for b in out.get("boxes", []):
+		var c := Vector2((float(b.min[0]) + float(b.max[0])) * 0.5, (float(b.min[2]) + float(b.max[2])) * 0.5)
+		if str(b.get("id", "")) == "bar_counter":
+			bar = c
+		elif str(b.get("id", "")) == "cantina_stage":
+			stage = c
+	var inset := float(st.get("corner_m", 3.5))
+	var x := hi.x - inset if bar.x < mid.x else lo.x + inset
+	var z := lo.y + inset if stage.y >= mid.y else hi.y - inset
+	(out.markers as Array).append({ "id": "storyteller", "pos": [snappedf(x, 0.01), 0, snappedf(z, 0.01)], "role": "ambient",
+		"soldier": str(st.get("soldier", "local_patron")), "face": [bar.x, 0, bar.y] })
 
 
 ## A peak has no room to spare: after TownGen's own lots, every gap big enough for

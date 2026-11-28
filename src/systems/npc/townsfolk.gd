@@ -87,6 +87,7 @@ var _club_next := 0.0             ## game seconds before a patron may talk again
 ## Where these people are, for the alarm toast (the town's locals, a village, the
 ## barge, the station): set by whoever builds them (TownAlarm.toast_text).
 var place := ""
+var lore_key := "port"             ## issue #878: whose lines they mutter (PlanetBeast.lore: a place's folk, or the port's)
 ## Calm, the local you walk close by talks of the beast, the packs or the club.
 ## Off for a speeder race crew: their leader speaks for them when you walk up.
 var chatty := true
@@ -557,7 +558,7 @@ func _calm_talk(alive: Array, ppos: Vector3) -> void:
 	var g := _nearest(alive, ppos)
 	if g == null or g.global_position.distance_to(ppos) > float(_talk_cfg.get("locals_say_m", 4.0)):
 		return
-	var lore := PlanetBeast.lore(demo.planet) if not _beast_cfg.is_empty() else []
+	var lore := PlanetBeast.lore(demo.planet, lore_key) if not _beast_cfg.is_empty() else []
 	var n := lore.size() + _nomad_lines.size()
 	if n == 0:
 		return

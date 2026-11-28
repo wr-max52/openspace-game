@@ -2386,3 +2386,23 @@ Issue #882 (epic #873): the red world's roads and races.
   mode at a rider's pace with the road's half width as its room, so it checks
   the roads and not a racer's corner cutting.
 
+## The worm is the beast with its legs taken off (2026-11-28)
+
+Issue #878 (epic #873): the red world's folklore and its worm, Dool'rey Kah.
+
+- **One beast, two kinds.** The worm is `PlanetBeast` with `kind: "worm"`: the
+  same walk, leash, chase, touch and shot code, the same eyes, and only its look
+  and pose differ (no legs, more segments, a maw of teeth). A new beast for a new
+  world is a block of data, not a new script.
+- **Simple shapes on purpose.** Balls, bands, cones and the beetle's eyes, about
+  as many meshes as the beetle. Will asked for creepy teeth and a long body, not
+  a fine model.
+- **The dunes are its own.** Its home is on the half with no mountains, so the
+  towns and roads stay safe and the open desert is where the fear is.
+- **Lore is keyed by folk, not by town id.** A place's `folk` already says who
+  lives there, so a new pilgrim village mutters the pilgrims' lines with no new
+  data.
+- **The storyteller sits away from the bar.** The host's talk prompt loses to a
+  stall's trade prompt in reach, so he gets his own marker in the cantina's far
+  corner rather than a patron's stool by the counter.
+

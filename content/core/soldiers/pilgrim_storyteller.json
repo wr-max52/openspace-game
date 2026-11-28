@@ -1,0 +1,12 @@
+{
+  "id": "pilgrim_storyteller",
+  "base": "pilgrim_patron",
+  "archetype": "pilgrim_elder",
+  "note": "Issue #878: Grandfather Ossel, the old storyteller on his stool in the Pilgrims' Rest's cantina (the place's 'storyteller' block in content/core/planets/port_red.json seats him on the cantina's first patron's spot, and content/core/npcs/storyteller_card.json makes him talk). A pilgrim_patron who never leaves his stool, in the elder's look ('pilgrim_elder'). Shares the town's brain, so he fights back with the rest if you hurt one.",
+  "walk_speed": 0.9,
+  "patrol": {
+    "pause_s": 60.0,
+    "look_around_deg": 30.0,
+    "look_every_s": 4.0
+  }
+}
