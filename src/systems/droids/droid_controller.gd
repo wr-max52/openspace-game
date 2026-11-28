@@ -949,13 +949,13 @@ func _bat(u: DroidUnit, sweep: Vector3) -> void:
 	var up := _up(u.global_position)
 	var side := _flat(sweep, up).normalized()
 	var fling := side * float(rc.get("blade_fling", 8.0)) + up * float(rc.get("blade_fling_up", 5.5))
-	var rb := Ragdoll.drop(u.look, u, fling / maxf(1.0, u.size_scale), rc)
+	var rb := Ragdoll.drop(u.look, u, fling / maxf(1.0, u.size_scale), rc, up)
 	if rb == null:
 		_lay_down(u)
 		return
 	rb.name = "Batted"
 	rb.mass = float(rc.get("droid_mass", 40.0)) * u.size_scale
-	rb.gravity_scale = float(rc.get("gravity", 20.0)) / 9.8
+	Ragdoll.ground_gravity(rb, up, float(rc.get("gravity", 20.0)) / 9.8)   # along the ground's down
 	rb.angular_velocity += up.cross(side) * float(rc.get("droid_tumble", 7.0))
 	rb.physics_material_override = PhysicsMaterial.new()
 	rb.physics_material_override.friction = float(rc.get("friction", 0.6))

@@ -255,6 +255,7 @@ func _add_trooper(p: Dictionary) -> void:
 		"%s/%s" % [place, str(p.id)], "npc:%s/%s" % [place, str(p.id)], self)
 	if g == null:
 		return
+	g.align_to_ground()                 # the deck's up from the start: far off they sleep, and a deck over the giant is turned
 	g.set_meta("outpost", place)
 	g.disable_mode = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
 	g.nav = null
@@ -366,6 +367,7 @@ func _add_guard(p: Dictionary) -> void:
 		_yaw(p.face), "%s/guard_%s" % [place, str(p.id)], "npc:%s/guard_%s" % [place, str(p.id)], self)
 	if g == null:
 		return
+	g.align_to_ground()
 	g.disable_mode = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
 	g.nav = null
 	g.free_walk = true

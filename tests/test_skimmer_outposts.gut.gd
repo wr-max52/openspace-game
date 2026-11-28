@@ -499,3 +499,39 @@ func test_supplies_are_handed_over_aboard_a_short_skimmer() -> void:
 	_rules(s, p.global_position)
 	assert_eq(s.remnant.supplied, 1, "handed over aboard")
 	assert_almost_eq(Territory.hold_left(place), Territory.n("hold_s", 0.0), 0.01, "a full hold")
+
+
+## A trooper's gun lies where he fell, on the deck turned 52 degrees with the ball
+## (Ragdoll.drop along the ground's down; with world gravity it slid away across the
+## walkway and out of the bay).
+func test_a_dead_troopers_gun_lies_on_the_deck_where_he_fell() -> void:
+	GameFlow.reset()
+	GameFlow.resumed = true
+	GameFlow.planet_id = HOST
+	GameFlow.change_scene = func(_p: String) -> void: pass
+	var t = TownDemo.new()
+	t.use_look = true                    # the gun is the look's
+	t.npc_brains = false
+	add_child_autofree(t)
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	await _woke(s)
+	var walkers: Array = s.remnant.troopers.filter(func(g): return is_instance_valid(g) and str(g.name).contains("_patrol_"))
+	assert_false(walkers.is_empty(), "a trooper walking the walkway")
+	if walkers.is_empty():
+		return
+	var g = walkers[0]
+	var fell: Vector3 = s.to_local_point(g.global_position)
+	assert_lt(g.tilt.y.angle_to(s.frame.basis.y), 0.01, "he stands along the deck's up, though asleep far off")
+	g.apply_damage(100000.0)
+	await wait_seconds(4.0)
+	var w = g.dropped_weapon
+	assert_true(w != null and is_instance_valid(w), "he dropped his gun")
+	if w == null or not is_instance_valid(w):
+		return
+	var at: Vector3 = s.to_local_point(w.global_position)
+	assert_between(at.y, 0.0, 0.6, "on the deck (%s)" % at)
+	assert_lt(Vector2(at.x - fell.x, at.z - fell.z).length(), 2.5, "by him, not slid off across the deck (%s, he fell at %s)" % [at, fell])
+	assert_lt(w.linear_velocity.length(), 0.1, "and still")
