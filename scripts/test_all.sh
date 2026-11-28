@@ -396,6 +396,18 @@ if [ ! -f test_results/roads_races_trace.txt ]; then
 fi
 echo "CI: roads and races trace present ($(wc -l < test_results/roads_races_trace.txt) lines)"
 
+# Issue #878: the red world's folklore: Dool'rey Kah, a worm out on the open
+# dunes (no legs, rings of teeth, twice the segments) that kills on touch; the
+# Pilgrims' Rest's storyteller names it even with no model; each town's locals
+# mutter their own lines.
+echo "CI: generating folklore trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/folklore_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/folklore_trace.txt ]; then
+  echo "CI: ERROR -- folklore trace was not generated" >&2
+  exit 1
+fi
+echo "CI: folklore trace present ($(wc -l < test_results/folklore_trace.txt) lines)"
+
 # Issue #876: the red system's ring station over the port (its own name and darker
 # metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
 # its cruiser's general killed (only that cruiser's flag).

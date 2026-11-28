@@ -58,6 +58,8 @@ var vendors: Array = []            ## { cfg, pos } as GearController.vendors; ha
 var _vendors_given := 0
 var folks: Dictionary = {}         ## place id -> its Townsfolk
 var lifts: Array = []              ## Lift
+var storytellers: Array = []       ## issue #878: TalkSpots of the places' storytellers
+var _teller_wait: Array = []       ## [place, body] built before the talk host was
 var _cc: CoreContent
 var _queue: Array = []
 var _pending: Array = []           ## places not in sight yet
@@ -370,7 +372,30 @@ func _add_person(s: Dictionary, m: Dictionary) -> NpcBody:
 		g.set_meta("settle_patrol", route_points(s, str(m.patrol)))
 	people.append(g)
 	_trade_for(s, m, post)
+	if str(m.id) == "storyteller":
+		_storyteller(s, g)
 	return g
+
+
+## Issue #878: the place's storyteller ("storyteller": { soldier, card, reach }):
+## an AI character from their own card on the town's talk host, in the body of
+## the local on the cantina's storyteller marker. Walk up and [E]. A town built
+## before the host waits for it (_physics_process tries again).
+func _storyteller(s: Dictionary, g: NpcBody) -> void:
+	var st: Dictionary = s.place.get("storyteller", {})
+	var card := str(st.get("card", ""))
+	if card == "" or not FileAccess.file_exists(card):
+		return
+	var host = demo.get("bar") if demo != null else null
+	if host == null:
+		_teller_wait.append([s, g])
+		return
+	var spot := TalkSpot.new(NpcBrain.new(null, card), g, g.global_position)
+	spot.radius = float(st.get("reach", 2.6))
+	spot.available = func() -> bool: return is_instance_valid(g) and not g.dead
+	g.display_name = spot.display_name()
+	host.add_spot(spot)
+	storytellers.append(spot)
 
 
 ## A stall keeper's and the barkeep's trade: the port's vendors, at the counter.
@@ -451,6 +476,7 @@ func _brains_for(s: Dictionary) -> void:
 	if mine.is_empty():
 		return
 	var f = demo.make_townsfolk("Settlement_" + str(s.id), mine, str(s.label))
+	f.lore_key = str(s.place.get("folk", "port"))      # issue #878: each town mutters its own lore
 	folks[str(s.id)] = f
 	for g in mine:
 		if g.has_meta("settle_patrol") and f.brains.has(g):
@@ -489,6 +515,12 @@ func _give_vendors() -> void:
 
 func _physics_process(_dt: float) -> void:
 	_give_vendors()
+	if not _teller_wait.is_empty() and demo.get("bar") != null:
+		var wait := _teller_wait.duplicate()
+		_teller_wait.clear()
+		for w in wait:
+			if is_instance_valid(w[1]):
+				_storyteller(w[0], w[1])
 	var p: Node3D = demo._player if demo != null else null
 	if p == null:
 		return

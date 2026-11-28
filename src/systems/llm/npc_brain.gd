@@ -301,6 +301,8 @@ func topics() -> Array:
 		if not keys.is_empty() and not keys.any(func(k): return c.has(str(k))):
 			continue
 		out.append({ "id": tid, "label": str(t.get("label", tid)), "say": str(t.get("say", tid)) })
+	for t in card.get("lore_topics", []):          # issue #878: the card's own (the storyteller's tales)
+		out.append({ "id": str(t.get("id", "")), "label": str(t.get("label", t.get("id", ""))), "say": str(t.get("say", t.get("id", ""))) })
 	return out
 
 
@@ -648,6 +650,10 @@ func canned_reply(text: String, topic: String = "") -> Dictionary:
 		"vibe": "club_vibe" }
 	if needs.has(topic) and not can.has(needs[topic]):
 		topic = ""
+	var tale := _lore_topic(topic)
+	if not tale.is_empty():
+		var key := "lines_slain" if PlanetBeast.is_slain(str(GameFlow.planet().get("id", ""))) and tale.has("lines_slain") else "lines"
+		return { "say": _pick(tale.get(key, c.get("default", ["Hold on."]))), "actions": [] }
 	if topic == "sell_ship" and not can.has("offer_ship_buy"):
 		topic = ""
 	match topic:
@@ -701,11 +707,29 @@ func canned_reply(text: String, topic: String = "") -> Dictionary:
 func _topic(text: String) -> String:
 	var low := text.to_lower()
 	var tw: Dictionary = card.get("topic_words", {})
+	for w in tw.get("bye", []):
+		if low.contains(str(w)):
+			return "bye"
+	for t in card.get("lore_topics", []):      # issue #878: before the shop talk, so "heard of the worm?" is a tale
+		for w in t.get("words", []):
+			if low.contains(str(w)):
+				return str(t.get("id", ""))
 	for topic in ["bye", "vibe", "recommend", "sell_ship", "buy", "smuggle", "job", "rumor", "drink", "war"]:
 		for w in tw.get(topic, []):
 			if low.contains(str(w)):
 				return topic
 	return ""
+
+
+## Issue #878: the card's own topic `id` ("lore_topics": [{ id, label, say,
+## words, lines, lines_slain }]), {} if it has none by that id.
+func _lore_topic(id: String) -> Dictionary:
+	if id == "":
+		return {}
+	for t in card.get("lore_topics", []):
+		if str(t.get("id", "")) == id:
+			return t
+	return {}
 
 
 ## Issue #261: the club mood a music request asks for (the card's "vibe_words":

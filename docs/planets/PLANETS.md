@@ -111,7 +111,7 @@ Seven places stand on flat-topped peaks of their own in the mountain country
 `palette` and `folk`, and a `butte` for its peak's size.
 
 - **`town`** is the town generator with no landing bay (`bay: "none"`), the place's
-  `kit` laid over the shared one: the Pilgrims' Rest (a lift, a storyteller) and
+  `kit` laid over the shared one: the Pilgrims' Rest (a lift, the storyteller of #878) and
   Sootwell (the mining town: a big cantina with a dancer, a lit road up).
 - **`ring`** is a few ranch houses round a yard inside one round wall: Highfold.
 - **`ledge`** is a hamlet on a low shelf: a shrine, a watch tower, a stall and a
@@ -160,6 +160,31 @@ other tunnels. They are a ladder of their own: Scorch races anyone, then Ember,
 then Dust. A camp is a `location` landmark dressed like the home world's racers'
 outpost. `scenes/roads_races_trace.gd`, `tests/test_roads_races_trace.gut.gd` and
 `tests/test_roads.gut.gd` check it.
+
+### Its folklore and its worm (issue #878)
+
+The red world is haunted. Its beast is Dool'rey Kah, a worm (the `beast` block in
+`port_red.json`), and every town tells its own tales of it.
+
+- **The worm** is the beast with `kind: "worm"`: the beetle's segments and eyes
+  with no legs, mandibles or antennae, about twice the segments (28), each a ball
+  with a band, a round head and a maw of turning cone teeth in two rings
+  (`maw.rings`, lip knobs round them). `undulate` rolls its body in and out of the
+  sand, and it rears its head when it chases (`rear_chase`). Touching it kills,
+  shooting it makes it follow, as with the beetle. It lives on the open dunes
+  (`home`, past 90 degrees of longitude from the mountain country, its `leash_m`
+  well clear of every town and road).
+- **What people say** is the block's `what`, `lore` and `lore_slain` (every AI
+  character is briefed with them, `PlanetBeast.brief`) and `locals_say`, keyed by
+  each place's `folk`: the pilgrims, Sootwell's miners, Highfold's ranchers and
+  the port each mutter their own ghosts and curses (`PlanetBeast.lore`).
+- **The storyteller**, Grandfather Ossel, sits in the far corner of the Pilgrims'
+  Rest cantina, clear of the bar's trade reach (the place's `storyteller` block:
+  a soldier, a card and a reach). He is an AI character on the town's talk host,
+  `content/core/npcs/storyteller_card.json`, and with AI characters off his card's
+  `lore_topics` (the worm, ghosts, curses) are his menu and his answers.
+
+`scenes/folklore_trace.gd` and `tests/test_folklore_trace.gut.gd` check it.
 
 ## Planet types
 

@@ -500,7 +500,7 @@
         "seed": 3,
         "residents": 8,
         "lift": true,
-        "storyteller": true,
+        "storyteller": { "soldier": "pilgrim_storyteller", "card": "res://content/core/npcs/storyteller_card.json", "reach": 2.6 },
         "kit": {
           "aspect": 1.5,
           "apron": 6,
@@ -818,5 +818,67 @@
       1120,
       4181
     ]
+  },
+  "beast": {
+    "note": "Issue #878: the red world's beast, a giant sand worm (content/core/hazards/beast.json has the numbers every beast shares; kind worm is the body: a round head with two rings of cone teeth, the beetle's eyes, 28 round segments and no legs, rolling in and out of the sand as it goes). It lives out on the open red dunes, the half of the planet with no mountains: home is a map point 6.6 km from the port on the dunes' side, past the party barge and the native camps, and leash_m keeps it there, away from the mountain country and every road. lore is what everyone says of it; locals_say is each town's own (by its folk, 'port' for the port's), ghosts and curses as much as the worm; the Pilgrims' Rest's storyteller (content/core/npcs/storyteller_card.json) tells the rest.",
+    "name": "Dool'rey Kah",
+    "kind": "worm",
+    "what": "a giant sand worm, long as a town, that rolls through the open red dunes like a swimmer, with a round head, a maw ringed with turning teeth and four glowing purple eyes. It never comes into the mountains. Anyone it touches dies; hurt it and it follows you a long way. Every local fears it and tells tales of it, of the ghosts it leaves on the dunes and the curses on its name",
+    "what_slain": "a giant sand worm that rolled through the open red dunes and killed anyone it touched",
+    "home": [-3600, 5500],
+    "leash_m": 1200.0,
+    "segments": 28,
+    "radius": 3.4,
+    "segment_gap": 2.7,
+    "tail_scale": 0.38,
+    "speed": [1.6, 3.8],
+    "chase_speed": 6.0,
+    "turn_radius_m": 45.0,
+    "min_turn_radius_m": 18.0,
+    "rear_chase": 0.3,
+    "undulate": { "amp_r": 0.55, "wave_m": 26.0, "phase_per_seg": 0.5 },
+    "maw": { "lip_knobs": 16, "turn": 0.35 },
+    "glow": "#b46cff",
+    "look": {
+      "carapace": "#6e3a26", "shell": "#9a5a3c", "teeth": "#e8dcc0", "throat": "#120404"
+    },
+    "lines": {
+      "killed": "{name} swallowed you whole.",
+      "woke": "You wake up in the pit, sand in your teeth. {name} spat you out.",
+      "provoked": "{name} rears up and turns its teeth toward you.",
+      "gave_up": "{name} sinks back into the dunes.",
+      "slain": "{name} shudders and goes still in the sand. Nobody up in the mountains will believe it."
+    },
+    "lore": [
+      "Don't walk the red dunes after dark. Dool'rey Kah hears your feet.",
+      "The sand hums before Dool'rey Kah comes up, low, like a drum under the floor.",
+      "My grandmother saw its eyes once, out past the last dune. Purple, she said, and so many teeth, all turning.",
+      "Never say its name three times in one breath. That's how you call Dool'rey Kah.",
+      "Shoot at Dool'rey Kah and it follows your scent all the way home.",
+      "Dool'rey Kah never comes into the mountains. That's why we live up here."
+    ],
+    "lore_slain": [
+      "Someone killed Dool'rey Kah, they say. The ghosts on the dunes have gone quiet. I don't like it.",
+      "Dool'rey Kah dead? Then whose teeth do I still hear at night?"
+    ],
+    "locals_say": {
+      "port": [
+        "Ships that set down on the red dunes come back with sand in the engines and nobody aboard. That's the curse.",
+        "Old Ossel up at the Pilgrims' Rest knows all the tales. Buy him a cup and he'll never stop."
+      ],
+      "pilgrim": [
+        "We leave a cup of water at the shrine every night for the dead of the dunes. By morning it's gone.",
+        "Pilgrims walk backwards the last mile over the dunes. Dool'rey Kah only follows faces.",
+        "Grandfather Ossel saw it the night the caravan drowned. Ask him in the cantina."
+      ],
+      "soot": [
+        "Number nine shaft is cursed. Men heard chewing in the rock, so we sealed it.",
+        "Kah's got a little cousin in the deep seams, the old miners say. Smaller. Hungrier."
+      ],
+      "highfold": [
+        "Lost three head of cattle to the dunes last season. Not a bone left.",
+        "The ring wall's not for raiders. It's for what comes up out of the sand."
+      ]
+    }
   }
 }
