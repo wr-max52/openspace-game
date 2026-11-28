@@ -922,6 +922,7 @@ func _start_grid() -> void:
 	laps = course.new_laps()
 	laps.add_racer(YOU)
 	course.build_gates()
+	course.race_tracks()                       # issue #853: worked out now (once a course), not at GO
 	_ensure_speeders()
 	var slot := 1
 	var order := 0
@@ -1279,14 +1280,21 @@ func go() -> void:
 		_last[YOU] = _player_speeder.model.position
 		_player_speeder.gear.refill()           # issue #616: a full load of race gear at the start
 		_crash_repair(true)
-	var route := course.race_route()           # straight at the gates, the way the checkpoints run
+	# Issue #853: each racer drives one of the course's tracks (lanes cleared of
+	# rock), picked at random; straight at the gates only if there are none.
+	var tracks := course.race_tracks()
+	var route := course.race_route()
 	for rc in racers:
 		if bool(rc.out) or rc.brain == null:
 			continue
 		rc.brain.pace = 1.0                       # race pace now
 		rc.brain.may_boost = true
 		rc.speeder.crash_repair_s = rule("npc_crash_repair_s", 7.0)
-		rc.brain.follow(route, true)
+		if tracks.is_empty():
+			rc.brain.follow(route, true)
+		else:
+			var t := _rng.randi() % tracks.size()
+			rc.brain.follow_track(tracks[t], course.track_room(t))
 		_last[rc.key] = rc.speeder.model.position
 
 

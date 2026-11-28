@@ -67,6 +67,8 @@ var record_label: Label3D             ## issue #618: your best lap here, on the 
 var ramps: Array = []                 ## WorldGround boxes of the course's ramps (Skrugs's ramp, placed on the line)
 var _ramp_root: Node3D                ## their look and walking colliders (while built)
 var _check := 0.0
+var _tracks: Array = []               ## issue #853: race_tracks(), worked out once
+var _rooms: Array = []                ## per track, per point: m its centre may move sideways and keep clear (track_room)
 static var _look: Dictionary = {}
 static var _mats: Dictionary = {}
 static var _radius: Dictionary = {}   ## world id -> its ball's radius (0: a flat world)
@@ -538,6 +540,171 @@ func race_route() -> Array:
 	for i in range(1, gates.size()):
 		out.append(gates[i].pos)
 	out.append(g0.pos)
+	return out
+
+
+## Issue #853: the tracks NPC racers drive (world points, one list per lane):
+## each runs every leg and through every gate, weaving round whatever
+## WorldGround.hit finds on the course (boulders, spires, masts, tunnel walls), as
+## near its lane as the rocks allow. Worked out once from the ground as it is and
+## kept. Settings: rules.json `tracks`, a course file's `tracks` over them. A
+## racer picks one at random (RaceCrew.go); SpeederBrain.follow_track drives it.
+##
+## How: the line is cut into samples step_m apart; at each, every offset from
+## -reach_m to +reach_m (every offset_step_m) is tested clear at body_m + clear_m,
+## else at body_m (tight), else blocked. Each lane is then the cheapest path
+## through that grid (Viterbi): blocked costs most, tight some, then distance from
+## the lane; the offset may move at most shift_m per step, so the track stays
+## drivable. Where nothing is clear it holds to the lane and takes the least rock.
+func race_tracks() -> Array:
+	if not _tracks.is_empty() or line.size() < 3:
+		return _tracks
+	var cfg := tracks_cfg()
+	var step := maxf(float(cfg.get("step_m", 5.0)), 1.0)
+	var reach := float(cfg.get("reach_m", 9.0))
+	var ostep := maxf(float(cfg.get("offset_step_m", 1.0)), 0.25)
+	var body := float(cfg.get("body_m", 1.6))
+	var r_full := body + float(cfg.get("clear_m", 1.0))
+	var hover := float(cfg.get("hover_m", 1.05))
+	var max_jump := maxi(1, int(round(float(cfg.get("shift_m", 1.0)) / ostep)))
+	var n_off := int(round(reach / ostep)) * 2 + 1
+	var offs: Array[float] = []
+	for k in n_off:
+		offs.append(-reach + k * ostep)
+	# Samples: [pos on the sand, right, up], step_m apart along each leg, every
+	# line point (so every gate) one of them.
+	var samples: Array = []
+	for i in line.size():
+		var a: Vector3 = line[i]
+		var b: Vector3 = line[(i + 1) % line.size()]
+		var up := _up(a)
+		var right := _flat(b - a, up).normalized().cross(up).normalized()
+		var n := maxi(1, int(ceil(a.distance_to(b) / step)))
+		for k in n:
+			var p := a if k == 0 else to_world_near(a.lerp(b, float(k) / float(n)))
+			samples.append([p, right, _up(p)])
+	# Cost of each offset at each sample: 0 clear, TIGHT clear only at body_m,
+	# BLOCKED neither. One wide test first: most of a course is open sand.
+	var cost: Array = []
+	for s in samples:
+		var row := PackedFloat32Array()
+		row.resize(n_off)
+		var p: Vector3 = (s[0] as Vector3) + (s[2] as Vector3) * hover
+		if ground != null and ground.hit(p, reach + r_full) != "":
+			for k in n_off:
+				var q := p + (s[1] as Vector3) * offs[k]
+				if ground.hit(q, r_full) == "":
+					row[k] = 0.0
+				elif ground.hit(q, body) == "":
+					row[k] = TRACK_TIGHT
+				else:
+					row[k] = TRACK_BLOCKED
+		cost.append(row)
+	# Room (m free to either side) at every offset, and a cost for running short of
+	# want_room_m: a lane drifts to the middle of a gap when it can.
+	var want_room := float(cfg.get("want_room_m", 4.0))
+	var room_cost := float(cfg.get("room_cost", 3.0))
+	var rooms: Array = []
+	for i in samples.size():
+		var row: PackedFloat32Array = cost[i]
+		var rr := _rooms_of(row, ostep, reach + r_full)
+		rooms.append(rr)
+		for k in n_off:
+			if row[k] < TRACK_TIGHT:
+				row[k] += maxf(0.0, want_room - rr[k]) * room_cost
+		cost[i] = row
+	for lane in cfg.get("lanes_m", [-3.0, 0.0, 3.0]):
+		var picks := _track_path(samples, cost, offs, float(lane), max_jump)
+		var pts: Array = []
+		var room := PackedFloat32Array()
+		for i in samples.size():
+			var smp: Array = samples[i]
+			pts.append(to_world_near((smp[0] as Vector3) + (smp[1] as Vector3) * offs[picks[i]]))
+			room.append((rooms[i] as PackedFloat32Array)[picks[i]])
+		_tracks.append(pts)
+		_rooms.append(room)
+	return _tracks
+
+
+## Track `t`'s room (race_tracks): per point, how far its centre may move to either
+## side and keep clear_m round the widest racer (open sand: reach_m and more). The
+## racers cut corners and straighten weaves only as far as this lets them.
+func track_room(t: int) -> PackedFloat32Array:
+	race_tracks()
+	return _rooms[t] if t >= 0 and t < _rooms.size() else PackedFloat32Array()
+
+
+## Per offset in a cost row: m to the nearest offset that is not clear, to either
+## side, whichever is nearer (`open` where there is none on a side).
+static func _rooms_of(row: PackedFloat32Array, step: float, open: float) -> PackedFloat32Array:
+	var n := row.size()
+	var left := PackedFloat32Array()
+	left.resize(n)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var last := -1
+	for k in n:
+		if row[k] >= TRACK_TIGHT:
+			last = k
+		left[k] = open if last < 0 else (k - last - 1) * step
+	last = -1
+	for k in range(n - 1, -1, -1):
+		if row[k] >= TRACK_TIGHT:
+			last = k
+		out[k] = minf(left[k], open if last < 0 else (last - k - 1) * step)
+	return out
+
+
+const TRACK_TIGHT := 40.0
+const TRACK_BLOCKED := 10000.0
+const TRACK_WEAVE := 0.5             ## cost per offset step moved (no needless weaving)
+
+
+## The cheapest path through the offsets for one lane (see race_tracks): the
+## offset index picked at each sample.
+func _track_path(samples: Array, cost: Array, offs: Array[float], lane: float, max_jump: int) -> PackedInt32Array:
+	var n_off := offs.size()
+	var ns := samples.size()
+	var back: Array = []                       # per sample: the best previous offset index
+	var acc := PackedFloat32Array()
+	acc.resize(n_off)
+	for k in n_off:
+		acc[k] = (cost[0] as PackedFloat32Array)[k] + absf(offs[k] - lane)
+	back.append(PackedInt32Array())
+	for i in range(1, ns):
+		var row: PackedFloat32Array = cost[i]
+		var nxt := PackedFloat32Array()
+		nxt.resize(n_off)
+		var from := PackedInt32Array()
+		from.resize(n_off)
+		for k in n_off:
+			var best := INF
+			var best_j := k
+			for j in range(maxi(0, k - max_jump), mini(n_off, k + max_jump + 1)):
+				var c := acc[j] + absi(k - j) * TRACK_WEAVE
+				if c < best:
+					best = c
+					best_j = j
+			nxt[k] = best + row[k] + absf(offs[k] - lane)
+			from[k] = best_j
+		acc = nxt
+		back.append(from)
+	var k_end := 0
+	for k in n_off:
+		if acc[k] < acc[k_end]:
+			k_end = k
+	var picks := PackedInt32Array()
+	picks.resize(ns)
+	picks[ns - 1] = k_end
+	for i in range(ns - 1, 0, -1):
+		picks[i - 1] = (back[i] as PackedInt32Array)[picks[i]]
+	return picks
+
+
+## rules.json `tracks`, with the course file's `tracks` over it.
+func tracks_cfg() -> Dictionary:
+	var out: Dictionary = (RaceCrew.rules().get("tracks", {}) as Dictionary).duplicate()
+	out.merge(course.get("tracks", {}), true)
 	return out
 
 
