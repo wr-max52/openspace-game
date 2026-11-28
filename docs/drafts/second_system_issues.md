@@ -22,7 +22,7 @@ Right now there is one system: every planet is `near` the one sun (`types.json` 
 4. **Mountain towns:** three red-rock circle towns, each with its own look, outfits and cantina.
 5. **Folklore and Dool'rey Kah:** the old storyteller, ghost and curse lore, and the worm.
 6. **Water planet:** a rusty favela town on the sea, speeders as the only way round, outposts on pads.
-7. **Asteroid field and wrecks:** rocks, derelict cruisers, outposts on the big rocks.
+7. **Asteroid field and wrecks:** low gravity rock hopping, derelict cruisers, outposts and missions.
 
 # Done looks like
 * All seven sub-issues closed.
@@ -237,26 +237,37 @@ A rideable sea any water or lava world can switch on.
 
 ---
 
-## 7. Asteroid field and wrecks, with outposts on the big rocks
+## 7. Asteroid field and wrecks: low gravity, rock hopping and missions
 
-Labels: `enhancement`, `size: M`, `area: world`
+Labels: `enhancement`, `size: L`, `area: world`
 
-> "and one other planet or object" (the user; they chose an asteroid field with wrecks)
+> "and one other planet or object" and "Yeah the asteroid field with rocks and minmal grabity like outside the cruisers would be rly fun! Super cool missions out there" (the user)
 
-Part of the epic. Follows 1.
+Part of the epic. Follows 1 and 3.
 
 # What and why
-The system's third place: a drifting field of rocks with derelict cruisers wedged among them and Remnant outposts dug into the biggest rocks.
+The system's third place: a drifting field of rocks with derelict cruisers wedged among them and Remnant outposts dug into the biggest rocks. Out here you float like you do outside a cruiser's hull, so you hop from rock to rock on the jetpack. The station's jobs send you out here.
 
 # Done looks like
 * **A place with its own bubble:** a planet file on a new `field` type (no ground, open space's sky), so fights stay inside a bubble (rule 2) and the field is a place you fly to.
-* **The field:** a few hundred rocks of mixed sizes from shared meshes, flown through with real collision on the big ones.
-* **Two or three wrecked cruisers** among the rocks, entered on foot by jetpack (copy the belt wrecks, #848).
+* **The field:** a few hundred rocks of mixed sizes from shared meshes, with real collision on the big ones. You can land a ship on the big ones.
+* **Low gravity everywhere in the field:** the same float as outside a cruiser (`remnant_cruiser.json` `outside`: about 4 m/s/s instead of 20, and the jetpack refuels in the air). You can push off one rock, drift and land on the next. The numbers live in the field's file.
+* **Stand on any big rock:** your feet stick to the rock under you, with a fall toward the nearest big rock in reach. If you drift too far from every rock, you are pulled back to your ship.
+* **Two or three wrecked cruisers** among the rocks, entered on foot (copy the belt wrecks, #848).
 * **Four outposts** on the largest rocks, as a Territory front.
-* **Headless test:** the field loads as its own place in the new system, a ship collides with a big rock, and each outpost can be taken.
+* **Missions out here** (jobs on the station's bar board, `content/core/board/`):
+  * **Salvage run:** pull power cells out of a wreck and bring them back.
+  * **Lost crate:** a crate drifting between rocks; jetpack to it and carry it to your ship.
+  * **Stranded pilot:** find a pilot on a far rock before their air runs out, and fly them home.
+  * **Clear the rock:** take one outpost for the locals.
+* **Headless test:** the field loads as its own place in the new system; a player stepping off a rock drifts at the low gravity and lands on the next; a ship collides with a big rock; each outpost can be taken; the salvage run pays out.
+
+# Could have
+* Slowly tumbling small rocks you can ride.
+* A Remnant patrol that hunts you between rocks.
 
 # Built from
-Belt wrecks (#848), skimmer outposts (#846), `LookMeshKit` balls, and Territory. Render rung: **data** and **simple shapes**.
+The cruiser's `outside` float (`CruiserHull.GRAVITY_BOX`), belt wrecks (#848), skimmer outposts (#846), `LookMeshKit` balls, Territory, the bar board and `content/core/missions/`. Render rung: **data** and **simple shapes**.
 
 # What this leaves behind
-An asteroid-field place any system can drop in with one file.
+A low-gravity field place (rocks, wrecks, jobs) any system can drop in with one file, and a reusable "float near a body" rule beyond the cruiser.
