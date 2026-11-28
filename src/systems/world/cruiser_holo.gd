@@ -58,6 +58,9 @@ var cruiser_flag := ""
 var _texts: Array = []
 ## Issue #838: labels with a hold clock in them, written again every refresh_s.
 var _clocks: Array = []
+## Issue #838: outpost labels shown only while their pin is on the camera's side of
+## the ball, so the far ones do not pile onto the near ones: { label, dir }.
+var _facing: Array = []
 
 
 ## `cruiser_frame` is the cruiser's frame in the world (the parent's), `anchor` the
@@ -369,10 +372,25 @@ func _outpost_pin(id: String, dir: Vector3, outpost_name: String) -> void:
 	var pin := _pin(dir, owner_color(id), float(spec.get("outpost_stalk", 0.12)), " ", false)
 	var label := pin.label as Label3D
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.font_size = int(spec.get("outpost_font", 32))
+	_facing.append({ "label": label, "dir": dir.normalized() })
 	_place(id, pin)
 	var entry := { "label": label, "text": func() -> String: return outpost_line(outpost_name, id) }
 	_texts.append(entry)
 	_clocks.append(entry)
+
+
+## Issue #838: show an outpost's label only while its pin faces the camera.
+func face_labels() -> void:
+	if _facing.is_empty() or not is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	for f in _facing:
+		var l := f.label as Label3D
+		var n := (_turn.global_transform.basis * (f.dir as Vector3)).normalized()
+		l.visible = n.dot((cam.global_position - l.global_position).normalized()) > float(spec.get("outpost_face", -0.3))
 
 
 ## Issue #838: an outpost's name and, under it, what the F11 map says of it
@@ -477,7 +495,8 @@ static func _ball_dir(x: float, z: float, r: float) -> Vector3:
 ## Who holds place `id` as a word (holo.lines.owners: remnant, locals, empty).
 func owner_name(id: String) -> String:
 	var who := _owner(id)
-	return str(spec.get("lines", {}).get("owners", {}).get(who if who != "" else "empty", who))
+	var key := who if who != "" else "empty"
+	return str(spec.get("lines", {}).get("owners", {}).get(key, key.capitalize()))
 
 
 func _owned(what: String, id: String) -> String:
@@ -538,6 +557,7 @@ func _process(dt: float) -> void:
 		refresh_owners()
 		for c in _clocks:
 			(c.label as Label3D).text = (c.text as Callable).call()
+	face_labels()
 	for id in places:
 		var p: Dictionary = places[id]
 		if float(p.flash) > 0.0:
