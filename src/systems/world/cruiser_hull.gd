@@ -447,7 +447,8 @@ static func _bay(out: Array) -> void:
 	_section_wall(out, "bay_stern_wall_s", Vector2(HALL_HALF + 1.0, BAY_X.y), DECK_Y, BAY_TOP, BAY_Z.y + 1.0)
 	_wall(out, "bay_stern_lintel", Vector3(-HALL_HALF - 1.0, HALL_TOP, BAY_Z.y + 1.0), Vector3(HALL_HALF + 1.0, BAY_TOP, BAY_Z.y + 1.0), 2.0)
 	# The lip of the flank above the opening: a slim frame, near flush with the plates.
-	_solid_box(out, "bay_lintel", Vector3(1.6, 2.4, length + 4.0), Vector3(BAY_X.y - 0.2, FLANK_TOP - 1.0, mid_z), "trim")
+	# Its ends stop in the middle of the bow and stern walls, not flush with their faces.
+	_solid_box(out, "bay_lintel", Vector3(1.6, 2.4, length + 2.0), Vector3(BAY_X.y - 0.2, FLANK_TOP - 1.0, mid_z), "trim")
 	# The port gantry: a deck along the wall at mid height and a ramp up to it.
 	var g_y := DECK_Y + 16.0
 	_slab(out, "bay_gantry", Vector2(BAY_X.x, BAY_X.x + 8.0), Vector2(BAY_Z.x + 6.0, -16.0), g_y, "grate", 0.6)
@@ -715,12 +716,24 @@ static func _tower(out: Array) -> void:
 	# there (aft of the bridge the shaft runs on up through it). Its top is the pits'
 	# underside, not their floor, so the two never share a face and flicker.
 	var plinth_top := PIT_Y - 1.0
-	_solid_box(out, "tower_plinth", Vector3(TOWER_X * 2.0 + 4.0, plinth_top - hull_top + 2.0, BRIDGE_Z.y - z0),
-		Vector3(0, (hull_top - 2.0 + plinth_top) * 0.5, (z0 + BRIDGE_Z.y) * 0.5), "hull")
-	# Over the shaft, between its walls and the tower's: a deck closing the hull's top.
+	var plinth_y := Vector2(hull_top - 2.0, plinth_top)
+	# It stops at the shaft's fore wall (shaft_fore_mid, 2 m thick at SHAFT_Z.x - 1)
+	# rather than running on through it: its aft face flush in the wall's face
+	# flickered hull against wall the whole way up the shaft. Either side of the wall
+	# a wing carries it on to the tower's aft walls.
+	var wall_fore := SHAFT_Z.x - 2.0
+	_solid_box(out, "tower_plinth", Vector3(TOWER_X * 2.0 + 4.0, plinth_y.y - plinth_y.x, wall_fore - z0),
+		Vector3(0, (plinth_y.x + plinth_y.y) * 0.5, (z0 + wall_fore) * 0.5), "hull")
 	for side: float in [-1.0, 1.0]:
-		_solid_box(out, "tower_shaft_cap_%s" % ("s" if side > 0 else "p"), Vector3(TOWER_X - SHAFT_X + 2.0, 2.0, z1 - BRIDGE_Z.y),
-			Vector3(side * (SHAFT_X + TOWER_X + 2.0) * 0.5, hull_top, (BRIDGE_Z.y + z1) * 0.5), "hull")
+		_solid_box(out, "tower_plinth_wing_%s" % ("s" if side > 0 else "p"),
+			Vector3(TOWER_X + 2.0 - SHAFT_X, plinth_y.y - plinth_y.x, SHAFT_Z.x - wall_fore),
+			Vector3(side * (SHAFT_X + TOWER_X + 2.0) * 0.5, (plinth_y.x + plinth_y.y) * 0.5, (wall_fore + SHAFT_Z.x) * 0.5), "hull")
+	# Over the shaft, between its walls and the tower's: a deck closing the hull's top.
+	# It runs from the shaft wall's outer face to the tower wall's inner one, so it
+	# shows no face flush in either (it stood in the shaft wall's inner face before).
+	for side: float in [-1.0, 1.0]:
+		_solid_box(out, "tower_shaft_cap_%s" % ("s" if side > 0 else "p"), Vector3(TOWER_X - SHAFT_X - 2.0, 2.0, z1 - BRIDGE_Z.y),
+			Vector3(side * (SHAFT_X + 2.0 + TOWER_X) * 0.5, hull_top, (BRIDGE_Z.y + z1) * 0.5), "hull")
 	# The bow wall: a sill, the great window in panes, and a header.
 	var win := Vector2(BRIDGE_Y + 1.4, BRIDGE_TOP - 1.0)
 	_solid_box(out, "tower_bow_sill", Vector3(TOWER_X * 2.0 + 4.0, win.x - BRIDGE_Y + 4.0, 2.0),
