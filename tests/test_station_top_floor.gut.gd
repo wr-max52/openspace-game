@@ -166,3 +166,75 @@ func test_the_locals_guards_take_top_floor_posts_too() -> void:
 	var up: Array = s.remnant.guards.filter(func(g): return s.to_local_point(g.global_position).y > top_y - 1.0)
 	assert_gt(up.size(), 0, "some on the top floor")
 	assert_lt(up.size(), 11, "fewer than the Remnant had there")
+
+
+## Every floor's furniture built now (the station builds it a little a tick).
+func _fill(s) -> void:
+	for i in 400:
+		for k in 300:
+			s._step_fill()
+		var done := true
+		for ff in s.fill_floors:
+			if not bool(ff.built):
+				done = false
+		if done:
+			break
+		await wait_physics_frames(1)
+	await wait_physics_frames(2)
+
+
+func test_every_top_post_stands_clear_of_the_furniture() -> void:
+	var t = _host()
+	var s = await _city(t)
+	assert_not_null(s)
+	if s == null:
+		return
+	await _fill(s)
+	assert_false(s.fill_floors.is_empty(), "the floors are furnished")
+	var space: PhysicsDirectSpaceState3D = s.get_world_3d().direct_space_state
+	var body := CapsuleShape3D.new()
+	body.radius = 0.32
+	body.height = 1.5
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = body
+	q.collide_with_areas = false
+	# The probe can see furniture: the middle of the first barracks' first card table.
+	var tw: Dictionary = s.hull.tower("main")
+	var fi: int = (tw.floors as Array).size() - 1
+	var table := Vector3.INF
+	for room in s.hull.floor_rooms(tw, fi):
+		if str(room.use) == "barracks" and bool(room.open) and table == Vector3.INF:
+			var a := float(room.a)
+			table = Vector3(tw.c.x, float(tw.floors[fi].y), tw.c.y) + Vector3(cos(a), 0, sin(a)) * (float(room.r0) + 10.0)
+	q.transform = Transform3D(s.frame.basis, s.to_world(table) + s.frame.basis.y * (0.1 + body.height * 0.5))
+	assert_gt(space.intersect_shape(q, 4).size(), 0, "the probe finds the card table (the check can see furniture)")
+	for p in StationRemnant.top_posts(s.hull):
+		var at: Vector3 = s.to_world(p.at)
+		q.transform = Transform3D(s.frame.basis, at + s.frame.basis.y * (0.1 + body.height * 0.5))
+		var hits := space.intersect_shape(q, 4)
+		var names: Array = hits.map(func(h): return str(h.collider.name) if h.collider != null else "?")
+		assert_eq(hits.size(), 0, "%s (%s) stands clear of the furniture, hits %s" % [p.id, p.soldier, names])
+
+
+func test_each_one_faces_the_way_his_post_says() -> void:
+	var t = _host()
+	var s = await _city(t)
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	await _woke(s)
+	var by_id := {}
+	for p in StationRemnant.posts(s.hull):
+		by_id[str(p.id)] = p
+	var checked := 0
+	for g in s.remnant.troopers:
+		var id := str(g.name).trim_prefix("Npc_" + PLACE + "_")
+		if not by_id.has(id):
+			continue
+		var want: Vector3 = (s.frame.basis * (by_id[id].face as Vector3))
+		want.y = 0.0
+		var looks: Vector3 = g.global_transform.basis.z
+		looks.y = 0.0
+		assert_gt(looks.normalized().dot(want.normalized()), 0.95, "%s faces its post's way" % id)
+		checked += 1
+	assert_gt(checked, 10, "the top floor's and the deck's")

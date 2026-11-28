@@ -5,9 +5,12 @@ Plain English, newest on top. One entry per milestone.
 ## The Remnant on the ring station's top floor (2026-11-28)
 
 - **A Remnant general stands on the bridge's command dais** by the great window,
-  with an honour guard either side of its steps.
-- **Troopers off duty in both barracks**, four in each, round the card tables
-  and in the bunk aisle. They are slower to spot you than troopers on duty.
+  in front of the command chair, with an honour guard either side of him.
+- **Troopers off duty in both barracks**, four in each, standing round the card
+  tables behind the chairs. They are slower to spot you than troopers on duty.
+- **Everyone aboard the station faces the right way.** The Remnant on their
+  deck and the locals' guards who replace them used to stand with their backs
+  to what they were guarding.
 - **They are part of the station's Remnant.** Clearing the Remnant deck in the
   second tower is no longer enough: the station falls to the locals only once
   the general, his guard and the off-duty troopers are dead too. Then the

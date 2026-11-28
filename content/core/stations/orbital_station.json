@@ -123,7 +123,7 @@
     "wake_within": 700.0,
     "sleep_m": 120.0,
     "locals_after_s": 8.0,
-    "top_note": "Issue #314: the Remnant on the main tower's top floor, part of the deck's place (one Territory place, 'station_<landmark id>'): the station is taken only once these are dead too, and whoever holds the deck holds them (the locals' guards take every other post, guard_share). 'tower' and 'floor': the floor. 'spots': who stands where in each room of that use (the fill's top 'rooms'): 'x' metres in from the room's door ('from': 'door') or out from its window ('from': 'window'), 'z' across it (+z its side +1), 'y' up (the general on the bridge's dais), 'face' [x, z] in the room's frame (x out toward the window; default facing the door), 'who' the profile key below. Bridge: the general on the command dais by the glass, an honour guard either side of its steps. Barracks: troopers off duty round the card tables and in the bunk aisle. They have their own garrison (StationRemnant._top_garrison), not the deck's, so a fight on the deck does not send them across the towers; they hold their ground.",
+    "top_note": "Issue #314: the Remnant on the main tower's top floor, part of the deck's place (one Territory place, 'station_<landmark id>'): the station is taken only once these are dead too, and whoever holds the deck holds them (the locals' guards take every other post, guard_share). 'tower' and 'floor': the floor. 'spots': who stands where in each room of that use (the fill's top 'rooms'): 'x' metres in from the room's door ('from': 'door') or out from its window ('from': 'window'), 'z' across it (+z its side +1), 'y' up (the general on the bridge's dais), 'face' [x, z] in the room's frame (x out toward the window; default facing the door), 'who' the profile key below. Bridge: all three up on the command dais by the glass (its top 0.4 m up, StationFill._bridge: centre 8 m in from the window, 3 m to its rail, the chair 8.3 m in, its back 8.75 m), the general at its front edge 1.25 m clear of the chair's back, an honour guard either side a step behind him, clear of the side consoles. Barracks: troopers off duty round the card tables (StationFill._bunks: 2.4 m long down the room's middle at 10 and 17 m from the door, the chairs either side at 0.85 m), standing behind the chairs and at a table's end, never in the aisle down the middle. They have their own garrison (StationRemnant._top_garrison), not the deck's, so a fight on the deck does not send them across the towers; they hold their ground.",
     "top": {
       "tower": "main",
       "floor": "top",
@@ -132,15 +132,15 @@
       "off_duty": "station_off_duty",
       "spots": {
         "bridge": [
-          { "who": "general", "from": "window", "x": 9.6, "z": 0.0, "y": 0.45 },
-          { "who": "honour", "from": "window", "x": 12.4, "z": 1.7 },
-          { "who": "honour", "from": "window", "x": 12.4, "z": -1.7 }
+          { "who": "general", "from": "window", "x": 10.0, "z": 0.0, "y": 0.45 },
+          { "who": "honour", "from": "window", "x": 9.1, "z": 1.8, "y": 0.45 },
+          { "who": "honour", "from": "window", "x": 9.1, "z": -1.8, "y": 0.45 }
         ],
         "barracks": [
-          { "who": "off_duty", "x": 8.3, "z": 0.0, "face": [1, 0] },
-          { "who": "off_duty", "x": 11.7, "z": 0.0, "face": [-1, 0] },
-          { "who": "off_duty", "x": 10.4, "z": 1.5, "face": [0, -1] },
-          { "who": "off_duty", "x": 15.3, "z": 0.0, "face": [1, 0] }
+          { "who": "off_duty", "x": 9.4, "z": 1.55, "face": [0, -1] },
+          { "who": "off_duty", "x": 10.7, "z": -1.55, "face": [0, 1] },
+          { "who": "off_duty", "x": 11.95, "z": 0.3, "face": [-1, 0] },
+          { "who": "off_duty", "x": 17.5, "z": -1.55, "face": [0.3, 1] }
         ]
       }
     }
