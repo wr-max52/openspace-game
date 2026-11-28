@@ -296,7 +296,7 @@ Stubs and fakes: things a player might expect that aren't there.
   avoidance between NPCs.
 - **Jobs and story:** bounty contracts off the home planet lead home; off home,
   the objective pointer only knows the station's drop and fence; no key to hide
-  the pointer; one world seed for everyone (every port is the same town);
+  the pointer;
   the fixer, weapons, the outpost and the mission's crate aren't named on screen.
 - **The beast and packs:** one beast, on one planet; no health bar; only you die
   to it; a blade hit with no owner counts as yours. Packs don't steal vehicles

@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New game, new crew (2026-11-28)
+
+- **Each new game names its people and ships afresh.** Guards, locals, dancers,
+  the DJ, bounty targets, the cruiser general, native folk, the Fixer, other
+  planets' cantina owners' surnames, every ship's own name (yours too) and the
+  pilots' callsigns come from a seed rolled for that game.
+- **The world stays the same.** Planets, moons, stars, towns, outposts and gear
+  brands have the same names in every game and on every machine, and the story
+  cast (Oda, Ilka, Skrugs, Grubba, T-89 and the rest) keep theirs.
+- **The seed is in the Ledger** (I), under the jobs, so you can tell a friend.
+  Old saves keep every name they had.
+
 ## Hatches in the station's ceilings (2026-11-28)
 
 - **Every floor of the space station has shield hatches in its ceiling,** like

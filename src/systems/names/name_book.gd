@@ -10,6 +10,14 @@ extends RefCounted
 ## book (and the authored ones, reserved at start), and only then written in. On a
 ## clash it tries the next seed, so the result is still the same every time the
 ## same things are named in the same order.
+##
+## Issue #834: two seeds. Places and gear (config `fixed_kinds`: towns, planets,
+## moons, stars, equipment, makers) use `world_seed`, the same in every game and on
+## every machine. Everything else (people, callsigns, vessels) uses `game_seed`,
+## rolled fresh for each new game (`fresh()`) and saved with it. A fixed name only
+## yields to other fixed or authored names: if a person already holds the name a
+## place wants, the place keeps it and the person is named again, so a place's name
+## never depends on who was named first.
 
 const NAMES_DIR := "res://content/core/names"
 const MANIFEST := "res://content/core/manifest.json"
@@ -18,6 +26,8 @@ const IP_LIST := "res://content/core/llm/ip_blocklist.json"
 static var _shared_engine: NameEngine
 
 var world_seed := 0
+var game_seed := 0                ## issue #834: people, callsigns and vessels; new each game
+var fixed_kinds: Dictionary = {}  ## kind -> true: named from world_seed (config "fixed_kinds")
 var by_key: Dictionary = {}       ## key -> name
 var owner: Dictionary = {}        ## normalized name -> key
 var kinds_of: Dictionary = {}     ## key -> kind (what it was named as)
@@ -29,8 +39,30 @@ var clashes := 0                  ## names thrown back because they were taken (
 func _init(eng: NameEngine = null) -> void:
 	engine = eng if eng != null else shared_engine()
 	world_seed = int(engine.config.get("world_seed", 1))
+	game_seed = world_seed            # until a new game rolls one (fresh) or a save says
+	for k in engine.config.get("fixed_kinds", []):
+		fixed_kinds[str(k)] = true
 	for r in engine.config.get("reserved", []):
 		reserve(str(r.name), str(r.key))
+
+
+## A book for a new game: the same places, new people (issue #834).
+static func fresh(eng: NameEngine = null) -> NameBook:
+	var b := NameBook.new(eng)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	b.game_seed = rng.randi_range(1, 999999)
+	return b
+
+
+## Is `kind` named the same in every game (a place, gear, an authored name)?
+func is_fixed(kind: String) -> bool:
+	return kind == "authored" or fixed_kinds.has(kind)
+
+
+## The seed `kind` is named from.
+func seed_for(kind: String) -> int:
+	return world_seed if is_fixed(kind) else game_seed
 
 
 ## The library, loaded once per run (it never changes while playing).
@@ -65,14 +97,18 @@ func name_for(kind: String, key: String, ctx: Dictionary = {}) -> String:
 	if by_key.has(key):
 		return by_key[key]
 	var max_attempts := int(engine.config.get("max_attempts", 64))
+	var fixed := is_fixed(kind)
 	for attempt in max_attempts:
-		var seed := NameEngine.fnv("%d|%s|%s|%d" % [world_seed, kind, key, attempt])
+		var seed := NameEngine.fnv("%d|%s|%s|%d" % [seed_for(kind), kind, key, attempt])
 		var n := engine.generate(kind, seed, ctx)
 		if n == "":
 			continue
-		if is_taken(n):
+		if _blocks(n, fixed):
 			clashes += 1
 			continue
+		var holder := str(owner.get(NameEngine.normalize(n), ""))
+		if holder != "":
+			release(holder)           # a person had a place's name: the place wins (#834)
 		_write(n, key, kind)
 		return n
 	push_warning("NameBook: no free %s name for %s" % [kind, key])
@@ -97,6 +133,15 @@ func is_taken(name: String) -> bool:
 	return owner.has(NameEngine.normalize(name))
 
 
+## Is `name` unavailable to a new fixed (or, if not `fixed`, any) name? A fixed name
+## is only held back by another fixed or authored one (issue #834).
+func _blocks(name: String, fixed: bool) -> bool:
+	var holder = owner.get(NameEngine.normalize(name))
+	if holder == null:
+		return false
+	return not fixed or is_fixed(str(kinds_of.get(holder, "")))
+
+
 ## Let a name go (the thing is gone for good and its name may be reused).
 func release(key: String) -> void:
 	if by_key.has(key):
@@ -111,7 +156,7 @@ func release(key: String) -> void:
 func pick(key: String, options: Array, salt: String = "pick") -> String:
 	if options.is_empty():
 		return ""
-	var h := NameEngine.fnv("%d|%s|%s" % [world_seed, salt, key])
+	var h := NameEngine.fnv("%d|%s|%s" % [game_seed, salt, key])
 	return str(options[h % options.size()])
 
 
@@ -130,12 +175,13 @@ func _write(name: String, key: String, kind: String) -> void:
 # ------------------------------------------------------------------ save
 
 func to_save() -> Dictionary:
-	return { "world_seed": world_seed, "names": by_key.duplicate(), "kinds": kinds_of.duplicate(),
+	return { "world_seed": world_seed, "game_seed": game_seed, "names": by_key.duplicate(), "kinds": kinds_of.duplicate(),
 		"labels": labels.duplicate() }
 
 
 func from_save(d: Dictionary) -> void:
 	world_seed = int(d.get("world_seed", world_seed))
+	game_seed = int(d.get("game_seed", world_seed))   # a save from before #834 keeps its names
 	var names: Dictionary = d.get("names", {})
 	var kinds: Dictionary = d.get("kinds", {})
 	for key in names:

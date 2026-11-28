@@ -158,7 +158,7 @@ func test_a_new_game_never_touches_the_other_save() -> void:
 	assert_eq(int(_world(WorldState.STORY).credits), 60, "the story's own slot holds the new game")
 
 
-func test_a_new_game_in_the_other_mode_keeps_this_one_and_uses_that_ones_names() -> void:
+func test_a_new_game_in_the_other_mode_keeps_this_one_and_starts_with_new_names() -> void:
 	_playing(WorldState.STORY)
 	WorldState.names._write("Ana Storyfolk", "test:story", "person")
 	panel.switch_save(WorldState.FREEPLAY, false)
@@ -166,8 +166,9 @@ func test_a_new_game_in_the_other_mode_keeps_this_one_and_uses_that_ones_names()
 	_host()
 	panel.new_game(WorldState.STORY, false)
 	assert_true(WorldState.story_mode())
-	assert_true(WorldState.names.by_key.has("test:story"), "the story save's names are kept")
-	assert_false(WorldState.names.by_key.has("test:free"), "not free roam's")
+	assert_false(WorldState.names.by_key.has("test:story"), "issue #834: a new game names its people afresh")
+	assert_false(WorldState.names.by_key.has("test:free"), "and takes nothing from free roam")
+	assert_true(WorldState.names.has("npc:cantina_owner"), "the story cast is reserved again")
 	assert_true(_world(WorldState.FREEPLAY).names.names.has("test:free"), "and free roam was saved first")
 
 
