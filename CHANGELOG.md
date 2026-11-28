@@ -2,6 +2,13 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.6 (2026-11-28)
+
+- Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New
+  version is 1.7.5", is in it.
+- Rebuilt the same night with the belt wrecks, the skimmer outposts and the
+  speeder tilt and boost fixes, so this heading moved back to the top.
+
 ## The wrecks in the belt under the ring station (2026-11-28)
 
 - **Three wrecked cruisers hang under the station, stacked and never touching.**
@@ -29,10 +36,6 @@ Plain English, newest on top. One entry per milestone.
 - The wrecks' poses and drops are data (`belt` in
   `content/core/stations/orbital_station.json`), and a test fails if two wrecks
   touch, a pad is covered, or a jetpack change makes a drop too hard to land.
-## New version is 1.7.6 (2026-11-28)
-
-- Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New
-  version is 1.7.5", is in it.
 
 ## Coming down from the gas giant: under budget (2026-11-28)
 
