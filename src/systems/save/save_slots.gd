@@ -119,16 +119,6 @@ static func summary(mode: String) -> Dictionary:
 		"credits": int(world.get("credits", 0)), "planet": str(where.get("planet", "")) }
 
 
-## The name book in `mode`'s save, or a new one (its seed gives the same names).
-static func names_in(mode: String) -> NameBook:
-	var book := NameBook.new()
-	if exists(mode):
-		var d = JSON.parse_string(FileAccess.get_file_as_string(path(mode)))
-		if d is Dictionary:
-			book.from_save((d as Dictionary).get("world", {}).get("names", {}))
-	return book
-
-
 ## Play `mode`'s save from now on (and next launch).
 static func remember(mode: String) -> void:
 	active = _mode(mode)
@@ -166,7 +156,7 @@ static func enter(mode: String, write := true) -> bool:
 		WorldState.from_save(s.get_world())
 		ConversationHost._loaded_once = true     # WorldState is the save's already
 		return true
-	start(mode, NameBook.new(), write)
+	start(mode, NameBook.fresh(), write)
 	return false
 
 

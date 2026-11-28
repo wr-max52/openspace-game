@@ -194,6 +194,7 @@
     "log_ships": "YOUR SHIPS",
     "log_speeders": "YOUR SPEEDERS",
     "log_gear": "YOUR GEAR UPGRADES",
+    "ledger_seed": "Name seed %d: this game's people and ship names",
     "quest_open": "Open",
     "quest_done": "Done",
     "quest_failed": "Failed",
