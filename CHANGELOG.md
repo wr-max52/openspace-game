@@ -2,6 +2,11 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.6 (2026-11-28)
+
+- Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New
+  version is 1.7.5", is in it.
+
 ## Coming down from the gas giant: under budget (2026-11-28)
 
 - **The way down from the gas giant is now smooth.** Its worst frame was over
