@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Jump from one stolen ship to the next (2026-11-28)
+
+- **No more waiting for the ship you ejected from.** Before, you could not board
+  or hijack another ship until the empty one had landed or been towed. Now you
+  can climb into the next ship (or hijack one in the air) the moment you are out.
+- **The one you left goes down as a wreck.** If she is still falling, a copy of
+  her carries on down at her own speed and blows up where she lands. A stolen or
+  borrowed ship is gone; a pad's own ship that is nobody's is towed back to her
+  pad. If she had already crashed and was waiting for her tow, the tow happens
+  at once.
+- Your own ship still flies home when you eject, as before.
+
 ## New game, new crew (2026-11-28)
 
 - **Each new game names its people and ships afresh.** Guards, locals, dancers,
