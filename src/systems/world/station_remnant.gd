@@ -118,6 +118,7 @@ static func posts(h: StationHull) -> Array:
 		"armoury": [[3.0, -1.5]],
 		"command": [[10.0, 0.0, "commander"], [3.0, 1.8]],
 		"mess": [[6.0, -3.0], [8.0, 3.0]],
+		"skimmer": [[9.5, 2.0], [9.5, -2.0]],
 	}
 	for r in rooms(h):
 		var frame: Transform3D = r.frame
@@ -254,6 +255,8 @@ func _on_trooper_died() -> void:
 func _locals_move_in() -> void:
 	if not guards.is_empty() or demo == null or not demo.has_method("make_soldier"):
 		return
+	if station != null and station.has_method("rebuild_skimmer"):
+		station.rebuild_skimmer()        # issue #838: the skimmer's tanks, built again for the locals
 	var all := posts(hull)
 	var every := maxi(1, roundi(1.0 / maxf(0.05, float(cfg.get("guard_share", 0.5)))))
 	for i in all.size():

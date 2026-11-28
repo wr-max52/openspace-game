@@ -111,10 +111,10 @@ func setup(d: Dictionary) -> void:
 			var count := int(rv) if (rv is float or rv is int) else (int(d.get("rooms", {}).get("count", 8)) if bool(rv) else 0)
 			fl.append({ "id": str(f.get("id", "")), "y": float(f.get("y", 0.0)), "r": float(f.get("radius", 40.0)),
 				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)),
-				"roof_hatch": f.get("roof_hatch", {}) })
+				"roof_hatch": f.get("roof_hatch", {}), "floor_hatch": f.get("floor_hatch", {}) })
 		fl.sort_custom(func(a, b): return float(a.y) < float(b.y))
 		towers.append({ "id": str(t.get("id", "")), "c": Vector2(float(at[0]), float(at[1])), "floors": fl,
-			"antennas": t.get("antennas", []) })
+			"antennas": t.get("antennas", []), "skimmer": t.get("skimmer", {}) })
 	_read_bay(d.get("bay", {}))
 	_read_tunnels(d.get("tunnels", []))
 	_build()
@@ -907,7 +907,11 @@ func _floor(t: Dictionary, i: int) -> void:
 	# The plate, the gap's shield floor (the shaft's own floor at the bottom). Issue
 	# #603: the gap is not glass you stand on but a shield you drop through, floor
 	# after floor, out under the station from the lowest one (as the tunnels' hatches).
-	_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
+	var fh: Dictionary = floor_hatch(t, i)
+	if fh.is_empty():
+		_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
+	else:
+		_floor_hatch(t, pre, c, r, y, fh)
 	gap_shields.append({ "tower": str(t.id), "floor": i, "c": c, "r0": shaft_r, "r1": gap_r, "y": y - 0.05 })
 	if i == 0:
 		_ring(pre + "_pit", c, 0.0, shaft_r, y - plate, y, "floor", "deck", [], 12)
@@ -1029,6 +1033,122 @@ func _roof_hatch(pre: String, c: Vector2, r: float, ceil_y: float, rh: Dictionar
 	for k in rungs:
 		_add("%s_roof_ladder_rung_%d" % [pre, k], Transform3D(Basis(dir, UP, side), lx + Vector3(0, y_floor + 0.3 + k * 0.35, 0)),
 			Vector3(0.06, 0.06, 0.7), "decor", "rail")
+
+
+## Issue #838: a hatch in a floor's plate (the floor's "floor_hatch": { a_deg, r,
+## width }, as roof_hatch), down to the tower's skimmer gantry below it: { a, r, hw },
+## or {} for none. Only the lowest floor's plate opens to the outside.
+func floor_hatch(t: Dictionary, i: int) -> Dictionary:
+	if i != 0:
+		return {}
+	var fh = (t.floors as Array)[i].get("floor_hatch", {})
+	if not (fh is Dictionary) or (fh as Dictionary).is_empty():
+		return {}
+	return { "a": deg_to_rad(float(fh.get("a_deg", 0.0))), "r": float(fh.get("r", 25.0)),
+		"hw": float(fh.get("width", float(cfg.get("hatch", {}).get("width", 4.0)))) * 0.5 }
+
+
+## The plate with the hatch cut in it, its shield (drop through it; jetpack back up),
+## a rim round it, and a ladder from the gantry below up the hole's outer side to a
+## handhold over the floor (the look: the jetpack climbs it, as the roof's).
+func _floor_hatch(t: Dictionary, pre: String, c: Vector2, r: float, y: float, fh: Dictionary) -> void:
+	var a := float(fh.a)
+	var hr := float(fh.r)
+	var hw := float(fh.hw)
+	_ring(pre + "_plate_in", c, gap_r, hr - hw, y - plate, y, "floor", "deck")
+	_ring(pre + "_plate_hatch", c, hr - hw, hr + hw, y - plate, y, "floor", "deck", [[a, hw]])
+	_ring(pre + "_plate_out", c, hr + hw, r, y - plate, y, "floor", "deck")
+	var dir := Vector3(cos(a), 0, sin(a))
+	var side := dir.cross(UP)
+	var b := Basis(dir, UP, side)
+	var mid := Vector3(c.x, 0, c.y) + dir * hr
+	hatches.append({ "tunnel": pre + "_floor", "xf": Transform3D(b, mid + Vector3(0, y - plate * 0.5, 0)), "size": Vector3(hw * 2.0, 0.1, hw * 2.0) })
+	for s: float in [-1.0, 1.0]:
+		_add("%s_floor_hatch_rim_%d" % [pre, int(s)], Transform3D(b, mid + side * s * (hw + 0.15) + Vector3(0, y + 0.03, 0)),
+			Vector3(hw * 2.0 + 0.6, 0.06, 0.3), "decor", "glow")
+		_add("%s_floor_hatch_end_%d" % [pre, int(s)], Transform3D(b, mid + dir * s * (hw + 0.15) + Vector3(0, y + 0.03, 0)),
+			Vector3(0.3, 0.06, hw * 2.0 + 0.6), "decor", "glow")
+	var sk: Dictionary = t.get("skimmer", {})
+	var bottom := y - plate - float(sk.get("depth", 20.0)) if not sk.is_empty() else y - plate - 4.0
+	var top := y + RAIL_H
+	var lx := mid + dir * (hw - 0.25)
+	for s: float in [-0.35, 0.35]:
+		_add("%s_floor_ladder_rail_%d" % [pre, int(signf(s))], Transform3D(b, lx + side * s + Vector3(0, (bottom + top) * 0.5, 0)),
+			Vector3(0.08, top - bottom, 0.08), "solid", "rail")
+	var rungs := int((y - plate - bottom) / 0.35)
+	for k in rungs:
+		_add("%s_floor_ladder_rung_%d" % [pre, k], Transform3D(b, lx + Vector3(0, bottom + 0.3 + k * 0.35, 0)),
+			Vector3(0.06, 0.06, 0.7), "decor", "rail")
+
+
+## Issue #838: the tower's skimmer ("skimmer": { a_deg, r (the gantry's middle round
+## the tower), depth (its deck this far under the lowest floor's plate), size: [along,
+## across], pipe (the intake's length down toward the clouds), units: [{ style, at:
+## [along, across] }] }): a gantry deck hung on two pairs of trusses, railed round,
+## the intake pipe down from its middle with a glowing core and a scoop on its end.
+## The tanks on it are QuantoniumRefinery's (SpaceStation builds them at
+## skimmer_units()); everything here is boxes in the station's one body.
+func _skimmer(t: Dictionary) -> void:
+	var sk: Dictionary = t.get("skimmer", {})
+	if sk.is_empty():
+		return
+	var g := skimmer_frame(t)
+	var size: Array = sk.get("size", [16.0, 26.0])
+	var la := float(size[0])
+	var lc := float(size[1])
+	var pre := "%s_skimmer" % str(t.id)
+	var box := func(nm: String, at: Vector3, sz: Vector3, kind: String, finish: String):
+		_add(pre + "_" + nm, g * Transform3D(Basis.IDENTITY, at), sz, kind, finish)
+	box.call("deck", Vector3(0, -0.4, 0), Vector3(la, 0.8, lc), "floor", "grate")
+	box.call("deck_edge", Vector3(0, -0.75, 0), Vector3(la + 0.4, 0.3, lc + 0.4), "decor", "hull")
+	for s: float in [-1.0, 1.0]:
+		box.call("rail_a_%d" % int(s), Vector3(0, RAIL_H * 0.5, s * (lc * 0.5 - 0.1)), Vector3(la, RAIL_H, 0.12), "solid", "rail")
+		box.call("rail_c_%d" % int(s), Vector3(s * (la * 0.5 - 0.1), RAIL_H * 0.5, 0), Vector3(0.12, RAIL_H, lc), "solid", "rail")
+		box.call("rail_glow_%d" % int(s), Vector3(0, RAIL_H + 0.04, s * (lc * 0.5 - 0.1)), Vector3(la, 0.08, 0.18), "decor", "glow")
+	# The trusses: two pairs of legs up to the plate, braced across.
+	var depth := float(sk.get("depth", 20.0))
+	for sa: float in [-1.0, 1.0]:
+		for sc: float in [-1.0, 1.0]:
+			var at := Vector3(sa * (la * 0.5 - 1.5), depth * 0.5, sc * (lc * 0.5 - 3.0))
+			box.call("leg_%d_%d" % [int(sa), int(sc)], at, Vector3(0.8, depth, 0.8), "solid", "trim")
+		for k in 4:
+			var yy := depth * (k + 0.5) / 4.0
+			box.call("brace_%d_%d" % [int(sa), k], Vector3(sa * (la * 0.5 - 1.5), yy, 0), Vector3(0.3, 0.3, lc - 6.0), "decor", "trim")
+	# The intake: a pipe down from the middle, its core glowing, a scoop on the end.
+	var pipe := float(sk.get("pipe", 70.0))
+	box.call("pipe", Vector3(0, -0.8 - pipe * 0.5, 0), Vector3(1.6, pipe, 1.6), "decor", "hull")
+	box.call("pipe_core", Vector3(0, -0.8 - pipe * 0.5, 0), Vector3(0.6, pipe, 1.8), "decor", "glow")
+	for k in 6:
+		box.call("pipe_band_%d" % k, Vector3(0, -2.0 - k * pipe / 6.0, 0), Vector3(2.2, 0.4, 2.2), "decor", "trim")
+	box.call("scoop", Vector3(0, -0.8 - pipe - 1.5, 0), Vector3(4.0, 3.0, 4.0), "decor", "hull")
+	box.call("scoop_mouth", Vector3(0, -0.8 - pipe - 3.1, 0), Vector3(3.4, 0.3, 3.4), "decor", "glow")
+
+
+## The skimmer gantry's frame (the station's): +x out along a_deg, on its deck's top.
+func skimmer_frame(t: Dictionary) -> Transform3D:
+	var sk: Dictionary = t.get("skimmer", {})
+	var fl: Array = t.floors
+	var a := deg_to_rad(float(sk.get("a_deg", 0.0)))
+	var dir := Vector3(cos(a), 0, sin(a))
+	var c: Vector2 = t.c
+	var y := float(fl[0].y) - plate - float(sk.get("depth", 20.0)) if not fl.is_empty() else 0.0
+	return Transform3D(Basis(dir, UP, dir.cross(UP)), Vector3(c.x, y, c.y) + dir * float(sk.get("r", 29.0)))
+
+
+## The tanks on every skimmer gantry: [{ tower, style, xf (the station's frame, on the
+## gantry's deck, upright) }].
+func skimmer_units() -> Array:
+	var out: Array = []
+	for t in towers:
+		var sk: Dictionary = t.get("skimmer", {})
+		if sk.is_empty():
+			continue
+		var g := skimmer_frame(t)
+		for u in sk.get("units", []):
+			var at: Array = u.get("at", [0, 0])
+			out.append({ "tower": str(t.id), "style": str(u.get("style", "globe")),
+				"xf": g * Transform3D(Basis.IDENTITY, Vector3(float(at[0]), 0.0, float(at[1]))) })
+	return out
 
 
 ## Issue #838: what stands on a tower's roof past its mast ("antennas": [{ kind:
@@ -1163,6 +1283,7 @@ func _tower_dressing(t: Dictionary) -> void:
 	var ring_gaps: Array = [] if rh.is_empty() else [[float(rh.a), float(rh.hw) + 0.6]]   # the way out of the hatch
 	_ring("%s_roof_ring" % str(t.id), c, float(high.r) * 0.35, float(high.r) * 0.42, roof, roof + 1.2, "solid", "trim", ring_gaps, 32)
 	_antennas(t, roof)
+	_skimmer(t)
 
 
 ## A tunnel: deck, roof, glass walls between hull bands, ribs along it. In the

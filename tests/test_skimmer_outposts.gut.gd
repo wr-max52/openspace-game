@@ -307,3 +307,100 @@ func test_the_roof_guard_takes_his_post_with_the_deck() -> void:
 	var roof: float = s.hull.floor_h + s.hull.plate
 	var up: Array = s.remnant.troopers.filter(func(g): return is_instance_valid(g) and s.to_local_point(g.global_position).y > roof - 0.5)
 	assert_eq(up.size(), 1, "a trooper on the roof")
+
+
+# ------------------------------------------------------------------ the skimmer
+
+func test_the_skimmer_gantry_hangs_under_its_control_room() -> void:
+	var h := _hull()
+	var units := h.skimmer_units()
+	assert_eq(units.map(func(u): return str(u.style)), ["globe", "core"], "the outposts' two tanks")
+	var t: Dictionary = h.towers[0]
+	var plate_under := float(t.floors[0].y) - h.plate
+	var deck_y := plate_under - float(t.skimmer.depth)
+	var probe := QuantoniumRefinery.new()
+	for u in units:
+		var xf: Transform3D = u.xf
+		assert_almost_eq(xf.origin.y, deck_y, 0.01, "%s on the gantry's deck" % u.style)
+		assert_true(_inside_part(h, xf.origin + Vector3(0, -0.3, 0)), "%s stands on solid deck" % u.style)
+		probe.build(str(u.style), null, null, null, 0.0, "probe")
+		assert_lt(xf.origin.y + probe._top, plate_under - 1.0, "%s clears the floor above" % u.style)
+		for leg in h.parts.filter(func(p): return str(p.id).contains("_skimmer_leg_")):
+			var lo: Vector3 = (leg.xf as Transform3D).origin
+			assert_gt(Vector2(lo.x - xf.origin.x, lo.z - xf.origin.z).length(), QuantoniumRefinery.footprint() + 0.4, "%s clear of the trusses" % u.style)
+	probe.free()
+	var room: Array = StationRemnant.rooms(h).filter(func(r): return str(r.use) == "skimmer")
+	assert_eq(room.size(), 1, "a skimmer control room on the deck")
+	var holes: Array = h.hatches.filter(func(x): return str(x.tunnel).ends_with("_floor"))
+	assert_eq(holes.size(), 1, "a hatch in the floor")
+	if room.is_empty() or holes.is_empty():
+		return
+	var hx: Transform3D = holes[0].xf
+	assert_almost_eq(Vector2(hx.origin.x, hx.origin.z).angle(), wrapf(float(room[0].room.a), -PI, PI), 0.01, "in the skimmer room")
+	assert_false(_inside_part(h, hx.origin), "the hatch is a hole in the plate")
+	assert_true(_inside_part(h, Vector3(hx.origin.x, deck_y - 0.3, hx.origin.z)), "the gantry's deck under it")
+	var rails := h.parts.filter(func(p): return str(p.id).contains("_floor_ladder_rail_"))
+	assert_eq(rails.size(), 2, "a ladder down to the gantry")
+	for r in rails:
+		assert_almost_eq((r.xf as Transform3D).origin.y - (r.size as Vector3).y * 0.5, deck_y, 0.05, "standing on the gantry")
+
+
+func test_the_blast_reaches_the_troopers_in_the_room_above() -> void:
+	var h := _hull()
+	var radius := float(QuantoniumRefinery.game_cfg().get("blast_radius", 22.0))
+	var posts: Array = StationRemnant.posts(h).filter(func(p): return str(p.id).begins_with("skimmer_"))
+	assert_eq(posts.size(), 2, "two troopers in skimmer control")
+	var probe := QuantoniumRefinery.new()
+	for u in h.skimmer_units():
+		probe.build(str(u.style), null, null, null, 0.0, "probe")
+		var centre: Vector3 = (u.xf as Transform3D) * Vector3(0, probe._mid * 0.5, 0)
+		for p in posts:
+			assert_lt((p.at as Vector3).distance_to(centre), radius - 1.0, "%s's blast reaches %s" % [u.style, p.id])
+	probe.free()
+
+
+func test_the_tanks_chain_blow_kill_the_room_above_and_come_back() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	assert_eq(s.refineries.size(), 2, "two tanks on the gantry")
+	s.remnant._wake()
+	for i in 90:
+		await wait_physics_frames(1)
+		if s.remnant._queue.is_empty():
+			break
+	var spots: Array = StationRemnant.posts(s.hull).filter(func(p): return str(p.id).begins_with("skimmer_")).map(func(p): return s.to_world(p.at))
+	var room: Array = s.remnant.troopers.filter(func(g): return is_instance_valid(g) and spots.any(func(q): return g.global_position.distance_to(q) < 1.5))
+	var far: Array = s.remnant.troopers.filter(func(g): return is_instance_valid(g) and str(g.name).ends_with("_command_4"))
+	assert_eq(room.size(), 2, "both at their posts in skimmer control")
+	s.refineries[0].hit(5000.0, null)
+	await wait_seconds(1.5)
+	assert_false(s.refineries[0].alive, "it went up")
+	assert_false(s.refineries[1].alive, "and set the other off")
+	for g in room:
+		assert_true(not is_instance_valid(g) or g.dead, "%s died in the blast" % str(g.name))
+	for g in far:
+		assert_true(is_instance_valid(g) and not g.dead, "the commander, across the deck, lived")
+	s.rebuild_skimmer()
+	assert_true(s.refineries[0].alive and s.refineries[1].alive, "built again")
+
+
+func test_you_drop_through_the_floor_hatch_onto_the_gantry() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	var hx: Transform3D = s.hull.hatches.filter(func(x): return str(x.tunnel).ends_with("_floor"))[0].xf
+	var p = t._player
+	p.global_position = s.frame * (hx * Vector3(-0.5, 1.2, 0))
+	p.velocity = Vector3.ZERO
+	for i in 180:
+		await wait_physics_frames(1)
+		if p.is_on_floor() and s.to_local_point(p.global_position).y < -10.0:
+			break
+	var at: Vector3 = s.to_local_point(p.global_position)
+	assert_lt(at.y, -18.0, "down through the hatch: %s" % str(at))
+	assert_true(p.is_on_floor(), "standing on the gantry")

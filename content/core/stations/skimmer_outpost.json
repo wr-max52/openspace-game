@@ -16,6 +16,8 @@
     { "id": "deck", "at": [0, 0], "floors": [
       { "id": "outpost", "y": 0.0, "radius": 40.0, "rooms": true,
         "roof_hatch": { "a_deg": 0, "r": 15.5, "width": 4.0 },
+        "floor_hatch": { "a_deg": 292.5, "r": 25.0, "width": 3.0 },
+        "floor_hatch_note": "Issue #838: a 3 m hatch in the skimmer control room's floor (the room at 292.5 degrees), closed by a shield you drop through and jetpack back up through, the ladder beside it down to the skimmer gantry (StationHull._floor_hatch).",
         "roof_hatch_note": "Issue #838: a 4 m hatch over the walkway, east of the lift (the bridges run north-south on this floor), closed by the tunnels' roof shield: jetpack up through it, past the ladder, onto the roof (StationHull._roof_hatch)." }
     ],
       "antennas": [
@@ -25,6 +27,11 @@
         { "kind": "whip", "a_deg": 215, "r": 33.0, "size": 6.5 },
         { "kind": "whip", "a_deg": 185, "r": 34.0, "size": 7.0 }
       ],
+      "skimmer": {
+        "a_deg": 292.5, "r": 29.0, "depth": 21.0, "size": [16.0, 26.0], "pipe": 70.0,
+        "units": [ { "style": "globe", "at": [2.0, -6.0] }, { "style": "core", "at": [2.0, 6.0] } ],
+        "note": "Issue #838: the skimmer refinery, hung under the skimmer control room: a gantry deck 21 m under the floor's plate (the globe tank's top 2.4 m short of the plate; its blast, 22 m round, reaches the room above), on two pairs of trusses, railed, the intake pipe 70 m down toward the cloud tops (320 m under the deck) from its middle. 'units': the two quantonium tanks on it (QuantoniumRefinery, territory.json outposts.refinery's numbers), [along, across] on the gantry."
+      },
       "antennas_note": "Issue #838: past the tower's own mast and beacon, two dishes and three whip antennas on the roof, on the side away from the hatch (StationHull._antennas). Their posts and bases are solid: cover up there." }
   ],
   "fill": {
@@ -41,7 +48,7 @@
   "remnant": {
     "tower": "deck",
     "floor": "outpost",
-    "rooms": ["control", "bunks", "armoury", "command", "bunks", "mess", "armoury", "bunks"],
+    "rooms": ["control", "bunks", "armoury", "command", "bunks", "mess", "skimmer", "bunks"],
     "trooper": "cruiser_trooper",
     "commander": "cruiser_honour_guard",
     "guard": "local_guard",
