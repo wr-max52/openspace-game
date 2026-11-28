@@ -501,8 +501,8 @@ func upgrade(uid: int, key: String) -> String:
 	return "upgraded"
 
 
-## Issue #212: hand a droid over for Oda's friend (no pay: it is a favour to
-## her). Its cargo comes back to your pockets. Returns true when it went.
+## Issue #212: hand a droid over for Oda's friend. Its cargo comes back to your
+## pockets, and the merchant pays for your trouble. Returns true when it went.
 func deliver(uid: int) -> bool:
 	var d := roster().find(uid)
 	if d.is_empty() or str(d.kind) != Story.droid_wanted_kind():
@@ -513,8 +513,11 @@ func deliver(uid: int) -> bool:
 	roster().unload(uid, WorldState.inventory)
 	roster().remove(uid)
 	_free_companion(uid)
-	Story.on_droid_delivered()
-	_toast(_l("delivered") % DroidRoster.label(str(d.kind)))
+	var paid := Story.on_droid_delivered()
+	if paid > 0:
+		_toast(_l("delivered_paid") % [DroidRoster.label(str(d.kind)).to_lower(), paid])
+	else:
+		_toast(_l("delivered") % DroidRoster.label(str(d.kind)))
 	return true
 
 
