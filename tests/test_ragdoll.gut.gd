@@ -125,3 +125,51 @@ func test_kick_points_away_from_the_shooter() -> void:
 	assert_gt(k.y, 0.0, "a little lift")
 	assert_between(k.length(), float(cfg.kick_min), float(cfg.kick_max) + 0.001)
 	assert_eq(Ragdoll.kick_for(Vector3.ZERO, Vector3.INF, 20.0, cfg), Vector3.ZERO, "no shooter, no push")
+
+
+## A dead man's gun (Ragdoll.drop: a RigidBody3D). On a floor turned with the ball
+## (a skimmer outpost's deck over the ringed giant is turned 52 degrees, steeper
+## than the gun's friction holds), falling along world down it slid away across the
+## deck; along the ground's own down it lands where it was dropped and lies still.
+func _gun(at: Vector3) -> Node3D:
+	var item := Node3D.new()
+	item.name = "Rifle"
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.9, 0.12, 0.1)
+	mi.mesh = bm
+	item.add_child(mi)
+	world.add_child(item)
+	item.global_position = at
+	return item
+
+
+func test_a_dropped_gun_lies_where_it_falls_on_ground_turned_with_the_ball() -> void:
+	body.visible = false
+	world.basis = Basis(Vector3.RIGHT, deg_to_rad(52.0))
+	await wait_physics_frames(2)
+	var up := world.global_basis.y
+	var cfg := Ragdoll.load_config()
+	var item := _gun(world.global_transform * Vector3(0, 0.8, 0))
+	var rb := Ragdoll.drop(item, world, Vector3.ZERO, cfg, up)
+	assert_not_null(rb)
+	if rb == null:
+		return
+	rb.angular_velocity = Vector3.ZERO
+	await wait_seconds(3.0)
+	var at := world.global_transform.affine_inverse() * rb.global_position
+	assert_lt(at.y, 0.3, "it came down onto the turned floor (%s)" % at)
+	assert_lt(Vector2(at.x, at.z).length(), 0.6, "and lies where it was dropped, not slid away (%s)" % at)
+	assert_lt(rb.linear_velocity.length(), 0.05, "and lies still")
+
+
+func test_a_dropped_gun_in_town_still_falls_straight_down() -> void:
+	body.visible = false
+	var cfg := Ragdoll.load_config()
+	var item := _gun(Vector3(0, 0.8, 0))
+	var rb := Ragdoll.drop(item, world, Vector3.ZERO, cfg)
+	rb.angular_velocity = Vector3.ZERO
+	await wait_seconds(2.0)
+	assert_lt(rb.global_position.y, 0.3, "on the floor")
+	assert_lt(Vector2(rb.global_position.x, rb.global_position.z).length(), 0.6, "where it fell")
+	assert_eq(rb.gravity_scale, 1.0, "world gravity, unchanged")

@@ -284,7 +284,8 @@ func point(pname: String) -> Vector3:
 ## Let go of a held thing: it becomes a rigid body in `world` with a box hull from
 ## its meshes, thrown with `velocity` and a little spin, and frozen once it rests
 ## (or after weapon_rest_seconds). Returns the body (null if there is nothing to drop).
-static func drop(item: Node3D, world: Node3D, velocity: Vector3, config: Dictionary) -> RigidBody3D:
+static func drop(item: Node3D, world: Node3D, velocity: Vector3, config: Dictionary,
+		ground_up: Vector3 = Vector3.UP) -> RigidBody3D:
 	if item == null or world == null or not is_instance_valid(item):
 		return null
 	var box := AABB()
@@ -318,7 +319,9 @@ static func drop(item: Node3D, world: Node3D, velocity: Vector3, config: Diction
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var spin := float(config.get("weapon_spin", 6.0))
-	rb.linear_velocity = velocity + Vector3(0, float(config.get("weapon_toss", 1.5)), 0)
+	var u := ground_up.normalized() if ground_up.length() > 0.01 else Vector3.UP
+	rb.linear_velocity = velocity + u * float(config.get("weapon_toss", 1.5))
+	ground_gravity(rb, u)
 	rb.angular_velocity = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * spin
 	rb.can_sleep = true
 	var t := world.get_tree().create_timer(float(config.get("weapon_rest_seconds", 20.0)), false, true)
@@ -326,6 +329,23 @@ static func drop(item: Node3D, world: Node3D, velocity: Vector3, config: Diction
 		if is_instance_valid(rb):
 			rb.freeze = true)
 	return rb
+
+
+## A loose body (a dropped gun, a batted droid) falls along the ground's own down,
+## `up` (a character's tilt.y), with `scale` times the world's gravity. Godot's own
+## gravity pulls along world down: in town that is the ground's, so it is left on;
+## turned with the ball (far round the home planet, a skimmer outpost's deck over the
+## ringed giant, 52 degrees over) a gun fell across the floor and slid off, so there
+## the world's is off and a steady push along the ground's down takes its place.
+## Call it again after changing the body's mass.
+static func ground_gravity(rb: RigidBody3D, up: Vector3, scale := 1.0) -> void:
+	var u := up.normalized() if up.length() > 0.01 else Vector3.UP
+	if u.dot(Vector3.UP) > 0.9999:
+		rb.gravity_scale = scale
+		rb.constant_force = Vector3.ZERO
+		return
+	rb.gravity_scale = 0.0
+	rb.constant_force = -u * rb.mass * scale * float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 
 
 # ------------------------------------------------------------------ solver

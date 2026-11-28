@@ -1151,7 +1151,7 @@ func _go_limp(was_moving: Vector3) -> void:
 		var w: Node3D = look_body.get_meta("weapon")
 		look_body.remove_meta("weapon")
 		w.visible = true              # a local cut down before drawing still drops it
-		dropped_weapon = Ragdoll.drop(w, get_parent() as Node3D, was_moving + kick * 0.6, cfg)
+		dropped_weapon = Ragdoll.drop(w, get_parent() as Node3D, was_moving + kick * 0.6, cfg, tilt.y)   # along the ground's down, as the body
 
 
 func _fall(dt: float) -> void:
