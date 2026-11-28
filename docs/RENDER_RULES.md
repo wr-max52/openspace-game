@@ -69,7 +69,11 @@ a frame, with headroom left for the local LLM.
     never wait for them: a handoff paints club textures on a worker behind a
     flat stand-in (`ClubTextures.async_paint`), and a planet's models start
     loading on the way in from open space (`ModelCache.prefetch_planet`, from
-    what it used last time). A sliced build that is still too long names its
+    what it used last time). What a place works out once a session starts on
+    a worker from the approach too (`DesertLandforms.prepare` for the rocks'
+    meshes, `StarcruiserWreck.prepare` for the wrecks' parts), or as its town
+    loads (`Garrison.prepare_spots`); what can only be worked out from a
+    built mesh is kept between runs (`ShipHull`'s hull fits). A sliced build that is still too long names its
     piece: set `StagedBuild.piece_watch_ms` in a probe and read `slow_pieces`.
 10. **Tick by distance.** People sleep past the draw distance and think less
     often further out (puppets, not NPCs, until a fight); at most a set number

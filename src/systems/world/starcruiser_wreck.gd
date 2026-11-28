@@ -131,6 +131,54 @@ static func add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 		_boxes_kept[key] = ground.boxes.slice(n0).map(func(b): return (b as Dictionary).duplicate())
 
 
+## Issue #714: each wreck's parts (~15-20 ms of geometry apiece), worked out on a
+## worker thread while the ship is still in open space (SpaceTravel._prepare), so
+## the four wrecks coming in on the way down only register their boxes.
+static var _parts_task := -1
+static var _parts_keys: Array = []
+static var _parts_out: Array = []
+
+
+static func prepare(planet: Dictionary) -> bool:
+	if _parts_task >= 0:
+		return false
+	var keys: Array = []
+	var jobs: Array = []
+	for lm in planet.get("world", {}).get("landmarks", []):
+		if str(lm.get("kind", "")) != "wreck":
+			continue
+		var pitch := float(lm.get("pitch_deg", PITCH_DEG))
+		var variant: Dictionary = (lm.get("variant", {}) as Dictionary).duplicate(true)
+		var key := _parts_key(pitch, variant)
+		if not keys.has(key) and not _parts_keys.has(key):
+			keys.append(key)
+			jobs.append([pitch, variant])
+	if jobs.is_empty():
+		return false
+	_parts_keys = keys
+	_parts_out = []
+	_parts_out.resize(jobs.size())
+	_parts_task = WorkerThreadPool.add_group_task(func(i: int): _parts_out[i] = parts(float(jobs[i][0]), jobs[i][1]),
+		jobs.size(), -1, false, "wreck parts")
+	return true
+
+
+## parts(), from prepare()'s worker when it made them (waiting for it if it is
+## still going), else now.
+static func _parts_for(pitch: float, variant: Dictionary) -> Array:
+	if _parts_task >= 0:
+		WorkerThreadPool.wait_for_group_task_completion(_parts_task)
+		_parts_task = -1
+	var i := _parts_keys.find(_parts_key(pitch, variant))
+	if i >= 0 and _parts_out[i] is Array:
+		return _parts_out[i]
+	return parts(pitch, variant)
+
+
+static func _parts_key(pitch: float, variant: Dictionary) -> String:
+	return "%s|%d" % [pitch, hash(variant)]
+
+
 static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 	var at := WorldGround._v3(landmark.get("at", [1350, 0, -120]))
 	var sp := ground.sphere()
@@ -153,7 +201,8 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 	var prefix := str(landmark.get("id", "starcruiser_wreck")) + "/"
 	var variant: Dictionary = landmark.get("variant", {})
 	var pose := Pose.new(pitch, float(variant.get("deck_drop", 0.0)))
-	for p in parts(pitch, variant):
+	var n0 := ground.boxes.size()
+	for p in _parts_for(pitch, variant):
 		_register(ground, prefix + str(p.id), p.size, xf * p.xf, str(p.finish), base.y,
 			"floor" if bool(p.get("floor", false)) else "solid")
 		if bool(p.get("shard", false)):
@@ -197,7 +246,8 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 ## put them (the original's own level frame).
 static func _tag_frames(ground: WorldGround, prefix: String, xf: Transform3D, level: Transform3D, pose: Pose) -> void:
 	var interior := level * Transform3D(Basis.IDENTITY, Vector3(0, pose.shift.x, pose.shift.y))
-	for b in ground.boxes:
+	for i in range(n0, ground.boxes.size()):           # this wreck's, all added just now
+		var b: Dictionary = ground.boxes[i]
 		if str(b.id).begins_with(prefix):
 			b["wreck_frame"] = xf
 			b["wreck_level"] = interior

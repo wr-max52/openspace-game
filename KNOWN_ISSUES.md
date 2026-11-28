@@ -20,23 +20,29 @@ each PR checked and measured, are in the archive under "The per-PR log".
 
 ## 1. Freezes, hitches and crashes
 
-1. **Long frames coming down to a planet, worst flying in from the gas
-   giant.** Home loading fresh (a session that has not been home yet) has 42
-   frames over the 33 ms budget, worst 384 ms: the rock landforms' meshes and
-   trimeshes (~366 ms, one step), the wrecks' boxes and plates (~320 ms piece),
-   the town garrison (~225 ms), the decor batch flush (~170 ms) and the first
-   native body (~170 ms, pipeline compiles). The descent trace warms home before
-   it measures, so it does not show this. With home loaded once already: 21
-   frames over, worst ~93 ms, p99 21.6 ms; the switch is ~71 ms (desert, its
-   dust, the ship's pilot, 96 far-ball uploads). Single pieces left: the club
-   room's booths (~85 ms) and an instrument (~48), the barge's first commit and
-   hull skin (~40 each), the cruiser's first hull piece (~38), decor step 7
-   (~41), a town box (~34), the player's body (~33), each native pack member
-   (21-39), an outpost (~20). Nothing is let go once built, and only the home
-   planet builds by sight. *(#573, #574, #693, 2026-11-26; fix: #693)*
-2. **A first descent on a fresh install** has ~14 s of ~450 ms frames between
-   2.1 and 1.4 km: shader compiles, once per install. Everyone who gets a share
-   build hits it. *(#574, 2026-11-24; fix: #693)*
+1. **Long frames coming down to a planet.** With home loaded once already: 13
+   frames over the 33 ms budget, worst ~61 ms, p99 ~16 ms; the switch is
+   ~50 ms, ~65 on a bad frame (the ship's pilot ~15-30 ms: its ground,
+   SpaceTravel's neighbour balls ~13). Single pieces left: the barge's first
+   piece (~41 ms), the player's body (~35), the gear (~31), the town's first
+   boxes (~30), the native camps (~41-44 with their tents), an outpost (~27).
+   Flying in from the gas giant (home loading fresh, `DESCENT_WARM=ringed_giant`,
+   with #842): 10 frames over coming down, all 33-45 ms (the town's first boxes
+   and decor, the wreck plates, two vendors, the body and the gear, an outpost,
+   the first native camp, the barge's first piece), worst ~45 ms; the switch
+   ~45 ms, ~65 on a bad frame. The kinds of material home draws are now
+   compiled out in open space (ShaderWarmup): ~15 frames of 45-53 ms there,
+   from 30 km out, in place of 40-85 ms frames on the way down. Only the home
+   planet builds by sight. *(#573, #574, #693, #714, #716, 2026-11-28; fix: #717)*
+2. **A first descent on a fresh install** had ~14 s of ~450 ms frames between
+   2.1 and 1.4 km: shader compiles, once per install. Godot compiles a new
+   kind of material on the main thread when the material is made, so they
+   cannot be moved off it, only earlier: home's 71 kinds (content/look/
+   warm_kinds.json) are now made one a frame from 30 km out in open space, so
+   a fresh install's compiles land there, one a frame (not measured on a fresh
+   install: each could be a few hundred ms). Kinds another planet draws that
+   home does not, and planets with no list, still compile on the way down
+   (record one with `DESCENT_KINDS=1`). *(#574, 2026-11-24; #714, 2026-11-28)*
 3. **Godot's default Metal driver crashed at launch on this Mac**, inside the GPU
    driver, even for an empty project. Everything since has been rendered with
    `--rendering-driver vulkan`. Not rechecked on Godot 4.7.2; check which driver
@@ -300,7 +306,7 @@ Stubs and fakes: things a player might expect that aren't there.
   avoidance between NPCs.
 - **Jobs and story:** bounty contracts off the home planet lead home; off home,
   the objective pointer only knows the station's drop and fence; no key to hide
-  the pointer; one world seed for everyone (every port is the same town);
+  the pointer;
   the fixer, weapons, the outpost and the mission's crate aren't named on screen.
 - **The beast and packs:** one beast, on one planet; no health bar; only you die
   to it; a blade hit with no owner counts as yours. Packs don't steal vehicles

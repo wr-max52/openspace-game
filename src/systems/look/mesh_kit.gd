@@ -105,7 +105,14 @@ static func tube(points: PackedVector3Array, radius: float, sides: int = 5) -> A
 ## Output is faceted (flat normals).
 static func rock(base: PrimitiveMesh, noise: FastNoiseLite, amount: float,
 		strata: float = 0.0, seed_offset: float = 0.0, y_squash: float = 1.0) -> ArrayMesh:
-	var arrays := base.get_mesh_arrays()
+	return mesh_of(rock_arrays(base.get_mesh_arrays(), noise, amount, strata, seed_offset, y_squash))
+
+
+## Issue #714: rock()'s surface arrays from a primitive's own arrays, with no mesh
+## made, so a worker thread can make them (DesertLandforms.prepare). Triangles,
+## not indexed: the vertex array is the collider's faces as it is.
+static func rock_arrays(arrays: Array, noise: FastNoiseLite, amount: float,
+		strata: float = 0.0, seed_offset: float = 0.0, y_squash: float = 1.0) -> Array:
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
 	var moved := PackedVector3Array()
@@ -128,7 +135,15 @@ static func rock(base: PrimitiveMesh, noise: FastNoiseLite, amount: float,
 	else:
 		for v in moved:
 			st.add_vertex(v)
-	return _finish(st)
+	st.generate_normals()
+	return st.commit_to_arrays()
+
+
+## A mesh of one surface's arrays (what SurfaceTool.commit makes of them).
+static func mesh_of(arrays: Array) -> ArrayMesh:
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return m
 
 
 ## A slightly bowed cloth panel (awnings, banners), width along X, height along -Y.

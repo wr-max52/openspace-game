@@ -34,6 +34,7 @@ const ICON_BOX := Vector2(44, 34)  ## the most an item's silhouette takes, left 
 const ICON_FALLBACK := "res://assets/ui/item_icons/item.svg"   ## an item with no "icon" of its own
 const SHIP_FALLBACK := "res://assets/ui/vehicle_icons/interceptor.png"   ## a ship file with no "icon"
 const SPEEDER_FALLBACK := "res://assets/ui/vehicle_icons/speeder.png"    ## a vehicle file with no "icon"
+const DICE_ICON := "res://assets/ui/menu_icons/dice.svg"   ## issue #835: roll a new name
 
 static var _icons: Dictionary = {}  ## path -> Texture2D, or null when it does not load
 static var _vehicles: Dictionary = {}  ## speeder model -> its vehicle file (name, class, icon)
@@ -53,11 +54,16 @@ var call_button: Button           ## issue #368: the primary's Call button (test
 var call_speeder: Callable        ## slot -> "" (on its way) or a label key why not (SpeederPost.call_speeder); optional
 var speeder_call_state: Callable  ## slot -> { ok, text } for a speeder's Call button (SpeederPost.call_state); optional
 var speeder_call_buttons: Dictionary = {}  ## slot -> its speeder's Call button (tests)
+var on_renamed: Callable          ## issue #835: after a ship or speeder is renamed (the ship's HUD reads it again); optional
+var name_fields: Dictionary = {}  ## issue #835: name book key -> its name field (tests)
+var dice_buttons: Dictionary = {}  ## issue #835: name book key -> its dice button (tests)
+var name_notes: Dictionary = {}   ## issue #835: name book key -> the line saying why a name was refused (tests)
 var toggle_lasers: Callable       ## droid uid -> its lasers on or off (DroidController.toggle_lasers); optional
 var cycle_station: Callable       ## droid uid -> its next music station (DroidController.cycle_station); optional
 var laser_buttons: Dictionary = {}  ## droid uid -> [its Lasers button, its Music button] (tests)
 var title: Label
 var credits_label: Label
+var seed_label: Label             ## issue #834: this game's name seed, to tell a friend
 var backpack_label: Label
 var list: VBoxContainer           ## the left column under the credits
 var jobs: VBoxContainer           ## the right column under its heading
@@ -89,6 +95,7 @@ func _ready() -> void:
 	jobs = VBoxContainer.new()
 	jobs.add_theme_constant_override("separation", 10)
 	jv.add_child(jobs)
+	seed_label = _text(jv, "", 13, Color(INK, DIM))
 
 
 ## One of the two columns: its own scroll, a column to fill inside.
@@ -138,9 +145,13 @@ func refresh() -> void:
 	owned_rows.clear()
 	wear_buttons.clear()
 	laser_buttons.clear()
+	name_fields.clear()
+	dice_buttons.clear()
+	name_notes.clear()
 	for c in list.get_children():
 		c.queue_free()
 	credits_label.text = "%d cr" % WorldState.credits
+	seed_label.text = Objective.line("ledger_seed") % WorldState.names.game_seed
 	var inv: Inventory = inventory if inventory != null else WorldState.inventory
 	_heading(list, "%s   %d / %d" % [Objective.line("ledger_backpack"), inv.slots_used(), Inventory.backpack_slots()])
 	var n := 0
@@ -446,6 +457,8 @@ func _speeder_rows() -> void:
 		owned_rows.append("%s: %s" % [shown, detail])
 		var h := _line(list, shown, detail, INK)
 		_icon(h, str(cfg.get("icon", SPEEDER_FALLBACK)), INK)
+		if NameHooks.speeder(cfg, i) != "":
+			_name_editor(h, NameHooks.speeder_key(i))
 		if call_speeder.is_valid():
 			var slot := i
 			var st: Dictionary = speeder_call_state.call(slot) if speeder_call_state.is_valid() else { "ok": true, "text": "Call" }
@@ -475,6 +488,9 @@ func _ship_row(r: Dictionary) -> void:
 	var h := _line(list, shown, detail, AMBER if bool(r.primary) else INK)
 	var ship: Dictionary = content.get_ship(str(r.ship)) if content != null else {}
 	_icon(h, str(ship.get("icon", SHIP_FALLBACK)), AMBER if bool(r.primary) else INK)
+	var key := NameHooks.player_ship_key(str(r.ship))
+	if NameHooks.vessel(ship, key) != "":
+		_name_editor(h, key)
 	if bool(r.primary):
 		if call_ship.is_valid():
 			var st: Dictionary = call_state.call() if call_state.is_valid() else { "ok": true, "text": "Call" }
@@ -487,10 +503,81 @@ func _ship_row(r: Dictionary) -> void:
 				refresh())
 			call_button.disabled = not bool(st.get("ok", true))
 	elif set_primary.is_valid():
-		var key := str(r.key)
-		primary_buttons[key] = _row_button(h, Objective.line("ledger_set_primary"), func():
-			set_primary.call(key)
+		var fleet_key := str(r.key)
+		primary_buttons[fleet_key] = _row_button(h, Objective.line("ledger_set_primary"), func():
+			set_primary.call(fleet_key)
 			refresh())
+
+
+## Issue #835: under a ship's or speeder's name, its own name in a field you can
+## type over (Enter, or clicking away, keeps it) and a dice button that rolls a new
+## one. A refused name puts the old one back and says why on the line below.
+func _name_editor(h: HBoxContainer, key: String) -> void:
+	var v: VBoxContainer
+	for c in h.get_children():
+		if c is VBoxContainer:
+			v = c
+			break
+	if v == null:
+		return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	var field := LineEdit.new()
+	field.text = str(WorldState.names.by_key.get(key, ""))
+	field.custom_minimum_size.x = 190
+	field.add_theme_font_size_override("font_size", 13)
+	field.tooltip_text = Objective.line("ledger_name_tip")
+	row.add_child(field)
+	var dice := Button.new()
+	dice.icon = load(DICE_ICON)
+	dice.expand_icon = true
+	dice.custom_minimum_size = Vector2(26, 26)
+	dice.focus_mode = Control.FOCUS_NONE
+	dice.tooltip_text = Objective.line("ledger_name_roll")
+	row.add_child(dice)
+	var note := _text(v, "", 12, Color(RED, 0.9))
+	note.visible = false
+	name_fields[key] = field
+	dice_buttons[key] = dice
+	name_notes[key] = note
+	field.text_submitted.connect(func(t: String): rename(key, t))
+	field.focus_exited.connect(func(): rename(key, field.text))
+	dice.pressed.connect(func(): roll_name(key))
+
+
+## Issue #835: name the thing at `key` `text`. "" when it took, else the label key
+## of why not (the field goes back to the old name and the note says so).
+func rename(key: String, text: String) -> String:
+	var field: LineEdit = name_fields.get(key)
+	var note: Label = name_notes.get(key)
+	if text.strip_edges() == str(WorldState.names.by_key.get(key, "")):
+		if note != null:
+			note.visible = false
+		return ""
+	var why := WorldState.names.rename(key, text)
+	if field != null:
+		field.text = str(WorldState.names.by_key.get(key, ""))
+	if note != null:
+		note.text = Objective.line(why) if why != "" else ""
+		note.visible = why != ""
+	if why == "" and on_renamed.is_valid():
+		on_renamed.call()
+	return why
+
+
+## Issue #835: the dice: a new generated name for the thing at `key`.
+func roll_name(key: String) -> String:
+	var n := WorldState.names.reroll(key)
+	var field: LineEdit = name_fields.get(key)
+	if field != null:
+		field.text = n
+	var note: Label = name_notes.get(key)
+	if note != null:
+		note.visible = false
+	if on_renamed.is_valid():
+		on_renamed.call()
+	return n
 
 
 func _row_button(h: HBoxContainer, text: String, pressed: Callable) -> Button:

@@ -40,10 +40,11 @@ const SAMPLES := 144          ## a tier's radius table: one value every 2.5 degr
 ## peak, range_plan): path (the tunnel's centre line instead of a straight one
 ## through the middle), cliff_toward (the angle the sheer side's portal faces),
 ## avoid (outlines the ways up and caves keep off: the neighbours' feet). Made
-## once a session.
-static func plan(v: Dictionary, cfg: Dictionary, opts: Dictionary = {}) -> Dictionary:
+## once a session. Issue #714: `cache` false (a worker thread) neither reads nor
+## writes the session's plans.
+static func plan(v: Dictionary, cfg: Dictionary, opts: Dictionary = {}, cache := true) -> Dictionary:
 	var key := "%s/%s/%s" % [hash(v), hash(cfg), hash(opts)]
-	if _plans.has(key):
+	if cache and _plans.has(key):
 		return _plans[key]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(v.get("seed", 1))
@@ -328,7 +329,8 @@ static func plan(v: Dictionary, cfg: Dictionary, opts: Dictionary = {}) -> Dicti
 		var roofs: Array = roofed.map(func(t): return t.poly)
 		out["tunnel"] = { "a": t_a, "half": t_half, "spring": spring, "crown": crown,
 			"path": t_path, "roofs": roofs, "gates": _tunnel_gates(t_path, roofs) }
-	_plans[key] = out
+	if cache:
+		_plans[key] = out
 	return out
 
 
@@ -340,9 +342,9 @@ static func plan(v: Dictionary, cfg: Dictionary, opts: Dictionary = {}) -> Dicti
 ## The same as plan() (pieces, tiers with their own centres, radius from the
 ## range's centre, height, caves, tunnel with the range's path and gates) plus
 ## `peaks` [{ at, radius }] and `subplans` [{ at, plan }]. Made once a session.
-static func range_plan(peaks: Array, path: PackedVector2Array, cfg: Dictionary) -> Dictionary:
+static func range_plan(peaks: Array, path: PackedVector2Array, cfg: Dictionary, cache := true) -> Dictionary:
 	var key := "range/%s/%s/%s" % [hash(peaks), hash(path), hash(cfg)]
-	if _plans.has(key):
+	if cache and _plans.has(key):
 		return _plans[key]
 	var out := { "pieces": [], "tiers": [], "radius": 0.0, "height": 0.0, "caves": [], "range": true,
 		"peaks": [], "subplans": [] }
@@ -371,7 +373,7 @@ static func range_plan(peaks: Array, path: PackedVector2Array, cfg: Dictionary) 
 		var opts := { "path": local, "avoid": avoid }
 		if pk.has("cliff_toward"):
 			opts["cliff_toward"] = float(pk.cliff_toward)
-		var p := plan(pk.v, cfg, opts)
+		var p := plan(pk.v, cfg, opts, cache)
 		out.subplans.append({ "at": at, "plan": p })
 		out.peaks.append({ "at": at, "radius": float(p.radius) })
 		for piece in p.pieces:
@@ -393,7 +395,8 @@ static func range_plan(peaks: Array, path: PackedVector2Array, cfg: Dictionary) 
 	if not tn.is_empty():
 		out["tunnel"] = { "a": 0.0, "half": tn.half, "spring": tn.spring, "crown": tn.crown,
 			"path": path, "roofs": roofs, "gates": _tunnel_gates(path, roofs) }
-	_plans[key] = out
+	if cache:
+		_plans[key] = out
 	return out
 
 
@@ -687,6 +690,13 @@ static func columns(sp: PlanetSphere, map: Vector2, p: Dictionary, id: String) -
 ## The mesh and the collider's faces for a plan: { mesh, faces }. Faceted (hard
 ## edges), as the mesas and boulders: broken rock, not wind-polished.
 static func build(p: Dictionary) -> Dictionary:
+	var d := build_data(p)
+	return { "mesh": LookMeshKit.mesh_of(d.arrays), "faces": d.faces }
+
+
+## Issue #714: build() without the mesh: { arrays (the surface), faces }. Safe on
+## a worker thread (DesertLandforms.prepare) as long as nothing writes to `p`.
+static func build_data(p: Dictionary) -> Dictionary:
 	var faces: Array = []
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -759,7 +769,7 @@ static func build(p: Dictionary) -> Dictionary:
 					b3.append(Vector3(q.x, yb, q.y))
 				tri.call(b3[0], b3[1], b3[2], Vector3.DOWN)
 	st.generate_normals()
-	return { "mesh": st.commit(), "faces": PackedVector3Array(faces) }
+	return { "arrays": st.commit_to_arrays(), "faces": PackedVector3Array(faces) }
 
 
 const TOP_CELL := 4.0         ## top_surface()'s grid, metres a cell

@@ -53,7 +53,9 @@ extends Node
 ##     hurt, issue #274). Issue #276: the empty ship goes ADRIFT (AtmoFlight): zero
 ##     throttle, her momentum and gravity bring her down. Damaged by the fall she
 ##     crashes and is towed home like any crash; slow enough, she rests where she
-##     came down and you can walk back to her.
+##     came down and you can walk back to her. Board or hijack another before she
+##     is down and she goes on down as a wreck (_let_go_falling): jump out of one
+##     stolen ship and take the next.
 ##   - issue #291: J while seated steps the radio (Sound.radio_next) through the
 ##     club mixes and off; it plays on across a handoff, in space and in a fight,
 ##     and goes off when you leave the seat.
@@ -551,10 +553,16 @@ func _use_berth(i: int) -> void:
 	_gun_reach = guns.convergence
 	seeker_lock = MissileLock.new()
 	seeker_lock.configure(guns.group_config("secondary"))
-	vessel_name = NameHooks.vessel(ship_cfg, "vessel:player/" + ship_id)
-	hud.vessel_name = vessel_name
+	refresh_vessel_name()
 	var look: Dictionary = kit.looks.get(str(ship_cfg.get("look", "")), {})
 	chase.fit_to(float(look.get("length", 9.0)))
+
+
+## The ship's own name, read again from the name book (issue #835: the player may
+## have just renamed her in the Ledger), onto the HUD and the dash.
+func refresh_vessel_name() -> void:
+	vessel_name = NameHooks.vessel(ship_cfg, NameHooks.player_ship_key(ship_id))
+	hud.vessel_name = vessel_name
 
 
 ## The ship's own shape, in its own frame, travelling with it: you can walk up to
@@ -626,13 +634,10 @@ func nearest_berth() -> int:
 	var best_d := INF
 	if calling:
 		return -1                 # issue #368: not while your primary flies itself in
-	# Issue #276: while the ship you ejected from is still coming down (or waiting
-	# for her tow) she is the berth flown: no switching to another until she is down.
-	var settling := atmo.state == AtmoFlight.State.ADRIFT or crash_left >= 0.0
+	# The ship you ejected from may still be coming down (or waiting for her tow):
+	# boarding another lets her go first (board_berth, _let_go_falling).
 	for i in berths.size():
 		if i == berth and atmo.state != AtmoFlight.State.PARKED:
-			continue
-		if i != berth and settling:
 			continue
 		if bool(berths[i].get("destroyed", false)):
 			continue
@@ -659,6 +664,8 @@ func board() -> bool:
 func board_berth(i: int) -> bool:
 	if piloting or i < 0 or i >= berths.size() or player() == null:
 		return false
+	if i != berth:
+		_let_go_falling()          # the one you ejected from, if she is not down yet
 	if i != berth:
 		_use_berth(i)
 	if berths[i].has("outpost") and not bool(berths[i].stolen) and not bool(berths[i].get("borrowed", false)):
@@ -693,6 +700,26 @@ func board_berth(i: int) -> bool:
 	if atmo.state == AtmoFlight.State.PARKED:
 		jolt.start()
 	boarded.emit()
+	return true
+
+
+## Boarding another ship (on foot or by hijack) while the one you ejected from is
+## still coming down (ADRIFT) or waiting for her tow: she is let go first, so you
+## can jump out of one stolen ship and take the next. One AtmoFlight flies one
+## berth (DECISIONS: berths, not a ship picker), so she can not go on falling under
+## it: a copy of her goes on down her own way as a wreck (crash_wreck), and she is
+## towed home now, or gone if she was stolen (_tow_home). True when one was let go.
+func _let_go_falling() -> bool:
+	if atmo.state == AtmoFlight.State.ADRIFT:
+		var at := atmo.position()
+		if visual == null or not crash_wreck(visual, atmo.drift, false):
+			_crash_fx(at)
+			Sound.play("vehicle_boom", at)
+		log_events.append({ "type": "let_go", "at": at, "speed": atmo.drift.length(), "t": flight_time })
+	elif crash_left < 0.0:
+		return false
+	crash_left = -1.0
+	_tow_home()
 	return true
 
 

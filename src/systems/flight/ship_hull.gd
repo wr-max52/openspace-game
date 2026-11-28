@@ -120,9 +120,72 @@ static func shape_of(model: Node3D) -> Array:
 	var key := "%s/%d/%s" % [str(model.get_meta("look_id", model.scene_file_path)), parts.size(), str(bounds)]
 	if _fits.has(key):
 		return _fits[key]
-	var pieces := _fit_parts(parts)
+	var pieces := _from_disk(key)
+	if pieces.is_empty():
+		pieces = _fit_parts(parts)
+		_to_disk(key, pieces)
 	_fits[key] = pieces
 	return pieces
+
+
+## Issue #714: fitting a look reads every mesh back from the GPU and wraps each
+## piece through a mesh of its own (~150-200 ms for the port's parked ships and
+## the interceptor, the first time a session builds them: flying home from the
+## gas giant, on the way down). The pieces' points are kept between runs here, by
+## the same key, so only the very first run fits. A cache, not a save: losing it
+## only means fitting again; a changed model has a new key.
+const FITS_PATH := "user://hull_fits.json"
+static var _disk := {}                 ## key -> [[x, y, z, ...] per piece]
+static var _disk_read := false
+static var _disk_dirty := false
+
+
+static func _from_disk(key: String) -> Array:
+	_read_disk()
+	var out: Array = []
+	for flat in _disk.get(key, []):
+		var pts := PackedVector3Array()
+		var f: Array = flat
+		for i in range(0, f.size() - 2, 3):
+			pts.append(Vector3(float(f[i]), float(f[i + 1]), float(f[i + 2])))
+		var shape := ConvexPolygonShape3D.new()
+		shape.points = pts
+		out.append(shape)
+	return out
+
+
+static func _to_disk(key: String, pieces: Array) -> void:
+	_read_disk()
+	var flats: Array = []
+	for shape in pieces:
+		var f: Array = []
+		for v in (shape as ConvexPolygonShape3D).points:
+			f.append_array([snappedf(v.x, 0.0001), snappedf(v.y, 0.0001), snappedf(v.z, 0.0001)])
+		flats.append(f)
+	_disk[key] = flats
+	_disk_dirty = true
+
+
+## Writes the kept fits when they grew (a scene leaving, with ModelCache.save_use).
+static func save_fits() -> void:
+	if not _disk_dirty:
+		return
+	var f := FileAccess.open(FITS_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify(_disk))
+	_disk_dirty = false
+
+
+static func _read_disk() -> void:
+	if _disk_read:
+		return
+	_disk_read = true
+	if not FileAccess.file_exists(FITS_PATH):
+		return
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(FITS_PATH))
+	if parsed is Dictionary:
+		_disk = parsed
 
 
 static func _cfg(k: String) -> float:

@@ -168,6 +168,8 @@ func _ready() -> void:
 	if town.data.is_empty():
 		push_error("TownDemo: planet %s has no town" % str(planet.id))
 		return
+	if staged_handoff and str(GameFlow.arrival.get("mode", "")) == "handoff":
+		Garrison.prepare_spots(town)     # issue #714: the garrisons' cover, on a worker till they ask
 	var errs := TownCheck.errors(str(planet.id), town.data)   # issue #121: once per town per session
 	if not errs.is_empty():
 		for e in errs:
@@ -178,8 +180,11 @@ func _ready() -> void:
 	# planet) runs only the flight shell now and the rest over the next frames.
 	staging = staged_handoff and not lookdev_mode and str(GameFlow.arrival.get("mode", "")) == "handoff"
 	ClubTextures.async_paint = staging    # issue #693: textures painted on a worker, a stand-in till then
+	CampTextures.async_paint = staging    # issue #714: the natives' camps too
 	ModelCache.begin_planet(str(planet.get("id", "")))    # issue #693: what this planet loads, for next time
-	tree_exiting.connect(func(): ModelCache.save_use())
+	tree_exiting.connect(func():
+		ModelCache.save_use()
+		ShipHull.save_fits())       # issue #714: the hull fits, kept for the next run       # issue #714: the hull fits, kept for the next run
 	staged = StagedBuild.new()
 	staged.budget_ms = stage_budget_ms
 	for s in build_plan(staging):
@@ -328,10 +333,12 @@ func build_plan(staged_build: bool) -> Array:
 			if terrain != null:
 				_dress_desert()
 			return true)
-		add.call("landforms", LATER, func():
+		add.call("dust", LATER, func(): _add_dust(); return true)
+		var landforms_step := func(st: StagedBuild) -> void:
+			await DesertLandforms.finish_prepared(st)      # issue #714: the rocks, made on a worker on the way in
 			if terrain != null:
-				_build_landforms()
-			return true)
+				await _build_landforms(st)
+		add.call("landforms", LATER, landforms_step, "sliced")
 		add.call("gas_ring", SHELL, func(): _dress_gas_ring(); return true)
 		add.call("dress_platform", SHELL, func():
 			if platform is AsteroidWorld:
@@ -770,15 +777,11 @@ func _build_box(root: Node3D, b: Dictionary) -> void:
 	if b.kind == "ramp":
 		var rt := TownLayout.ramp_transform(b)
 		node = Greybox.make_box(b.id, rt.center, rt.size, color, rt.basis)
-	elif b.kind == "spiral":
-		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.tower_parts(b)), color)
-	elif b.kind == "bowl":
-		node = Greybox.make_trimesh(b.id, StairTower.merged(PitBowl.parts(b, town)), color)
+	elif b.kind in ["spiral", "bowl", "lookout"]:
+		var kept := _trimesh_of(b)
+		node = Greybox.make_trimesh(b.id, kept[0], color, kept[1])
 	elif b.kind == "ring":
 		node = RingWall.make_body(b, color)       # issue #237: a round wall
-	elif b.kind == "lookout":
-		var tower: Dictionary = town.get_box(str(b.get("stair", "")))
-		node = Greybox.make_trimesh(b.id, StairTower.merged(StairTower.lookout_parts(b, tower)), color)
 	else:
 		var cs := Greybox.center_size(b)
 		var tb := Greybox.turned(b)        # a crooked market stall or hut: its turned box inside
@@ -791,6 +794,27 @@ func _build_box(root: Node3D, b: Dictionary) -> void:
 				ch.disabled = true
 	root.add_child(node)
 	built_boxes += 1
+
+
+## Issue #716: a stair tower's, the pit's or a lookout's merged mesh and its
+## triangles, made once a session per box (merging reads every part back from
+## the GPU: the longest town box on every arrival, ~47 ms). [mesh, faces].
+static var _trimesh_kept := {}
+
+
+func _trimesh_of(b: Dictionary) -> Array:
+	var key := "%s|%s|%d" % [str(town.data.get("id", "")), str(b.id), hash(b)]
+	if not _trimesh_kept.has(key):
+		var mesh: ArrayMesh
+		match str(b.kind):
+			"spiral":
+				mesh = StairTower.merged(StairTower.tower_parts(b))
+			"bowl":
+				mesh = StairTower.merged(PitBowl.parts(b, town))
+			_:
+				mesh = StairTower.merged(StairTower.lookout_parts(b, town.get_box(str(b.get("stair", "")))))
+		_trimesh_kept[key] = [mesh, mesh.get_faces()]
+	return _trimesh_kept[key]
 
 
 func _build_markers() -> void:
@@ -2095,12 +2119,20 @@ func _dress_desert() -> void:
 	_desert_dressed = true
 	_hide_desert_floors()
 	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
-	# Issue #93: wind you can see over the sand (not on a snow world).
-	if str(planet.get("type", "sand")) != "snow":
-		dust = DustWind.new()
-		add_child(dust)
-		var wd = terrain.material.get_shader_parameter("wind_dir")
-		dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+
+
+## Issue #93: wind you can see over the sand (not on a snow world). Issue #716:
+## its own step after the switch (~21 ms on the switch frame, and from up where
+## a ship comes in nobody can see it).
+func _add_dust() -> void:
+	if not _desert_dressed or dust != null or str(planet.get("type", "sand")) == "snow":
+		return
+	dust = DustWind.new()
+	add_child(dust)
+	var wd = terrain.material.get_shader_parameter("wind_dir")
+	dust.set_wind(wd if wd is Vector2 else Vector2(0.8, 0.6))   # unset: the shader's default
+	if detail != null:
+		detail.add_group("weather", [dust])
 
 
 var _desert_dressed := false
@@ -2121,14 +2153,14 @@ func _hide_desert_floors() -> void:
 
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
-func _build_landforms() -> void:
+func _build_landforms(st: StagedBuild = null) -> void:
 	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty()):
 		return
 	if with_landforms:
 		landforms = DesertLandforms.new()
 		landforms.clear_circles = _landmark_clearings()
 		add_child(landforms)
-		landforms.build(terrain, _flat_mats(), desert_site().floor)
+		await landforms.build(terrain, _flat_mats(), desert_site().floor, st)
 		if terrain is PlanetTerrain:
 			for m in landforms.rock_materials():
 				look.track_material(m)       # the sun, for the dusk side (issue #77)

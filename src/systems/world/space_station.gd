@@ -6,8 +6,8 @@ extends Node3D
 ## node adds what moves and what you see:
 ##   - the look: every part merged by finish, the cruiser's metal, glass, glow
 ##   - the energy shield across the bay's mouth (ships and bolts through, not you),
-##     the shields in the tunnels' roofs, round the gaps between floors and across
-##     each floor's gap (you through, not the air)
+##     the shields in the tunnels' roofs and in every floor's ceiling, round the
+##     gaps between floors and across each floor's gap (you through, not the air)
 ##   - an elevator in each tower: a platform riding its shaft floor to floor, and the
 ##     shaft's doors, open only where it has stopped
 ##   - Z docking: the same calls the cruiser answers (can_dock, dock_path, dock_yaw,
@@ -595,20 +595,35 @@ func _build_shield() -> void:
 	mi.transform = sh.xf
 
 
-## The shields in the tunnels' roofs: no collider (you jump up through one onto
-## the roof walk, and drop back in), only the look.
+## The shields in the tunnels' roofs and in every floor's ceiling over the walkway
+## (StationHull.floor_hatches): no collider (you jump up through one onto the roof
+## walk or the floor's roof, and drop back in), only the look. Hatches of one size
+## share one mesh and one material (render rules: share materials).
 func _build_hatches() -> void:
 	if demo == null or not demo.use_look:
 		return
-	# Issue #317: and the one over the engine deck's drop hatch, down to the belt.
-	var all: Array = hull.hatches + ([] if hull.drop_shield.is_empty() else [hull.drop_shield.merged({ "tunnel": "drop" })])
-	for hc in all:
+	var meshes := {}
+	var mats := {}
+	var list: Array = []
+	for hc in hull.hatches:
+		list.append(["Hatch_" + str(hc.tunnel), hc])
+	for hc in hull.floor_hatches:
+		list.append(["FloorHatch_%s_%d_%d" % [str(hc.tower), int(hc.floor), int(rad_to_deg(float(hc.a)))], hc])
+	if not hull.drop_shield.is_empty():
+		list.append(["Hatch_drop", hull.drop_shield])   # issue #317: the engine deck's drop hatch, down to the belt
+	for e in list:
+		var hc: Dictionary = e[1]
+		var size: Vector3 = hc.size
+		var key := "%.2f/%.2f/%.2f" % [size.x, size.y, size.z]
+		if not meshes.has(key):
+			var bm := BoxMesh.new()
+			bm.size = size
+			meshes[key] = bm
+			mats[key] = LookMaterials.energy_shield(size, Vector3(0.8, 0, 0.8), Vector3.RIGHT)
 		var mi := MeshInstance3D.new()
-		mi.name = "Hatch_" + str(hc.tunnel)
-		var bm := BoxMesh.new()
-		bm.size = hc.size
-		mi.mesh = bm
-		mi.material_override = LookMaterials.energy_shield(hc.size, Vector3(0.8, 0, 0.8), Vector3.RIGHT)
+		mi.name = str(e[0])
+		mi.mesh = meshes[key]
+		mi.material_override = mats[key]
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_root.add_child(mi)
 		mi.transform = hc.xf
