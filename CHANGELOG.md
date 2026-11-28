@@ -13,6 +13,18 @@ Plain English, newest on top. One entry per milestone.
 - **The new name is used everywhere,** on the HUD and the dash, in the call
   toasts and in space, and it is saved.
 
+## Jump from one stolen ship to the next (2026-11-28)
+
+- **No more waiting for the ship you ejected from.** Before, you could not board
+  or hijack another ship until the empty one had landed or been towed. Now you
+  can climb into the next ship (or hijack one in the air) the moment you are out.
+- **The one you left goes down as a wreck.** If she is still falling, a copy of
+  her carries on down at her own speed and blows up where she lands. A stolen or
+  borrowed ship is gone; a pad's own ship that is nobody's is towed back to her
+  pad. If she had already crashed and was waiting for her tow, the tow happens
+  at once.
+- Your own ship still flies home when you eject, as before.
+
 ## New game, new crew (2026-11-28)
 
 - **Each new game names its people and ships afresh.** Guards, locals, dancers,
@@ -24,6 +36,16 @@ Plain English, newest on top. One entry per milestone.
   cast (Oda, Ilka, Skrugs, Grubba, T-89 and the rest) keep theirs.
 - **The seed is in the Ledger** (I), under the jobs, so you can tell a friend.
   Old saves keep every name they had.
+
+## Hatches in the station's ceilings (2026-11-28)
+
+- **Every floor of the space station has shield hatches in its ceiling,** like
+  the ones in the tunnels' roofs: four square holes over the walkway, each
+  closed by a shield the air cannot pass and you can.
+- **Jetpack up through one** and you are out on that floor's roof (or the
+  tower's roof over the top floor); drop back through it to get in.
+- The count, size and spot are the `floor_hatch` block in
+  `content/core/stations/orbital_station.json`; a floor can have its own count.
 
 ## Build by sight on every planet (2026-11-27)
 

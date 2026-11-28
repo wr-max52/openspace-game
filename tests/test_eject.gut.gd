@@ -309,3 +309,91 @@ func test_ejecting_from_a_stolen_ship_still_crashes_her() -> void:
 	await wait_physics_frames(2)
 	assert_true(pilot.eject())
 	assert_eq(pilot.atmo.state, AtmoFlight.State.ADRIFT)
+
+
+# ------------------------------------------------ jump out of one ship and take the next
+
+## Flying the pit pad's ship (berth 0, nobody's), with T-89's courier parked on his
+## pad as the next one to take. Returns that berth.
+func _flying_pit_ship(t, stolen: bool) -> int:
+	var pilot: ShipPilot = t.pilot
+	pilot._use_berth(0)
+	_flying(t, 300.0, 90.0, Vector3(0, -0.3, -1).normalized())
+	pilot.berths[0]["stolen"] = stolen
+	assert_eq(pilot.berth, 0)
+	for j in pilot.berths.size():
+		if j != 0 and pilot.berth_flies(j) and not bool(pilot.berths[j].get("destroyed", false)):
+			return j
+	return -1
+
+
+## On foot beside berth `j`, wherever the ejection threw you.
+func _beside(t, j: int) -> void:
+	var pilot: ShipPilot = t.pilot
+	var p = t._player
+	p.global_position = pilot.berths[j].visual.global_position + Vector3(6.0, -float(pilot.berths[j].clearance), 0.0)
+	p.velocity = Vector3.ZERO
+
+
+func test_you_can_board_the_next_ship_while_the_stolen_one_is_still_falling() -> void:
+	WorldState.hangar = "courier"
+	var t = _town()
+	await _settled(t)
+	var pilot: ShipPilot = t.pilot
+	var next := _flying_pit_ship(t, true)
+	assert_gt(next, 0, "a second ship to take")
+	await wait_physics_frames(2)
+	assert_true(pilot.eject())
+	assert_eq(pilot.atmo.state, AtmoFlight.State.ADRIFT, "the stolen one is coming down")
+	_beside(t, next)
+	assert_eq(pilot.nearest_berth(), next, "the next ship can be boarded at once")
+	assert_true(pilot.board(), "and boarded")
+	assert_true(pilot.piloting)
+	assert_eq(pilot.berth, next, "flying the new one")
+	assert_eq(pilot.atmo.state, AtmoFlight.State.PARKED, "on her pad, ready to lift off")
+	assert_true(bool(pilot.berths[0].get("destroyed", false)), "the stolen one went down and is gone")
+	assert_true(pilot.log_events.any(func(e): return e.type == "let_go"))
+	assert_lt(pilot.crash_left, 0.0, "no tow left waiting to take the new one")
+	for i in 60 * 4:
+		await wait_physics_frames(1)
+	assert_true(pilot.piloting, "still in the new one's seat")
+	assert_eq(pilot.berth, next)
+
+
+func test_a_ship_nobody_owns_is_towed_home_when_you_take_another_mid_fall() -> void:
+	WorldState.hangar = "courier"
+	var t = _town()
+	await _settled(t)
+	var pilot: ShipPilot = t.pilot
+	var next := _flying_pit_ship(t, false)
+	var home: Vector3 = pilot.home
+	await wait_physics_frames(2)
+	assert_true(pilot.eject())
+	_beside(t, next)
+	assert_true(pilot.board())
+	assert_eq(pilot.berth, next)
+	assert_false(bool(pilot.berths[0].get("destroyed", false)), "the pad's own ship is not lost")
+	var v: Node3D = pilot.berths[0].visual
+	assert_true(v.visible, "back on her pad, seen")
+	assert_lt(v.global_position.distance_to(home), 3.0, "towed home")
+
+
+func test_you_can_board_the_next_ship_while_the_crashed_one_waits_for_her_tow() -> void:
+	WorldState.hangar = "courier"
+	var t = _town()
+	await _settled(t)
+	var pilot: ShipPilot = t.pilot
+	var next := _flying_pit_ship(t, true)
+	await wait_physics_frames(2)
+	assert_true(pilot.eject())
+	for i in 60 * 30:
+		await wait_physics_frames(1)
+		if pilot.crash_left >= 0.0:
+			break
+	assert_gte(pilot.crash_left, 0.0, "she crashed and waits for her tow")
+	_beside(t, next)
+	assert_eq(pilot.nearest_berth(), next)
+	assert_true(pilot.board())
+	assert_eq(pilot.berth, next)
+	assert_true(bool(pilot.berths[0].get("destroyed", false)), "the stolen wreck is gone")
+	assert_lt(pilot.crash_left, 0.0)

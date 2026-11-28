@@ -143,6 +143,7 @@
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
   "tunnel": { "width": 6.0, "height": 5.0 },
   "hatch": { "length": 4.0, "width": 4.0, "note": "A hatch in the middle of every tunnel's roof, closed by a shield the air cannot pass and you can: jump up through it (the jetpack) and walk the roof between its railings, out in space, like a bridge; drop back through it to get in." },
+  "floor_hatch": { "count": 4, "length": 4.0, "width": 4.0, "from_rail": 1.5, "note": "The tunnels' hatches in every floor's ceiling: 'count' square holes over the walkway ('from_rail' metres out from the gap's railing, 'length' out by 'width' across), spread evenly round the tower between the bridges, each closed by a shield the air cannot pass and you can. Jetpack up through one onto the floor's roof (the open space under the next floor, or the tower's roof over the top floor) and drop back in through it. A floor's own 'hatches' (a count, 0 for none) overrides 'count'." },
   "tunnels_note": "Enclosed glass-walled tunnels between two towers ('to': a tower id) at a level both have, or from a tower to the bay ('to': 'bay') at the bay's deck.",
   "tunnels": [
     { "id": "tunnel_markets", "from": "main", "to": "second", "y": 0.0 },
