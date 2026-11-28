@@ -6,7 +6,8 @@
   "reach": 3.5,
   "buys": [
     "gear",
-    "tool"
+    "tool",
+    "weapon"
   ],
   "buy_rate": 0.5,
   "sell_rate": 1.0,
@@ -14,18 +15,70 @@
   "prices": {
     "grenade": 40,
     "plasma_welder": 20,
+    "rifle_blaster": 400,
+    "sniper_rifle": 600,
     "seeker_launcher": 900
   },
   "endless_stock": [
     "jetpack",
     "grenade",
     "plasma_welder",
+    "rifle_blaster",
+    "sniper_rifle",
     "seeker_launcher"
+  ],
+  "sections": [
+    {
+      "heading": "Weapons",
+      "goods": [
+        {
+          "id": "pistol_blaster",
+          "name": "pistol",
+          "fixed": true
+        },
+        {
+          "id": "rifle_blaster",
+          "name": "rifle"
+        },
+        {
+          "id": "sniper_rifle",
+          "name": "sniper rifle"
+        },
+        {
+          "id": "seeker_launcher",
+          "name": "seeker launcher"
+        }
+      ]
+    },
+    {
+      "heading": "Equipment",
+      "goods": [
+        {
+          "id": "jetpack",
+          "name": "jetpack"
+        },
+        {
+          "id": "plasma_welder",
+          "name": "plasma welder"
+        }
+      ]
+    },
+    {
+      "heading": "Supplies",
+      "goods": [
+        {
+          "id": "grenade",
+          "name": "grenade",
+          "many": true
+        }
+      ]
+    }
   ],
   "offers": [
     {
       "id": "pistol_recoil",
       "label": "Pistol: steady grip",
+      "name": "Steady grip",
       "about": "half the recoil, tighter shots",
       "price": 150,
       "target": "pistol_blaster",
@@ -37,6 +90,7 @@
     {
       "id": "pistol_damage",
       "label": "Pistol: overcharged cells",
+      "name": "Overcharged cells",
       "about": "75% more damage",
       "price": 150,
       "target": "pistol_blaster",
@@ -47,6 +101,7 @@
     {
       "id": "pistol_rate",
       "label": "Pistol: hair trigger",
+      "name": "Hair trigger",
       "about": "fires 60% faster",
       "price": 150,
       "target": "pistol_blaster",
@@ -57,6 +112,7 @@
     {
       "id": "rifle_recoil",
       "label": "Rifle: steady grip",
+      "name": "Steady grip",
       "about": "half the recoil, tighter shots",
       "price": 300,
       "target": "rifle_blaster",
@@ -68,6 +124,7 @@
     {
       "id": "rifle_damage",
       "label": "Rifle: overcharged cells",
+      "name": "Overcharged cells",
       "about": "75% more damage",
       "price": 300,
       "target": "rifle_blaster",
@@ -78,6 +135,7 @@
     {
       "id": "rifle_rate",
       "label": "Rifle: hair trigger",
+      "name": "Hair trigger",
       "about": "fires 60% faster",
       "price": 300,
       "target": "rifle_blaster",
@@ -88,21 +146,14 @@
     {
       "id": "jetpack_fuel",
       "label": "Jetpack: long-range tank",
+      "name": "Long-range tank",
       "about": "twice the fuel",
       "price": 250,
       "target": "jetpack",
       "mult": {
         "jetpack.fuel": 2.0
       }
-    },
-    {
-      "id": "sniper_rifle",
-      "label": "Sniper rifle",
-      "about": "a long black rifle that hits dead on at 100 m; weapon 4",
-      "price": 600,
-      "item": "sniper_rifle",
-      "endless": true
     }
   ],
-  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, offers and rates, the plasma welder too). Its marker is put at the booth by StationHull.favela_vendors. The seeker launcher is in 'endless_stock' at 900 cr, as at the port's."
+  "note": "Issue #643: the gear trader's booth in the station's favela (the port's gear_trader.json in another town: the same stock, prices, offers, rates and menu sections, the rifle and the plasma welder too). Its marker is put at the booth by StationHull.favela_vendors. Its 'offers' share the port's ids, so an upgrade bought at either is fitted for good."
 }

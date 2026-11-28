@@ -1,8 +1,8 @@
 class_name GearUpgrades
 extends RefCounted
 ## What the market stalls sell from a menu (issues #208, #209): the gear trader's
-## one-time upgrades for the pistol, the rifle and the jetpack and his sniper rifle,
-## and the fence's quantonium armour once the first bounty is paid. Pure and
+## one-time upgrades for the pistol, the rifle and the jetpack (on his menu's
+## "Upgrade your ..." pages), and the fence's quantonium armour once the first bounty is paid. Pure and
 ## static; what is bought lives in WorldState.gear_fits (saved): [offer id, ...].
 ##
 ## Each offer is data in a vendor's "offers" (content/core/vendors/gear_trader.json,
@@ -62,6 +62,19 @@ static func bought(id: String) -> bool:
 static func open_offers(vendor: String = "") -> Array:
 	return offers().filter(func(o): return _sold_by(o, vendor) and not bought(str(o.id)) \
 		and WorldState._conditions_hold(o.get("requires", {}), "stranger"))
+
+
+## The upgrades stall `v` (its data) fits to `target` (a weapon or item id) whose
+## conditions hold, bought or not, in the stall's order. Looked up by id, so a stall
+## in another town with the same offers (the station's booth, not in VENDOR_PATHS)
+## sells the same ones and an upgrade bought at either counts at both.
+static func upgrades_for(target: String, v: Dictionary) -> Array:
+	var out: Array = []
+	for vo in v.get("offers", []):
+		var o := offer(str(vo.get("id", "")))
+		if str(o.get("target", "")) == target and WorldState._conditions_hold(o.get("requires", {}), "stranger"):
+			out.append(o)
+	return out
 
 
 ## Offers not on sale yet but shown with their "locked" hint: not bought, and

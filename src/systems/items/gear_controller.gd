@@ -20,12 +20,15 @@ extends Node
 ##     and puts them back where they last stood.
 ##
 ##   - issues #208, #209: a stall's offers (GearUpgrades) from a menu on [E]: the
-##     gear trader's gun and jetpack upgrades and sniper rifle, and the fence's
+##     gear trader's gun and jetpack upgrades, and the fence's
 ##     quantonium armour once the first bounty is paid. Worn armour (slot "armour", toggled in the inventory on I) multiplies
 ##     the player's health; in a story save it is the desert guard's whole look,
 ##   - issue #210: a pickup can be "story_only", can sit "inside" a droid (no glow,
 ##     "[E] Open the cargo droid"), and reports its "event" to the story when taken.
 ##     Issue #321: or inside a console (its "prompt": "[E] Search the console").
+##   - a gear trader (a stall with "sections") has a paged menu: Buy or Sell first,
+##     then his goods by section (buy what you lack, upgrade or buy an extra of
+##     what you have), each upgradeable thing's upgrades on a page of its own.
 ##   - the backpack (Inventory.room_for): picking up, buying and taking gear off
 ##     all need a free slot; the pistol always holds the first of five.
 ##   - wreck field: a supply crate on each crashed starcruiser's bridge platform
@@ -90,7 +93,9 @@ var vendor_talk: Dictionary = {}
 
 var _packs: Dictionary = {}     ## item id -> Jetpack (fuel survives a detach)
 var menu: DroidMenu             ## a stall's trade menu: sell, buy, the fence's offers (issue #208)
-var last_trade := ""            ## what the last pick in it did: "sold", "bought", "cant_afford", ...
+var last_trade := ""            ## what the last pick in it did: "sold", "bought", "cant_afford", "page", ...
+const PAGE_TOP := ""            ## a gear trader's first page: Buy / Sell
+var trade_page := PAGE_TOP      ## the gear trader's page open: PAGE_TOP, "buy", "sell" or "upgrade:<target>"
 var _trade_said := ""           ## the trade menu's body: the pitch, then what the last trade did
 var on_refit := Callable()      ## issue #208: () after an upgrade (the town refits the player's guns)
 var on_sold := Callable()       ## issue #703: (id) after the last one of an item is sold (the town holsters that gun)
@@ -497,10 +502,127 @@ func _sellable(v: Dictionary) -> Array:
 ## While a smuggling run for this stall waits on the sale, the goods that close it
 ## come first, marked "job" (the menu shows them green, the cursor on them), the
 ## drop's own goods at the very top.
-func trade_options(v: Dictionary) -> Array:
-	var out: Array = []
+## A stall with "sections" (the gear traders) has pages instead: `page` is one of
+## TOP, "buy", "sell" or "upgrade:<target>" (_paged_options).
+func trade_options(v: Dictionary, page: String = PAGE_TOP) -> Array:
+	if v.has("sections"):
+		return _paged_options(v, page)
+	var sells := _sell_rows(v)
+	var out: Array = sells.filter(func(r): return bool(r.get("job", false)))    # a run's goods, above Talk
 	if v.has("offers") and vendor_talk.has(str(v.get("id", ""))):
 		out.append({ "id": "talk", "text": _l("talk") })     # issue #188: the fence is an AI character
+	out += sells.filter(func(r): return not bool(r.get("job", false)))
+	out += _stock_rows(v, inv().vendor_stock(v))
+	if bool(v.get("bounties", false)) and Heist.on() and Heist.mine() and Heist.pays_to() == "fence" and not Heist.holding():
+		out.append({ "id": "heist_off", "text": Heist.line("call_off") })     # issue #310
+	if v.has("offers"):
+		for o in GearUpgrades.open_offers(str(v.get("id", ""))):
+			out.append({ "id": "offer:" + str(o.id), "text": _l("offer") % [str(o.label), int(o.price), str(o.get("about", ""))] })
+		for o in GearUpgrades.locked_offers(str(v.get("id", ""))):
+			out.append({ "id": "locked:" + str(o.id), "text": _l("offer_locked") % [str(o.label), int(o.price), str(o.locked)] })
+	return out
+
+
+## A gear trader's pages (a stall with "sections"). The first asks Buy or Sell (Talk
+## first for a keeper with a brain). Buy lists the sections' goods under their
+## headings (_buy_rows); Sell what he buys from you; an upgrade page the upgrades
+## for one thing you own, the fitted ones dimmed. Every page but the first ends in Back.
+func _paged_options(v: Dictionary, page: String) -> Array:
+	var out: Array = []
+	if page == PAGE_TOP:
+		if vendor_talk.has(str(v.get("id", ""))):
+			out.append({ "id": "talk", "text": _l("talk") })
+		out.append({ "id": "page:buy", "text": _l("menu_buy") })
+		out.append({ "id": "page:sell", "text": _l("menu_sell") })
+		return out
+	if page == "buy":
+		out = _buy_rows(v)
+	elif page == "sell":
+		out = _sell_rows(v)
+		if out.is_empty():
+			out.append({ "id": "", "note": true, "text": _l("nothing_to_sell") % str(v.get("label", "vendor")).to_lower() })
+	elif page.begins_with("upgrade:"):
+		for o in GearUpgrades.upgrades_for(page.substr(8), v):
+			var name := str(o.get("name", o.get("label", o.id)))
+			if GearUpgrades.bought(str(o.id)):
+				out.append({ "id": "", "note": true, "text": _l("fitted_row") % name })
+			else:
+				out.append({ "id": "offer:" + str(o.id), "text": _l("offer") % [name, int(o.price), str(o.get("about", ""))] })
+	out.append({ "id": "back", "text": _l("back") })
+	return out
+
+
+## The Buy page: each section's goods under its heading. Something you do not have
+## yet: "Buy a rifle". Something you have: "Upgrade your rifle" (its upgrade page,
+## when the stall fits any; "fixed" = the pistol, always yours) and "Buy an extra
+## rifle". A stack ("many": grenades) is always "Buy a grenade", with how many you
+## carry. Then anything else the stall holds (what you sold it), under its own heading.
+func _buy_rows(v: Dictionary) -> Array:
+	var out: Array = []
+	var stock := inv().vendor_stock(v)
+	var listed := {}
+	for s in v.get("sections", []):
+		var rows: Array = []
+		for g in s.get("goods", []):
+			var id := str(g.get("id", ""))
+			listed[id] = true
+			var name := str(g.get("name", content.get_item(id).get("label", id))).to_lower()
+			var have := bool(g.get("fixed", false)) or inv().has(id)
+			var ups := GearUpgrades.upgrades_for(id, v)
+			if have and not ups.is_empty():
+				var done := ups.all(func(o): return GearUpgrades.bought(str(o.id)))
+				rows.append({ "id": "upgrade:" + id, "text": _l("upgrade_row_done" if done else "upgrade_row") % name })
+			if stock.has(id):
+				var many := bool(g.get("many", false))
+				var what := (_l("an_extra") % name) if have and not many else _a(name)
+				var row := _buy_row(v, id, what)
+				if many and inv().count(id) > 0:
+					row.text += _l("you_carry") % inv().count(id)
+				rows.append(row)
+		if not rows.is_empty():
+			out.append({ "id": "", "heading": true, "text": str(s.get("heading", "")) })
+			out += rows
+	var rest := _stock_rows(v, stock.filter(func(id): return not listed.has(id)))
+	if not rest.is_empty():
+		out.append({ "id": "", "heading": true, "text": _l("second_hand") })
+		out += rest
+	return out
+
+
+## One "buy:<id>" row: "Buy <what>  (400 cr)", with your credits when it is too dear.
+func _buy_row(v: Dictionary, id: String, what: String) -> Dictionary:
+	var cost := Inventory.buy_price(content.get_item(id), v)
+	var text := _l("buy_goods") % [what, cost]
+	if cost > WorldState.credits:
+		text = _l("buy_goods_poor") % [what, cost, WorldState.credits]
+	return { "id": "buy:" + id, "text": text }
+
+
+## "a rifle", "an energy blade".
+static func _a(name: String) -> String:
+	return ("an " if name.left(1).to_lower() in ["a", "e", "i", "o", "u"] else "a ") + name
+
+
+## A row per item in `stock` (once each), by its shown name and price.
+func _stock_rows(v: Dictionary, stock: Array) -> Array:
+	var out: Array = []
+	var seen := {}
+	for id in stock:
+		if seen.has(id):
+			continue
+		seen[id] = true
+		var it: Dictionary = content.get_item(str(id))
+		var cost := Inventory.buy_price(it, v)
+		var text := _l("buy_row") % [_shown(it, str(id)), cost]
+		if cost > WorldState.credits:
+			text = _l("buy_row_poor") % [_shown(it, str(id)), cost, WorldState.credits]
+		out.append({ "id": "buy:" + str(id), "text": text })
+	return out
+
+
+## A row per owned item this stall buys; a smuggling run's goods first (see trade_options).
+func _sell_rows(v: Dictionary) -> Array:
+	var out: Array = []
 	var run := bool(v.get("buys", []).has("contraband")) and WorldState.fence_run_open(str(v.get("location", "")))
 	var job_rows: Array = []
 	for id in _sellable(v):
@@ -518,27 +640,7 @@ func trade_options(v: Dictionary) -> Array:
 				job_rows.append(row)
 		else:
 			out.append(row)
-	out = job_rows + out
-	var stock := inv().vendor_stock(v)
-	var seen := {}
-	for id in stock:
-		if seen.has(id):
-			continue
-		seen[id] = true
-		var it: Dictionary = content.get_item(str(id))
-		var cost := Inventory.buy_price(it, v)
-		var text := _l("buy_row") % [_shown(it, str(id)), cost]
-		if cost > WorldState.credits:
-			text = _l("buy_row_poor") % [_shown(it, str(id)), cost, WorldState.credits]
-		out.append({ "id": "buy:" + str(id), "text": text })
-	if bool(v.get("bounties", false)) and Heist.on() and Heist.mine() and Heist.pays_to() == "fence" and not Heist.holding():
-		out.append({ "id": "heist_off", "text": Heist.line("call_off") })     # issue #310
-	if v.has("offers"):
-		for o in GearUpgrades.open_offers(str(v.get("id", ""))):
-			out.append({ "id": "offer:" + str(o.id), "text": _l("offer") % [str(o.label), int(o.price), str(o.get("about", ""))] })
-		for o in GearUpgrades.locked_offers(str(v.get("id", ""))):
-			out.append({ "id": "locked:" + str(o.id), "text": _l("offer_locked") % [str(o.label), int(o.price), str(o.locked)] })
-	return out
+	return job_rows + out
 
 
 # ------------------------------------------------------------------ actions
@@ -766,12 +868,19 @@ func buy_item(id: String, v: Dictionary) -> String:
 
 ## A stall's menu. Each sale or buy leaves it open with the new prices and the
 ## cursor where it was (keep_cursor); Esc walks away, Talk hands over to the chat.
+## A fresh open starts a gear trader on his first page (Buy / Sell).
 func open_trade(v: Dictionary, keep_cursor := false) -> void:
-	var opts := trade_options(v)
+	if not keep_cursor:
+		trade_page = PAGE_TOP
+		_trade_said = str(v.get("pitch", "")) % str(v.get("label", "vendor")).to_lower() if v.has("pitch") else ""
+	_show_trade(v, keep_cursor)
+
+
+## Show the stall's menu on trade_page as it stands now.
+func _show_trade(v: Dictionary, keep_cursor: bool) -> void:
+	var opts := trade_options(v, trade_page)
 	if opts.is_empty():
 		return
-	if not keep_cursor:
-		_trade_said = str(v.get("pitch", "")) % str(v.get("label", "vendor")).to_lower() if v.has("pitch") else ""
 	var lock: bool = player != null and not bool(player.get("locked"))
 	if lock:
 		player.locked = true
@@ -790,6 +899,9 @@ func _on_trade(id: String, v: Dictionary) -> void:
 		if talk.is_valid():
 			talk.call()
 		return
+	if id.begins_with("page:") or id.begins_with("upgrade:") or id == "back":
+		_turn_page(id, v)
+		return
 	if id.begins_with("sell:"):
 		last_trade = sell_item(id.substr(5), v)
 	elif id.begins_with("buy:"):
@@ -806,7 +918,27 @@ func _on_trade(id: String, v: Dictionary) -> void:
 		var o := GearUpgrades.offer(id.substr(7))
 		_trade_said = _l("offer_locked_toast") % [str(o.label), str(o.locked)]
 		last_trade = "locked"
-	open_trade(v, true)
+	_show_trade(v, true)
+
+
+## A gear trader's page change: Buy or Sell from the first page, an upgrade page
+## from Buy, Back one page up (an upgrade page to Buy, Buy and Sell to the first).
+func _turn_page(id: String, v: Dictionary) -> void:
+	if id.begins_with("page:"):
+		trade_page = id.substr(5)
+	elif id.begins_with("upgrade:"):
+		trade_page = id
+	else:
+		trade_page = "buy" if trade_page.begins_with("upgrade:") else PAGE_TOP
+	_trade_said = ""
+	if trade_page.begins_with("upgrade:"):
+		var target := trade_page.substr(8)
+		for s in v.get("sections", []):
+			for g in s.get("goods", []):
+				if str(g.get("id", "")) == target:
+					_trade_said = _l("upgrades_said") % str(g.get("name", target)).to_lower()
+	last_trade = "page"
+	_show_trade(v, false)
 
 
 ## Buy one of a stall's offers. Returns GearUpgrades.buy's answer.
