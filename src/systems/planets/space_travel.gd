@@ -251,6 +251,7 @@ func _prepare(id: String) -> void:
 		var planet := PlanetGen.build(id)
 		DesertLandforms.prepare(planet)            # issue #714: its rocks and wrecks, on workers
 		StarcruiserWreck.prepare(planet)
+		ShaderWarmup.start(self, id)               # and its kinds of material, one a frame (issue #714)
 
 
 func _prewarm(id: String) -> void:

@@ -26,17 +26,23 @@ each PR checked and measured, are in the archive under "The per-PR log".
    SpaceTravel's neighbour balls ~13). Single pieces left: the barge's first
    piece (~41 ms), the player's body (~35), the gear (~31), the town's first
    boxes (~30), the native camps (~41-44 with their tents), an outpost (~27).
-   Flying in from the gas giant (home loading fresh, `DESCENT_WARM=ringed_giant`):
-   23 frames over, worst ~118 ms; on top of the above, the first time a
-   session makes a kind of material (the rock, the wreck plates, the club's
-   booths, the barge's decks: 40-85 ms each) and the first native camp (21
-   pipelines). Only the home planet builds by sight. *(#573, #574, #693, #714,
-   #716, 2026-11-27; fix: #717)*
-2. **A first descent on a fresh install** has ~14 s of ~450 ms frames between
-   2.1 and 1.4 km: shader compiles, once per install (with the disk shader
-   cache a shader's first draw is ~1.5 ms). Everyone who gets a share build
-   hits it. A warm-up in open space would only move the compiles there: they
-   run on the main thread. *(#574, 2026-11-24; #714, 2026-11-27)*
+   Flying in from the gas giant (home loading fresh, `DESCENT_WARM=ringed_giant`,
+   with #842): 10 frames over coming down, all 33-45 ms (the town's first boxes
+   and decor, the wreck plates, two vendors, the body and the gear, an outpost,
+   the first native camp, the barge's first piece), worst ~45 ms; the switch
+   ~45 ms, ~65 on a bad frame. The kinds of material home draws are now
+   compiled out in open space (ShaderWarmup): ~15 frames of 45-53 ms there,
+   from 30 km out, in place of 40-85 ms frames on the way down. Only the home
+   planet builds by sight. *(#573, #574, #693, #714, #716, 2026-11-28; fix: #717)*
+2. **A first descent on a fresh install** had ~14 s of ~450 ms frames between
+   2.1 and 1.4 km: shader compiles, once per install. Godot compiles a new
+   kind of material on the main thread when the material is made, so they
+   cannot be moved off it, only earlier: home's 71 kinds (content/look/
+   warm_kinds.json) are now made one a frame from 30 km out in open space, so
+   a fresh install's compiles land there, one a frame (not measured on a fresh
+   install: each could be a few hundred ms). Kinds another planet draws that
+   home does not, and planets with no list, still compile on the way down
+   (record one with `DESCENT_KINDS=1`). *(#574, 2026-11-24; #714, 2026-11-28)*
 3. **Godot's default Metal driver crashed at launch on this Mac**, inside the GPU
    driver, even for an empty project. Everything since has been rendered with
    `--rendering-driver vulkan`. Not rechecked on Godot 4.7.2; check which driver
