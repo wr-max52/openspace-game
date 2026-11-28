@@ -380,7 +380,7 @@ func test_outside_is_breathable_and_dropping_toward_the_clouds_puts_you_back_in_
 	p.global_position = s.frame * Vector3(30, 20, 0)       # out between the floors
 	await wait_physics_frames(3)
 	assert_eq(s.falls, 0, "left outside")
-	p.global_position = s.frame * Vector3(30, s.hull.bottom_y() - 80.0, 0)   # falling toward the clouds
+	p.global_position = s.frame * Vector3(-30, s.hull.bottom_y() - 80.0, -60)   # falling toward the clouds (off the belt's side, #317)
 	await wait_physics_frames(3)
 	assert_eq(s.falls, 1)
 	assert_true(s.aboard(p.global_position), "back aboard")
@@ -429,11 +429,11 @@ func test_a_warning_before_the_clouds_pull_you_back() -> void:
 	var warn: String = s.line("fell_clouds_warn")
 	assert_ne(warn, "", "the warning's line is in the station's data")
 	var drop := float(s.cfg.outside.drop_below)
-	p.global_position = s.frame * Vector3(30, s.hull.bottom_y() - drop + 10.0, 0)   # past the warning, short of the pull
+	p.global_position = s.frame * Vector3(-30, s.hull.bottom_y() - drop + 10.0, -60)   # past the warning, short of the pull (off the belt, #317)
 	await wait_physics_frames(2)
 	assert_eq(s.falls, 0, "not pulled back yet")
 	assert_eq(t.gear.hud.toast_label.text, warn, "warned")
-	p.global_position = s.frame * Vector3(30, s.hull.bottom_y() - drop - 20.0, 0)
+	p.global_position = s.frame * Vector3(-30, s.hull.bottom_y() - drop - 20.0, -60)
 	await wait_physics_frames(3)
 	assert_eq(s.falls, 1, "then pulled back")
 

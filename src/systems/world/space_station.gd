@@ -254,7 +254,7 @@ func _belt_guard(p: Node3D, l: Vector3) -> bool:
 	if belt.is_empty():
 		return false
 	var bc := BeltWrecks.cfg_of(hull)
-	if not BeltWrecks.over_belt(belt, l, float(bc.get("margin_m", 60.0))):
+	if not BeltWrecks.over_belt(belt, l, float(bc.get("margin_m", 40.0))):
 		_guard_fade(0.0)
 		return false
 	_warned = false

@@ -164,7 +164,7 @@
         "note": "The deepest, heeled over to port, still with its four engines: the end of the line." }
     ],
     "planks": [ { "from": [0, 39.05, 148], "to": [0, 38.4, 173], "width": 5.0 } ],
-    "margin_m": 60.0,
+    "margin_m": 40.0,
     "fall_m": 20.0,
     "fade_m": 10.0,
     "lines": { "fell": "You slipped off the wreck and tumbled away into the belt." }
