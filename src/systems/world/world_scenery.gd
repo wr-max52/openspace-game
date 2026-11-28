@@ -47,17 +47,27 @@ func _ready() -> void:
 ## the visuals. `st` (a StagedBuild, may be null) spreads them over frames.
 const COLLIDERS_A_PIECE := 400
 
+## Each piece is its own body, filled before it joins the tree: with Jolt, a shape
+## added to a body already in the world rebuilds the whole body, so one body for
+## them all made every piece slower than the last (34 ms up to ~106 ms coming down).
 func build_late(st: StagedBuild, mats: LookMaterials = null, sand: Material = null, with_look := false) -> void:
 	build_later = false
-	var root := StaticBody3D.new()
-	root.name = "LandmarkColliders"
-	add_child(root)
+	var root: StaticBody3D = null
 	var n := 0
+	var bodies := 0
 	for b in landmark_boxes():
+		if root == null:
+			root = StaticBody3D.new()
+			root.name = "LandmarkColliders%d" % bodies
+			bodies += 1
 		if _add_collider(root, b):
 			n += 1
 			if n % COLLIDERS_A_PIECE == 0:
+				add_child(root)
+				root = null
 				await StagedBuild.slice_of(st)
+	if root != null:
+		add_child(root)
 	if with_look:
 		await StagedBuild.slice_of(st)
 		build_visuals(mats, sand)
@@ -81,9 +91,9 @@ func landmark_boxes() -> Array:
 func _build_landmark_colliders() -> void:
 	var root := StaticBody3D.new()
 	root.name = "LandmarkColliders"
-	add_child(root)
 	for b in landmark_boxes():
 		_add_collider(root, b)
+	add_child(root)          # filled first: one body build, not one a shape (Jolt)
 
 
 func _add_collider(root: StaticBody3D, b: Dictionary) -> bool:
