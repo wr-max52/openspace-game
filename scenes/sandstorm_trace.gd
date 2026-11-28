@@ -115,7 +115,8 @@ func _run() -> void:
 	out("FULL_FOG", full.fog)
 	out("FULL_FOG_THICK", full.fog >= float(storm.cfg.look.fog_density) * 0.99)
 	out("FULL_SUN_RATIO", snappedf(full.sun / clear.sun, 0.01))
-	out("FULL_AMBIENT_LOWER", full.ambient < clear.ambient)
+	var amb: Color = demo.look.env.ambient_light_color
+	out("FULL_AMBIENT_BROWN", amb.r > amb.b and full.ambient_sky < clear.ambient_sky)
 	out("FULL_SKY_BROWN", full.sky_affect > clear.sky_affect and full.ambient_sky < clear.ambient_sky)
 	out("FULL_EXPOSURE_LOWER", full.exposure < clear.exposure)
 	out("FULL_DRIFT", snappedf(full.drift, 0.01))

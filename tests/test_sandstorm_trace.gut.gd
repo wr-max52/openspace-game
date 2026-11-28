@@ -50,7 +50,7 @@ func test_effects_move() -> void:
 	assert_eq(float(t.get("FULL_LEVEL", 0)), 1.0)
 	_true("FULL_FOG_THICK")
 	assert_lt(float(t.get("FULL_SUN_RATIO", 1)), 0.5, "the sun dims")
-	_true("FULL_AMBIENT_LOWER")
+	_true("FULL_AMBIENT_BROWN")
 	_true("FULL_SKY_BROWN")
 	_true("FULL_EXPOSURE_LOWER")
 	assert_gt(float(t.get("FULL_DRIFT", 0)), 2.0, "the sand's blowing sheets turned up")
