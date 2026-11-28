@@ -106,13 +106,14 @@
       "done_on": "cruiser_taken",
       "done_flag": "cruiser_taken",
       "steps": [
+        { "id": "ship", "done_on": "ship_rebuilt", "done_if": "working_ship", "text": "Talk to T-89 in the pit to get a working ship", "target": "npc:t89" },
         { "id": "land", "done_on": "cruiser_landed", "text": "Land in the Remnant cruiser's bay, far east in orbit", "target": "cruiser:bay" },
         { "id": "infiltrate", "done_on": "cruiser_infiltrated", "text": "Infiltrate the cruiser: follow the corridor aft to the stairs", "target": "cruiser:stairs" },
         { "id": "kill", "done_on": "cruiser_taken", "text": "Kill %s on the bridge", "target": "cruiser:general" }
       ],
       "skipped": { "flags": ["cruiser_taken", "remnant_fleet_beaten", "locals_hero"], "counters": { "generals_killed": 1 }, "credits": 20000,
         "standing": { "imperial_remnant": -40, "locals": 60, "smuggler": 15 } },
-      "note": "Issue #64/#193: the space mission is the general on the Remnant cruiser's bridge, far out east in orbit. The fleet's fighters (the cruiser's escort) meet you on the way up; beating them is not the mission. 'title' is the quest banner when Oda tells it. 'steps': the chapter's objective one step at a time, each with its own waypoint (Objective.chapter_objective; the pointer words are in 'objectives'): a step ends on its 'done_on' event (Story.event flags '<chapter>_<step>' and the banner says the next; an event further on counts the steps before it too), and the last step's is the chapter's own. '%s' in a step's text is the general's name (Story.cruiser_general_name).",
+      "note": "Issue #64/#193: the space mission is the general on the Remnant cruiser's bridge, far out east in orbit. The fleet's fighters (the cruiser's escort) meet you on the way up; beating them is not the mission. 'title' is the quest banner when Oda tells it. 'steps': the chapter's objective one step at a time, each with its own waypoint (Objective.chapter_objective; the pointer words are in 'objectives'): a step ends on its 'done_on' event (Story.event flags '<chapter>_<step>' and the banner says the next; an event further on counts the steps before it too), and the last step's is the chapter's own. '%s' in a step's text is the general's name (Story.cruiser_general_name). A step's 'done_if' names a condition that also counts it done while it holds (Story.step_done): 'working_ship' is a ship you can fly from the pit (Story.has_working_ship), so the first step, T-89 for a ship, is ticked already when you have one.",
       "intro": "That made noise. The Remnant has its fleet up in orbit now, round a star cruiser way out east, and the general who runs every Remnant on this rock never leaves its bridge. The locals will pay twenty thousand to see him dead. Take your own ship up, land in the cruiser's bay and kill him. Expect fighters on the way up. If you haven't got a ship, T-89 in the pit will see you right.",
       "remind": "The general's still up there on the cruiser's bridge, far out east past the curve. Take your own ship up, land in its bay and kill him. Expect fighters on the way."
     },
