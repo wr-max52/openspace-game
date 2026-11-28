@@ -14,6 +14,16 @@ Plain English, newest on top. One entry per milestone.
 - **The seed is in the Ledger** (I), under the jobs, so you can tell a friend.
   Old saves keep every name they had.
 
+## Hatches in the station's ceilings (2026-11-28)
+
+- **Every floor of the space station has shield hatches in its ceiling,** like
+  the ones in the tunnels' roofs: four square holes over the walkway, each
+  closed by a shield the air cannot pass and you can.
+- **Jetpack up through one** and you are out on that floor's roof (or the
+  tower's roof over the top floor); drop back through it to get in.
+- The count, size and spot are the `floor_hatch` block in
+  `content/core/stations/orbital_station.json`; a floor can have its own count.
+
 ## Build by sight on every planet (2026-11-27)
 
 - **Flying in to a moon, the gas giant or any generated planet builds nothing

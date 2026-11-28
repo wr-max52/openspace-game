@@ -23,6 +23,20 @@ Every significant technical choice, the alternative, and why. Newest on top.
   looks exactly as it did.
 - **Titles follow the game seed too,** so a guard's rank changes with the guard.
 
+## 2026-11-28 — Every station floor has shield hatches in its ceiling
+
+- **The tunnels' hatches, in the floors' roofs.** Each floor's ceiling is cut
+  into three rings (inside the hatches, round them with the holes left open,
+  outside them), so the holes need no new collider kind and the ship's ground
+  and the walkers' colliders get them for free. The holes sit over the walkway,
+  half a step round from 0, so they are between the bridges on every floor.
+- **No collider on the shield, only the look** (`StationHull.floor_hatches`,
+  drawn by `SpaceStation._build_hatches` with the tunnels' hatches; one mesh
+  and one material a size). `aboard` runs to half a metre over the ceiling and
+  `on_roof` starts there, so going up through a hatch never trips the fall
+  guard. How many, how big and how far out is the station file's `floor_hatch`
+  block; a floor's own `hatches` overrides the count.
+
 ## 2026-11-27 — The physics engine is Jolt (Godot's own), for the far side of the ball
 
 - **Why:** on foot on the far side (Cragfall, Farleap, any sand 9 km or more from
