@@ -2,6 +2,20 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — Boarding another ship lets the falling one go as a wreck
+
+- **Why:** the player wants to jump out of one stolen ship and take the next.
+  `ShipPilot` drives one `AtmoFlight`, and the ship you ejected from was still in
+  it (ADRIFT, or crashed and waiting for her tow), so boarding was blocked until
+  she was down.
+- **What:** boarding or hijacking another ship first calls `_let_go_falling`. A
+  ship still falling becomes a `CrashWreck` copy carrying her drift velocity, so
+  she still visibly goes down and blows up, and then `_tow_home` runs at once (a
+  stolen or borrowed ship is lost, a pad's own ship is back on her pad).
+- **Alternative:** an `AtmoFlight` per ship, so she keeps falling and may still
+  land softly. Rejected: it reopens "berths, not a ship picker" (one flight, one
+  berth) for a ship you have already walked away from.
+
 ## 2026-11-27 — The physics engine is Jolt (Godot's own), for the far side of the ball
 
 - **Why:** on foot on the far side (Cragfall, Farleap, any sand 9 km or more from
