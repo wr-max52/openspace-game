@@ -154,9 +154,9 @@
       { "id": "belt_wreck_2", "drop_m": 50.0, "shift": [30, 130], "yaw_deg": -150.0, "pitch_deg": -14.0, "roll_deg": 9.0,
         "variant": { "deck_drop": 4, "smooth_spine": true, "skip": ["port_drop", "port_balcony", "radiator_1", "radiator_4"], "ramp_width": { "climb_ramp": 10.0 }, "rail_gaps": { "mid_catwalk_bow_rail": [2, 6], "bridge_starboard_rail": [2] }, "shard_turn": -8 },
         "note": "Off the first one's flank and turned nearly round, a shallower dive, listing to starboard." },
-      { "id": "belt_wreck_3", "drop_m": 50.0, "shift": [80, 170], "yaw_deg": -10.0, "pitch_deg": -6.0, "roll_deg": -11.0,
+      { "id": "belt_wreck_3", "drop_m": 50.0, "shift": [100, 180], "yaw_deg": 120.0, "pitch_deg": -3.0, "roll_deg": 2.0,
         "variant": { "deck_drop": 9, "smooth_spine": true, "open_pad": true, "skip": ["port_drop", "radiator_0", "hull_band_135"], "rail_gaps": { "port_deck_outer_rail": [0, 3], "upper_catwalk_stern_rail": [1] }, "shard_turn": 12 },
-        "note": "The deepest, nearly level, heeled over to port, off past the second one's bow." }
+        "note": "The deepest, almost flat, just over the cloud haze: as low as a called ship can still set down. Off its side the belt has you." }
     ],
     "clearance_m": 10.0,
     "landing": { "max_damage": 30 },

@@ -5,9 +5,10 @@ Plain English, newest on top. One entry per milestone.
 ## The wrecks in the belt under the ring station (2026-11-28)
 
 - **Three wrecked cruisers hang under the station, stacked and never touching.**
-  Each lies 50 to 100 m under the last, at its own heading, dive and list. The
-  first dives nose down like the home planet's nearest wreck, its stern up by
-  the station and its bow down in the clouds.
+  Each lies 50 m under the last, at its own heading, dive and list. The first
+  dives nose down like the home planet's nearest wreck, its stern up by the
+  station and its bow down in the clouds; the last lies almost flat just over
+  the cloud haze, and off its side is the drop into them.
 - **The engine deck's drop hatch is open.** It sits in the floor of a cargo
   hold behind a shield; drop through it to the first wreck's landing pad 50 m
   down.
