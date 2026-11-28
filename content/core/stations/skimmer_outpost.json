@@ -14,8 +14,18 @@
   "shaft_radius": 5.5,
   "towers": [
     { "id": "deck", "at": [0, 0], "floors": [
-      { "id": "outpost", "y": 0.0, "radius": 40.0, "rooms": true }
-    ] }
+      { "id": "outpost", "y": 0.0, "radius": 40.0, "rooms": true,
+        "roof_hatch": { "a_deg": 0, "r": 15.5, "width": 4.0 },
+        "roof_hatch_note": "Issue #838: a 4 m hatch over the walkway, east of the lift (the bridges run north-south on this floor), closed by the tunnels' roof shield: jetpack up through it, past the ladder, onto the roof (StationHull._roof_hatch)." }
+    ],
+      "antennas": [
+        { "kind": "dish", "a_deg": 160, "r": 24.0, "size": 5.0 },
+        { "kind": "dish", "a_deg": 230, "r": 20.0, "size": 3.4 },
+        { "kind": "whip", "a_deg": 200, "r": 31.0, "size": 8.0 },
+        { "kind": "whip", "a_deg": 215, "r": 33.0, "size": 6.5 },
+        { "kind": "whip", "a_deg": 185, "r": 34.0, "size": 7.0 }
+      ],
+      "antennas_note": "Issue #838: past the tower's own mast and beacon, two dishes and three whip antennas on the roof, on the side away from the hatch (StationHull._antennas). Their posts and bases are solid: cover up there." }
   ],
   "fill": {
     "budget_ms": 2.0,
@@ -38,7 +48,11 @@
     "guard_share": 0.5,
     "wake_within": 700.0,
     "sleep_m": 120.0,
-    "locals_after_s": 8.0
+    "locals_after_s": 8.0,
+    "roof": { "r": 28.0, "count": 1 },
+    "roof_trooper": "roof_launcher",
+    "roof_guard": "local_launcher",
+    "roof_note": "Issue #838: one guard walking a loop round the roof (StationRemnant.posts), with a seeker launcher: the Remnant's roof_launcher, the locals' local_launcher once they hold the deck. The roof is always watched, whatever guard_share leaves off the posts below."
   },
   "map": {
     "owners": { "control": "remnant", "bunks": "remnant", "armoury": "remnant", "command": "remnant", "mess": "remnant" },

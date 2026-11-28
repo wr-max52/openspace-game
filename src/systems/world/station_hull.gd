@@ -110,9 +110,11 @@ func setup(d: Dictionary) -> void:
 			var rv = f.get("rooms", true)
 			var count := int(rv) if (rv is float or rv is int) else (int(d.get("rooms", {}).get("count", 8)) if bool(rv) else 0)
 			fl.append({ "id": str(f.get("id", "")), "y": float(f.get("y", 0.0)), "r": float(f.get("radius", 40.0)),
-				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)) })
+				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)),
+				"roof_hatch": f.get("roof_hatch", {}) })
 		fl.sort_custom(func(a, b): return float(a.y) < float(b.y))
-		towers.append({ "id": str(t.get("id", "")), "c": Vector2(float(at[0]), float(at[1])), "floors": fl })
+		towers.append({ "id": str(t.get("id", "")), "c": Vector2(float(at[0]), float(at[1])), "floors": fl,
+			"antennas": t.get("antennas", []) })
 	_read_bay(d.get("bay", {}))
 	_read_tunnels(d.get("tunnels", []))
 	_build()
@@ -911,7 +913,11 @@ func _floor(t: Dictionary, i: int) -> void:
 		_ring(pre + "_pit", c, 0.0, shaft_r, y - plate, y, "floor", "deck", [], 12)
 	# A glowing band round the plate's edge outside, and the underside's trim.
 	_ring(pre + "_edge_glow", c, r + 0.05, r + 0.35, y - 0.75, y - 0.45, "decor", "glow")
-	_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+	var rh: Dictionary = roof_hatch(t, i)
+	if rh.is_empty():
+		_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+	else:
+		_roof_hatch(pre, c, r, ceil_y, rh)
 	# Issue #702: out on this floor's roof, a low rail round its edge (the roof walk's
 	# own finish, 24 boxes in the station's one body): you stop there, not fall off.
 	_ring(pre + "_roof_rail", c, r - 0.3, r, ceil_y + plate, ceil_y + plate + RAIL_H, "solid", "rail", [], 24)
@@ -973,6 +979,81 @@ func _floor(t: Dictionary, i: int) -> void:
 			"xf": Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, y + dh * 0.5, c.y) + dir * shaft_r) })
 	if bool(f.rooms):
 		_rooms(t, i, doors_at)
+
+
+## Issue #838: the top floor's hatch up to its roof (the floor's "roof_hatch":
+## { a_deg (round the tower's middle, 0 = +x), r (its middle from the tower's
+## middle, over the walkway), width }), or {} for none: { a, r, hw (half its width) }.
+func roof_hatch(t: Dictionary, i: int) -> Dictionary:
+	var fl: Array = t.floors
+	if i != fl.size() - 1:
+		return {}
+	var rh = fl[i].get("roof_hatch", {})
+	if not (rh is Dictionary) or (rh as Dictionary).is_empty():
+		return {}
+	return { "a": deg_to_rad(float(rh.get("a_deg", 0.0))), "r": float(rh.get("r", gap_r + walk * 0.5)),
+		"hw": float(rh.get("width", float(cfg.get("hatch", {}).get("width", 4.0)))) * 0.5 }
+
+
+## The ceiling with the hatch cut in it, closed by a shield you pass through (the
+## tunnels' roof hatch: SpaceStation draws it; jetpack up through it, onto the roof),
+## a glowing rim round it, and a ladder up the hole's outer side from the walkway
+## to a handhold over the roof (the look: you climb with the jetpack, as everywhere).
+func _roof_hatch(pre: String, c: Vector2, r: float, ceil_y: float, rh: Dictionary) -> void:
+	var a := float(rh.a)
+	var hr := float(rh.r)
+	var hw := float(rh.hw)
+	var y0 := ceil_y
+	var y1 := ceil_y + plate
+	_ring(pre + "_ceiling_in", c, gap_r, hr - hw, y0, y1, "solid", "hull")
+	_ring(pre + "_ceiling_hatch", c, hr - hw, hr + hw, y0, y1, "solid", "hull", [[a, hw]])
+	_ring(pre + "_ceiling_out", c, hr + hw, r, y0, y1, "solid", "hull")
+	var dir := Vector3(cos(a), 0, sin(a))
+	var side := dir.cross(UP)
+	var mid := Vector3(c.x, 0, c.y) + dir * hr
+	var shield := Transform3D(Basis(dir, UP, side), mid + Vector3(0, (y0 + y1) * 0.5, 0))
+	hatches.append({ "tunnel": pre + "_roof", "xf": shield, "size": Vector3(hw * 2.0, 0.1, hw * 2.0) })
+	for s: float in [-1.0, 1.0]:
+		_add("%s_roof_hatch_rim_%d" % [pre, int(s)], Transform3D(Basis(dir, UP, side), mid + side * s * (hw + 0.15) + Vector3(0, y1 + 0.1, 0)),
+			Vector3(hw * 2.0 + 0.6, 0.2, 0.3), "decor", "glow")
+		_add("%s_roof_hatch_end_%d" % [pre, int(s)], Transform3D(Basis(dir, UP, side), mid + dir * s * (hw + 0.15) + Vector3(0, y1 + 0.1, 0)),
+			Vector3(0.3, 0.2, hw * 2.0 + 0.6), "decor", "glow")
+	# The ladder: two rails up the hole's outer edge, rungs between them.
+	var lx := mid + dir * (hw - 0.25)
+	var top := y1 + RAIL_H
+	var y_floor := ceil_y - floor_h
+	for s: float in [-0.35, 0.35]:
+		_add("%s_roof_ladder_rail_%d" % [pre, int(signf(s))], Transform3D(Basis(dir, UP, side), lx + side * s + Vector3(0, (y_floor + top) * 0.5, 0)),
+			Vector3(0.08, top - y_floor, 0.08), "solid", "rail")
+	var rungs := int((top - y_floor) / 0.35)
+	for k in rungs:
+		_add("%s_roof_ladder_rung_%d" % [pre, k], Transform3D(Basis(dir, UP, side), lx + Vector3(0, y_floor + 0.3 + k * 0.35, 0)),
+			Vector3(0.06, 0.06, 0.7), "decor", "rail")
+
+
+## Issue #838: what stands on a tower's roof past its mast ("antennas": [{ kind:
+## "dish" (a tilted panel on a post) or "whip" (a thin rod), a_deg, r, size }]): boxes
+## in the station's one body, solid where you would walk into them (cover).
+func _antennas(t: Dictionary, roof: float) -> void:
+	var c: Vector2 = t.c
+	var k := 0
+	for an in t.get("antennas", []):
+		var a := deg_to_rad(float(an.get("a_deg", 0.0)))
+		var dir := Vector3(cos(a), 0, sin(a))
+		var at := Vector3(c.x, roof, c.y) + dir * float(an.get("r", 20.0))
+		var size := float(an.get("size", 4.0))
+		var pid := "%s_antenna_%d" % [str(t.id), k]
+		if str(an.get("kind", "whip")) == "dish":
+			var post := size * 0.5
+			_add(pid + "_post", Transform3D(Basis.IDENTITY, at + Vector3(0, post * 0.5, 0)), Vector3(0.5, post, 0.5), "solid", "trim")
+			var tilt := Basis(dir.cross(UP).normalized(), deg_to_rad(40.0)) * Basis(dir, UP, dir.cross(UP))
+			_add(pid + "_dish", Transform3D(tilt, at + Vector3(0, post + 0.2, 0)), Vector3(size, 0.3, size), "solid", "hull")
+			_add(pid + "_horn", Transform3D(Basis.IDENTITY, at + Vector3(0, post + size * 0.45, 0)), Vector3(0.25, size * 0.5, 0.25), "decor", "trim")
+		else:
+			_add(pid + "_base", Transform3D(Basis.IDENTITY, at + Vector3(0, 0.3, 0)), Vector3(0.7, 0.6, 0.7), "solid", "trim")
+			_add(pid + "_rod", Transform3D(Basis.IDENTITY, at + Vector3(0, size * 0.5, 0)), Vector3(0.1, size, 0.1), "decor", "trim")
+			_add(pid + "_tip", Transform3D(Basis.IDENTITY, at + Vector3(0, size + 0.1, 0)), Vector3(0.25, 0.25, 0.25), "decor", "beacon")
+		k += 1
 
 
 ## The rooms round the outside of a floor: an inner wall at the walkway's edge with
@@ -1078,7 +1159,10 @@ func _tower_dressing(t: Dictionary) -> void:
 			Vector3(14.0 - k * 3.0, 0.5, 0.5), "decor", "trim")
 	_add("%s_beacon" % str(t.id), Transform3D(Basis.IDENTITY, Vector3(c.x, roof + mast_h + 0.6, c.y)),
 		Vector3(1.4, 1.2, 1.4), "decor", "beacon")
-	_ring("%s_roof_ring" % str(t.id), c, float(high.r) * 0.35, float(high.r) * 0.42, roof, roof + 1.2, "solid", "trim", [], 32)
+	var rh := roof_hatch(t, fl.size() - 1)
+	var ring_gaps: Array = [] if rh.is_empty() else [[float(rh.a), float(rh.hw) + 0.6]]   # the way out of the hatch
+	_ring("%s_roof_ring" % str(t.id), c, float(high.r) * 0.35, float(high.r) * 0.42, roof, roof + 1.2, "solid", "trim", ring_gaps, 32)
+	_antennas(t, roof)
 
 
 ## A tunnel: deck, roof, glass walls between hull bands, ribs along it. In the

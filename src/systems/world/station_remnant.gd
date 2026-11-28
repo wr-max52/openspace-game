@@ -139,6 +139,20 @@ static func posts(h: StationHull) -> Array:
 			var a := k * PI + j * PI / 6.0
 			pts.append(Vector3(c.x + cos(a) * rw, y, c.y + sin(a) * rw))
 		out.append({ "id": "patrol_%d" % k, "at": pts[0], "face": Vector3.FORWARD, "soldier": "trooper", "patrol": pts })
+	# Issue #838: up on the roof (the "remnant" block's "roof": { r, count }), a guard
+	# walking a loop round it (the soldier "roof": its "roof_trooper" while the Remnant
+	# hold the deck, its "roof_guard" for the locals). Only a top floor has a roof.
+	var roof: Dictionary = h.cfg.get("remnant", {}).get("roof", {})
+	if not roof.is_empty() and int(d[1]) == (t.floors as Array).size() - 1:
+		var ry := y + h.floor_h + h.plate
+		var rr2 := float(roof.get("r", float(f.r) * 0.7))
+		for k in int(roof.get("count", 1)):
+			var a0 := TAU * k / maxf(1.0, float(roof.get("count", 1)))
+			var loop: Array = []
+			for j in 9:
+				var a := a0 + j * TAU / 8.0
+				loop.append(Vector3(c.x + cos(a) * rr2, ry, c.y + sin(a) * rr2))
+			out.append({ "id": "roof_%d" % k, "at": loop[0], "face": Vector3(cos(a0), 0, sin(a0)), "soldier": "roof", "patrol": loop })
 	return out
 
 
@@ -176,7 +190,8 @@ func _wake() -> void:
 
 
 func _add_trooper(p: Dictionary) -> void:
-	var profile := str(cfg.get("commander" if str(p.soldier) == "commander" else "trooper", "outpost_trooper"))
+	var key: String = str({ "commander": "commander", "roof": "roof_trooper" }.get(str(p.soldier), "trooper"))
+	var profile := str(cfg.get(key, cfg.get("trooper", "outpost_trooper")))
 	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0), _yaw(p.face),
 		"%s/%s" % [place, str(p.id)], "npc:%s/%s" % [place, str(p.id)], self)
 	if g == null:
@@ -242,13 +257,14 @@ func _locals_move_in() -> void:
 	var all := posts(hull)
 	var every := maxi(1, roundi(1.0 / maxf(0.05, float(cfg.get("guard_share", 0.5)))))
 	for i in all.size():
-		if i % every != 0:
+		if i % every != 0 and str(all[i].soldier) != "roof":       # the roof is always watched
 			continue
 		_queue.append(_add_guard.bind(all[i]))
 
 
 func _add_guard(p: Dictionary) -> void:
-	var g: NpcBody = demo.make_soldier(str(cfg.get("guard", "local_guard")), station.to_world(p.at) + Vector3(0, 0.05, 0),
+	var profile := str(cfg.get("roof_guard", cfg.get("guard", "local_guard"))) if str(p.soldier) == "roof" else str(cfg.get("guard", "local_guard"))
+	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0),
 		_yaw(p.face), "%s/guard_%s" % [place, str(p.id)], "npc:%s/guard_%s" % [place, str(p.id)], self)
 	if g == null:
 		return

@@ -209,3 +209,101 @@ func test_z_docks_you_in_an_outposts_bay_level_with_it() -> void:
 	var p = t._player
 	assert_true(s.aboard(p.global_position), "you step out aboard")
 	assert_true(p.is_on_floor())
+
+
+# ------------------------------------------------------------------ the roof
+
+## A solid or floor part of `h` holds the point `p` (its frame's box, a little grown).
+static func _inside_part(h: StationHull, p: Vector3) -> bool:
+	for part in h.parts:
+		if not (str(part.kind) in ["solid", "floor"]):
+			continue
+		var l := (part.xf as Transform3D).affine_inverse() * p
+		var e: Vector3 = (part.size as Vector3) * 0.5 + Vector3(0.05, 0.05, 0.05)
+		if absf(l.x) <= e.x and absf(l.y) <= e.y and absf(l.z) <= e.z:
+			return true
+	return false
+
+
+func test_a_shielded_hatch_and_a_ladder_up_to_the_roof() -> void:
+	var h := _hull()
+	var roof_hatches: Array = h.hatches.filter(func(x): return str(x.tunnel).ends_with("_roof"))
+	assert_eq(roof_hatches.size(), 1, "one hatch in the deck's roof")
+	if roof_hatches.is_empty():
+		return
+	var hx: Transform3D = roof_hatches[0].xf
+	var f: Dictionary = h.towers[0].floors[0]
+	var ceil_mid := float(f.y) + h.floor_h + h.plate * 0.5
+	assert_almost_eq(hx.origin.y, ceil_mid, 0.1, "in the ceiling")
+	var flat := Vector2(hx.origin.x, hx.origin.z)
+	assert_between(flat.length(), h.gap_r, h.gap_r + h.walk, "over the walkway")
+	assert_false(_inside_part(h, hx.origin), "the hatch is a hole, closed only by its shield")
+	var beside := hx.origin + Vector3(0, 0, 3.5)
+	assert_true(_inside_part(h, beside), "the ceiling round it is solid")
+	var roof := float(f.y) + h.floor_h + h.plate
+	assert_false(_inside_part(h, Vector3(hx.origin.x, roof + 0.6, hx.origin.z)), "nothing on the roof over it")
+	assert_false(_inside_part(h, Vector3(hx.origin.x + 1.0, roof + 0.6, hx.origin.z)), "the roof ring leaves the way out open")
+	assert_true(h.on_roof(Vector3(hx.origin.x, roof + 1.0, hx.origin.z)), "up through it you are out on the roof")
+	var rails := h.parts.filter(func(p): return str(p.id).contains("_roof_ladder_rail_"))
+	assert_eq(rails.size(), 2, "a ladder's two rails")
+	for r in rails:
+		var top: float = (r.xf as Transform3D).origin.y + (r.size as Vector3).y * 0.5
+		var bottom: float = (r.xf as Transform3D).origin.y - (r.size as Vector3).y * 0.5
+		assert_almost_eq(bottom, float(f.y), 0.05, "from the walkway")
+		assert_gt(top, roof + 0.5, "up past the roof, a handhold")
+
+
+func test_antennas_and_a_launcher_guard_on_the_roof() -> void:
+	var h := _hull()
+	assert_eq(h.parts.filter(func(p): return str(p.id).ends_with("_dish")).size(), 2, "two dishes")
+	assert_eq(h.parts.filter(func(p): return str(p.id).ends_with("_rod")).size(), 3, "three whip antennas")
+	assert_false(h.parts.filter(func(p): return str(p.id).ends_with("_beacon")).is_empty(), "the mast's beacon")
+	var f: Dictionary = h.towers[0].floors[0]
+	var roof := float(f.y) + h.floor_h + h.plate
+	var up: Array = StationRemnant.posts(h).filter(func(p): return str(p.soldier) == "roof")
+	assert_eq(up.size(), 1, "one roof guard")
+	if up.is_empty():
+		return
+	assert_almost_eq((up[0].at as Vector3).y, roof, 0.01, "standing on the roof")
+	assert_gt((up[0].patrol as Array).size(), 4, "walking a loop round it")
+	for pt in up[0].patrol:
+		assert_false(_inside_part(h, (pt as Vector3) + Vector3(0, 0.9, 0)), "nothing in the way at %s" % str(pt))
+	assert_eq(str(h.cfg.remnant.roof_trooper), "roof_launcher", "the Remnant's carries a seeker launcher")
+	assert_eq(str(h.cfg.remnant.roof_guard), "local_launcher", "so do the locals'")
+
+
+func test_you_drop_back_down_through_the_hatch_onto_the_walkway() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	var hx: Transform3D = s.hull.hatches.filter(func(x): return str(x.tunnel).ends_with("_roof"))[0].xf
+	var roof: float = s.hull.floor_h + s.hull.plate
+	var p = t._player
+	p.global_position = s.frame * Vector3(hx.origin.x - 0.6, roof + 0.6, hx.origin.z)
+	p.velocity = Vector3.ZERO
+	for i in 120:
+		await wait_physics_frames(1)
+		if p.is_on_floor() and s.to_local_point(p.global_position).y < 4.0:
+			break
+	var at: Vector3 = s.to_local_point(p.global_position)
+	assert_lt(at.y, 4.0, "fell through the hatch's shield, 15 m down to the walkway: %s" % str(at))
+	assert_true(p.is_on_floor(), "and stands on the walkway")
+	assert_true(s.aboard(p.global_position), "inside")
+
+
+func test_the_roof_guard_takes_his_post_with_the_deck() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	s.remnant._wake()
+	for i in 90:
+		await wait_physics_frames(1)
+		if s.remnant._queue.is_empty():
+			break
+	var roof: float = s.hull.floor_h + s.hull.plate
+	var up: Array = s.remnant.troopers.filter(func(g): return is_instance_valid(g) and s.to_local_point(g.global_position).y > roof - 0.5)
+	assert_eq(up.size(), 1, "a trooper on the roof")
