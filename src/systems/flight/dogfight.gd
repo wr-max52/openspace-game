@@ -165,7 +165,7 @@ func spawn_ship(ship_id: String, team: String, pos: Vector3, facing: Vector3,
 	if names != null:
 		var naming: Dictionary = cfg.get("naming", {})
 		if is_player:
-			ship.vessel_name = NameHooks.vessel(cfg, "vessel:player/" + ship_id, names)
+			ship.vessel_name = NameHooks.vessel(cfg, NameHooks.player_ship_key(ship_id), names)
 		else:
 			var key := "%s/%d" % [name_scope, id]
 			ship.pilot_name = NameHooks.person(naming, key, names)

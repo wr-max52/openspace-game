@@ -4,6 +4,8 @@ extends SceneTree
 ## godot --path . -s res://tools/review/wreck_poses_shot.gd -- shots=/absolute/dir
 ## (headless, under xvfb-run: add --rendering-driver opengl3).
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 var shots := ""
 var sand: PlanetTerrain
 var ground: WorldGround
@@ -19,7 +21,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var scene := Node3D.new()
 	root.add_child(scene)
-	var cfg: Dictionary = (ItemKit._read_json("res://content/core/worlds/port_desert.json") as Dictionary).duplicate(true)
+	var cfg: Dictionary = (CoreContent.read_json("res://content/core/worlds/port_desert.json") as Dictionary).duplicate(true)
 	cfg.landmarks = cfg.landmarks.filter(func(lm): return str(lm.kind) == "wreck")
 	sand = PlanetTerrain.new()
 	sand.near_cells = 96

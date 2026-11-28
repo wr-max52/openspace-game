@@ -21,7 +21,7 @@ func after_each() -> void:
 func _gear(weapons: PlayerWeapons) -> GearController:
 	var gear := GearController.new()
 	gear.content = content
-	var raw = ItemKit._read_json(GearController.LABELS_PATH)
+	var raw = CoreScript.read_json(GearController.LABELS_PATH)
 	gear.labels = raw.get("labels", {})
 	gear.on_sold = func(id: String): weapons.put_away(id)
 	autofree(gear)

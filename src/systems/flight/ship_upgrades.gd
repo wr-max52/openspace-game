@@ -11,6 +11,8 @@ extends RefCounted
 ## Dogfight in space); every other ship of that model stays as it is.
 ## An upgrade can also repaint a ship: see look().
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const CFG_PATH := "res://content/core/npcs/t89.json"
 const SHIP_DIR := "res://content/core/ships"
 
@@ -91,7 +93,7 @@ static func apply(cfg: Dictionary, ship_id: String) -> Dictionary:
 ## the last one fitted wins. Otherwise `look_id` as it is.
 static func look(ship_id: String, look_id: String) -> String:
 	if _looks.is_empty():
-		_looks = ShipKit._read_json(ShipKit.LOOKS_PATH).get("looks", {})
+		_looks = CoreContent.read_json(ShipKit.LOOKS_PATH).get("looks", {})
 	var fits := fitted(ship_id)
 	for k in range(fits.size() - 1, -1, -1):
 		var painted := "%s_%s" % [look_id, fits[k]]

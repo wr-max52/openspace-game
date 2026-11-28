@@ -81,13 +81,13 @@ func dress(town, materials: LookMaterials) -> void:
 	var brass := mats.flat(Color("#b08e50"), 0.35, 0.8)
 	var top := mats.flat(Color("#2e2620"), 0.35, 0.2)
 	# Counter top slab and a brass foot rail on the customer side.
-	_box(Vector3((cmin.x + cmax.x) * 0.5, cmax.y + 0.03, 0.0), Vector3(cmax.x - cmin.x + 0.2, 0.06, cmax.z - cmin.z + 0.2), top)
-	_cyl(Vector3(cmax.x + 0.25, 0.2, 0.0), 0.03, cmax.z - cmin.z, brass, Vector3(90, 0, 0))
+	LookMeshKit.mi(self, LookMeshKit.box(Vector3(cmax.x - cmin.x + 0.2, 0.06, cmax.z - cmin.z + 0.2)), top, Vector3((cmin.x + cmax.x) * 0.5, cmax.y + 0.03, 0.0))
+	LookMeshKit.mi(self, LookMeshKit.cyl(0.03, 0.03, cmax.z - cmin.z, 10), brass, Vector3(cmax.x + 0.25, 0.2, 0.0), Basis.from_euler(Vector3(PI * 0.5, 0, 0)))
 	# Back bar: three shelves of bottles against the west wall.
 	var shelf_z := 6.5
 	for i in 3:
 		var y := 1.2 + i * 0.55
-		_box(Vector3(back_x + 0.2, y, 0.0), Vector3(0.4, 0.05, shelf_z * 2.0), dark_wood)
+		LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.4, 0.05, shelf_z * 2.0)), dark_wood, Vector3(back_x + 0.2, y, 0.0))
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 11 + i
 		var z := -shelf_z + 0.25
@@ -101,22 +101,24 @@ func dress(town, materials: LookMaterials) -> void:
 			glass.emission_enabled = true
 			glass.emission = col
 			glass.emission_energy_multiplier = 0.25
-			_cyl(Vector3(back_x + 0.2 + rng.randf_range(-0.08, 0.08), y + 0.025 + h * 0.5, z), rng.randf_range(0.035, 0.055), h, glass)
-			_cyl(Vector3(back_x + 0.2, y + 0.025 + h + 0.05, z), 0.015, 0.1, glass)
+			var at := Vector3(back_x + 0.2 + rng.randf_range(-0.08, 0.08), y + 0.025 + h * 0.5, z)
+			var br := rng.randf_range(0.035, 0.055)   # drawn after the spot, as before
+			LookMeshKit.mi(self, LookMeshKit.cyl(br, br, h, 10), glass, at)
+			LookMeshKit.mi(self, LookMeshKit.cyl(0.015, 0.015, 0.1, 10), glass, Vector3(back_x + 0.2, y + 0.025 + h + 0.05, z))
 			z += rng.randf_range(0.14, 0.3)
 	# Back bar cabinet under the shelves.
-	_box(Vector3(back_x + 0.35, 0.5, 0.0), Vector3(0.7, 1.0, shelf_z * 2.0), wood)
+	LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.7, 1.0, shelf_z * 2.0)), wood, Vector3(back_x + 0.35, 0.5, 0.0))
 	if wall_w.is_empty():
-		_box(Vector3(back_x - 0.08, 1.9, 0.0), Vector3(0.16, 3.8, shelf_z * 2.0 + 0.6), dark_wood)       # its own back panel (the rave's, and the round room's curve behind it)
+		LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.16, 3.8, shelf_z * 2.0 + 0.6)), dark_wood, Vector3(back_x - 0.08, 1.9, 0.0))       # its own back panel (the rave's, and the round room's curve behind it)
 	# The framed card deck: her famous cursed deck.
-	_box(Vector3(back_x + 0.03, 2.95, 0.0), Vector3(0.04, 0.5, 0.8), brass)
-	_box(Vector3(back_x + 0.06, 2.95, 0.0), Vector3(0.02, 0.42, 0.72), mats.flat(Color("#1c1816"), 0.9))
+	LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.04, 0.5, 0.8)), brass, Vector3(back_x + 0.03, 2.95, 0.0))
+	LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.02, 0.42, 0.72)), mats.flat(Color("#1c1816"), 0.9), Vector3(back_x + 0.06, 2.95, 0.0))
 	for k in 4:
-		_box(Vector3(back_x + 0.075, 2.95 + (k % 2) * 0.06 - 0.03, -0.24 + k * 0.16), Vector3(0.01, 0.16, 0.11), mats.flat(Color("#e8dcc0"), 0.8))
+		LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.01, 0.16, 0.11)), mats.flat(Color("#e8dcc0"), 0.8), Vector3(back_x + 0.075, 2.95 + (k % 2) * 0.06 - 0.03, -0.24 + k * 0.16))
 	# Taps on the counter.
 	for z in [-1.5, -1.1, -0.7]:
-		_cyl(Vector3(cmin.x + 0.4, cmax.y + 0.2, z), 0.025, 0.34, brass)
-		_box(Vector3(cmin.x + 0.4, cmax.y + 0.4, z), Vector3(0.05, 0.1, 0.03), dark_wood)
+		LookMeshKit.mi(self, LookMeshKit.cyl(0.025, 0.025, 0.34, 10), brass, Vector3(cmin.x + 0.4, cmax.y + 0.2, z))
+		LookMeshKit.mi(self, LookMeshKit.box(Vector3(0.05, 0.1, 0.03)), dark_wood, Vector3(cmin.x + 0.4, cmax.y + 0.4, z))
 	# Stools on the customer side (no collision); along a long bar, all the way along it.
 	var stools: Array = [-3.6, -2.4, -1.2, 1.2, 2.4, 3.6, 4.8, -4.8]
 	if cmax.z - cmin.z > 10.6:
@@ -127,8 +129,8 @@ func dress(town, materials: LookMaterials) -> void:
 			sz += 1.2
 	for z in stools:
 		var sx := cmax.x + 0.75
-		_cyl(Vector3(sx, 0.38, z), 0.03, 0.76, brass)
-		_cyl(Vector3(sx, 0.78, z), 0.2, 0.07, mats.flat(Color("#6a2a24"), 0.8))
+		LookMeshKit.mi(self, LookMeshKit.cyl(0.03, 0.03, 0.76, 10), brass, Vector3(sx, 0.38, z))
+		LookMeshKit.mi(self, LookMeshKit.cyl(0.2, 0.2, 0.07, 10), mats.flat(Color("#6a2a24"), 0.8), Vector3(sx, 0.78, z))
 	# Warm hanging lamps over the counter and the room, on cords from the ceiling.
 	var roof: Dictionary = town.get_box("cantina_roof")
 	var ceiling := float(roof.min[1]) if not roof.is_empty() else 4.2     # issue #261: the rave's canopy over the bar
@@ -142,8 +144,8 @@ func dress(town, materials: LookMaterials) -> void:
 		if not t.is_empty():
 			lamps.append(transform.affine_inverse() * Vector3((float(t.min[0]) + float(t.max[0])) * 0.5, 3.6, (float(t.min[2]) + float(t.max[2])) * 0.5))
 	for p in lamps:
-		_cyl(Vector3(p.x, (p.y + ceiling) * 0.5, p.z), 0.008, ceiling - p.y, brass)
-		_cyl(p, 0.22, 0.18, mats.flat(Color("#2a2420"), 0.6, 0.5))
+		LookMeshKit.mi(self, LookMeshKit.cyl(0.008, 0.008, ceiling - p.y, 10), brass, Vector3(p.x, (p.y + ceiling) * 0.5, p.z))
+		LookMeshKit.mi(self, LookMeshKit.cyl(0.22, 0.22, 0.18, 10), mats.flat(Color("#2a2420"), 0.6, 0.5), p)
 		var bulb := MeshInstance3D.new()
 		var s := SphereMesh.new()
 		s.radius = 0.07
@@ -274,29 +276,3 @@ func set_down(bottle: Node3D) -> Vector3:
 	served.append(bottle)
 	served_count += 1
 	return at
-
-
-func _box(pos: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	var b := BoxMesh.new()
-	b.size = size
-	m.mesh = b
-	m.material_override = mat
-	m.position = pos
-	add_child(m)
-	return m
-
-
-func _cyl(pos: Vector3, r: float, h: float, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	var c := CylinderMesh.new()
-	c.top_radius = r
-	c.bottom_radius = r
-	c.height = h
-	c.radial_segments = 10
-	m.mesh = c
-	m.material_override = mat
-	m.position = pos
-	m.rotation_degrees = rot
-	add_child(m)
-	return m

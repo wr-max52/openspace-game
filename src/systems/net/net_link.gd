@@ -27,6 +27,7 @@ const NetWorld := preload("res://src/systems/net/net_world.gd")
 const NetFight := preload("res://src/systems/net/net_fight.gd")
 const NetJobs := preload("res://src/systems/net/net_jobs.gd")
 const BoltScene := preload("res://scenes/entities/bolt.tscn")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 ## State packet flags.
 const F_GROUNDED := 1
@@ -595,7 +596,7 @@ func grenade(pkt: Array) -> void:
 			or str(pkt[0]) != GameFlow.current_planet_id():
 		return
 	var g := Grenade.new()
-	g.setup(CharacterKit._read_json(Grenade.CFG_PATH), pkt[2] as Vector3, pkt[3] as Vector3, bodies.get(id, null))
+	g.setup(CoreContent.read_json(Grenade.CFG_PATH), pkt[2] as Vector3, pkt[3] as Vector3, bodies.get(id, null))
 	g.fuse_left = float(pkt[4])
 	g.picture = true
 	g.host = scene
@@ -623,10 +624,10 @@ func grenade_burst(pkt: Array) -> void:
 	if g != null and is_instance_valid(g):
 		g.picture_burst(at)
 	elif scene.get("_player") != null:
-		ExplosionFx.big(scene, at, float(CharacterKit._read_json(Grenade.CFG_PATH).get("blast_size", 0.7)))
+		ExplosionFx.big(scene, at, float(CoreContent.read_json(Grenade.CFG_PATH).get("blast_size", 0.7)))
 		Sound.play("vehicle_boom", at)
 	if _mp().is_server():
-		NoiseEvents.emit(at, float(CharacterKit._read_json(Grenade.CFG_PATH).get("noise_radius", 90.0)), "explosion")
+		NoiseEvents.emit(at, float(CoreContent.read_json(Grenade.CFG_PATH).get("noise_radius", 90.0)), "explosion")
 
 
 ## Your bolt or blade landed on player `id`'s body here: tell their game.

@@ -9,6 +9,8 @@ extends Node3D
 ## It reads the current preset every time it applies, so cycling the lighting (L)
 ## still works at any height. Colours of space: content/look/world.json "space".
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LOOK_PATH := "res://content/look/world.json"
 
 var env: LookEnvironment
@@ -30,7 +32,7 @@ func setup(look_env: LookEnvironment, atmosphere: Dictionary) -> void:
 
 func _ready() -> void:
 	name = "AltitudeSky"
-	space = ItemKit._read_json(LOOK_PATH).get("space", {})
+	space = CoreContent.read_json(LOOK_PATH).get("space", {})
 	_build_stars()
 
 

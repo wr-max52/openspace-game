@@ -2,6 +2,76 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Name your ride (2026-11-28)
+
+- **Rename your ships and speeders in the Ledger** (I). Each one has its name in
+  a field: type a new one and press Enter, or press the dice for a fresh one.
+- **Speeders have names now,** generated like your ship's.
+- **Typed names go through the same filter** as generated ones: 4 to 32
+  characters, nothing rude, no franchise names, and nothing another thing in
+  the game already has. A refused name puts the old one back and says why.
+- **The new name is used everywhere,** on the HUD and the dash, in the call
+  toasts and in space, and it is saved.
+
+## Jump from one stolen ship to the next (2026-11-28)
+
+- **No more waiting for the ship you ejected from.** Before, you could not board
+  or hijack another ship until the empty one had landed or been towed. Now you
+  can climb into the next ship (or hijack one in the air) the moment you are out.
+- **The one you left goes down as a wreck.** If she is still falling, a copy of
+  her carries on down at her own speed and blows up where she lands. A stolen or
+  borrowed ship is gone; a pad's own ship that is nobody's is towed back to her
+  pad. If she had already crashed and was waiting for her tow, the tow happens
+  at once.
+- Your own ship still flies home when you eject, as before.
+
+## New game, new crew (2026-11-28)
+
+- **Each new game names its people and ships afresh.** Guards, locals, dancers,
+  the DJ, bounty targets, the cruiser general, native folk, the Fixer, other
+  planets' cantina owners' surnames, every ship's own name (yours too) and the
+  pilots' callsigns come from a seed rolled for that game.
+- **The world stays the same.** Planets, moons, stars, towns, outposts and gear
+  brands have the same names in every game and on every machine, and the story
+  cast (Oda, Ilka, Skrugs, Grubba, T-89 and the rest) keep theirs.
+- **The seed is in the Ledger** (I), under the jobs, so you can tell a friend.
+  Old saves keep every name they had.
+
+## Hatches in the station's ceilings (2026-11-28)
+
+- **Every floor of the space station has shield hatches in its ceiling,** like
+  the ones in the tunnels' roofs: four square holes over the walkway, each
+  closed by a shield the air cannot pass and you can.
+- **Jetpack up through one** and you are out on that floor's roof (or the
+  tower's roof over the top floor); drop back through it to get in.
+- The count, size and spot are the `floor_hatch` block in
+  `content/core/stations/orbital_station.json`; a floor can have its own count.
+
+## Build by sight on every planet (2026-11-27)
+
+- **Flying in to a moon, the gas giant or any generated planet builds nothing
+  over the horizon.** Their outposts come in one at a time as they could be
+  seen, as the home planet's already did; from a moon's far side only the
+  outposts on that side are built.
+- **The home planet's ranch villages wait for sight too,** and each one gets its
+  people's alarm, its stands and its droid stand when it comes in.
+- **Every planet gets it for free:** the numbers are a `sight` block in
+  `content/core/planets/types.json`, and a type or a planet file can change
+  them.
+
+## The town's people come in as you walk up (2026-11-27)
+
+- **The port's people are built when you come near, not on the way down.**
+  The cantina's patrons and band, the market's merchants and the residents
+  appear one at a time once you are within 300 m of town; from the sky the town
+  shows without them.
+- **They are let go when you leave** (past 900 m) and come back the same: the
+  same names, and anyone who died stays dead. The guards, the fence and the
+  player-made stall keepers stay as they were.
+- **Nobody out of view is posed:** a person behind you or off screen keeps their
+  last pose until they come into view, as a far one already did.
+- The distances are in `content/core/npcs/wake_rings.json` (`by_distance`).
+
 ## Coming down from the gas giant: no more long freezes (2026-11-27)
 
 - **Flying home from the gas giant is much smoother.** That flight loads the

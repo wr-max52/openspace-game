@@ -40,6 +40,8 @@ extends Node
 ## They know the planet's native packs the same way: its natives' "locals_say"
 ## lines go in the same pool (an [audio tag] in one is voiced, never shown).
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LINES_PATH := "res://content/core/dialogue/locals_lines.json"
 
 var demo
@@ -102,7 +104,7 @@ func setup(town_demo, all: Array) -> void:
 	_rng.seed = 11
 	cfg = town.data.get("locals", {}) if town.data is Dictionary else {}
 	alarm = TownAlarm.new(cfg.get("alarm", {}))
-	lines = CharacterKit._read_json(LINES_PATH).get("lines", {})
+	lines = CoreContent.read_json(LINES_PATH).get("lines", {})
 	var planet: Dictionary = demo.get("planet") if demo.get("planet") is Dictionary else {}
 	_beast_cfg = PlanetBeast.config(planet)
 	var natives = planet.get("natives", {})
@@ -111,7 +113,7 @@ func setup(town_demo, all: Array) -> void:
 	_beast_next = float(_talk_cfg.get("locals_say_first_s", 6.0))
 	var style := str(town.data.get("club", {}).get("style", "")) if town.data is Dictionary else ""
 	if style != "":
-		_club_talk = CharacterKit._read_json(LINES_PATH).get("club_talk", {})
+		_club_talk = CoreContent.read_json(LINES_PATH).get("club_talk", {})
 		_club_lines = _club_talk.get(style, [])
 		_club_next = float(_club_talk.get("locals_say_first_s", 3.0))
 	for g in members:

@@ -26,6 +26,8 @@ extends RefCounted
 ## on), "solid" or "decor" (drawn only), finish }. The frame: y up, the main tower's
 ## middle at x = z = 0, y = 0 the market floor and the bay's deck.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const DATA_DIR := "res://content/core/stations/"
 const LANDMARK_KIND := "station"
 const UP := Vector3.UP
@@ -63,6 +65,10 @@ var bay: Dictionary = {}           ## { xf (x out to the mouth), c, dir, r, mout
 var parts: Array = []
 var doors: Array = []              ## { tower, floor (index), xf, size }: the shaft's doors, opened by SpaceStation
 var hatches: Array = []            ## { tunnel, xf, size }: the shield in each tunnel's roof (you pass, the air does not)
+## The shields in every floor's ceiling over the walkway (the config's "floor_hatch"),
+## the tunnels' hatches in the floors' roofs: { tower, floor (index), a, xf, size }
+## (xf: x out from the tower's middle, y up; SpaceStation draws them, no collider).
+var floor_hatches: Array = []
 var rooms: Dictionary = {}         ## "<tower>/<floor>" -> [{ a (its door's angle), half (half its angle), open }]
 var tubes: Array = []              ## { tower, floor (index), c, r, y0, y1 }: the shield round the gap between two floors (SpaceStation draws it)
 ## Issue #603: { tower, floor (index), c, r0, r1, y }: the shield across the gap round the
@@ -108,7 +114,8 @@ func setup(d: Dictionary) -> void:
 			var rv = f.get("rooms", true)
 			var count := int(rv) if (rv is float or rv is int) else (int(d.get("rooms", {}).get("count", 8)) if bool(rv) else 0)
 			fl.append({ "id": str(f.get("id", "")), "y": float(f.get("y", 0.0)), "r": float(f.get("radius", 40.0)),
-				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)) })
+				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)),
+				"hatches": int(f.get("hatches", -1)) })
 		fl.sort_custom(func(a, b): return float(a.y) < float(b.y))
 		towers.append({ "id": str(t.get("id", "")), "c": Vector2(float(at[0]), float(at[1])), "floors": fl })
 	_read_bay(d.get("bay", {}))
@@ -223,7 +230,7 @@ static func town_for(town_id: String, lm: Dictionary, sp: PlanetSphere, world: D
 	var markers := [{ "id": "player_spawn", "pos": [sp_at.x, sp_at.y, sp_at.z], "role": "spawn" }]
 	# The other pads: a parked ship's box (its look's footprint, turned with it; a
 	# berth like the port's bay ships), and the salesman's spare pad, a flat plate.
-	var sizes: Dictionary = ShipKit._read_json(ShipKit.LOOKS_PATH).get("looks", {})
+	var sizes: Dictionary = CoreContent.read_json(ShipKit.LOOKS_PATH).get("looks", {})
 	var ships: Dictionary = {}
 	for p in h.pads():
 		if str(p.ship) == "" or p.id == pad.id:
@@ -782,6 +789,7 @@ func _build() -> void:
 	parts = []
 	doors = []
 	hatches = []
+	floor_hatches = []
 	rooms = {}
 	tubes = []
 	gap_shields = []
@@ -889,7 +897,7 @@ func _floor(t: Dictionary, i: int) -> void:
 		_ring(pre + "_pit", c, 0.0, shaft_r, y - plate, y, "floor", "deck", [], 12)
 	# A glowing band round the plate's edge outside, and the underside's trim.
 	_ring(pre + "_edge_glow", c, r + 0.05, r + 0.35, y - 0.75, y - 0.45, "decor", "glow")
-	_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+	_ceiling(t, i, pre, ceil_y)
 	# Issue #702: out on this floor's roof, a low rail round its edge (the roof walk's
 	# own finish, 24 boxes in the station's one body): you stop there, not fall off.
 	_ring(pre + "_roof_rail", c, r - 0.3, r, ceil_y + plate, ceil_y + plate + RAIL_H, "solid", "rail", [], 24)
@@ -951,6 +959,57 @@ func _floor(t: Dictionary, i: int) -> void:
 			"xf": Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, y + dh * 0.5, c.y) + dir * shaft_r) })
 	if bool(f.rooms):
 		_rooms(t, i, doors_at)
+
+
+## Where a floor's ceiling hatches are (angles round its tower): `count` of the
+## config's "floor_hatch" (a floor's own "hatches" first) spread evenly, half a
+## step round from 0 so they sit between the bridges both ways (they run along x on
+## one floor, along z on the next). None when the count is 0.
+func floor_hatch_angles(f: Dictionary) -> Array:
+	var n := int(f.get("hatches", -1))
+	if n < 0:
+		n = int(cfg.get("floor_hatch", {}).get("count", 4))
+	var out: Array = []
+	for k in maxi(0, n):
+		out.append(TAU * (k + 0.5) / n)
+	return out
+
+
+## A floor's ceiling, from the gap's edge out to its glass, with the floor's hatches
+## cut in it over the walkway: a square hole closed by a shield you jump (jetpack)
+## up through onto the floor's roof, and drop back in by, as the tunnels' hatches.
+## The ceiling is three rings: inside the hatches, round them (the holes left open)
+## and outside them; a glowing rim round each hole, on the roof and underneath.
+func _ceiling(t: Dictionary, i: int, pre: String, ceil_y: float) -> void:
+	var f: Dictionary = t.floors[i]
+	var c: Vector2 = t.c
+	var r := float(f.r)
+	var at := floor_hatch_angles(f)
+	var fh: Dictionary = cfg.get("floor_hatch", {})
+	var h0 := gap_r + float(fh.get("from_rail", 1.5))
+	var h1 := minf(h0 + float(fh.get("length", 4.0)), gap_r + walk)
+	var hw := float(fh.get("width", 4.0))
+	if at.is_empty() or h1 - h0 < 1.0 or h1 >= r - 1.0:
+		_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+		return
+	var hm := (h0 + h1) * 0.5
+	_ring(pre + "_ceiling_in", c, gap_r, h0, ceil_y, ceil_y + plate, "solid", "hull", [], maxi(12, seg / 2))
+	_ring(pre + "_ceiling_hatch", c, h0, h1, ceil_y, ceil_y + plate, "solid", "hull", at.map(func(a): return [a, hw * 0.5]))
+	_ring(pre + "_ceiling", c, h1, r, ceil_y, ceil_y + plate, "solid", "hull")
+	# The hole is a little wider at its outer end (the cut is a wedge of the ring):
+	# the shield is as wide as that end, its inner corners hidden in the ceiling.
+	var sw := hw * h1 / hm + 0.1
+	for a: float in at:
+		var deg := int(rad_to_deg(a))
+		for side: float in [ceil_y + plate + 0.1, ceil_y - 0.1]:
+			var nm := "%s_hatch_%d_%s" % [pre, deg, "top" if side > ceil_y else "under"]
+			for s: float in [-1.0, 1.0]:
+				_radial("%s_rim_%d" % [nm, int(s)], c, a, h0, h1, side - 0.1, side + 0.1, 0.3, "decor", "glow", s * (sw * 0.5 + 0.15))
+			for e: float in [h0 - 0.15, h1 + 0.15]:
+				_radial("%s_end_%d" % [nm, int(e * 10.0)], c, a, e - 0.15, e + 0.15, side - 0.1, side + 0.1, sw + 0.6, "decor", "glow")
+		var x := Vector3(cos(a), 0, sin(a))
+		floor_hatches.append({ "tower": str(t.id), "floor": i, "a": a, "size": Vector3(h1 - h0, 0.1, sw),
+			"xf": Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, ceil_y + plate * 0.5, c.y) + x * hm) })
 
 
 ## The rooms round the outside of a floor: an inner wall at the walkway's edge with

@@ -376,6 +376,7 @@ func _inventory_tab() -> Control:
 		inventory.call_ship = pilot.call_ship
 		inventory.call_state = pilot.call_state
 		inventory.on_called = close
+		inventory.on_renamed = pilot.refresh_vessel_name   # issue #835: the HUD shows the new name
 	# Your speeders: Call brings one to you (SpeederPost.call_speeder). Looked up
 	# when pressed: the post is built after this page, and only on the home planet.
 	inventory.call_speeder = func(slot: int) -> String:
@@ -1842,7 +1843,8 @@ func skip_chapter(id: String) -> bool:
 ## Issue #64: back to the start, as on a first play. Everything the player has or
 ## has done goes (WorldState: credits, gear, droids, the bought ship, flags,
 ## standing, the story), every character's opinion of them goes back to a
-## stranger's, T-89 says hello again; that save's names stay. Issue #200: in
+## stranger's, T-89 says hello again. Issue #834: new people and ship names (a new
+## name seed); places, gear and the story cast keep theirs. Issue #200: in
 ## `mode` (WorldState.STORY or FREEPLAY), in that mode's own save (SaveSlots): a
 ## new story game never touches the free roam save, nor the other way round. The
 ## game being left is saved first, then the town is built again from scratch, as
@@ -1851,9 +1853,8 @@ func new_game(mode: String, reload := true) -> void:
 	var persist := _persists()
 	if persist and mode != SaveSlots.current():
 		_save_left()
-	var kept := WorldState.names if mode == WorldState.mode else (SaveSlots.names_in(mode) if persist else NameBook.new())
 	_leave()
-	SaveSlots.start(mode, kept, persist)
+	SaveSlots.start(mode, NameBook.fresh(), persist)
 	if demo != null and demo.bar != null:
 		for s in demo.bar.spots:
 			s.brain.rel = Relationship.new()

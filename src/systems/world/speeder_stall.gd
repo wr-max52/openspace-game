@@ -21,6 +21,7 @@ extends Node3D
 ## mesh and material, through the building kit).
 
 const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const LOCATION := "speeder_stall"
 const LOOK_PATH := "res://content/look/speeder_stall.json"
 
@@ -198,7 +199,7 @@ func _dress(loc: Dictionary) -> void:
 ## favela's painted metal, the wood the market's planks, the awning its canvas;
 ## "scrap" is a list of sheet colours, the glows are shared and on the lamp clock.
 static func look_mats(mats: LookMaterials, look: LookEnvironment) -> Dictionary:
-	var col: Dictionary = ItemKit._read_json(LOOK_PATH)
+	var col: Dictionary = CoreContent.read_json(LOOK_PATH)
 	var c := func(k: String) -> Color: return Color(str(col.get(k, "#808080")))
 	var m := {
 		"steel": mats.painted(c.call("steel"), 0.5, 0.55),

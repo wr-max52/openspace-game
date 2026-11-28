@@ -806,9 +806,9 @@ func _engines() -> void:
 		var length := CruiserHull.BELL_LENGTH * (0.5 if aux else 1.0)
 		var tr := r * 0.55                           # the throat
 		var mid := c - Vector3(0, 0, length * 0.5)
-		_mesh(_cyl(r, tr, length, 40, false), trim, Transform3D(aft, mid))
-		_mesh(_cyl(r * 0.94, tr * 0.92, length, 40, false), liner, Transform3D(aft, mid))
-		_mesh(_cyl(tr * 0.92, tr * 0.92, 0.3, 32), throat, Transform3D(aft, c - Vector3(0, 0, length - 0.4)))
+		_mesh(LookMeshKit.cyl(r, tr, length, 40, 1, false), trim, Transform3D(aft, mid))
+		_mesh(LookMeshKit.cyl(r * 0.94, tr * 0.92, length, 40, 1, false), liner, Transform3D(aft, mid))
+		_mesh(LookMeshKit.cyl(tr * 0.92, tr * 0.92, 0.3, 32, 1), throat, Transform3D(aft, c - Vector3(0, 0, length - 0.4)))
 		# The rim round the mouth, and rings round the bell (the last one glowing).
 		_mesh(_ring(r, r * 0.1), trim, Transform3D(aft, c))
 		for k in 3:
@@ -838,18 +838,6 @@ func _flicker() -> void:
 		var k := 1.0 + 0.07 * sin(t * 17.0 + i * 2.1) + 0.04 * sin(t * 43.0 + i * 0.7)
 		var w := 1.0 + 0.025 * sin(t * 29.0 + i * 1.3)
 		(_flames[i] as Node3D).scale = Vector3(w, k, w)
-
-
-static func _cyl(top: float, bottom: float, h: float, seg: int, caps := true) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	c.cap_top = caps
-	c.cap_bottom = caps
-	return c
 
 
 ## A ring of radius `r` (to its tube's middle), `tube` thick, round its own y.
@@ -882,13 +870,13 @@ func _turrets() -> void:
 		for t in CruiserHull.turrets():
 			var base := Transform3D(grow, t.at)
 			var turn := Transform3D(Basis(Vector3.UP, float(t.yaw)) * grow, t.at)
-			metal.add(_cyl(4.0, 4.3, b_h, 32), base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.5, 0)))
+			metal.add(LookMeshKit.cyl(4.0, 4.3, b_h, 32, 1), base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.5, 0)))
 			metal.add(_ring(4.05, 0.12), base * Transform3D(Basis.IDENTITY, Vector3(0, b_h * 0.75, 0)))
-			house.add(_cyl(2.7, 3.3, h_h, 8), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h * 0.5, 0)))
-			house.add(_cyl(2.1, 2.6, 0.45, 8), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h + 0.22, 0)))
+			house.add(LookMeshKit.cyl(2.7, 3.3, h_h, 8, 1), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h * 0.5, 0)))
+			house.add(LookMeshKit.cyl(2.1, 2.6, 0.45, 8, 1), turn * Transform3D(stretch * oct, Vector3(0, b_h + h_h + 0.22, 0)))
 			# The sensor pod on the roof's aft end, and its whip.
 			house.add(_box_mesh(Vector3(1.3, 0.8, 1.7)), turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 0.85, 1.6)))
-			metal.add(_cyl(0.05, 0.07, 2.4, 6), turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 2.4, 2.2)))
+			metal.add(LookMeshKit.cyl(0.05, 0.07, 2.4, 6, 1), turn * Transform3D(Basis.IDENTITY, Vector3(-1.0, b_h + h_h + 2.4, 2.2)))
 			# Cooling fins down the back.
 			for k in 4:
 				metal.add(_box_mesh(Vector3(0.18, h_h * 0.7, 1.2)),
@@ -901,10 +889,10 @@ func _turrets() -> void:
 			for bx: float in [-1.25, 0.0, 1.25]:
 				var lay := func(m: Mesh, z0: float, z1: float, st: PrimBatch) -> void:
 					st.add(m, face * Transform3D(fwd, Vector3(bx, 0, -(z0 + z1) * 0.5)))
-				lay.call(_cyl(0.55, 0.62, 2.6, 14), 0.4, 3.0, metal)
-				lay.call(_cyl(0.3, 0.36, 10.5, 12), 3.0, 13.5, metal)
-				lay.call(_cyl(0.46, 0.46, 1.1, 12), 12.6, 13.7, metal)
-				lay.call(_cyl(0.24, 0.24, 0.06, 10), 13.7, 13.76, glow)
+				lay.call(LookMeshKit.cyl(0.55, 0.62, 2.6, 14, 1), 0.4, 3.0, metal)
+				lay.call(LookMeshKit.cyl(0.3, 0.36, 10.5, 12, 1), 3.0, 13.5, metal)
+				lay.call(LookMeshKit.cyl(0.46, 0.46, 1.1, 12, 1), 12.6, 13.7, metal)
+				lay.call(LookMeshKit.cyl(0.24, 0.24, 0.06, 10, 1), 13.7, 13.76, glow)
 		_meshes["turret_house"] = house.commit()
 		_meshes["turret_metal"] = metal.commit()
 		_meshes["turret_glow"] = glow.commit()

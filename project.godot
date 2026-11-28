@@ -260,6 +260,11 @@ flight_radio={
 3d_physics/layer_3="player"
 3d_physics/layer_4="enemies"
 
+[physics]
+
+3d/physics_engine="Jolt Physics"
+jolt_physics_3d/simulation/areas_detect_static_bodies=true
+
 [rendering]
 
 global_illumination/sdfgi/frames_to_converge=1

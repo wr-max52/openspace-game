@@ -23,6 +23,8 @@ extends RefCounted
 ## "floor" (stood on: a deck, a ramp, a landing) or "solid", nav (part of the
 ## walkable interior the crew's navmesh is baked from) }.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const DATA_PATH := "res://content/core/cruiser/remnant_cruiser.json"
 const DATA_DIR := "res://content/core/cruiser/"
 const HOME_ID := "remnant_cruiser"    ## the home planet's cruiser: the story's
@@ -109,7 +111,7 @@ static func data_for(cfg_id: String) -> Dictionary:
 		return data()
 	if _configs.has(cfg_id):
 		return _configs[cfg_id]
-	var own := ItemKit._read_json(DATA_DIR + cfg_id + ".json")
+	var own := CoreContent.read_json(DATA_DIR + cfg_id + ".json")
 	if own.is_empty():
 		return {}
 	var base := str(own.get("base", ""))
@@ -347,11 +349,11 @@ static func _hull(out: Array) -> void:
 				var q := _corner((f + 1) % HULL.size(), a)
 				var mid := (p + q) * 0.5
 				var n := _normal(p, q)
-				_box(out, "band_%d_%s" % [s, FACETS[f]], Vector3((q - p).length() + 1.0, 1.2, 4.0),
+				_solid_box(out, "band_%d_%s" % [s, FACETS[f]], Vector3((q - p).length() + 1.0, 1.2, 4.0),
 					mid + n * 1.4, "trim", _plate_basis(q - p, Vector3(0, 0, 1)))
 	# The bow's point and the stern's bulkhead close the hull.
 	var tip: Array = STATIONS[0]
-	_box(out, "bow_cap", Vector3(108.0 * float(tip[1]) + 2.0, 78.0 * float(tip[2]), PLATE),
+	_solid_box(out, "bow_cap", Vector3(108.0 * float(tip[1]) + 2.0, 78.0 * float(tip[2]), PLATE),
 		Vector3(0, 3.0 * float(tip[2]), float(tip[0]) - 1.0), "trim")
 	_stern_cap(out, float((STATIONS[-1] as Array)[0]) + PLATE)
 
@@ -366,7 +368,7 @@ static func _stern_cap(out: Array, z: float) -> void:
 		var q := Vector3((HULL[(f + 1) % HULL.size()] as Vector2).x, (HULL[(f + 1) % HULL.size()] as Vector2).y, z)
 		var n := _normal(p, q)
 		var depth := Vector3(p.x, p.y, 0).dot(n)        # from the facet in to the middle line
-		_box(out, "stern_bulkhead_%s" % FACETS[f], Vector3((q - p).length() + 0.8, depth, PLATE * 2.0),
+		_solid_box(out, "stern_bulkhead_%s" % FACETS[f], Vector3((q - p).length() + 0.8, depth, PLATE * 2.0),
 			(p + q) * 0.5 - n * depth * 0.5, "hull", _plate_basis(q - p, Vector3(0, 0, 1)))
 
 
@@ -387,7 +389,7 @@ static func _bay_sill(out: Array, s: int, p0: Vector3, q0: Vector3, p1: Vector3,
 	if basis.y.dot(n) < 0.0:
 		basis = Basis(basis.x, -basis.y, -basis.z)
 	var mid := (a0 + b0) * 0.5
-	_box(out, "bay_sill_%d" % s, Vector3((b0 - a0).length(), thick, absf(q1.z - q0.z) + 0.6),
+	_solid_box(out, "bay_sill_%d" % s, Vector3((b0 - a0).length(), thick, absf(q1.z - q0.z) + 0.6),
 		Vector3(mid.x, mid.y, (q0.z + q1.z) * 0.5) - n * thick * 0.5, "trim", basis)
 
 
@@ -422,7 +424,7 @@ static func _plate(out: Array, id: String, p0: Vector3, q0: Vector3, p1: Vector3
 	var n := _normal(p0 + (p1 - p0) * 0.5, q0 + (q1 - q0) * 0.5)
 	if basis.y.dot(n) < 0.0:
 		basis = Basis(basis.x, -basis.y, -basis.z)
-	_box(out, id, Vector3(width, PLATE, (m1 - m0).length() + 0.6), (m0 + m1) * 0.5 - n * PLATE * 0.5, finish, basis)
+	_solid_box(out, id, Vector3(width, PLATE, (m1 - m0).length() + 0.6), (m0 + m1) * 0.5 - n * PLATE * 0.5, finish, basis)
 
 
 ## The landing bay: a deck 172 m long running out over the flank as an apron, a
@@ -437,7 +439,7 @@ static func _bay(out: Array) -> void:
 	_slab(out, "bay_deck_lip", Vector2(BAY_X.y - 4.0, BAY_X.y), BAY_Z, DECK_Y, "deck", 0.3)
 	# The ceiling and the port wall stop where the shoulders slope over them: the
 	# hull's own plates close the bay above, so nothing pokes out through the armour.
-	_box(out, "bay_ceiling", Vector3(SHOULDER_X * 2.0, 2, length), Vector3(0, BAY_TOP + 1.0, mid_z), "wall")
+	_solid_box(out, "bay_ceiling", Vector3(SHOULDER_X * 2.0, 2, length), Vector3(0, BAY_TOP + 1.0, mid_z), "wall")
 	_wall(out, "bay_port_wall", Vector3(BAY_X.x - 1.0, DECK_Y, BAY_Z.x), Vector3(BAY_X.x - 1.0, FLANK_TOP + 2.6, BAY_Z.y), 2.0)
 	_section_wall(out, "bay_bow_wall", Vector2(BAY_X.x, BAY_X.y), DECK_Y, BAY_TOP, BAY_Z.x - 1.0)
 	# The stern wall, with the corridor's door in it.
@@ -445,7 +447,7 @@ static func _bay(out: Array) -> void:
 	_section_wall(out, "bay_stern_wall_s", Vector2(HALL_HALF + 1.0, BAY_X.y), DECK_Y, BAY_TOP, BAY_Z.y + 1.0)
 	_wall(out, "bay_stern_lintel", Vector3(-HALL_HALF - 1.0, HALL_TOP, BAY_Z.y + 1.0), Vector3(HALL_HALF + 1.0, BAY_TOP, BAY_Z.y + 1.0), 2.0)
 	# The lip of the flank above the opening: a slim frame, near flush with the plates.
-	_box(out, "bay_lintel", Vector3(1.6, 2.4, length + 4.0), Vector3(BAY_X.y - 0.2, FLANK_TOP - 1.0, mid_z), "trim")
+	_solid_box(out, "bay_lintel", Vector3(1.6, 2.4, length + 4.0), Vector3(BAY_X.y - 0.2, FLANK_TOP - 1.0, mid_z), "trim")
 	# The port gantry: a deck along the wall at mid height and a ramp up to it.
 	var g_y := DECK_Y + 16.0
 	_slab(out, "bay_gantry", Vector2(BAY_X.x, BAY_X.x + 8.0), Vector2(BAY_Z.x + 6.0, -16.0), g_y, "grate", 0.6)
@@ -455,16 +457,16 @@ static func _bay(out: Array) -> void:
 	_rail(out, "bay_gantry_end_rail", Vector3(BAY_X.x, g_y, BAY_Z.x + 6.0), Vector3(BAY_X.x + 8.0, g_y, BAY_Z.x + 6.0))
 	for i in 6:
 		var z := BAY_Z.x + 14.0 + i * 24.0
-		_box(out, "bay_gantry_strut_%d" % i, Vector3(0.8, g_y - DECK_Y - 0.6, 0.8),
+		_solid_box(out, "bay_gantry_strut_%d" % i, Vector3(0.8, g_y - DECK_Y - 0.6, 0.8),
 			Vector3(BAY_X.x + 7.4, (DECK_Y + g_y - 0.6) * 0.5, z), "trim", Basis.IDENTITY, true)
 	# Columns down the bay's middle hold the ceiling up, and frame it from the mouth.
 	for i in 5:
 		var z := BAY_Z.x + 18.0 + i * 34.0
-		_box(out, "bay_column_%d" % i, Vector3(2.4, BAY_TOP - DECK_Y, 2.4), Vector3(-26.0, (DECK_Y + BAY_TOP) * 0.5, z), "trim", Basis.IDENTITY, true)
+		_solid_box(out, "bay_column_%d" % i, Vector3(2.4, BAY_TOP - DECK_Y, 2.4), Vector3(-26.0, (DECK_Y + BAY_TOP) * 0.5, z), "trim", Basis.IDENTITY, true)
 	# Pads: painted plates a hand's breadth over the deck.
 	for p in pads():
 		var r: float = p.radius
-		_box(out, "pad_" + str(p.id), Vector3(r * 2.0, 0.1, r * 2.0), (p.at as Vector3) + Vector3(0, 0.05, 0), "pad")
+		_solid_box(out, "pad_" + str(p.id), Vector3(r * 2.0, 0.1, r * 2.0), (p.at as Vector3) + Vector3(0, 0.05, 0), "pad")
 		out[-1]["kind"] = "floor"
 	# Cargo along the port side: cover for a fight, and scale.
 	var rng := RandomNumberGenerator.new()
@@ -472,10 +474,10 @@ static func _bay(out: Array) -> void:
 	for i in 9:
 		var at := Vector3(BAY_X.x + 12.0 + rng.randf_range(0.0, 10.0), DECK_Y, BAY_Z.x + 12.0 + i * 18.0)
 		var s := Vector3(rng.randf_range(2.4, 4.2), rng.randf_range(1.4, 2.6), rng.randf_range(2.4, 4.2))
-		_box(out, "bay_cargo_%d" % i, s, at + Vector3(0, s.y * 0.5, 0), "cargo",
+		_solid_box(out, "bay_cargo_%d" % i, s, at + Vector3(0, s.y * 0.5, 0), "cargo",
 			Basis(Vector3.UP, rng.randf_range(-0.3, 0.3)), true)
 		if i % 3 == 0:
-			_box(out, "bay_cargo_top_%d" % i, s * Vector3(0.8, 0.9, 0.8), at + Vector3(0, s.y * 1.45, 0), "cargo",
+			_solid_box(out, "bay_cargo_top_%d" % i, s * Vector3(0.8, 0.9, 0.8), at + Vector3(0, s.y * 1.45, 0), "cargo",
 				Basis(Vector3.UP, rng.randf_range(-0.4, 0.4)), true)
 
 
@@ -486,7 +488,7 @@ static func _hall(out: Array) -> void:
 	var z1 := SHAFT_Z.x
 	# From under the bay's stern door (no gap between the decks) to the shaft's floor.
 	_slab(out, "hall_deck", Vector2(-HALL_HALF - 1.0, HALL_HALF + 1.0), Vector2(BAY_Z.y - 1.0, z1 + 1.0), DECK_Y, "deck", 2.0)
-	_box(out, "hall_ceiling", Vector3(HALL_HALF * 2.0 + 2.0, 1, z1 - z0), Vector3(0, HALL_TOP + 0.5, (z0 + z1) * 0.5), "wall")
+	_solid_box(out, "hall_ceiling", Vector3(HALL_HALF * 2.0 + 2.0, 1, z1 - z0), Vector3(0, HALL_TOP + 0.5, (z0 + z1) * 0.5), "wall")
 	for side: float in [-1.0, 1.0]:
 		var gaps: Array = []
 		for r in ROOMS:
@@ -512,7 +514,7 @@ static func _hall(out: Array) -> void:
 		var xs := Vector2(HALL_HALF + 1.0, 26.0) if side > 0 else Vector2(-26.0, -HALL_HALF - 1.0)
 		var room := str(r[0])
 		_slab(out, "%s_deck" % room, xs, zs, DECK_Y, "deck", 2.0)
-		_box(out, "%s_ceiling" % room, Vector3(xs.y - xs.x, 1, zs.y - zs.x), Vector3((xs.x + xs.y) * 0.5, HALL_TOP + 0.5, (zs.x + zs.y) * 0.5), "wall")
+		_solid_box(out, "%s_ceiling" % room, Vector3(xs.y - xs.x, 1, zs.y - zs.x), Vector3((xs.x + xs.y) * 0.5, HALL_TOP + 0.5, (zs.x + zs.y) * 0.5), "wall")
 		var outer := side * 26.5
 		_wall(out, "%s_outer" % room, Vector3(outer, DECK_Y, zs.x), Vector3(outer, HALL_TOP, zs.y), 1.0)
 		_wall(out, "%s_fore" % room, Vector3(xs.x, DECK_Y, zs.x - 0.5), Vector3(xs.y, HALL_TOP, zs.x - 0.5), 1.0)
@@ -520,18 +522,18 @@ static func _hall(out: Array) -> void:
 		# Lockers or bunks along the outer wall, a table in the middle.
 		for i in 4:
 			var z := zs.x + 3.5 + i * 5.6
-			_box(out, "%s_rack_%d" % [room, i], Vector3(1.6, 3.0, 4.0), Vector3(side * 24.6, DECK_Y + 1.5, z), "console", Basis.IDENTITY, true)
-		_box(out, "%s_table" % room, Vector3(4.0, 1.0, 8.0), Vector3(side * 15.0, DECK_Y + 0.5, (zs.x + zs.y) * 0.5), "cargo", Basis.IDENTITY, true)
+			_solid_box(out, "%s_rack_%d" % [room, i], Vector3(1.6, 3.0, 4.0), Vector3(side * 24.6, DECK_Y + 1.5, z), "console", Basis.IDENTITY, true)
+		_solid_box(out, "%s_table" % room, Vector3(4.0, 1.0, 8.0), Vector3(side * 15.0, DECK_Y + 0.5, (zs.x + zs.y) * 0.5), "cargo", Basis.IDENTITY, true)
 	# Door frames down the corridor, and a light strip along the ceiling (drawn only).
 	for i in int((z1 - z0) / 24.0) + 1:
 		var z := z0 + 6.0 + i * 24.0
 		if z > z1 - 2.0:
 			break
 		for side: float in [-1.0, 1.0]:
-			_box(out, "hall_frame_%d_%s" % [i, "s" if side > 0 else "p"], Vector3(0.8, HALL_TOP - DECK_Y, 1.2),
+			_solid_box(out, "hall_frame_%d_%s" % [i, "s" if side > 0 else "p"], Vector3(0.8, HALL_TOP - DECK_Y, 1.2),
 				Vector3(side * (HALL_HALF - 0.4), (DECK_Y + HALL_TOP) * 0.5, z), "trim", Basis.IDENTITY, true)
-		_box(out, "hall_frame_top_%d" % i, Vector3(HALL_HALF * 2.0, 0.8, 1.2), Vector3(0, HALL_TOP - 0.4, z), "trim")
-	_box(out, "hall_light", Vector3(1.2, 0.1, z1 - z0 - 4.0), Vector3(0, HALL_TOP - 0.05, (z0 + z1) * 0.5), "glow")
+		_solid_box(out, "hall_frame_top_%d" % i, Vector3(HALL_HALF * 2.0, 0.8, 1.2), Vector3(0, HALL_TOP - 0.4, z), "trim")
+	_solid_box(out, "hall_light", Vector3(1.2, 0.1, z1 - z0 - 4.0), Vector3(0, HALL_TOP - 0.05, (z0 + z1) * 0.5), "glow")
 	out[-1]["kind"] = "decor"
 
 
@@ -552,12 +554,12 @@ static func _shaft(out: Array) -> void:
 	_wall(out, "shaft_fore_mid", Vector3(-SHAFT_X, HALL_TOP, z0 - 1.0), Vector3(SHAFT_X, BRIDGE_Y - 4.0, z0 - 1.0), 2.0)
 	_wall(out, "shaft_aft", Vector3(-SHAFT_X, DECK_Y, z1 + 1.0), Vector3(SHAFT_X, top, z1 + 1.0), 2.0)
 	# The reactor grille: a lit panel on the aft wall with bars across it.
-	_box(out, "reactor_glow", Vector3(30, 44, 0.3), Vector3(0, 12.0, z1 - 0.3), "reactor")
+	_solid_box(out, "reactor_glow", Vector3(30, 44, 0.3), Vector3(0, 12.0, z1 - 0.3), "reactor")
 	out[-1]["kind"] = "decor"
 	for i in 9:
-		_box(out, "reactor_bar_%d" % i, Vector3(0.8, 46, 0.8), Vector3(-14.0 + i * 3.5, 12.0, z1 - 0.9), "trim")
+		_solid_box(out, "reactor_bar_%d" % i, Vector3(0.8, 46, 0.8), Vector3(-14.0 + i * 3.5, 12.0, z1 - 0.9), "trim")
 	for i in 5:
-		_box(out, "reactor_rung_%d" % i, Vector3(32, 0.8, 0.8), Vector3(0, -8.0 + i * 10.0, z1 - 1.2), "trim")
+		_solid_box(out, "reactor_rung_%d" % i, Vector3(32, 0.8, 0.8), Vector3(0, -8.0 + i * 10.0, z1 - 1.2), "trim")
 	# The flights and their landings.
 	for k in FLIGHTS:
 		var y0 := DECK_Y + k * FLIGHT_RISE
@@ -581,7 +583,7 @@ static func _shaft(out: Array) -> void:
 			for sx: float in [-1.0, 1.0]:
 				_rail(out, "landing_%d_rail_end_%d" % [k, int(sx)], Vector3(sx * LANDING_HALF, y1, lz.x), Vector3(sx * LANDING_HALF, y1, lz.y))
 		# A light under every landing, drawn only.
-		_box(out, "flight_%d_lamp" % k, Vector3(6, 0.2, 0.6), Vector3(0, y1 - 1.0, lz.x + 1.0 if aft else lz.y - 1.0), "glow")
+		_solid_box(out, "flight_%d_lamp" % k, Vector3(6, 0.2, 0.6), Vector3(0, y1 - 1.0, lz.x + 1.0 if aft else lz.y - 1.0), "glow")
 		out[-1]["kind"] = "decor"
 
 
@@ -613,26 +615,26 @@ static func _bridge(out: Array) -> void:
 		# Three rows of consoles in each pit, facing the window.
 		for i in 3:
 			var z := pit_z.x + 6.0 + i * 9.0
-			_box(out, "console_%s_%d" % [tag, i], Vector3(xs.y - xs.x - 6.0, 1.2, 1.6),
+			_solid_box(out, "console_%s_%d" % [tag, i], Vector3(xs.y - xs.x - 6.0, 1.2, 1.6),
 				Vector3((xs.x + xs.y) * 0.5 + side * 1.0, PIT_Y + 0.6, z), "console", Basis.IDENTITY, true)
-			_box(out, "screen_%s_%d" % [tag, i], Vector3(xs.y - xs.x - 7.0, 0.7, 0.1),
+			_solid_box(out, "screen_%s_%d" % [tag, i], Vector3(xs.y - xs.x - 7.0, 0.7, 0.1),
 				Vector3((xs.x + xs.y) * 0.5 + side * 1.0, PIT_Y + 1.5, z + 0.5), "screen", Basis(Vector3.RIGHT, deg_to_rad(-25.0)))
 			out[-1]["kind"] = "decor"
 	# The holo table half way down the walkway, and its map glowing over it.
 	var hz := holo_table().z
-	_box(out, "holo_table", Vector3(5.0, 1.1, 5.0), Vector3(0, BRIDGE_Y + 0.55, hz), "console", Basis.IDENTITY, true)
-	_box(out, "holo_top", Vector3(4.4, 0.08, 4.4), Vector3(0, BRIDGE_Y + 1.14, hz), "screen")
+	_solid_box(out, "holo_table", Vector3(5.0, 1.1, 5.0), Vector3(0, BRIDGE_Y + 0.55, hz), "console", Basis.IDENTITY, true)
+	_solid_box(out, "holo_top", Vector3(4.4, 0.08, 4.4), Vector3(0, BRIDGE_Y + 1.14, hz), "screen")
 	out[-1]["kind"] = "decor"
 	# The command rail at the window.
 	_rail(out, "window_rail", Vector3(-BRIDGE_X + 2.0, BRIDGE_Y, z0 + 2.0), Vector3(BRIDGE_X - 2.0, BRIDGE_Y, z0 + 2.0))
 	# The ceiling, and the bulkhead to the ramps behind, with its great door.
-	_box(out, "bridge_ceiling", Vector3(BRIDGE_X * 2.0 + 4.0, 1.5, z1 - z0 + 4.0), Vector3(0, BRIDGE_TOP + 0.75, (z0 + z1) * 0.5), "wall")
+	_solid_box(out, "bridge_ceiling", Vector3(BRIDGE_X * 2.0 + 4.0, 1.5, z1 - z0 + 4.0), Vector3(0, BRIDGE_TOP + 0.75, (z0 + z1) * 0.5), "wall")
 	_wall(out, "bridge_aft_p", Vector3(-TOWER_X, BRIDGE_Y, z1 + 1.0), Vector3(-12.0, BRIDGE_TOP, z1 + 1.0), 2.0)
 	_wall(out, "bridge_aft_s", Vector3(12.0, BRIDGE_Y, z1 + 1.0), Vector3(TOWER_X, BRIDGE_TOP, z1 + 1.0), 2.0)
 	_wall(out, "bridge_aft_lintel", Vector3(-12.0, BRIDGE_Y + 8.0, z1 + 1.0), Vector3(12.0, BRIDGE_TOP, z1 + 1.0), 2.0)
 	# Overhead light bars, drawn only.
 	for i in 4:
-		_box(out, "bridge_light_%d" % i, Vector3(BRIDGE_X * 1.6, 0.15, 0.8), Vector3(0, BRIDGE_TOP - 0.1, z0 + 8.0 + i * 13.0), "glow")
+		_solid_box(out, "bridge_light_%d" % i, Vector3(BRIDGE_X * 1.6, 0.15, 0.8), Vector3(0, BRIDGE_TOP - 0.1, z0 + 8.0 + i * 13.0), "glow")
 		out[-1]["kind"] = "decor"
 
 
@@ -651,17 +653,17 @@ static func _computers(out: Array) -> void:
 			var z := pit_z.x + 6.0 + i * 9.0
 			for k in 3:
 				var x := mid_x + (k - 1) * 5.0
-				_box(out, "monitor_%s_%d_%d" % [tag, i, k], Vector3(2.4, 1.3, 0.08), Vector3(x, PIT_Y + 2.35, z - 0.15),
+				_solid_box(out, "monitor_%s_%d_%d" % [tag, i, k], Vector3(2.4, 1.3, 0.08), Vector3(x, PIT_Y + 2.35, z - 0.15),
 					"screen", Basis(Vector3.RIGHT, deg_to_rad(-12.0)))
 				out[-1]["kind"] = "decor"
-				_box(out, "monitor_%s_%d_%d_stand" % [tag, i, k], Vector3(0.2, 0.8, 0.2), Vector3(x, PIT_Y + 1.5, z - 0.1), "trim")
+				_solid_box(out, "monitor_%s_%d_%d_stand" % [tag, i, k], Vector3(0.2, 0.8, 0.2), Vector3(x, PIT_Y + 1.5, z - 0.1), "trim")
 				out[-1]["kind"] = "decor"
 		# Banks of computers along the pit's outer edge, their screens facing in.
 		for j in 3:
 			var z := pit_z.x + 5.0 + j * 10.0
 			var bx := side * (BRIDGE_X - 0.8)
-			_box(out, "bank_%s_%d" % [tag, j], Vector3(1.6, 2.8, 6.0), Vector3(bx, PIT_Y + 1.4, z), "console", Basis.IDENTITY, true)
-			_box(out, "bank_%s_%d_screen" % [tag, j], Vector3(0.08, 1.3, 4.6), Vector3(bx - side * 0.84, PIT_Y + 1.9, z), "screen")
+			_solid_box(out, "bank_%s_%d" % [tag, j], Vector3(1.6, 2.8, 6.0), Vector3(bx, PIT_Y + 1.4, z), "console", Basis.IDENTITY, true)
+			_solid_box(out, "bank_%s_%d_screen" % [tag, j], Vector3(0.08, 1.3, 4.6), Vector3(bx - side * 0.84, PIT_Y + 1.9, z), "screen")
 			out[-1]["kind"] = "decor"
 	# The corridor's rooms: a screen on each rack, a terminal on the fore wall.
 	for r in ROOMS:
@@ -670,10 +672,10 @@ static func _computers(out: Array) -> void:
 		var room := str(r[0])
 		for i in 4:
 			var z := zs.x + 3.5 + i * 5.6
-			_box(out, "%s_rack_%d_screen" % [room, i], Vector3(0.08, 1.0, 2.8), Vector3(side * (24.6 - 0.84), DECK_Y + 2.1, z), "screen")
+			_solid_box(out, "%s_rack_%d_screen" % [room, i], Vector3(0.08, 1.0, 2.8), Vector3(side * (24.6 - 0.84), DECK_Y + 2.1, z), "screen")
 			out[-1]["kind"] = "decor"
-		_box(out, "%s_terminal" % room, Vector3(4.0, 1.1, 1.2), Vector3(side * 16.0, DECK_Y + 0.55, zs.x + 0.9), "console", Basis.IDENTITY, true)
-		_box(out, "%s_terminal_screen" % room, Vector3(3.6, 1.6, 0.08), Vector3(side * 16.0, DECK_Y + 2.3, zs.x + 0.1), "screen")
+		_solid_box(out, "%s_terminal" % room, Vector3(4.0, 1.1, 1.2), Vector3(side * 16.0, DECK_Y + 0.55, zs.x + 0.9), "console", Basis.IDENTITY, true)
+		_solid_box(out, "%s_terminal_screen" % room, Vector3(3.6, 1.6, 0.08), Vector3(side * 16.0, DECK_Y + 2.3, zs.x + 0.1), "screen")
 		out[-1]["kind"] = "decor"
 	# Terminals down the corridor, between the door frames, on alternate walls.
 	var z0 := BAY_Z.y + 2.0
@@ -682,9 +684,9 @@ static func _computers(out: Array) -> void:
 	while z < SHAFT_Z.x - 4.0:
 		var side := 1.0 if i % 2 == 0 else -1.0
 		var wx := side * HALL_HALF
-		_box(out, "hall_terminal_%d" % i, Vector3(0.5, 1.6, 1.8), Vector3(wx - side * 0.25, DECK_Y + 1.7, z), "console",
+		_solid_box(out, "hall_terminal_%d" % i, Vector3(0.5, 1.6, 1.8), Vector3(wx - side * 0.25, DECK_Y + 1.7, z), "console",
 			Basis.IDENTITY, true)
-		_box(out, "hall_terminal_%d_screen" % i, Vector3(0.06, 0.9, 1.4), Vector3(wx - side * 0.53, DECK_Y + 1.95, z), "screen",
+		_solid_box(out, "hall_terminal_%d_screen" % i, Vector3(0.06, 0.9, 1.4), Vector3(wx - side * 0.53, DECK_Y + 1.95, z), "screen",
 			Basis(Vector3.FORWARD, side * deg_to_rad(8.0)))
 		out[-1]["kind"] = "decor"
 		i += 1
@@ -697,8 +699,8 @@ static func _computers(out: Array) -> void:
 		var face := -1.0 if aft else 1.0
 		for sx: float in [-1.0, 1.0]:
 			var at := Vector3(sx * (LANDING_HALF - 1.6), y1, lz)
-			_box(out, "landing_%d_terminal_%d" % [k, int(sx)], Vector3(2.2, 1.2, 0.9), at + Vector3(0, 0.6, 0), "console", Basis.IDENTITY, true)
-			_box(out, "landing_%d_terminal_%d_screen" % [k, int(sx)], Vector3(2.0, 1.1, 0.06),
+			_solid_box(out, "landing_%d_terminal_%d" % [k, int(sx)], Vector3(2.2, 1.2, 0.9), at + Vector3(0, 0.6, 0), "console", Basis.IDENTITY, true)
+			_solid_box(out, "landing_%d_terminal_%d_screen" % [k, int(sx)], Vector3(2.0, 1.1, 0.06),
 				at + Vector3(0, 1.85, -face * 0.25), "screen", Basis(Vector3.RIGHT, face * deg_to_rad(-15.0)))
 			out[-1]["kind"] = "decor"
 
@@ -713,46 +715,46 @@ static func _tower(out: Array) -> void:
 	# there (aft of the bridge the shaft runs on up through it). Its top is the pits'
 	# underside, not their floor, so the two never share a face and flicker.
 	var plinth_top := PIT_Y - 1.0
-	_box(out, "tower_plinth", Vector3(TOWER_X * 2.0 + 4.0, plinth_top - hull_top + 2.0, BRIDGE_Z.y - z0),
+	_solid_box(out, "tower_plinth", Vector3(TOWER_X * 2.0 + 4.0, plinth_top - hull_top + 2.0, BRIDGE_Z.y - z0),
 		Vector3(0, (hull_top - 2.0 + plinth_top) * 0.5, (z0 + BRIDGE_Z.y) * 0.5), "hull")
 	# Over the shaft, between its walls and the tower's: a deck closing the hull's top.
 	for side: float in [-1.0, 1.0]:
-		_box(out, "tower_shaft_cap_%s" % ("s" if side > 0 else "p"), Vector3(TOWER_X - SHAFT_X + 2.0, 2.0, z1 - BRIDGE_Z.y),
+		_solid_box(out, "tower_shaft_cap_%s" % ("s" if side > 0 else "p"), Vector3(TOWER_X - SHAFT_X + 2.0, 2.0, z1 - BRIDGE_Z.y),
 			Vector3(side * (SHAFT_X + TOWER_X + 2.0) * 0.5, hull_top, (BRIDGE_Z.y + z1) * 0.5), "hull")
 	# The bow wall: a sill, the great window in panes, and a header.
 	var win := Vector2(BRIDGE_Y + 1.4, BRIDGE_TOP - 1.0)
-	_box(out, "tower_bow_sill", Vector3(TOWER_X * 2.0 + 4.0, win.x - BRIDGE_Y + 4.0, 2.0),
+	_solid_box(out, "tower_bow_sill", Vector3(TOWER_X * 2.0 + 4.0, win.x - BRIDGE_Y + 4.0, 2.0),
 		Vector3(0, (BRIDGE_Y - 4.0 + win.x) * 0.5, z0 + 1.0), "hull")
-	_box(out, "tower_bow_header", Vector3(TOWER_X * 2.0 + 4.0, TOWER_TOP - win.y, 2.0),
+	_solid_box(out, "tower_bow_header", Vector3(TOWER_X * 2.0 + 4.0, TOWER_TOP - win.y, 2.0),
 		Vector3(0, (win.y + TOWER_TOP) * 0.5, z0 + 1.0), "hull")
 	var panes := 9
 	for i in panes:
 		var x0 := -TOWER_X + i * TOWER_X * 2.0 / panes
 		var x1 := x0 + TOWER_X * 2.0 / panes
-		_box(out, "bow_glass_%d" % i, Vector3(x1 - x0, win.y - win.x, 0.3), Vector3((x0 + x1) * 0.5, (win.x + win.y) * 0.5, z0 + 1.0), "glass")
-		_box(out, "bow_mullion_%d" % i, Vector3(0.6, win.y - win.x, 1.0), Vector3(x0, (win.x + win.y) * 0.5, z0 + 1.0), "trim")
+		_solid_box(out, "bow_glass_%d" % i, Vector3(x1 - x0, win.y - win.x, 0.3), Vector3((x0 + x1) * 0.5, (win.x + win.y) * 0.5, z0 + 1.0), "glass")
+		_solid_box(out, "bow_mullion_%d" % i, Vector3(0.6, win.y - win.x, 1.0), Vector3(x0, (win.x + win.y) * 0.5, z0 + 1.0), "trim")
 	# The side walls: windows along the bridge, plated aft of it round the shaft.
 	for side: float in [-1.0, 1.0]:
 		var x := side * (TOWER_X + 1.0)
 		var tag := "s" if side > 0 else "p"
-		_box(out, "tower_%s_sill" % tag, Vector3(2.0, win.x - BRIDGE_Y + 4.0, BRIDGE_Z.y - z0),
+		_solid_box(out, "tower_%s_sill" % tag, Vector3(2.0, win.x - BRIDGE_Y + 4.0, BRIDGE_Z.y - z0),
 			Vector3(x, (BRIDGE_Y - 4.0 + win.x) * 0.5, (z0 + BRIDGE_Z.y) * 0.5), "hull")
-		_box(out, "tower_%s_header" % tag, Vector3(2.0, TOWER_TOP - win.y, BRIDGE_Z.y - z0),
+		_solid_box(out, "tower_%s_header" % tag, Vector3(2.0, TOWER_TOP - win.y, BRIDGE_Z.y - z0),
 			Vector3(x, (win.y + TOWER_TOP) * 0.5, (z0 + BRIDGE_Z.y) * 0.5), "hull")
 		for i in 6:
 			var za := z0 + i * (BRIDGE_Z.y - z0) / 6.0
 			var zb := za + (BRIDGE_Z.y - z0) / 6.0
-			_box(out, "side_glass_%s_%d" % [tag, i], Vector3(0.3, win.y - win.x, zb - za), Vector3(x, (win.x + win.y) * 0.5, (za + zb) * 0.5), "glass")
-			_box(out, "side_mullion_%s_%d" % [tag, i], Vector3(1.0, win.y - win.x, 0.6), Vector3(x, (win.x + win.y) * 0.5, za), "trim")
-		_box(out, "tower_%s_aft" % tag, Vector3(2.0, TOWER_TOP - hull_top + 4.0, z1 - BRIDGE_Z.y),
+			_solid_box(out, "side_glass_%s_%d" % [tag, i], Vector3(0.3, win.y - win.x, zb - za), Vector3(x, (win.x + win.y) * 0.5, (za + zb) * 0.5), "glass")
+			_solid_box(out, "side_mullion_%s_%d" % [tag, i], Vector3(1.0, win.y - win.x, 0.6), Vector3(x, (win.x + win.y) * 0.5, za), "trim")
+		_solid_box(out, "tower_%s_aft" % tag, Vector3(2.0, TOWER_TOP - hull_top + 4.0, z1 - BRIDGE_Z.y),
 			Vector3(x, (hull_top - 4.0 + TOWER_TOP) * 0.5, (BRIDGE_Z.y + z1) * 0.5), "hull")
-	_box(out, "tower_roof", Vector3(TOWER_X * 2.0 + 6.0, 2.5, z1 - z0 + 4.0), Vector3(0, TOWER_TOP + 1.25, (z0 + z1) * 0.5 + 1.0), "hull")
-	_box(out, "tower_roof_cap", Vector3(TOWER_X * 1.2, 3.0, (z1 - z0) * 0.6), Vector3(0, TOWER_TOP + 4.0, (z0 + z1) * 0.5 + 12.0), "trim")
+	_solid_box(out, "tower_roof", Vector3(TOWER_X * 2.0 + 6.0, 2.5, z1 - z0 + 4.0), Vector3(0, TOWER_TOP + 1.25, (z0 + z1) * 0.5 + 1.0), "hull")
+	_solid_box(out, "tower_roof_cap", Vector3(TOWER_X * 1.2, 3.0, (z1 - z0) * 0.6), Vector3(0, TOWER_TOP + 4.0, (z0 + z1) * 0.5 + 12.0), "trim")
 	for i in 3:
 		var h := 18.0 + i * 7.0
-		_box(out, "mast_%d" % i, Vector3(1.2, h, 1.2), Vector3(-12.0 + i * 12.0, TOWER_TOP + 5.5 + h * 0.5, z1 - 12.0 + i * 3.0), "trim")
-		_box(out, "mast_%d_yard" % i, Vector3(8.0, 0.6, 0.6), Vector3(-12.0 + i * 12.0, TOWER_TOP + 5.5 + h * 0.8, z1 - 12.0 + i * 3.0), "trim")
-		_box(out, "beacon_%d" % i, Vector3(1.0, 1.0, 1.0), Vector3(-12.0 + i * 12.0, TOWER_TOP + 6.0 + h, z1 - 12.0 + i * 3.0), "beacon")
+		_solid_box(out, "mast_%d" % i, Vector3(1.2, h, 1.2), Vector3(-12.0 + i * 12.0, TOWER_TOP + 5.5 + h * 0.5, z1 - 12.0 + i * 3.0), "trim")
+		_solid_box(out, "mast_%d_yard" % i, Vector3(8.0, 0.6, 0.6), Vector3(-12.0 + i * 12.0, TOWER_TOP + 5.5 + h * 0.8, z1 - 12.0 + i * 3.0), "trim")
+		_solid_box(out, "beacon_%d" % i, Vector3(1.0, 1.0, 1.0), Vector3(-12.0 + i * 12.0, TOWER_TOP + 6.0 + h, z1 - 12.0 + i * 3.0), "beacon")
 		out[-1]["kind"] = "decor"
 
 
@@ -762,22 +764,22 @@ static func _tower(out: Array) -> void:
 ## drawn by RemnantCruiser; here a turret is only what you stand on and bump into.
 static func _dorsal(out: Array) -> void:
 	var top: float = (HULL[2] as Vector2).y
-	_box(out, "spine", Vector3(12, 5, TOWER_Z.x + 120.0), Vector3(0, top + 2.5, (TOWER_Z.x - 120.0) * 0.5 - 10.0), "trim")
+	_solid_box(out, "spine", Vector3(12, 5, TOWER_Z.x + 120.0), Vector3(0, top + 2.5, (TOWER_Z.x - 120.0) * 0.5 - 10.0), "trim")
 	# The superstructure: two stepped decks of armour rising aft to the tower.
-	_box(out, "upper_works_1", Vector3(40, 12, TOWER_Z.x - 56.0), Vector3(0, top + 6.0, (TOWER_Z.x + 56.0) * 0.5), "hull")
-	_box(out, "upper_works_1_lip", Vector3(42, 1.4, TOWER_Z.x - 54.0), Vector3(0, top + 12.4, (TOWER_Z.x + 56.0) * 0.5), "trim")
-	_box(out, "upper_works_2", Vector3(28, 10, TOWER_Z.x - 118.0), Vector3(0, top + 17.0, (TOWER_Z.x + 118.0) * 0.5), "hull")
-	_box(out, "upper_works_2_lip", Vector3(30, 1.4, TOWER_Z.x - 116.0), Vector3(0, top + 22.4, (TOWER_Z.x + 118.0) * 0.5), "trim")
+	_solid_box(out, "upper_works_1", Vector3(40, 12, TOWER_Z.x - 56.0), Vector3(0, top + 6.0, (TOWER_Z.x + 56.0) * 0.5), "hull")
+	_solid_box(out, "upper_works_1_lip", Vector3(42, 1.4, TOWER_Z.x - 54.0), Vector3(0, top + 12.4, (TOWER_Z.x + 56.0) * 0.5), "trim")
+	_solid_box(out, "upper_works_2", Vector3(28, 10, TOWER_Z.x - 118.0), Vector3(0, top + 17.0, (TOWER_Z.x + 118.0) * 0.5), "hull")
+	_solid_box(out, "upper_works_2_lip", Vector3(30, 1.4, TOWER_Z.x - 116.0), Vector3(0, top + 22.4, (TOWER_Z.x + 118.0) * 0.5), "trim")
 	# The keel fin under the hull, from the bow taper to the engines.
-	_box(out, "keel_fin", Vector3(4, 16, 300), Vector3(0, (HULL[6] as Vector2).y - 8.0, 60), "trim")
+	_solid_box(out, "keel_fin", Vector3(4, 16, 300), Vector3(0, (HULL[6] as Vector2).y - 8.0, 60), "trim")
 	# Mounts for the sensor globes on the tower's roof.
 	for g in globes():
-		_box(out, "globe_mount_%d" % int(g.i), Vector3(4, 6, 4), (g.at as Vector3) - Vector3(0, float(g.radius) + 2.0, 0), "trim")
+		_solid_box(out, "globe_mount_%d" % int(g.i), Vector3(4, 6, 4), (g.at as Vector3) - Vector3(0, float(g.radius) + 2.0, 0), "trim")
 	for t in turrets():
 		var c: Vector3 = t.at
 		var k := TURRET_SCALE
-		_box(out, "turret_%s_base" % t.id, Vector3(8.4, TURRET_BARBETTE, 8.4) * k, c + Vector3(0, TURRET_BARBETTE * 0.5, 0) * k, "hidden")
-		_box(out, "turret_%s_head" % t.id, Vector3(6.6, TURRET_HOUSE, 7.8) * k,
+		_solid_box(out, "turret_%s_base" % t.id, Vector3(8.4, TURRET_BARBETTE, 8.4) * k, c + Vector3(0, TURRET_BARBETTE * 0.5, 0) * k, "hidden")
+		_solid_box(out, "turret_%s_head" % t.id, Vector3(6.6, TURRET_HOUSE, 7.8) * k,
 			c + Vector3(0, TURRET_BARBETTE + TURRET_HOUSE * 0.5, 0) * k, "hidden", Basis(Vector3.UP, float(t.yaw)))
 	_engine_block(out)
 
@@ -819,26 +821,26 @@ static func _engine_block(out: Array) -> void:
 		var i := int(e.i)
 		var w := r * 2.7
 		var h := r * 2.36
-		_box(out, "engine_housing_%d" % i, Vector3(w, h, deep), Vector3(c.x, c.y, mid), "hull")
+		_solid_box(out, "engine_housing_%d" % i, Vector3(w, h, deep), Vector3(c.x, c.y, mid), "hull")
 		# The frame round the mouth, on the housing's aft face.
 		var fz := hz.y + 0.8
-		_box(out, "engine_frame_%d_top" % i, Vector3(w + 2.0, 2.0, 1.6), Vector3(c.x, c.y + h * 0.5, fz), "trim")
-		_box(out, "engine_frame_%d_bottom" % i, Vector3(w + 2.0, 2.0, 1.6), Vector3(c.x, c.y - h * 0.5, fz), "trim")
+		_solid_box(out, "engine_frame_%d_top" % i, Vector3(w + 2.0, 2.0, 1.6), Vector3(c.x, c.y + h * 0.5, fz), "trim")
+		_solid_box(out, "engine_frame_%d_bottom" % i, Vector3(w + 2.0, 2.0, 1.6), Vector3(c.x, c.y - h * 0.5, fz), "trim")
 		for sx: float in [-1.0, 1.0]:
-			_box(out, "engine_frame_%d_%d" % [i, int(sx)], Vector3(2.0, h, 1.6), Vector3(c.x + sx * w * 0.5, c.y, fz), "trim")
+			_solid_box(out, "engine_frame_%d_%d" % [i, int(sx)], Vector3(2.0, h, 1.6), Vector3(c.x + sx * w * 0.5, c.y, fz), "trim")
 		var bell_len := BELL_LENGTH * (0.5 if bool(e.aux) else 1.0)
 		var stand := c.z - hz.y
-		_box(out, "engine_bell_%d" % i, Vector3(r * 2.0, r * 2.0, stand), Vector3(c.x, c.y, hz.y + stand * 0.5), "hidden")
+		_solid_box(out, "engine_bell_%d" % i, Vector3(r * 2.0, r * 2.0, stand), Vector3(c.x, c.y, hz.y + stand * 0.5), "hidden")
 		if bool(e.aux):
 			continue
 		# Cooling fins down the outer side.
 		var side := signf(c.x)
 		for k in 5:
-			_box(out, "engine_fin_%d_%d" % [i, k], Vector3(3.0, 0.5, deep - 3.0),
+			_solid_box(out, "engine_fin_%d_%d" % [i, k], Vector3(3.0, 0.5, deep - 3.0),
 				Vector3(c.x + side * (w * 0.5 + 1.5), c.y - h * 0.5 + 3.0 + k * (h - 6.0) / 4.0, mid), "trim")
 	# Braces between the upper and lower housing on each side: one nacelle.
 	for sx: float in [-1.0, 1.0]:
-		_box(out, "engine_brace_%d" % int(sx), Vector3(28.0, 6.0, deep - 2.0), Vector3(sx * 25.0, 3.0, mid), "trim")
+		_solid_box(out, "engine_brace_%d" % int(sx), Vector3(28.0, 6.0, deep - 2.0), Vector3(sx * 25.0, 3.0, mid), "trim")
 
 
 ## The middle of the holo table's top, half way down the bridge's walkway: the
@@ -868,7 +870,7 @@ static func engines() -> Array:
 
 # ------------------------------------------------------------------ builders
 
-static func _box(out: Array, id: String, size: Vector3, center: Vector3, finish: String,
+static func _solid_box(out: Array, id: String, size: Vector3, center: Vector3, finish: String,
 		basis: Basis = Basis.IDENTITY, nav := false) -> void:
 	out.append({ "id": id, "size": size, "xf": Transform3D(basis, center), "finish": finish,
 		"kind": "solid", "nav": nav })
@@ -876,7 +878,7 @@ static func _box(out: Array, id: String, size: Vector3, center: Vector3, finish:
 
 ## A level deck `thick` metres thick with its top at y.
 static func _slab(out: Array, id: String, xs: Vector2, zs: Vector2, y: float, finish: String, thick := 1.0) -> void:
-	_box(out, id, Vector3(xs.y - xs.x, thick, zs.y - zs.x), Vector3((xs.x + xs.y) * 0.5, y - thick * 0.5, (zs.x + zs.y) * 0.5), finish)
+	_solid_box(out, id, Vector3(xs.y - xs.x, thick, zs.y - zs.x), Vector3((xs.x + xs.y) * 0.5, y - thick * 0.5, (zs.x + zs.y) * 0.5), finish)
 	out[-1]["kind"] = "floor"
 	out[-1]["nav"] = true
 
@@ -888,7 +890,7 @@ static func _wall(out: Array, id: String, a: Vector3, b: Vector3, thick: float) 
 		size.x = thick
 	if size.z < 0.01:
 		size.z = thick
-	_box(out, id, size, (a + b) * 0.5, "wall", Basis.IDENTITY, true)
+	_solid_box(out, id, size, (a + b) * 0.5, "wall", Basis.IDENTITY, true)
 
 
 ## A bulkhead across the hull at z, from xs.x to xs.y, from y0 up to y1 but never
@@ -920,7 +922,7 @@ static func _section_wall(out: Array, id: String, xs: Vector2, y0: float, y1: fl
 		var n := Vector3(side, 1, 0).normalized()
 		var deep := 16.0
 		var c := Vector3((top.x + foot.x) * 0.5, (top.y + foot.y) * 0.5, z) - n * deep * 0.5
-		_box(out, "%s_%s_shoulder" % [id, tag], Vector3(along.length(), deep, 1.6), c, "wall",
+		_solid_box(out, "%s_%s_shoulder" % [id, tag], Vector3(along.length(), deep, 1.6), c, "wall",
 			Basis(ax, n, ax.cross(n)), true)
 
 
@@ -930,7 +932,7 @@ static func _ramp(out: Array, id: String, a: Vector3, b: Vector3, width: float) 
 	var run := b - a
 	var flat := Vector2(run.x, run.z).length()
 	var basis := Basis(Vector3.UP, atan2(run.x, run.z)) * Basis(Vector3.RIGHT, -atan2(run.y, flat))
-	_box(out, id, Vector3(width, 1.0, run.length() + 0.6), (a + b) * 0.5 - basis.y * 0.5, "ramp", basis)
+	_solid_box(out, id, Vector3(width, 1.0, run.length() + 0.6), (a + b) * 0.5 - basis.y * 0.5, "ramp", basis)
 	out[-1]["kind"] = "floor"
 	out[-1]["nav"] = true
 
@@ -953,4 +955,4 @@ static func _rail(out: Array, id: String, from: Vector3, to: Vector3) -> void:
 		return
 	var flat := Vector2(span.x, span.z).length()
 	var basis := Basis(Vector3.UP, atan2(span.x, span.z)) * Basis(Vector3.RIGHT, -atan2(span.y, flat))
-	_box(out, id, Vector3(0.25, 1.3, span.length()), (from + to) * 0.5 + Vector3(0, 0.65, 0), "rail", basis, true)
+	_solid_box(out, id, Vector3(0.25, 1.3, span.length()), (from + to) * 0.5 + Vector3(0, 0.65, 0), "rail", basis, true)

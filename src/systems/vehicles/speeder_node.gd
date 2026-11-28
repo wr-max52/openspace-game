@@ -631,7 +631,7 @@ func _build_lift_glow() -> void:
 	_belly_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var pad := MeshInstance3D.new()
 	pad.name = "Pad"
-	pad.mesh = _cyl(0.5, 0.5, 0.02)
+	pad.mesh = LookMeshKit.cyl(0.5, 0.5, 0.02, 12)
 	pad.scale = Vector3(length * float(g.get("width", 0.42)), 1.0, length * float(g.get("length", 0.8)))
 	pad.material_override = _belly_mat
 	pad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1244,7 +1244,7 @@ func _build_stand_in(look: Dictionary, mat_of: Dictionary) -> void:
 		var blades := int(fan.get("blades", 3))
 		for k in blades:
 			var blade := MeshInstance3D.new()
-			blade.mesh = _box(_v3(fan.get("size", [0.12, 1.0, 0.04])))
+			blade.mesh = LookMeshKit.box(_v3(fan.get("size", [0.12, 1.0, 0.04])))
 			blade.material_override = mat_of.get(str(fan.get("mat", "trim")), mat_of.trim)
 			blade.rotation.z = k * PI / float(blades)
 			_fan.add_child(blade)
@@ -1363,7 +1363,7 @@ func _build_model(path: String, base_y: float) -> bool:
 	m.position = Vector3(-box.get_center().x, base_y - box.position.y, -box.get_center().z)
 	_size = box.size
 	for side in [-1.0, 1.0]:
-		_part(_box(Vector3(0.24, 0.04, box.size.z * 0.75)), _glow_mat, Vector3(side * box.size.x * 0.32, base_y - 0.02, 0))
+		_part(LookMeshKit.box(Vector3(0.24, 0.04, box.size.z * 0.75)), _glow_mat, Vector3(side * box.size.x * 0.32, base_y - 0.02, 0))
 	_build_blasters()
 	return true
 
@@ -1376,9 +1376,9 @@ func _build_blasters() -> void:
 	var m := _muzzle()
 	for side in [-1.0, 1.0]:
 		var at := Vector3(side * m.x, m.y, m.z)
-		_part(_box(Vector3(0.24, 0.2, 0.7)), gunmetal, at + Vector3(0, 0, 1.0)).name = "BlasterHousing"
-		_part(_cyl(0.07, 0.07, 1.0), gunmetal, at + Vector3(0, 0, 0.5), Vector3(90, 0, 0)).name = "Blaster"
-		_part(_cyl(0.09, 0.09, 0.06), _glow_mat, at + Vector3(0, 0, 0.03), Vector3(90, 0, 0))
+		_part(LookMeshKit.box(Vector3(0.24, 0.2, 0.7)), gunmetal, at + Vector3(0, 0, 1.0)).name = "BlasterHousing"
+		_part(LookMeshKit.cyl(0.07, 0.07, 1.0, 12), gunmetal, at + Vector3(0, 0, 0.5), Vector3(90, 0, 0)).name = "Blaster"
+		_part(LookMeshKit.cyl(0.09, 0.09, 0.06, 12), _glow_mat, at + Vector3(0, 0, 0.03), Vector3(90, 0, 0))
 
 
 ## Where each laser's bolt starts (the right barrel's tip; the left is mirrored).
@@ -1454,11 +1454,11 @@ func _build_parts() -> void:
 		for side in [-1.0, 1.0]:
 			# Issue #100: out past the tail, so the body never swallows them.
 			var at := Vector3(side * (hx * 0.62), base_y + 0.55, back + 0.1)
-			_part(_cyl(0.19, 0.22, 1.2), can, at, Vector3(90, 0, 0)).name = "Booster"
-			_part(_cyl(0.225, 0.225, 0.1), band, at + Vector3(0, 0, -0.3), Vector3(90, 0, 0)).name = "BoosterBand"
-			_part(_cyl(0.23, 0.2, 0.16), nozzle, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
-			_part(_cyl(0.12, 0.12, 0.02), _heat_mat, at + Vector3(0, 0, 0.745), Vector3(90, 0, 0)).name = "BoosterGlow"
-			var flame := _part(_cyl(0.16, 0.0, 1.0), flame_mat, at + Vector3(0, 0, 1.2), Vector3(-90, 0, 0))
+			_part(LookMeshKit.cyl(0.19, 0.22, 1.2, 12), can, at, Vector3(90, 0, 0)).name = "Booster"
+			_part(LookMeshKit.cyl(0.225, 0.225, 0.1, 12), band, at + Vector3(0, 0, -0.3), Vector3(90, 0, 0)).name = "BoosterBand"
+			_part(LookMeshKit.cyl(0.23, 0.2, 0.16, 12), nozzle, at + Vector3(0, 0, 0.66), Vector3(90, 0, 0)).name = "BoosterRing"
+			_part(LookMeshKit.cyl(0.12, 0.12, 0.02, 12), _heat_mat, at + Vector3(0, 0, 0.745), Vector3(90, 0, 0)).name = "BoosterGlow"
+			var flame := _part(LookMeshKit.cyl(0.16, 0.0, 1.0, 12), flame_mat, at + Vector3(0, 0, 1.2), Vector3(-90, 0, 0))
 			flame.name = "BoosterFlame"
 			flame.visible = false
 			_flames.append(flame)
@@ -1472,24 +1472,24 @@ func _build_parts() -> void:
 		var w := minf(_size.x * 0.7, 1.6)
 		for k in [[0.0, 0.0], [-0.55, 0.0], [-1.1, 0.0]]:
 			var bar := MeshInstance3D.new()
-			bar.mesh = _box(Vector3(w, 0.05, 0.05))
+			bar.mesh = LookMeshKit.box(Vector3(w, 0.05, 0.05))
 			bar.material_override = metal
 			bar.position = Vector3(0, 0.55, float(k[0]))
 			_roof.add_child(bar)
 		for side in [-1.0, 1.0]:
 			var post := MeshInstance3D.new()
-			post.mesh = _box(Vector3(0.05, 0.6, 0.05))
+			post.mesh = LookMeshKit.box(Vector3(0.05, 0.6, 0.05))
 			post.material_override = metal
 			post.position = Vector3(side * w * 0.5, 0.27, 0.0)
 			_roof.add_child(post)
 		var top := MeshInstance3D.new()
-		top.mesh = _box(Vector3(w + 0.06, 0.03, 1.25))
+		top.mesh = LookMeshKit.box(Vector3(w + 0.06, 0.03, 1.25))
 		top.material_override = cloth
 		top.position = Vector3(0, 0.6, -0.58)
 		_roof.add_child(top)
 		for z in [-1.2, 0.04]:                   # the canvas rolled over the front and back bars
 			var hem := MeshInstance3D.new()
-			hem.mesh = _cyl(0.035, 0.035, w + 0.06)
+			hem.mesh = LookMeshKit.cyl(0.035, 0.035, w + 0.06, 12)
 			hem.material_override = cloth
 			hem.position = Vector3(0, 0.6, z)
 			hem.rotation_degrees = Vector3(0, 0, 90)
@@ -1619,21 +1619,6 @@ func _part(mesh: Mesh, mat: Material, pos: Vector3, rot_deg: Vector3 = Vector3.Z
 	mi.rotation_degrees = rot_deg
 	visual.add_child(mi)
 	return mi
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = 12
-	return c
 
 
 ## The hull: what bolts hit (and what you bump into on foot). Its parent (this

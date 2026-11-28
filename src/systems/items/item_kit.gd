@@ -15,6 +15,8 @@ extends RefCounted
 ## "look_id" and "source" ("scene" or "kit"), and a "Flames" child holding the
 ## thrust flames (hidden until set_flames()). A model can bring its own "Flames".
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LOOKS_PATH := "res://content/look/items.json"
 const FALLBACK_FRAME := "twin_tank"
 
@@ -25,17 +27,9 @@ var pickup_style: Dictionary = {}
 
 func _init(materials: LookMaterials = null, looks_override: Dictionary = {}) -> void:
 	mats = materials if materials != null else LookMaterials.new()
-	var data := looks_override if not looks_override.is_empty() else _read_json(LOOKS_PATH)
+	var data := looks_override if not looks_override.is_empty() else CoreContent.read_json(LOOKS_PATH)
 	looks = data.get("looks", {})
 	pickup_style = data.get("pickup", {})
-
-
-static func _read_json(path: String) -> Dictionary:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	return d if d is Dictionary else {}
 
 
 func has_look(look_id: String) -> bool:
@@ -73,7 +67,7 @@ func build(look_id: String) -> Node3D:
 		if str(p.get("frame", "")) == "case":
 			var size := Vector3(float(p.get("width", 0.5)), float(p.get("height", 0.3)), float(p.get("depth", 0.34)))
 			model.scale = size
-			_mi(root, _box(Vector3(size.x * 0.5, 0.02, 0.01)), _glow(_c(p, "glow", "#59d6ff"), 2.5),
+			_mi(root, LookMeshKit.box(Vector3(size.x * 0.5, 0.02, 0.01)), _glow(_c(p, "glow", "#59d6ff"), 2.5),
 				Vector3(0, size.y * 0.22, -size.z * 0.5 - 0.004), Vector3.ZERO, "Status")
 		# "model_scale" [x, y, z] squeezes a model along its own axes (a flatter jetpack).
 		elif p.has("model_scale"):
@@ -184,31 +178,6 @@ func _mi(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, rot: Vector3 =
 	return mi
 
 
-func _cyl(top: float, bottom: float, h: float, seg: int = 14) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _sphere(r: float) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	s.radial_segments = 14
-	s.rings = 7
-	return s
-
-
 func _glow(color: Color, energy: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -232,14 +201,14 @@ func _case(body: Node3D, p: Dictionary) -> void:
 	var trim := StandardMaterial3D.new()
 	trim.albedo_color = _c(p, "trim", "#8c8478")
 	trim.metallic = 0.6
-	_mi(body, _box(size), shell, Vector3(0, size.y * 0.5, 0))
+	_mi(body, LookMeshKit.box(size), shell, Vector3(0, size.y * 0.5, 0))
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			_mi(body, _box(Vector3(0.05, size.y + 0.02, 0.05)), trim,
+			_mi(body, LookMeshKit.box(Vector3(0.05, size.y + 0.02, 0.05)), trim,
 				Vector3(sx * (size.x * 0.5 - 0.02), size.y * 0.5, sz * (size.z * 0.5 - 0.02)))
-	_mi(body, _box(Vector3(size.x * 0.6, 0.025, 0.01)), _glow(_c(p, "glow", "#59d6ff"), 2.5),
+	_mi(body, LookMeshKit.box(Vector3(size.x * 0.6, 0.025, 0.01)), _glow(_c(p, "glow", "#59d6ff"), 2.5),
 		Vector3(0, size.y * 0.62, size.z * 0.5 + 0.006), Vector3.ZERO, "Status")
-	_mi(body, _box(Vector3(size.x * 0.4, 0.03, 0.06)), trim, Vector3(0, size.y + 0.015, 0), Vector3.ZERO, "Handle")
+	_mi(body, LookMeshKit.box(Vector3(size.x * 0.4, 0.03, 0.06)), trim, Vector3(0, size.y + 0.015, 0), Vector3.ZERO, "Handle")
 
 
 ## "grenade" (issue #372): a palm-sized canister standing on its end, a glowing
@@ -255,10 +224,10 @@ func _grenade(body: Node3D, p: Dictionary) -> void:
 	trim.albedo_color = _c(p, "trim", "#2a2c2a")
 	trim.metallic = 0.7
 	trim.roughness = 0.35
-	_mi(body, _cyl(r, r, h), shell, Vector3(0, h * 0.5, 0), Vector3.ZERO, "Shell")
-	_mi(body, _cyl(r * 1.06, r * 1.06, h * 0.16), _glow(_c(p, "glow", "#ff8a2a"), 3.0), Vector3(0, h * 0.5, 0), Vector3.ZERO, "Band")
-	_mi(body, _cyl(r * 0.55, r * 0.7, h * 0.18), trim, Vector3(0, h + h * 0.09, 0), Vector3.ZERO, "Cap")
-	_mi(body, _cyl(r * 1.02, r * 1.02, h * 0.08), trim, Vector3(0, h * 0.04, 0), Vector3.ZERO, "Foot")
+	_mi(body, LookMeshKit.cyl(r, r, h, 14, 1), shell, Vector3(0, h * 0.5, 0), Vector3.ZERO, "Shell")
+	_mi(body, LookMeshKit.cyl(r * 1.06, r * 1.06, h * 0.16, 14, 1), _glow(_c(p, "glow", "#ff8a2a"), 3.0), Vector3(0, h * 0.5, 0), Vector3.ZERO, "Band")
+	_mi(body, LookMeshKit.cyl(r * 0.55, r * 0.7, h * 0.18, 14, 1), trim, Vector3(0, h + h * 0.09, 0), Vector3.ZERO, "Cap")
+	_mi(body, LookMeshKit.cyl(r * 1.02, r * 1.02, h * 0.08, 14, 1), trim, Vector3(0, h * 0.04, 0), Vector3.ZERO, "Foot")
 
 
 ## "saber" (issue #148): a hilt with its blade lit, lying flat (along +X) so it
@@ -281,14 +250,14 @@ func _saber(body: Node3D, p: Dictionary) -> void:
 		var trim := StandardMaterial3D.new()
 		trim.albedo_color = _c(p, "trim", "#b08e50")
 		trim.metallic = 0.7
-		_mi(body, _cyl(0.02, 0.022, 0.26), hilt, Vector3(-0.13, 0.05, 0), flat, "Hilt")
-		_mi(body, _sphere(0.03), trim, Vector3(-0.27, 0.05, 0), Vector3.ZERO, "Pommel")
+		_mi(body, LookMeshKit.cyl(0.02, 0.022, 0.26, 14, 1), hilt, Vector3(-0.13, 0.05, 0), flat, "Hilt")
+		_mi(body, LookMeshKit.ball(0.03, 14, 7), trim, Vector3(-0.27, 0.05, 0), Vector3.ZERO, "Pommel")
 		for i in 3:
-			_mi(body, _cyl(0.024, 0.024, 0.015), trim, Vector3(-0.2 + i * 0.05, 0.05, 0), flat, "Grip%d" % i)
-		_mi(body, _cyl(0.026, 0.02, 0.04), trim, Vector3(0.02, 0.05, 0), flat, "Emitter")
-	_mi(body, _cyl(0.011, 0.013, length), _glow(blade.lerp(Color.WHITE, 0.6), 5.0),
+			_mi(body, LookMeshKit.cyl(0.024, 0.024, 0.015, 14, 1), trim, Vector3(-0.2 + i * 0.05, 0.05, 0), flat, "Grip%d" % i)
+		_mi(body, LookMeshKit.cyl(0.026, 0.02, 0.04, 14, 1), trim, Vector3(0.02, 0.05, 0), flat, "Emitter")
+	_mi(body, LookMeshKit.cyl(0.011, 0.013, length, 14, 1), _glow(blade.lerp(Color.WHITE, 0.6), 5.0),
 		Vector3(length * 0.5 + 0.015, 0.05, 0), flat, "Blade")
-	_mi(body, _cyl(0.016, 0.018, length * 1.03), _glow(blade, 2.0),
+	_mi(body, LookMeshKit.cyl(0.016, 0.018, length * 1.03, 14, 1), _glow(blade, 2.0),
 		Vector3(length * 0.5 + 0.015, 0.05, 0), flat, "BladeGlow")
 
 
@@ -305,20 +274,20 @@ func _twin_tank(body: Node3D, flames: Node3D, p: Dictionary) -> void:
 	var strap := mats.flat(_c(p, "strap", "#5a3a24"), 0.9, 0.0)
 	var nozzle := mats.flat(_c(p, "nozzle", "#3a3632"), 0.5, 0.6)
 
-	_mi(body, _box(Vector3(spread * 1.6, h * 0.9, 0.04)), dark, Vector3(0, 0, -0.02), Vector3.ZERO, "Plate")
+	_mi(body, LookMeshKit.box(Vector3(spread * 1.6, h * 0.9, 0.04)), dark, Vector3(0, 0, -0.02), Vector3.ZERO, "Plate")
 	for side in [-1.0, 1.0]:
 		var x: float = side * spread * 0.5
 		var z := -0.04 - r
-		_mi(body, _cyl(r, r, h * 0.8), metal, Vector3(x, 0, z), Vector3.ZERO, "Tank" + ("L" if side > 0 else "R"))
-		_mi(body, _sphere(r), metal, Vector3(x, h * 0.4, z))
-		_mi(body, _cyl(r * 1.04, r * 1.04, h * 0.08), trim, Vector3(x, h * 0.18, z))
-		_mi(body, _cyl(r * 0.55, r * 0.8, h * 0.14), nozzle, Vector3(x, -h * 0.47, z), Vector3.ZERO, "Nozzle")
+		_mi(body, LookMeshKit.cyl(r, r, h * 0.8, 14, 1), metal, Vector3(x, 0, z), Vector3.ZERO, "Tank" + ("L" if side > 0 else "R"))
+		_mi(body, LookMeshKit.ball(r, 14, 7), metal, Vector3(x, h * 0.4, z))
+		_mi(body, LookMeshKit.cyl(r * 1.04, r * 1.04, h * 0.08, 14, 1), trim, Vector3(x, h * 0.18, z))
+		_mi(body, LookMeshKit.cyl(r * 0.55, r * 0.8, h * 0.14, 14, 1), nozzle, Vector3(x, -h * 0.47, z), Vector3.ZERO, "Nozzle")
 		_flame(flames, Vector3(x, -h * 0.54, z), r, h, p)
 		# Harness straps rising off the top of the plate toward the shoulders.
-		_mi(body, _box(Vector3(0.045, 0.02, 0.16)), strap, Vector3(side * spread * 0.45, h * 0.45, 0.06),
+		_mi(body, LookMeshKit.box(Vector3(0.045, 0.02, 0.16)), strap, Vector3(side * spread * 0.45, h * 0.45, 0.06),
 			Vector3(-0.35, 0, 0))
-	_mi(body, _box(Vector3(spread * 1.2, 0.05, 0.08)), trim, Vector3(0, h * 0.3, -0.06), Vector3.ZERO, "Bar")
-	_mi(body, _box(Vector3(spread * 1.7, 0.06, 0.05)), strap, Vector3(0, -h * 0.38, -0.01), Vector3.ZERO, "Belt")
+	_mi(body, LookMeshKit.box(Vector3(spread * 1.2, 0.05, 0.08)), trim, Vector3(0, h * 0.3, -0.06), Vector3.ZERO, "Bar")
+	_mi(body, LookMeshKit.box(Vector3(spread * 1.7, 0.06, 0.05)), strap, Vector3(0, -h * 0.38, -0.01), Vector3.ZERO, "Belt")
 
 
 ## Flames from a nozzle at `at`, raked back away from the wearer (-Z) by
@@ -339,19 +308,19 @@ func _flame(flames: Node3D, at: Vector3, r: float, h: float, p: Dictionary) -> v
 	var body := _c(p, "flame", "#ff8a2a")
 	var tail := _c(p, "flame_tail", "#ff3a14")
 	var parts: Array = [
-		_mi(fl, _cyl(nr * 0.95, nr * 0.95, 0.006, 16), _plume(hot.lerp(Color.WHITE, 0.5), 6.0, 1.0),
+		_mi(fl, LookMeshKit.cyl(nr * 0.95, nr * 0.95, 0.006, 16, 1), _plume(hot.lerp(Color.WHITE, 0.5), 6.0, 1.0),
 			Vector3(0, -0.003, 0), Vector3.ZERO, "Mouth"),
-		_mi(fl, _cyl(nr * 0.55, 0.0, fh * 0.4, 12), _plume(hot.lerp(Color.WHITE, 0.3), 5.0, 0.9),
+		_mi(fl, LookMeshKit.cyl(nr * 0.55, 0.0, fh * 0.4, 12, 1), _plume(hot.lerp(Color.WHITE, 0.3), 5.0, 0.9),
 			Vector3(0, -fh * 0.2, 0), Vector3.ZERO, "Core"),
-		_mi(fl, _cyl(nr * 0.85, nr * 0.1, fh * 0.75, 14), _plume(hot.lerp(body, 0.5), 3.0, 0.6),
+		_mi(fl, LookMeshKit.cyl(nr * 0.85, nr * 0.1, fh * 0.75, 14, 1), _plume(hot.lerp(body, 0.5), 3.0, 0.6),
 			Vector3(0, -fh * 0.375, 0), Vector3.ZERO, "Body"),
-		_mi(fl, _cyl(nr * 1.05, 0.0, fh, 14), _plume(body, 2.2, 0.45),
+		_mi(fl, LookMeshKit.cyl(nr * 1.05, 0.0, fh, 14, 1), _plume(body, 2.2, 0.45),
 			Vector3(0, -fh * 0.5, 0), Vector3.ZERO, "Outer"),
-		_mi(fl, _cyl(nr * 1.4, nr * 0.3, fh * 0.85, 14), _plume(tail, 1.4, 0.16),
+		_mi(fl, LookMeshKit.cyl(nr * 1.4, nr * 0.3, fh * 0.85, 14, 1), _plume(tail, 1.4, 0.16),
 			Vector3(0, -fh * 0.5, 0), Vector3.ZERO, "Plume"),
 	]
 	for i in 3:
-		var d := _mi(fl, _sphere(nr * (0.32 - i * 0.07)), _plume(hot.lerp(Color.WHITE, 0.6), 6.0, 0.8),
+		var d := _mi(fl, LookMeshKit.ball(nr * (0.32 - i * 0.07), 14, 7), _plume(hot.lerp(Color.WHITE, 0.6), 6.0, 0.8),
 			Vector3(0, -fh * (0.22 + i * 0.18), 0), Vector3.ZERO, "Diamond%d" % i)
 		d.scale = Vector3(1.0, 1.8, 1.0)
 		parts.append(d)

@@ -1130,17 +1130,8 @@ static func _hoodoo_key(hd: Dictionary, cap := false) -> String:
 static func _hoodoo_jobs(hd: Dictionary) -> Array:
 	var r := float(hd.radius)
 	var h := float(hd.height)
-	var base := CylinderMesh.new()
-	base.top_radius = r * 0.55
-	base.bottom_radius = r
-	base.height = h
-	base.radial_segments = 16
-	base.rings = 10
-	var cap := SphereMesh.new()
-	cap.radius = r * 0.9
-	cap.height = r * 0.8
-	cap.radial_segments = 12
-	cap.rings = 6
+	var base := LookMeshKit.cyl(r * 0.55, r, h, 16, 10)
+	var cap := LookMeshKit.ball(r * 0.9, 12, 6, r * 0.8)
 	var freq := 1.4 / r
 	return [
 		{ "key": _hoodoo_key(hd), "kind": "rock", "base": base.get_mesh_arrays(), "freq": freq,

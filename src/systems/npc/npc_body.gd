@@ -83,6 +83,7 @@ var drawn := true
 ## M15: the rifle. A brain sets aim_point and calls fire_at(); the body owns the
 ## weapon state (ammo, rate, reload) and spawns real bolts.
 const WeaponActorT := preload("res://src/systems/combat/weapon_actor.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 var weapon_actor
 var weapon_cfg: Dictionary = {}
 ## A guard with the seeker launcher (profile "launcher"): it locks and fires at the
@@ -357,7 +358,7 @@ func redress(archetype: String, outfit: Dictionary, scale: Vector3) -> void:
 
 static func sound_cfg() -> Dictionary:
 	if _sound_cfg.is_empty():
-		_sound_cfg = CharacterKit._read_json(SOUNDS_PATH)
+		_sound_cfg = CoreContent.read_json(SOUNDS_PATH)
 	return _sound_cfg
 
 
@@ -1190,7 +1191,7 @@ func _animate_lod(dt: float, move: Vector3) -> void:
 	if you() != null:
 		d = global_position.distance_to(you().global_position)
 	_anim_dist = d
-	if d > ANIM_FAR:
+	if d > ANIM_FAR or not _in_view(global_position):
 		_anim_acc = 0.0
 		return
 	_anim_acc += dt
@@ -1200,6 +1201,27 @@ func _animate_lod(dt: float, move: Vector3) -> void:
 	_animate(_anim_acc, move)
 	_anim_acc = 0.0
 	anim_frames += 1
+
+
+## Issue #715: a body out of the camera's view is not posed either: its pose
+## waits, as a far one's does, and picks up the tick it comes into view. One
+## frustum a tick for every body; a body is "in view" up to VIEW_MARGIN m past
+## an edge (its arms and a held gun). Always in view headless (nothing is drawn).
+const VIEW_MARGIN := 2.5
+static var _view_tick := -1
+static var _view_planes: Array = []
+
+
+func _in_view(p: Vector3) -> bool:
+	var f := Engine.get_physics_frames()
+	if f != _view_tick:
+		_view_tick = f
+		var cam := get_viewport().get_camera_3d() if is_inside_tree() and DisplayServer.get_name() != "headless" else null
+		_view_planes = cam.get_frustum() if cam != null else []
+	for pl in _view_planes:
+		if (pl as Plane).distance_to(p) > VIEW_MARGIN:
+			return false
+	return true
 
 
 func _animate(dt: float, move: Vector3) -> void:
@@ -1368,7 +1390,7 @@ const HALF_GRIP := 0.45     ## how far the left hand closes on a gun it cannot r
 
 static func hold_3p(id: String) -> Dictionary:
 	if _holds.is_empty():
-		var all := CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+		var all := CoreContent.read_json(CharacterKit.HAND_WEAPONS_PATH)
 		for k in all:
 			if all[k] is Dictionary and (all[k] as Dictionary).has("hold_3p"):
 				_holds[k] = all[k].hold_3p
@@ -1388,7 +1410,7 @@ static var _guns: Dictionary = {}
 
 static func gun_spec(id: String) -> Dictionary:
 	if _guns.is_empty():
-		_guns = CharacterKit._read_json(CharacterKit.HAND_WEAPONS_PATH)
+		_guns = CoreContent.read_json(CharacterKit.HAND_WEAPONS_PATH)
 	return _guns.get(id, {})
 
 

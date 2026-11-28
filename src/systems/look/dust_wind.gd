@@ -10,6 +10,8 @@ extends Node3D
 ##
 ## Numbers: content/look/world.json "dust".
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LOOK_PATH := "res://content/look/world.json"
 
 var cfg: Dictionary = {}
@@ -23,7 +25,7 @@ var _gusts := FastNoiseLite.new()
 
 func _ready() -> void:
 	name = "DustWind"
-	cfg = ItemKit._read_json(LOOK_PATH).get("dust", {})
+	cfg = CoreContent.read_json(LOOK_PATH).get("dust", {})
 	grains = _layer("Grains", cfg.get("grains", {}), true)
 	puffs = _layer("Puffs", cfg.get("puffs", {}), false)
 	_gusts.seed = 17

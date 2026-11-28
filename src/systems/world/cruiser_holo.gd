@@ -624,14 +624,7 @@ func _label(at: Vector3, text: String, col: Color) -> Label3D:
 
 
 func _sphere(r: float, mat: Material) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	s.radial_segments = 48
-	s.rings = 24
-	mi.mesh = s
-	mi.material_override = mat
+	var mi := LookMeshKit.mi(null, LookMeshKit.ball(r, 48, 24), mat)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 

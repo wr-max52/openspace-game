@@ -309,7 +309,7 @@ func test_nomads_win_over_in_a_minute_and_trade_goods_for_meat() -> void:
 
 func test_gun_and_jetpack_upgrades() -> void:
 	WorldState.credits = 1000
-	var pistol: Dictionary = CharacterKit._read_json("res://content/core/weapons/pistol_blaster.json")
+	var pistol: Dictionary = CoreContent.read_json("res://content/core/weapons/pistol_blaster.json")
 	assert_eq(GearUpgrades.buy("pistol_damage"), "bought")
 	assert_eq(GearUpgrades.buy("pistol_damage"), "", "one-time")
 	assert_almost_eq(float(GearUpgrades.apply(pistol, "pistol_blaster").damage), float(pistol.damage) * 1.75, 0.01)
@@ -323,7 +323,7 @@ func test_gun_and_jetpack_upgrades() -> void:
 func test_the_gear_trader_sells_the_legal_goods_and_the_fence_the_armour() -> void:
 	var gear := GearController.new()
 	gear.content = content
-	gear.labels = CharacterKit._read_json("res://content/core/flow/gear.json").labels
+	gear.labels = CoreContent.read_json("res://content/core/flow/gear.json").labels
 	var rows := func(id: String) -> Array:
 		return gear.trade_options(content.get_vendor(id)).map(func(r): return str(r.id))
 	var trader: Array = rows.call("gear_trader")
@@ -344,13 +344,13 @@ func test_the_fence_shows_the_armour_locked_until_the_bounty() -> void:
 	var ids := func(a: Array): return a.map(func(o): return str(o.id))
 	assert_true(ids.call(GearUpgrades.locked_offers()).has("quantonium_armour"), "on the menu, locked")
 	assert_false(ids.call(GearUpgrades.open_offers()).has("quantonium_armour"))
-	var labels: Dictionary = CharacterKit._read_json("res://content/core/flow/gear.json").labels
+	var labels: Dictionary = CoreContent.read_json("res://content/core/flow/gear.json").labels
 	var o := GearUpgrades.offer("quantonium_armour")
 	assert_string_contains(str(labels.offer_locked) % [str(o.label), int(o.price), str(o.locked)], "bounty")
 	var gear := GearController.new()
 	gear.content = content
 	gear.labels = labels
-	var fence_cfg: Dictionary = CharacterKit._read_json(GearUpgrades.FENCE_PATH)
+	var fence_cfg: Dictionary = CoreContent.read_json(GearUpgrades.FENCE_PATH)
 	var rows: Array = gear.trade_options(fence_cfg).map(func(r): return str(r.id))
 	assert_true(rows.has("locked:quantonium_armour"), "the stall's menu shows it locked")
 	gear._trade_said = ""
