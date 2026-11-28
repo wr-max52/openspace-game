@@ -2,6 +2,36 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — Race tracks: lanes worked out from the rocks, picked at random (issue #853)
+
+- **NPC racers drive tracks, not straight at the gates.** On the Crooked Mile
+  the boulders leave a lane about 6 m wide; a racer a little off it aimed at
+  the next gate across the rocks, and the brain's 35 degree rock swerve threw it
+  into them. A probe of the course with its real boulders: 0 of 6 racers
+  finished, 61 stuck events. With tracks: 9 of 9, none stuck.
+- **Worked out from the ground, not saved in the file.** `RaceCourse.race_tracks`
+  cuts the gate line into 5 m samples, tests every offset to 9 m either side with
+  `WorldGround.hit` (one wide test first, so open sand costs one call), and
+  takes each lane's cheapest path through that grid (rock costs most, then
+  running short of room, then distance from the lane; at most 1 m sideways per
+  sample). Once per course, when the race is accepted (about 0.1 s). The racing
+  line stays the gates (see "A race course is its gates"), so moving a gate or
+  reseeding the boulders moves the tracks with them. Alternative: hand-drawn
+  tracks in the course file. Rejected: that is the drifting racing line the
+  gates replaced.
+- **Each point knows its room**, and the brain uses it: it cuts corners and
+  straightens weaves on open sand (so the open courses keep their pace) and
+  holds its lane by rock. A turn's speed comes from the speeder's own turn rate
+  and how far the turn may bend out there, braked for from where the turn
+  begins, and it never boosts into a turn it could not brake for (at boost
+  speed it flies off crests, where it can not brake).
+- **Every course, three lanes, one each at random** (rules.json `tracks`; the
+  Far Leaps sets its lanes over its rows of ramps). Probe lap times against the
+  old straight-at-the-gates driver: Salt Flats 3% faster, Hoodoo Run 6% and
+  Basin Run 10% slower (rounder corners), the Mile from no finishers to 187 s.
+- A brain walled in on every side held throttle at exactly 0.3, which the stuck
+  check (over 0.3) never counted, so it sat there for good. Now it counts.
+
 ## 2026-11-28 — The player can rename their ships and speeders (issue #835)
 
 - **A rename is a write into the name book, under the same key.** The ship's name
