@@ -283,6 +283,9 @@ func _fall_guard(p: Node3D) -> void:
 			return
 		if _belt_guard(p, inv * p.global_position):
 			return
+		if _another_holds(p.global_position):
+			_warned = false
+			return                         # issue #317: another station (its belt, or nearer) has this one
 		var outside: Dictionary = cfg.get("outside", {})
 		var drop := float(outside.get("drop_below", 40.0))
 		var below := hull.bottom_y() - (inv * p.global_position).y
@@ -334,6 +337,27 @@ func _belt_guard(p: Node3D, l: Vector3) -> bool:
 		line = maxf(line, BeltWrecks.lost_below(belt, float(bc.get("fall_m", 25.0))))
 	_guard_fade(clampf((line + fade - l.y) / fade, 0.0, 1.0))
 	return true
+
+
+## Issue #317: with more than one station in this sky (the ring station and the
+## skimmer outposts over the giant), only the one you are nearest, or whose belt
+## you are over, guards your fall: never a far one pulling you off another's
+## wrecks.
+func _another_holds(at: Vector3) -> bool:
+	var list = demo.get("stations") if demo != null else null
+	if not (list is Array):
+		return false
+	var mine := distance(at)
+	for s in list:
+		if s == self or not is_instance_valid(s):
+			continue
+		var o: SpaceStation = s
+		if not o.belt.is_empty() and BeltWrecks.over_belt(o.belt, o.inv * at,
+				float(BeltWrecks.cfg_of(o.hull).get("margin_m", 40.0))):
+			return true
+		if o.distance(at) < mine:
+			return true
+	return false
 
 
 ## The belt had you: back in the bay, nothing taken (the fall did this, as off a
