@@ -19,6 +19,7 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CINE = os.path.join(ROOT, "test_results", "cine2")
 FPS = 30
 SFXG = 0.6          # every effect, together: under the music, never over it
+DISSOLVE = {5: 0.6}  # shot: seconds it dissolves in over the shot before (assemble.sh does the same)
 A = os.path.join(ROOT, "assets", "audio")
 K = os.path.join(ROOT, "assets", "third_party", "kenney_starter_kit_fps", "sounds")
 MUSIC = os.path.expanduser("~/Desktop/Music/Ambient2.mp3")
@@ -52,6 +53,7 @@ def starts():
     out, at = {}, 0.0
     for s in range(1, 17):
         n = len(glob.glob(os.path.join(CINE, "s%d" % s, "f*.png")))
+        at -= DISSOLVE.get(s, 0.0)
         out[s] = at
         at += n / FPS
     return out, at
@@ -84,10 +86,10 @@ def cues(hit, tails):
         [3, 0.0, kenney("walking"), 0.3, {"dur": 2.4, "fo": 0.4, "lp": 1800}],
         [3, 2.2, ENGINE, 0.22, dict(far, dur=2.4)],
         # 4 his view: the ship, far off and sputtering
-        [4, 0.0, ENGINE, 0.28, {"dur": 4.76, "fi": 0.4, "fo": 0.8, "lp": 2200}],
+        [4, 0.0, ENGINE, 0.28, {"dur": 3.64, "fi": 0.4, "fo": 0.8, "lp": 2200}],
         [4, 1.7, sfx("ship_hit"), 0.15, {"lp": 2000}],
         # 5 the barge: its party music carries, the ship goes over
-        [5, 0.0, BARGE, 0.2, {"dur": 6.2, "fi": 0.3, "fo": 0.5, "lp": 700, "skip": 40.0}],
+        [4, -1.4, BARGE, 0.2, {"dur": 7.6, "fi": 1.2, "fo": 0.5, "lp": 700, "skip": 38.6}],
         [5, 1.2, ENGINE, 0.3, pass_by],
         # 6 the outpost: one shot; the ship rumbles over as we find it
         [6, 6.14, kenney("blaster"), 0.6, {}],
@@ -98,7 +100,7 @@ def cues(hit, tails):
         [7, 1.02, sfx("jet_loop"), 0.5, {"dur": 1.6, "fi": 0.3, "fo": 1.0, "rate": 0.94}],
         [7, 1.8, sfx("jet_loop"), 0.18, {"dur": 2.6, "fi": 0.2, "fo": 1.6, "lp": 1600}],
         [7, 4.2, sfx("ship_missile"), 0.35, {"lp": 3000}],
-        [7, hit, sfx("vehicle_boom_2"), 0.8, {"lp": 4000}],
+        [7, hit, sfx("vehicle_boom_2"), 0.35, {"lp": 3000}],
         [7, 7.0, ENGINE, 0.22, dict(far, dur=1.1, fo=0.3)],
         # 9, 10 the bridge: the holo chirps, the guard's steps
         [9, 0.4, sfx("droid_beep_1"), 0.12, {"rate": 1.3}],

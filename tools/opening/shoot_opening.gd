@@ -22,7 +22,7 @@ const FONT := "res://assets/fonts/AnonymousPro-Bold.ttf"
 ## down (camera, ship, walkers, the race all together) and TAIL adds a last push in
 ## on the ship after the action (PUSH seconds), then holds on it, following it, for
 ## the rest of the tail. A shot runs BASE * TS + TAIL seconds.
-const BASE := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 3.4, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
+const BASE := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 2.6, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
 	10: 6.0, 11: 1.0, 12: 3.0, 13: 2.5, 14: 2.0, 15: 2.0, 16: 4.5 }
 const TS := { 1: 1.0, 2: 1.3, 3: 1.15, 4: 1.4, 5: 1.25, 6: 1.35, 7: 1.2, 8: 1.5, 9: 1.1,
 	10: 1.3, 11: 1.5, 12: 1.2, 13: 1.3, 14: 1.35, 15: 1.35, 16: 1.25 }
@@ -33,6 +33,23 @@ const PUSH_AT := { 1: 2.4 }
 ## The spoken lines (Oda's voiceover and the dialogue), shown as subtitles timed to
 ## the recorded clips' speech (voice.py writes vo/spans.json).
 const PUSH_MIN := { 1: 0.045 }
+## Shot 8's orbit framing: the lens's start and end (metres from the wreck: height,
+## sunward, sideways); each cruiser on a line of sight tipped up off the wreck's
+## (degrees up, degrees round, metres out); the aim's tip up off the wreck; the lens.
+const ORBIT := { "h0": 2600.0, "d0": 2000.0, "s0": 300.0, "h1": 2100.0, "d1": 1550.0, "s1": 220.0,
+	"c0": Vector3(21.5, 7.0, 3600.0), "c1": Vector3(25.0, -9.0, 5000.0),
+	"aim": 11.0, "f0": 46.0, "f1": 42.0, "max_sun": 0.85 }
+## Shot 10: where the dark master stands behind the general (cruiser frame), the
+## way he faces, and his arms (CharacterKit's parade rest: hands behind the back).
+const DM_AT := Vector3(27.5, 58.0, 217.6)
+const DM_FACE := Vector3(30.3, 58.0, 223.4)
+const DM_POSE := { "chest": Vector3(-4, 0, 0), "head": Vector3(-6, 0, 0),
+	"l_shoulder": Vector3(22, 165, 12), "r_shoulder": Vector3(22, -165, -12),
+	"l_elbow": Vector3(-95, 0, 0), "r_elbow": Vector3(-95, 0, 0) }
+## Shot 7: how wide the two survivors swerve round the wreck (m), over how much of
+## the course (m), and how quickly they start to (u); where the camera turns to
+## follow them (u) and its lens on them.
+const DODGE := { "amp": [9.0, 10.0], "width": 18.0, "ramp": 0.35, "follow_u": 3.55, "follow_s": 0.9, "fov": 12.0 }
 const LINES := "res://tools/opening/lines.json"
 const SPANS := "res://test_results/cine2/vo/spans.json"
 
@@ -140,9 +157,12 @@ func _load_captions() -> void:
 	var rx := RegEx.new()
 	rx.compile("[^.!?]+[.!?]+")
 	for ln in lines.lines:
-		if int(ln.shot) != shot:
-			continue
 		var at := float(ln.at)
+		# A line with a negative start begins over the end of the shot before.
+		if int(ln.shot) == shot + 1 and at < 0.0:
+			at += secs
+		elif int(ln.shot) != shot:
+			continue
 		var text: String = ln.text
 		var sp: Array = spans.get(ln.id, [[0.0, 3.0]])
 		var parts := []
@@ -247,6 +267,9 @@ func _spawn(key: String, soldier: String, at: Vector3, yaw: float) -> NpcBody:
 	npc.nav = null
 	npc.free_walk = true
 	npc.home_target = rcam
+	# Aboard the cruiser the town's Npcs node is hidden: the bridge cast stand outside it.
+	if shot >= 8 and shot <= 10 and npc.get_parent() != null and not npc.get_parent().is_visible_in_tree():
+		npc.reparent(demo, true)
 	cast[key] = npc
 	return npc
 
@@ -582,7 +605,7 @@ func _setup_nomad() -> void:
 		v.ship_a = look_pt + sd * -40.0
 		v.ship_b = look_pt + sd * 70.0 - u * 55.0 + (look_pt - head).normalized() * 60.0
 		v.ship_t0 = 0.0
-		v.ship_t1 = 3.4
+		v.ship_t1 = 2.6
 		v.head = head
 		keys = [[0.0, head, look_pt, 24.0]]
 	say("camp %s nearest outpost %s" % [camp, _nearest_outpost(camp)])
@@ -706,16 +729,7 @@ func _setup_cruiser() -> void:
 		_sunlit_cruiser()
 		var F: Transform3D = v.cr_frame
 		up = F.basis.y.normalized()
-		# A second cruiser of the fleet, astern and above on the far side (the same
-		# hull, copied: only ever seen from out here).
-		var twin: Node3D = c._hull.duplicate()
-		c.add_child(twin)
-		twin.transform = F * Transform3D(Basis(Vector3.UP, deg_to_rad(-6.0)), Vector3(-620, 80, 640))
-		v.twin = twin
-		# High off their starboard side looking down, both against the lit planet; a
-		# slow push toward the near one's bridge tower.
-		keys = [[0.0, F * Vector3(900, 2600, -800), F * Vector3(-200, 0, 420), 44.0],
-			[4.0, F * Vector3(560, 1500, -260), F * Vector3(-170, 30, 430), 40.0]]
+		_setup_orbit()
 		return
 	# The planet's warm light on him through the side window (a fill for the shot).
 	var fill := OmniLight3D.new()
@@ -743,6 +757,59 @@ func _setup_cruiser() -> void:
 		# comes up into the left of frame.
 		keys = [[0.0, L.call(Vector3(30.3, 59.85, 223.4)), head, 32.0],
 			[6.0, L.call(Vector3(30.2, 59.85, 223.15)), head, 31.0]]
+
+
+## Shot 8, from orbit: the old wreck in the sand far below, the planet's curve, and
+## two Remnant cruisers hanging in orbit beyond it (the home hull and a copy of it,
+## starboard to the sun); a slow push down toward the wreck.
+func _setup_orbit() -> void:
+	var c = demo.cruiser
+	var at := _surf(1350.0, -120.0)
+	var wc := at
+	var sun: Vector3 = demo.look.sun_dir.normalized()
+	# The wreck of the field that lies most in the sun (the port's is at golden hour).
+	var best := -2.0
+	for id in ["starcruiser_wreck", "starcruiser_wreck_2", "starcruiser_wreck_3", "starcruiser_wreck_4"]:
+		if pilot.ground != null and StarcruiserWreck.has_wreck(pilot.ground, id):
+			var o: Vector3 = StarcruiserWreck.frame(pilot.ground, id).origin
+			var lit := _upv(o).dot(sun)
+			say("wreck %s at %s sun %.2f" % [id, o, lit])
+			if lit > best and lit < ORBIT.max_sun:
+				best = lit
+				wc = o
+	var u := _upv(wc)
+	var sf := _flat(sun, wc)                       # toward the sun along the ground
+	var side := sf.cross(u).normalized()
+	v.orbit_wc = wc
+	# The sun over our shoulder: the wreck, the dunes and the hulls all lit.
+	var e0: Vector3 = wc + u * ORBIT.h0 + sf * ORBIT.d0 + side * ORBIT.s0
+	var e1: Vector3 = wc + u * ORBIT.h1 + sf * ORBIT.d1 + side * ORBIT.s1
+	# Lines of sight from the lens: the wreck's, and lines tipped up off it (over
+	# the planet's edge, so whatever hangs on them is against space).
+	var tip := func(e: Vector3, deg: float, yaw: float) -> Vector3:
+		var d: Vector3 = (wc - e).normalized()
+		var r: Vector3 = d.cross(u).normalized()
+		var a: Vector3 = d.rotated(r, deg_to_rad(deg))
+		if a.dot(u) < d.dot(u):
+			a = d.rotated(r, -deg_to_rad(deg))
+		return a.rotated(u, deg_to_rad(yaw))
+	var cr0: Vector3 = e0 + tip.call(e0, ORBIT.c0.x, ORBIT.c0.y) * ORBIT.c0.z
+	var cr1: Vector3 = e0 + tip.call(e0, ORBIT.c1.x, ORBIT.c1.y) * ORBIT.c1.z
+	var hull := func(pos: Vector3) -> Transform3D:
+		var rd: Vector3 = (pos - sp.center).normalized()
+		var sw: Vector3 = (sun - rd * sun.dot(rd)).normalized()
+		return Transform3D(Basis.looking_at(rd.cross(sw).normalized(), rd), pos)
+	c._hull.transform = hull.call(cr0)
+	var twin: Node3D = c._hull.duplicate()
+	c.add_child(twin)
+	twin.transform = hull.call(cr1) * Transform3D(Basis(Vector3.UP, deg_to_rad(-6.0)), Vector3.ZERO)
+	v.twin = twin
+	up = u
+	keys = [[0.0, e0, e0 + tip.call(e0, ORBIT.aim, 0.0) * 1000.0, ORBIT.f0],
+		[4.0, e1, e1 + tip.call(e1, ORBIT.aim, 0.0) * 1000.0, ORBIT.f1]]
+	say("orbit cruisers alt %.0f %.0f" % [sp.altitude(cr0), sp.altitude(cr1)])
+	_put_player(wc + u * 400.0)
+	say("orbit wreck %s cruisers %s %s eye %s alt %.0f" % [wc, cr0, cr1, e0, sp.altitude(e0)])
 
 
 ## Shots 11 to 13: the cantina.
@@ -906,8 +973,20 @@ func _direct(u: float) -> void:
 				gd.global_position = L.call(Vector3(24.6, 58.0, 222.8).lerp(Vector3(27.0, 58.0, 220.1), k))
 				gd.velocity = Vector3.ZERO
 				gd.face_point(L.call(v.gen_at + Vector3(0, 1.6, 0)))
-				if u > 4.0 and g != null:
-					g.face_point(cam.global_position)
+				# The general hears him out, half turned to him, then looks back out of
+				# the window for the last line.
+				if g != null and u > 0.7 and u < 3.75:
+					g.face_point(gd.global_position.lerp(L.call(Vector3(34.0, 58.6, 229.0)), 0.45))
+				# The dark master behind him: hands behind his back, still as stone.
+				if not cast.has("master"):
+					var dm := _spawn("master", "dark_master", L.call(DM_AT), 0.0)
+					dm.hold_pose = DM_POSE
+				var dmb: NpcBody = cast.master
+				dmb.global_position = L.call(DM_AT)
+				dmb.velocity = Vector3.ZERO
+				dmb.face_point(L.call(DM_FACE))
+				if OS.has_environment("CINE_SHIPLOG") and fmod(u, 0.5) < 0.02:
+					say("u=%.2f master screen %s behind %s vis %s tree %s dist %.1f look %s parent %s" % [u, cam.unproject_position(dmb.global_position + up * 1.2), cam.is_position_behind(dmb.global_position), dmb.visible, dmb.is_visible_in_tree(), cam.global_position.distance_to(dmb.global_position), dmb.look_body.visible if dmb.look_body != null else "none", dmb.get_parent().name])
 				var holo := _find_holo()
 				if holo != null:
 					holo.global_position = L.call(Vector3(26.0, 60.4, 218.6))
@@ -971,8 +1050,8 @@ func _direct_race(u: float) -> void:
 		if not is_instance_valid(s) or (i == 0 and v.has("burst")):
 			continue
 		var x := speed * (u - float(plan[i][0]))
-		var y := _race_y(x, plan[i])
-		var y2 := _race_y(x + 1.0, plan[i])
+		var y := _race_y(x, plan[i]) + _dodge(i, x, u)
+		var y2 := _race_y(x + 1.0, plan[i]) + _dodge(i, x + 1.0, u)
 		var at: Vector3 = v.p0 + v.d * x + v.side * y
 		at = beast._ground_at(at) if beast != null else at
 		var heading: Vector3 = (v.d + v.side * (y2 - y)).normalized()
@@ -997,8 +1076,21 @@ func _direct_race(u: float) -> void:
 			v.burst = true
 			var where: Vector3 = target.model.position
 			target.apply_damage(9999.0)
-			ExplosionFx.big(demo, where, 2.4)
+			ExplosionFx.big(demo, where, 1.7)
+			v.hit_x = (where - v.p0).dot(v.d)
+			v.hit_u = u
 			say("t=%.2f seeker hit %.0f m out" % [u, (where - v.p0).dot(v.d)])
+
+
+## The two left racing swerve wide round the burning leader, one either side
+## (metres of lane, course right +), easing out over the first moments after the hit.
+func _dodge(i: int, x: float, u: float) -> float:
+	if i == 0 or not v.has("hit_x"):
+		return 0.0
+	var side := -1.0 if i == 1 else 1.0
+	var amp: float = side * float(DODGE.amp[i - 1]) * _ease((u - float(v.hit_u)) / float(DODGE.ramp))
+	var k: float = (x - float(v.hit_x)) / float(DODGE.width)
+	return amp * exp(-k * k)
 
 
 ## A seeker the way NpcLauncher.fire builds one, homing on `target`.
@@ -1107,6 +1199,18 @@ func _place_camera(t: float) -> void:
 			6:
 				if v.has("aim"):
 					tgt = tgt.lerp(v.aim, _ease((u - 1.0) / 1.4))
+			7:
+				# After the hit: on the two still racing as they swerve round the wreck.
+				var live: Array = []
+				for i in [1, 2]:
+					if i < v.racers.size() and is_instance_valid(v.racers[i]):
+						live.append(v.racers[i].model.position)
+				if not live.is_empty():
+					var mid: Vector3 = (live[0] + live[live.size() - 1]) * 0.5 + v.u * 1.2
+					var on := _follow("race_aim", mid, 4.0)
+					var k := _ease((u - float(DODGE.follow_u)) / float(DODGE.follow_s))
+					tgt = tgt.lerp(on, k)
+					fov = lerpf(fov, DODGE.fov, k)
 			4:
 				var e := _ease(t / secs)
 				eye = v.head

@@ -73,6 +73,16 @@ def main():
         with urllib.request.urlopen(req, timeout=90) as r:
             open(path, "wb").write(r.read())
         print("%-3s %5.2f s new   %s" % (ln["id"], length(path), ln["text"]))
+    for ln in lines:
+        # A take that opens with a stray word: keep it whole as .raw, use the rest.
+        if float(ln.get("skip", 0.0)) > 0.0:
+            path = os.path.join(OUT, ln["id"] + ".mp3")
+            raw = os.path.join(OUT, ln["id"] + ".raw.mp3")
+            if not os.path.exists(raw) or ln["id"] in redo:
+                os.replace(path, raw)
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % float(ln["skip"]), "-i", raw,
+                            "-af", "afade=t=in:d=0.04", path], check=True)
+            print("%-3s %5.2f s after skipping %.2f s" % (ln["id"], length(path), float(ln["skip"])))
     found = {ln["id"]: spans(os.path.join(OUT, ln["id"] + ".mp3")) for ln in lines}
     json.dump(found, open(os.path.join(OUT, "spans.json"), "w"), indent=1)
     for k, sp in found.items():

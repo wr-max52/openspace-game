@@ -1,5 +1,27 @@
 # Opening cutscene
 
+## v5: the orbit, the bridge and the race, tightened
+
+> "Okay after the nomad shot there's too much dead time make this more seamless to the next shot and less time between the lines. The "only a remnant" shot should be shot from orbit cruiser is in orbit in the background and the wrecks are below. The guard says "sir" twice. Cut the first one. The dark master is behind him no blade drawn he doesn't move or look or flinch just arms crossed behind being scary. After the guard speaks the general looks back out the window. The speeders that don't explode need to dodge the wreckage they aren't visible right now. The explosion should be quieter." (the user, on the v4 cut)
+
+- **Nomad to barge:** his view of the ship is a second shorter, it dissolves into
+  the barge (0.6 s, `assemble.sh` and `mix.py`'s `DISSOLVE`), Oda's barge line
+  starts over the end of his view (a line with a negative `at` begins in the shot
+  before, captions and all) and the barge's music comes in under it.
+- **"Only a remnant" (8), from orbit:** high over the wreck field's most sunlit
+  wreck, the planet's curve below, and the two cruisers hanging just above its
+  edge (each on a line of sight tipped up off the wreck's, so they are always
+  against space; `ORBIT`).
+- **The bridge (10):** the guard's take opened with a stray "Sir": `lines.json`'s
+  `skip` cuts it (`voice.py` keeps the full take as `d2.raw.mp3`). The dark master
+  stands behind the general's right shoulder at parade rest, hands behind his back,
+  no blade, not moving or looking (`DM_AT`, `DM_POSE`). The general half turns to
+  the guard while he reports, then looks back out of the window. The spawned bridge
+  cast now stand outside the town's Npcs node (hidden aboard), so the guard shows too.
+- **The race (7):** the two left racing swerve wide round the burning leader, one
+  either side (`DODGE`), and the camera follows them round it before the push in
+  on the ship. The blast is smaller and much quieter.
+
 ## v4: longer on the ship (about 105 s)
 
 > "This is getting a lot better. The shots of the ship are good but they need to last longer every one of them. Very First shot is good except the player ship should fly a bit slower and be closer to the camera when it enters the frame. Oda s line "wonder whose side theyll pick" should be a worried tone. Last shot holds on the ship for longer coming into orbit" (the user, on the v3 cut)
@@ -61,7 +83,7 @@
 | 5 | The party barge on the dunes, its music carrying; push in on the ship. | "The rich still throw parties like nothing has changed." (solemn) |
 | 6 | Wide on the Remnant outpost, in to the gate; the trooper turns a local back, then shoots him; push in on the ship. | "What's left of their army still holds the desert." / Trooper: "Halt! Back in the dirt, sand rat." |
 | 7 | The Basin Run past the beast's head; the seeker lands on "home"; push in on the ship. | "Out in the basin, folk race for coin. Not all of them make it home." |
-| 8 | High and far off, looking down on two cruisers over the planet; a slow push toward the near one's bridge. | "They are hardly even a remnant of what they once were. But they still have a hold." |
+| 8 | From orbit: the wreck far below, the planet's curve, two cruisers above its edge; a slow push down. | "They are hardly even a remnant of what they once were. But they still have a hold." |
 | 9 | The holo of the planet, pulling back to the general. | |
 | 10 | Close on the general; the guard reports; he turns to camera. | Guard: "Sir, a ship has just entered orbit. They are landing at the port." / General: "And who do we have here?" |
 | 11 | On the counter: Oda sets the drink down. | |
