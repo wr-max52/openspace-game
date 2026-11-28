@@ -1,0 +1,948 @@
+{
+	"port_desert": [
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"cull_mode": 2,
+					"emission_enabled": true,
+					"emission_operator": 1,
+					"emission_texture": "tex",
+					"metallic_texture": "tex",
+					"metallic_texture_channel": 2,
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"roughness_texture": "tex",
+					"roughness_texture_channel": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"cull_mode": 2,
+					"metallic_texture": "tex",
+					"metallic_texture_channel": 2,
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"roughness_texture": "tex",
+					"roughness_texture_channel": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"backlight_enabled": true,
+					"cull_mode": 2
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex"
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"backlight_enabled": true,
+					"cull_mode": 2,
+					"disable_receive_shadows": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"roughness_texture": "tex"
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"emission_enabled": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"shading_mode": 0
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"cull_mode": 2
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"backlight_enabled": true,
+					"cull_mode": 2,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/scope_reticle.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/scope_glass.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/scope_metal.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/weapon_dark.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"shading_mode": 0
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"emission_enabled": true
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/plaster.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/rock.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/beast_shell.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"texture_filter": 5,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"texture_filter": 5,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"cull_mode": 2,
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"texture_filter": 5,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"rim_enabled": true,
+					"texture_filter": 5,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"emission_enabled": true,
+					"emission_operator": 1,
+					"emission_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"texture_filter": 5,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"blend_mode": 1,
+					"cull_mode": 2,
+					"depth_draw_mode": 2,
+					"proximity_fade_enabled": true,
+					"shading_mode": 0,
+					"transparency": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"emission_enabled": true,
+					"transparency": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"transparency": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"clearcoat_enabled": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2,
+					"emission_enabled": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2,
+					"emission_enabled": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/energy_shield.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/cruiser_metal.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"blend_mode": 1,
+					"cull_mode": 2,
+					"shading_mode": 0,
+					"transparency": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2,
+					"shading_mode": 0
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"cull_mode": 2,
+					"transparency": 1
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"uv1_triplanar": true
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/hull.gdshader"
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/hull.gdshader"
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/plaster.gdshader"
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/plaster.gdshader"
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"backlight_enabled": true,
+					"cull_mode": 2,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/hull.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/rock.gdshader"
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"texture_filter": 5,
+					"uv1_triplanar": true,
+					"uv1_world_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"rim_enabled": true,
+					"texture_filter": 5,
+					"uv1_triplanar": true,
+					"uv1_world_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"clearcoat_enabled": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/gear.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/gear.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/gas_ring.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/gas_haze.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/gas_giant.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/painted_ball.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/wreck_metal.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"cull_mode": 2,
+					"emission_enabled": true,
+					"emission_operator": 1,
+					"emission_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex"
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"backlight_enabled": true,
+					"cull_mode": 2
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"backlight_enabled": true,
+					"cull_mode": 2
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"props": {
+					"backlight_enabled": true,
+					"cull_mode": 2
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"normal_enabled": true,
+					"normal_texture": "tex",
+					"uv1_triplanar": true
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"emission_enabled": true
+				}
+			},
+			"mm": "i"
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"props": {
+					"albedo_texture": "tex",
+					"backlight_enabled": true,
+					"cull_mode": 2,
+					"uv1_triplanar": true
+				}
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent",
+				"uv"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/pad_metal.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/sand.gdshader"
+			},
+			"mm": ""
+		},
+		{
+			"fmt": [
+				"normal",
+				"tangent"
+			],
+			"mat": {
+				"shader": "res://src/systems/look/shaders/plaster.gdshader"
+			},
+			"mm": ""
+		}
+	]
+}

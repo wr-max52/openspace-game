@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Coming down from the gas giant: under budget (2026-11-28)
+
+- **The way down from the gas giant is now smooth.** Its worst frame was over
+  a tenth of a second; now it's under a twentieth, and the frames over budget
+  went from 62 to about 12.
+- **New kinds of material are made out in open space.** The first time a
+  session drew the club's booths, the barge's decks or the rock, the game
+  froze for a moment on the way down while it got them ready. Now home's are
+  readied one a frame from 30 km out, before you reach its sky. A fresh
+  install's first flight down gets the same.
+- A test checks that home's rocks and wrecks are all made on the way in, so
+  the way down makes nothing new.
+
 ## Name your ride (2026-11-28)
 
 - **Rename your ships and speeders in the Ledger** (I). Each one has its name in

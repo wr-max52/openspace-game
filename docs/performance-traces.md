@@ -47,6 +47,12 @@ DESCENT_ROUTES=port_desert godot --rendering-driver vulkan --path . res://scenes
 - `DESCENT_COLD=1` warms nothing (a fresh session).
 - `DESCENT_PIECES=15` names every piece of a sliced step over 15 ms
   (`StagedBuild.piece_watch_ms`) and the kinds of node added on each slow frame.
+- `DESCENT_KINDS=1` records every kind of material each route's scene drew (a
+  material's shader-changing settings on a mesh's vertex format) to
+  `user://warm_kinds.json`. Copy it to `content/look/warm_kinds.json` and
+  `ShaderWarmup` compiles them one a frame from `prepare_m` out in open space.
+  Record again after adding a planet or a new look. Recording walks the whole
+  tree: those frames are slow, so don't read a recording run's numbers.
 
 ## Comparing results
 

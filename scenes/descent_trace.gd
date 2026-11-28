@@ -19,6 +19,9 @@ extends Node
 ## DESCENT_COLD=1 warms nothing. DESCENT_OUT_M=6000 starts that far outside the
 ## bubble instead of 400 m (time for what the approach starts on workers). DESCENT_PIECES=15 also names every piece of a
 ## sliced step over that many ms (StagedBuild.piece_watch_ms) in the frame notes.
+## DESCENT_KINDS=1 records every material kind each route's scene drew (low pass,
+## start and end) to user://warm_kinds.json: copy it to content/look/ for
+## ShaderWarmup.
 ## It boots the real town (the bar loads and saves the save in play): back up
 ## user://save*.json first.
 
@@ -164,6 +167,7 @@ func _physics_process(dt: float) -> void:
 			if phase == "descent" and agl < LOW_AGL * 2.0:
 				phase = "low"
 				_low_t = 0.0
+				_record_kinds()
 		"low":
 			boost = true
 			_low_t += dt
@@ -175,11 +179,30 @@ func _physics_process(dt: float) -> void:
 			_agl_err = maxf(_agl_err, absf(p.atmo.agl() - g.height_above(p.atmo.position() - up * p.atmo.clearance)))
 			if _low_t >= LOW_S:
 				phase = "climb"
+				_record_kinds()
 		"climb":
 			pitch = deg_to_rad(50.0)
 	var want := (flat * cos(pitch) + up * sin(pitch)).normalized()
 	p.atmo.flight.face(want, up)
 	p.set_external_command({ "throttle": 1.0, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "boost": boost })
+
+
+## DESCENT_KINDS=1: this route's scene's material kinds, added to user://warm_kinds.json.
+var _kinds := {}
+func _record_kinds() -> void:
+	if OS.get_environment("DESCENT_KINDS") != "1" or demo == null:
+		return
+	var have: Array = _kinds.get(route, [])
+	var keys := {}
+	for k in have:
+		keys[ShaderWarmup.key_of(k)] = true
+	for k in ShaderWarmup.record(demo):
+		if not keys.has(ShaderWarmup.key_of(k)):
+			have.append(k)
+	_kinds[route] = have
+	var f := FileAccess.open("user://warm_kinds.json", FileAccess.WRITE)
+	f.store_string(JSON.stringify(_kinds, "\t", true))
+	out("KINDS_" + route.to_upper(), have.size())
 
 
 func frames(n: int) -> void:
@@ -248,6 +271,7 @@ func _run() -> void:
 		while (demo == null or str(demo.planet.get("id", "")) != route) and Time.get_ticks_msec() - t0 < 60000:
 			await get_tree().process_frame
 		out(route.to_upper() + "_ARRIVED", demo != null and str(demo.planet.get("id", "")) == route)
+		out(route.to_upper() + "_SHADER_WARMUP", ShaderWarmup.last)
 		if demo == null or not is_instance_valid(demo):
 			out("NO_SCENE", str(get_tree().current_scene))
 			break
