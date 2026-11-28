@@ -24,6 +24,7 @@ const PRESETS := {
 }
 const DEFAULT := Color("#ffb347")
 const PROMPT_SIZE := 34              ## "[E] Talk to ..." and the like
+const PROMPT_MARGIN := 24.0          ## logical px a prompt line keeps from each side of the screen
 const UI_PATH := "res://content/look/ui.json"   ## issue #71: text_scale and the base font sizes
 
 static var accent := DEFAULT
@@ -147,9 +148,28 @@ static func is_neutral(c: Color) -> bool:
 static func prompt(l: Label) -> void:
 	l.set_meta("retro_prompt", true)
 	l.add_theme_font_size_override("font_size", PROMPT_SIZE)
-	l.offset_left -= 260.0
-	l.offset_right += 260.0
+	# The line spans the screen (a margin each side) and stays centred on it; a
+	# line too long for it shrinks (fit_prompt) instead of running off the right.
+	l.set_anchor_and_offset(SIDE_LEFT, 0.0, PROMPT_MARGIN)
+	l.set_anchor_and_offset(SIDE_RIGHT, 1.0, -PROMPT_MARGIN)
+	l.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.clip_text = false
+	if not l.minimum_size_changed.is_connected(fit_prompt.bind(l)):
+		l.minimum_size_changed.connect(fit_prompt.bind(l))
+
+
+## A prompt line's font: PROMPT_SIZE, or smaller when its text is wider than the
+## screen leaves it. Called whenever the text (so its width) changes.
+static func fit_prompt(l: Label) -> void:
+	if not is_instance_valid(l) or not l.is_inside_tree() or l.text == "":
+		return
+	var room := l.get_viewport_rect().size.x - 2.0 * PROMPT_MARGIN
+	if room <= 0.0:
+		return
+	var s := fit_size(l, PROMPT_SIZE, Vector2(room, INF))
+	if s != l.get_theme_font_size("font_size"):
+		l.add_theme_font_size_override("font_size", s)
 
 
 ## Restyle one Control. Safe to call again (a colour change re-skins everything).

@@ -577,6 +577,7 @@
     "event_remnant_droid": "Someone scrapped one of the Remnant's patrol droids.",
     "deliver": "Hand over your %s for Oda's friend",
     "delivered": "Your %s is the droid merchant's now. Oda will want to hear about it.",
+    "delivered_paid": "\"I almost missed an order. This is everything I need.\" The droid merchant takes your %s and pays you %d cr for your trouble.",
     "lasers_tip": "Press [I] to change laser droid settings",
     "ledger_lasers_on": "Lasers: ON",
     "ledger_lasers_off": "Lasers: OFF",

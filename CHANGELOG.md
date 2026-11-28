@@ -20,6 +20,19 @@ Plain English, newest on top. One entry per milestone.
   Old saves keep their place: anyone who already sold him droids or
   contraband is not sent back for a floating droid.
 
+## The garrison fights back when you shoot it from your ship (2026-11-28)
+
+- **Shoot a trooper from your ship and the garrison fights the ship**, wherever
+  you fly from. Before, they only counted your ship as a threat while it was
+  over the town itself (and never in a story save), so shooting from just
+  outside the walls got no answer and the alarm died down in seconds.
+- **The roof's seeker launcher troopers lock on and fire** at a ship that shot
+  at them, in range (320 m) and in sight.
+- **Troopers see a ship from 200 m**, not the 30 to 60 m they see a person on
+  foot from. The alarm also knows where the shots came from, so they turn to
+  face the ship.
+- Flying over town is still an offence on its own (free roam), as before.
+
 ## The locals thank you for Oda's jobs and the fence's drops (2026-11-28)
 
 - **A drop sold to the fence raises locals standing +3**, once per drop, at

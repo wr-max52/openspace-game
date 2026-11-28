@@ -62,6 +62,10 @@ var sees_vehicles := false
 ## An outpost's trooper watches the speeder or ship the target is in wherever it
 ## is (the vehicle's targetable()): out there it is just you, harder to hit.
 var vehicles_anywhere := false
+## Its garrison is fighting you (the alarm is up): the speeder or ship you are in
+## is a target wherever it is, as at an outpost. You shot first; staying outside
+## the town's footprint, or in a story save, is no cover (Garrison sets it each tick).
+var vehicle_fight := false
 ## Issue #96: a desert pack walks open ground with no navmesh: straight at its
 ## goal, along the ground (the ball's up), instead of standing still.
 var free_walk := false
@@ -527,15 +531,15 @@ func eye_position() -> Vector3:
 	var h: float = perception.eye_height
 	if bool(command.crouch):
 		h = float(profile.get("perception", {}).get("eye_height_crouched", 0.95))
-	return global_position + Vector3(0, h, 0)
+	return global_position + tilt.y * h      # along the ground's up: a tilted deck's (issue #838)
 
 
 ## Where a bolt leaves the rifle: forward of the chest, toward the aim.
 func muzzle_position() -> Vector3:
-	var chest := eye_position() - Vector3(0, 0.25, 0)
-	var to := (aim_point - chest) if aim_point != Vector3.INF else forward()
+	var chest := eye_position() - tilt.y * 0.25
+	var to := tilt.inverse() * ((aim_point - chest) if aim_point != Vector3.INF else forward())
 	to.y = clampf(to.y, -2.0, 2.0)
-	return chest + to.normalized() * 0.75 + Vector3(0, 0.0, 0)
+	return chest + (tilt * to).normalized() * 0.75
 
 
 ## Pull the trigger this frame at `point` (the brain calls it while firing). The
@@ -578,6 +582,7 @@ func reloading() -> bool:
 func brief(b: GuardBrain, at: Vector3, vel: Vector3) -> void:
 	b.pos = global_position
 	b.facing = rotation.y
+	b.tilt = tilt
 	b.hp_frac = float(health.hp) / maxf(1.0, float(max_health))
 	hostile = b.state == GuardBrain.State.COMBAT
 	b.arrived = arrived()
@@ -878,9 +883,13 @@ func _sense(dt: float) -> void:
 	var tpos := Vector3.INF
 	# A player in a ship's seat is not someone on foot to watch; a trooper still
 	# watches the speeder or ship they are in while it is a threat in town.
-	if target != null and is_instance_valid(target) and target.is_inside_tree() \
-			and (target.get("piloting") != true or hostile_vehicle() != null):
-		tpos = target.global_position
+	var hv: Node = null
+	if target != null and is_instance_valid(target) and target.is_inside_tree():
+		var riding: bool = target.get("piloting") == true
+		hv = hostile_vehicle() if riding else null
+		if not riding or hv != null:
+			tpos = target.global_position
+	perception.on_vehicle = hv != null       # a ship is seen much further off than a man
 	var crouched := _target_crouched()
 	var armed: bool = guest_target().armed() if guest_target() != null \
 		else (target_armed.call() if target_armed.is_valid() else false)
@@ -963,7 +972,7 @@ func hostile_vehicle(of: Node3D = null) -> Node:
 	var v = who.get("vehicle")
 	if v == null or not is_instance_valid(v):
 		return null
-	if not v.hostile_in_town() and not (vehicles_anywhere and v.targetable()):
+	if not v.hostile_in_town() and not ((vehicles_anywhere or vehicle_fight) and v.targetable()):
 		return null
 	return v
 
@@ -979,7 +988,7 @@ func _target_speed() -> float:
 func _ray_clear(tpos: Vector3) -> bool:
 	if tpos == Vector3.INF or not is_inside_tree():
 		return false
-	var to := tpos + Vector3(0, target_chest_height(), 0)
+	var to := tpos + tilt.y * target_chest_height()
 	var q := PhysicsRayQueryParameters3D.create(eye_position(), to)
 	q.exclude = [get_rid()]
 	q.collide_with_areas = false
@@ -1290,12 +1299,12 @@ func _animate(dt: float, move: Vector3) -> void:
 	if not _staged():
 		var look_at := Vector3.INF
 		if perception.visible:
-			look_at = target.global_position + Vector3(0, 1.5, 0)
+			look_at = target.global_position + tilt.y * 1.5
 		elif perception.heard and perception.heard_pos != Vector3.INF:
 			look_at = perception.heard_pos
 		var yaw := 0.0
 		if look_at != Vector3.INF:
-			var l := global_basis.inverse() * (look_at - eye_position())
+			var l := (tilt * Basis(Vector3.UP, rotation.y)).inverse() * (look_at - eye_position())
 			yaw = clampf(rad_to_deg(atan2(l.x, l.z)), -70.0, 70.0)
 		(joints.neck as Node3D).rotation_degrees.y = yaw * 0.4
 		(joints.head as Node3D).rotation_degrees.y = yaw * 0.6
@@ -1687,11 +1696,14 @@ func _tick_sip(dt: float) -> void:
 		act("sip", ClubMoves.SIP_S)
 
 
-## Radians up (+) or down toward the aim point, for the chest bend.
+## Radians up (+) or down toward the aim point, for the chest bend. Measured from
+## the ground's up (tilt), not the world's: on a deck stood level with the ball (the
+## skimmer outposts, 52 degrees round) a level aim read as up to 52 degrees up or
+## down, and the guards leant back with the rifle at the sky.
 func _aim_pitch() -> float:
 	if aim_point == Vector3.INF:
 		return -0.25
-	var to := aim_point - eye_position()
+	var to := tilt.inverse() * (aim_point - eye_position())
 	return atan2(to.y, Vector2(to.x, to.z).length())
 ## Issue #65: a billboarded bar over enemies. Enemy = fighting right now (hostile,
 ## from the brain) or hurt (it only loses hp to the player; same-faction fire is

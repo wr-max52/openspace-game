@@ -195,8 +195,9 @@ static func ends_on(c: Dictionary, name: String) -> bool:
 # ------------------------------------------------------------------ steps
 
 ## A chapter's steps ("steps": [{ id, done_on, text, target }]): its objective one
-## step at a time, each with its own waypoint (the fleet: land in the cruiser's
-## bay, reach the stairs, kill the general). A step is done when its flag is set.
+## step at a time, each with its own waypoint (the fleet: get a working ship from
+## T-89, land in the cruiser's bay, reach the stairs, kill the general). A step is
+## done when its flag is set, or while its "done_if" holds (_step_met).
 static func steps(c: Dictionary = {}) -> Array:
 	if c.is_empty():
 		c = chapter_cfg()
@@ -208,7 +209,23 @@ static func step_flag(c: Dictionary, s: Dictionary) -> String:
 
 
 static func step_done(c: Dictionary, s: Dictionary) -> bool:
-	return WorldState.has_flag(step_flag(c, s))
+	return WorldState.has_flag(step_flag(c, s)) or _step_met(str(s.get("done_if", "")))
+
+
+## A step's "done_if": a condition that counts it done while it holds.
+static func _step_met(cond: String) -> bool:
+	match cond:
+		"working_ship":
+			return has_working_ship()
+	return false
+
+
+## The player has a ship that flies: free roam's (the fleet unlocks the port's),
+## the one they flew in on, or one they own that is not shot to pieces.
+static func has_working_ship() -> bool:
+	if not WorldState.story_mode() or GameFlow.flown_ship != "":
+		return true
+	return WorldState.owns_ship() and not ShipSalesman.needs_repair()
 
 
 ## The step the chapter is on (the first not done), or {}.
@@ -229,7 +246,7 @@ static func _step_event(c: Dictionary, name: String) -> bool:
 		return false
 	var changed := false
 	for s in steps(c):
-		if not step_done(c, s):
+		if not WorldState.has_flag(step_flag(c, s)):     # not step_done: a done_if met by this very event still says what is next
 			WorldState.set_flag(step_flag(c, s))
 			changed = true
 		if str(s.get("done_on", "")) == name:
@@ -327,11 +344,22 @@ static func _tell(c: Dictionary, first: bool) -> Dictionary:
 	var say := line_of(c, "intro" if first else "remind")
 	if job_open and not first:
 		say = str(c.get("intro", ""))       # the job is on offer again: say what it is
+	var pitch := say                        # what they say with the card up: the card has the details
 	if job in ["j_bounty", "j_heist"] and job_open:
 		say += " " + str(WorldState.job(job).get("text", ""))     # issue #413: the heist names its outpost and pay
 	if say == "":
 		return {}
-	return { "say": say, "job": job if job_open else "" }
+	var out := { "say": say, "job": job if job_open else "" }
+	if job_open:
+		out.line = pitch
+	# A chapter that opens by closing the last one ("wrap_up"): that line first, the
+	# new work after it, one at a time in the box. "say" is still the whole of it.
+	var wrap := line_of(c, "wrap_up") if first else ""
+	if wrap != "":
+		out.say = wrap + " " + say
+		out.wrap_up = wrap
+		out.then = pitch if job_open else say
+	return out
 
 
 ## After the fleet: a bounty contract whenever none is out, else nothing (she
@@ -378,18 +406,26 @@ static func droid_wanted_kind() -> String:
 
 
 ## One droid of that kind handed over at a droid post. The last one ends the
-## chapter, and Oda's job card for it (taken or not).
-static func on_droid_delivered() -> void:
+## chapter, and Oda's job card for it (taken or not), and the merchant pays for
+## your trouble ("deliver": "pays"). Returns what they paid (0 before the last).
+static func on_droid_delivered() -> int:
 	if droids_wanted() <= 0:
-		return
+		return 0
 	WorldState.bump("merchant_droids")
 	WorldState.log_event("Delivered a droid to Oda's friend, the droid merchant.")
+	var paid := 0
 	if droids_wanted() == 0:
+		paid = int(chapter_cfg().get("deliver", {}).get("pays", 0))
+		if paid > 0:
+			WorldState.credits += paid
+			WorldState.log_event("The droid merchant paid %d cr for your trouble." % paid)
+			QuestNews.push("droid_delivered", "+%d cr" % paid)
 		var job := str(chapter_cfg().get("job", ""))
 		if job != "" and not WorldState.jobs_taken.has(job):
 			WorldState.jobs_taken[job] = "active"
 		WorldState._complete_jobs("droids_delivered")
 		event("droids_delivered")
+	return paid
 
 
 ## Oda's mood after a line (or when the player takes her job). In the first

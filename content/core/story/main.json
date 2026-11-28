@@ -1,6 +1,6 @@
 {
   "id": "main",
-  "note": "Issue #215: chapters land -> general -> t89 -> meet_oda -> range -> remote -> smuggle_1 -> droid_merchant -> heist (issue #413) -> bounty -> fleet -> debrief (issue #303) -> end -> free. 'done_on' may be a list: any of its events ends the chapter. 'modes': the save modes a chapter is in (default all; land, general and t89 are story only, so a freeplay story starts at meet_oda). 'chapter_renames': old chapter ids a save may hold. Issue #64: the main story line. Issue #193: 'done_flag': a chapter whose flag is already set when it starts is over at once (the cruiser taken before Oda asked). 'pays': credits the teller hands over with the intro. 'skipped': what finishing the chapter leaves behind, given when the settings skip past it (Story.skip_to): flags, counters (at least this many: the fence's armour wants a bounty paid) credits (the first bounty's first_pay, the cruiser's reward) and standing (the cruiser's reward); the chapter's 'pays' comes with them. Credits and standing are given once: not for a chapter already played, nor when its done_flag is set or its counters are already met. A skipped chapter's one-off job card (one with 'completes_on') is done, and in a story save the quests its telling unlocks ('told:<chapter>') are offered. A smuggling run pays what the fence gives for its goods, so skipping it pays nothing. Read by src/systems/flow/story.gd. Chapters run in order; each one ends on a game event ('done_on', reported to Story.event()). 'intro' is what the teller says the first time you talk to them in that chapter (it replaces their greeting), 'remind' what they say on later visits while it is still open. 'job' puts that job's card in front of the player with the line. T-89 (the droid in the pit) points you at Oda; Oda tells every other chapter. The last chapter ('free') never ends: smuggling runs and bounty contracts on repeat. Issue #381: 'time' is the chapter's time of day in a story save until the cruiser is won (src/systems/world/day_clock.gd), and 'time_after_job' switches it once you have taken that job (the bounty chapter goes to dusk on j_bounty). The town switches while you are indoors, or at the next trigger; a chapter with no 'time' keeps the light it has.",
+  "note": "Issue #215: chapters land -> general -> t89 -> meet_oda -> range -> remote -> smuggle_1 -> droid_merchant -> heist (issue #413) -> bounty -> fleet -> debrief (issue #303) -> end -> free. 'done_on' may be a list: any of its events ends the chapter. 'modes': the save modes a chapter is in (default all; land, general and t89 are story only, so a freeplay story starts at meet_oda). 'chapter_renames': old chapter ids a save may hold. Issue #64: the main story line. Issue #193: 'done_flag': a chapter whose flag is already set when it starts is over at once (the cruiser taken before Oda asked). 'pays': credits the teller hands over with the intro. 'skipped': what finishing the chapter leaves behind, given when the settings skip past it (Story.skip_to): flags, counters (at least this many: the fence's armour wants a bounty paid) credits (the first bounty's first_pay, the cruiser's reward) and standing (the cruiser's reward); the chapter's 'pays' comes with them. Credits and standing are given once: not for a chapter already played, nor when its done_flag is set or its counters are already met. A skipped chapter's one-off job card (one with 'completes_on') is done, and in a story save the quests its telling unlocks ('told:<chapter>') are offered. A smuggling run pays what the fence gives for its goods, so skipping it pays nothing. Read by src/systems/flow/story.gd. Chapters run in order; each one ends on a game event ('done_on', reported to Story.event()). 'wrap_up' (optional) closes the chapter before it: said first, on its own, and the 'intro' and its job card come after it when the player presses Next. 'deliver': the droids Oda's friend wants ('pays': what the merchant hands over for the last one). 'intro' is what the teller says the first time you talk to them in that chapter (it replaces their greeting), 'remind' what they say on later visits while it is still open. 'job' puts that job's card in front of the player with the line. T-89 (the droid in the pit) points you at Oda; Oda tells every other chapter. The last chapter ('free') never ends: smuggling runs and bounty contracts on repeat. Issue #381: 'time' is the chapter's time of day in a story save until the cruiser is won (src/systems/world/day_clock.gd), and 'time_after_job' switches it once you have taken that job (the bounty chapter goes to dusk on j_bounty). The town switches while you are indoors, or at the next trigger; a chapter with no 'time' keeps the light it has.",
   "chapters": [
     {
       "id": "land",
@@ -49,7 +49,8 @@
       "teller": "cantina_owner",
       "done_on": "range_visited",
       "pays": 40,
-      "intro": "Practice is practice: here's forty for your trouble. One more thing down in the pit, if you're up to it. There's a sparring droid by the range that takes shots at you. Block five in a row with a blade and it'll follow you home. Go on, then come back for real work.",
+      "wrap_up": "Practice is practice: here's forty for your trouble.",
+      "intro": "One more thing down in the pit, if you're up to it. There's a sparring droid by the range that takes shots at you. Block five in a row with a blade and it'll follow you home. Go on, then come back for real work.",
       "remind": "The sparring droid's in the pit. Five blocks in a row and it's yours. Or don't; just come back when you've had a look."
     },
     {
@@ -69,8 +70,8 @@
       "teller": "cantina_owner",
       "done_on": "droids_delivered",
       "job": "j_droid_merchant",
-      "deliver": { "kind": "cargo", "count": 1 },
-      "skipped": { "counters": { "merchant_droids": 1 } },
+      "deliver": { "kind": "cargo", "count": 1, "pays": 200 },
+      "skipped": { "counters": { "merchant_droids": 1 }, "credits": 200 },
       "intro": "A friend of mine is in need of a cargo droid. You could buy one, or fix one up in the desert. Take it to any of the droid merchants' posts out there. Get that done and I'll tell you about an incredible weapon.",
       "remind": "My friend still needs that cargo droid. Any droid merchant's post in the desert will take it."
     },
@@ -81,7 +82,8 @@
       "done_on": "heist_paid",
       "job": "j_heist",
       "skipped": { "counters": { "heists_paid": 1, "heists_taken": 1, "consoles_hacked": 1 }, "credits": 1080 },
-      "intro": "My friend's happy, so here's the weapon I promised: somebody stashed an energy blade up on top of this cantina's tower, and it's still there. Climb up and take it, you'll want it for this. One of my people and a droid will be right behind you when you go. Here's the job.",
+      "wrap_up": "My friend's happy, so here's the weapon I promised: somebody stashed an energy blade up on top of this cantina's tower, and it's still there. Climb up and take it.",
+      "intro": "Here's the job, and you'll want that blade for it.",
       "remind": "The flasks are still in that control room, or still in your pockets. Get them to the fence. And if you haven't, the blade's up on the cantina tower."
     },
     {
@@ -92,7 +94,8 @@
       "done_on": "bounty_paid",
       "job": "j_bounty",
       "skipped": { "counters": { "bounties_paid": 1, "bounties_killed": 1 }, "credits": 1200 },
-      "intro": "The fence says you didn't keep a single flask. Good. Now, two things. If you need to cross the desert, Skrugs sells speeders by the back gate, out behind this cantina. And there's a bounty.",
+      "wrap_up": "The fence says you didn't keep a single flask. Good.",
+      "intro": "Now, two things. If you need to cross the desert, Skrugs sells speeders by the back gate, out behind this cantina. And there's a bounty.",
       "remind": "The bounty's still open. Do it, then collect from the fence in the market."
     },
     {
@@ -103,13 +106,14 @@
       "done_on": "cruiser_taken",
       "done_flag": "cruiser_taken",
       "steps": [
+        { "id": "ship", "done_on": "ship_rebuilt", "done_if": "working_ship", "text": "Talk to T-89 in the pit to get a working ship", "target": "npc:t89" },
         { "id": "land", "done_on": "cruiser_landed", "text": "Land in the Remnant cruiser's bay, far east in orbit", "target": "cruiser:bay" },
         { "id": "infiltrate", "done_on": "cruiser_infiltrated", "text": "Infiltrate the cruiser: follow the corridor aft to the stairs", "target": "cruiser:stairs" },
         { "id": "kill", "done_on": "cruiser_taken", "text": "Kill %s on the bridge", "target": "cruiser:general" }
       ],
       "skipped": { "flags": ["cruiser_taken", "remnant_fleet_beaten", "locals_hero"], "counters": { "generals_killed": 1 }, "credits": 20000,
         "standing": { "imperial_remnant": -40, "locals": 60, "smuggler": 15 } },
-      "note": "Issue #64/#193: the space mission is the general on the Remnant cruiser's bridge, far out east in orbit. The fleet's fighters (the cruiser's escort) meet you on the way up; beating them is not the mission. 'title' is the quest banner when Oda tells it. 'steps': the chapter's objective one step at a time, each with its own waypoint (Objective.chapter_objective; the pointer words are in 'objectives'): a step ends on its 'done_on' event (Story.event flags '<chapter>_<step>' and the banner says the next; an event further on counts the steps before it too), and the last step's is the chapter's own. '%s' in a step's text is the general's name (Story.cruiser_general_name).",
+      "note": "Issue #64/#193: the space mission is the general on the Remnant cruiser's bridge, far out east in orbit. The fleet's fighters (the cruiser's escort) meet you on the way up; beating them is not the mission. 'title' is the quest banner when Oda tells it. 'steps': the chapter's objective one step at a time, each with its own waypoint (Objective.chapter_objective; the pointer words are in 'objectives'): a step ends on its 'done_on' event (Story.event flags '<chapter>_<step>' and the banner says the next; an event further on counts the steps before it too), and the last step's is the chapter's own. '%s' in a step's text is the general's name (Story.cruiser_general_name). A step's 'done_if' names a condition that also counts it done while it holds (Story.step_done): 'working_ship' is a ship you can fly from the pit (Story.has_working_ship), so the first step, T-89 for a ship, is ticked already when you have one.",
       "intro": "That made noise. The Remnant has its fleet up in orbit now, round a star cruiser way out east, and the general who runs every Remnant on this rock never leaves its bridge. The locals will pay twenty thousand to see him dead. Take your own ship up, land in the cruiser's bay and kill him. Expect fighters on the way up. If you haven't got a ship, T-89 in the pit will see you right.",
       "remind": "The general's still up there on the cruiser's bridge, far out east past the curve. Take your own ship up, land in its bay and kill him. Expect fighters on the way."
     },

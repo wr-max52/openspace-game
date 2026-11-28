@@ -11,6 +11,10 @@ extends Node
 ## Time is unscaled frame time, so the slow motion does not stretch the rest. Never slows
 ## time on LAN (NetSession: the session's clock is shared). Every number and the
 ## text are content/core/flow/defeated.json.
+##
+## A ship destroyed with you aboard (start_wreck) films the wreck instead: the same
+## flash, cut, title and black, round the point she blew up at, from further off
+## (the file's "ship" block, scaled to her length).
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
@@ -35,6 +39,8 @@ var _layer: CanvasLayer
 var _flash: ColorRect
 var _black: ColorRect
 var title: Label
+var focus := Vector3.INF           ## the wreck's point (start_wreck), else the body
+var focus_up := Vector3.ZERO       ## the ground's up there
 
 
 ## Starts the shot under `parent` (the town). `rig` may be null (headless traces):
@@ -47,6 +53,37 @@ static func start(parent: Node, who: Node3D, camera_rig: Node) -> DefeatedShot:
 	s.cfg = CoreContent.read_json(PATH)
 	parent.add_child(s)
 	return s
+
+
+## Your ship destroyed with you aboard. The shot is round `at` (where she
+## blew up), `up` the ground's up there, `size` her length over the 9 m the
+## "ship" block is written for.
+static func start_wreck(parent: Node, who: Node3D, camera_rig: Node, at: Vector3, up: Vector3,
+		size: float = 1.0) -> DefeatedShot:
+	var s := DefeatedShot.new()
+	s.name = "DefeatedShot"
+	s.player = who
+	s.rig = camera_rig
+	s.focus = at
+	s.focus_up = up.normalized() if up.length() > 0.01 else Vector3.UP
+	s.cfg = wreck_cfg(CoreContent.read_json(PATH), size)
+	parent.add_child(s)
+	return s
+
+
+## The on-foot numbers with the "ship" block over them; its distances (and the
+## rise) scale with `size`, never below the 9 m ship's.
+static func wreck_cfg(base: Dictionary, size: float = 1.0) -> Dictionary:
+	var out := base.duplicate()
+	out.erase("ship")
+	var ship: Dictionary = base.get("ship", {})
+	var k := maxf(1.0, size)
+	for key in ship:
+		if key == "note":
+			continue
+		var v = ship[key]
+		out[key] = float(v) * k if key in ["flash_side", "flash_up", "height", "back", "rise"] else v
+	return out
 
 
 func total() -> float:
@@ -139,6 +176,8 @@ func step(dt: float) -> void:
 
 ## The ground's up where you fell (a round planet's, not the world's).
 func _up() -> Vector3:
+	if focus_up != Vector3.ZERO:
+		return focus_up
 	var tilt = player.get("tilt")
 	return (tilt as Basis).y.normalized() if tilt is Basis else Vector3.UP
 
@@ -149,7 +188,7 @@ func _ok() -> bool:
 
 ## Your body shows in third person for the shot (first person draws it as a shadow).
 func _show_body() -> void:
-	if _avatar != null:
+	if _avatar != null or focus != Vector3.INF:
 		return
 	var kit := player.get_node_or_null("PlayerKit")
 	_avatar = kit.get("avatar") if kit != null else null
@@ -165,11 +204,17 @@ func _flash_shot() -> void:
 	_show_body()
 	var up := _up()
 	var at := body_point()
+	# A wreck is seen from the side the chase camera had her from.
+	var b: Basis = player.global_basis
+	if focus != Vector3.INF:
+		var cam: Camera3D = rig.call("camera")
+		if cam != null:
+			b = cam.global_basis
 	if _phase != "flash":
-		var r: Vector3 = player.global_basis.x
+		var r: Vector3 = b.x
 		_side = (r - up * r.dot(up)).normalized()
 	var pos := at + _side * float(cfg.get("flash_side", 2.4)) + up * float(cfg.get("flash_up", 0.9)) \
-		- (player.global_basis.z - up * player.global_basis.z.dot(up)).normalized() * 0.8
+		- (b.z - up * b.z.dot(up)).normalized() * 0.8
 	var xf := Transform3D(Basis.looking_at(at - pos, up), pos)
 	_place(xf, "flash", float(cfg.get("flash_fov", 50.0)))
 
@@ -205,6 +250,8 @@ func _overhead() -> void:
 
 ## Where the body is: the ragdoll's pelvis (PlayerKit's avatar), else the player.
 func body_point() -> Vector3:
+	if focus != Vector3.INF:
+		return focus
 	var kit := player.get_node_or_null("PlayerKit")
 	if kit != null and kit.get("avatar") != null:
 		var j: Dictionary = kit.avatar.joints
