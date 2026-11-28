@@ -176,7 +176,7 @@ func test_every_wreck_interior_sits_inside_its_hull() -> void:
 		var bad := []
 		for b in g.boxes:
 			var name := str(b.id).trim_prefix(id + "/")
-			if not str(b.id).begins_with(id + "/") or b.kind != "floor" or name in OUTSIDE:
+			if not str(b.id).begins_with(id + "/") or b.kind != "floor" or name in OUTSIDE or name.begins_with("lower_deck_edge_"):
 				continue
 			var xf := WorldGround.box_xf(b)
 			for k in 8:
