@@ -286,12 +286,14 @@ Players never see these.
 
 Stubs and fakes: things a player might expect that aren't there.
 
-- **The ring station:** the top floor (cantina, barracks, bridge) and the outpost
-  floor are empty (#314); the top floor's cantina has its Oda (smuggling runs
+- **The ring station:** the top floor's lounges and garden have nobody in them,
+  and its second cantina has no bartender; the general on the bridge only
+  stands and fights (no talk, no jobs, no card of his own); the off-duty
+  troopers in the barracks stand round the tables (no sitting, no sleeping in
+  the bunks); the top floor's cantina has its Oda (smuggling runs
   from the Remnant's levels to the favela fence) but no contracts; stalls have
   no keepers and sell nothing; four pads are empty; NPCs can't ride the elevator; the roof hatches need the jetpack; the
-  glass middle means you can't drop over the railing; the locals hold it for
-  good once taken (no retake or supply runs); the ring has no rocks (#312); home
+  glass middle means you can't drop over the railing; the ring has no rocks (#312); home
   can't be seen from it; without the look layer there's no furniture.
 - **The belt's wrecks (#317):** not on the F11 map or the objective pointer;
   their crates open once and stay open (as the desert's); you can't fly the

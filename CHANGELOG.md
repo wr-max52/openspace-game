@@ -2,6 +2,20 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The Remnant on the ring station's top floor (2026-11-28)
+
+- **A Remnant general stands on the bridge's command dais** by the great window,
+  with an honour guard either side of its steps.
+- **Troopers off duty in both barracks**, four in each, round the card tables
+  and in the bunk aisle. They are slower to spot you than troopers on duty.
+- **They are part of the station's Remnant.** Clearing the Remnant deck in the
+  second tower is no longer enough: the station falls to the locals only once
+  the general, his guard and the off-duty troopers are dead too. Then the
+  locals' guards stand some of their posts, and if those guards die the
+  Remnant have it all back.
+- They fight where they stand, so a fight on the deck doesn't send them
+  walking across the station.
+
 ## The seeker launcher's tube is gray (2026-11-28)
 
 - **The seeker launcher's tube is painted gray** instead of olive, so it sits
