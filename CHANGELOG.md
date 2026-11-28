@@ -72,6 +72,24 @@ Plain English, newest on top. One entry per milestone.
   last pose until they come into view, as a far one already did.
 - The distances are in `content/core/npcs/wake_rings.json` (`by_distance`).
 
+## Coming down from the gas giant: no more long freezes (2026-11-27)
+
+- **Flying home from the gas giant is much smoother.** That flight loads the
+  home planet fresh, and its worst frame on the way down was over three
+  quarters of a second (the rocks). Now the worst is about an eighth of a
+  second, and half as many frames go over budget.
+- **The rocks and wrecks are worked out on the way in.** From 30 km out in open
+  space, the mountains', spires' and boulders' shapes and the wrecks' parts
+  are made on other threads; on the way down they only go in, a rock at a time.
+- **The wreck field and the garrisons' cover spots are worked out off the main
+  thread**, and the natives' camp textures paint behind a plain colour, as the
+  club's already do.
+- **Ships' hulls are fitted once, not every session:** the shapes are kept in
+  `user://hull_fits.json`, so the port's parked ships and the interceptor no
+  longer cost a fifth of a second each time.
+- Graphics may come in a moment later on that flight; nothing looks different
+  once it has.
+
 ## The racers drive the checkpoints, down the valleys (2026-11-27)
 
 - **NPC racers now drive exactly the course the checkpoints set:** a straight

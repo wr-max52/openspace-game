@@ -125,140 +125,180 @@ static func _done(key: String, img: Image) -> ImageTexture:
 	return t
 
 
+## Issue #714: a handoff paints on a worker thread (the first camp of a session
+## painted them all on one frame, ~170 ms on the way down from the gas giant).
+## Set by the town, like ClubTextures.async_paint.
+static var async_paint := false
+static var _tasks := {}
+
+
+## `paint` makes the texture's image (pure: any thread). Painted now, or with
+## async_paint a flat `hint` stand-in now and the painting when its worker is done.
+static func _start(key: String, hint: Color, paint: Callable) -> ImageTexture:
+	if not async_paint:
+		return _done(key, paint.call())
+	var img := Image.create(4, 4, false, Image.FORMAT_RGB8)
+	img.fill(Color(hint.r, hint.g, hint.b))
+	var t := ImageTexture.create_from_image(img)
+	_tex[key] = t
+	_tasks[key] = WorkerThreadPool.add_task(CampTextures._paint_job.bind(key, paint, t), false, "camp texture")
+	return t
+
+
+static func _paint_job(key: String, paint: Callable, t: ImageTexture) -> void:
+	var img: Image = paint.call()
+	img.generate_mipmaps()
+	CampTextures._land.call_deferred(key, t, img)
+
+
+## Main thread: the painted image into the texture the materials already hold.
+static func _land(key: String, t: ImageTexture, img: Image) -> void:
+	t.set_image(img)
+	if _tasks.has(key):
+		WorkerThreadPool.wait_for_task_completion(_tasks[key])
+		_tasks.erase(key)
+
+
 ## Grey mottling around white (multiplies a material's colour), seamless.
 static func _speckle_tex(seed_value: int, freq: float) -> ImageTexture:
 	var key := "speckle_%d_%s" % [seed_value, freq]
 	if _tex.has(key):
 		return _tex[key]
-	var img := _noise(seed_value, freq, 5).get_seamless_image(SIZE, SIZE)
-	img.convert(Image.FORMAT_RGB8)
-	var fine := _noise(seed_value + 1, freq * 6.0, 2)
-	for y in SIZE:
-		for x in SIZE:
-			var v := img.get_pixel(x, y).r
-			var f := fine.get_noise_2d(x, y) * 0.5 + 0.5
-			var g := clampf(0.62 + v * 0.3 + f * 0.16, 0.0, 1.0)
-			img.set_pixel(x, y, Color(g, g, g))
-	return _done(key, img)
+	return _start(key, Color(0.8, 0.8, 0.8), func() -> Image:
+		var img := _noise(seed_value, freq, 5).get_seamless_image(SIZE, SIZE)
+		img.convert(Image.FORMAT_RGB8)
+		var fine := _noise(seed_value + 1, freq * 6.0, 2)
+		for y in SIZE:
+			for x in SIZE:
+				var v := img.get_pixel(x, y).r
+				var f := fine.get_noise_2d(x, y) * 0.5 + 0.5
+				var g := clampf(0.62 + v * 0.3 + f * 0.16, 0.0, 1.0)
+				img.set_pixel(x, y, Color(g, g, g))
+		return img)
 
 
 static func _bump_tex(seed_value: int, freq: float, strength: float) -> ImageTexture:
 	var key := "bump_%d_%s_%s" % [seed_value, freq, strength]
 	if _tex.has(key):
 		return _tex[key]
-	var img := _noise(seed_value + 7, freq * 2.0, 5).get_seamless_image(SIZE, SIZE)
-	img.convert(Image.FORMAT_RGB8)
-	img.bump_map_to_normal_map(strength)
-	return _done(key, img)
+	return _start(key, Color(0.5, 0.5, 1.0), func() -> Image:
+		var img := _noise(seed_value + 7, freq * 2.0, 5).get_seamless_image(SIZE, SIZE)
+		img.convert(Image.FORMAT_RGB8)
+		img.bump_map_to_normal_map(strength)
+		return img)
 
 
 static func _hide_tex() -> ImageTexture:
 	if _tex.has("hide"):
 		return _tex.hide
-	var n := _noise(5, 0.03, 4)
-	var hair := _noise(6, 0.35, 1)
-	var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 96
-	var patches: Array = []
-	for k in 2:
-		var w := rng.randi_range(22, 40)
-		var h := rng.randi_range(18, 34)
-		patches.append(Rect2i(rng.randi_range(14, SIZE - 14 - w), rng.randi_range(10, SIZE - 10 - h), w, h))
-	for y in SIZE:
-		for x in SIZE:
-			var v := 0.84 + n.get_noise_2d(x, y) * 0.16 + hair.get_noise_2d(x * 0.3, y * 2.0) * 0.05
-			v += 0.06 * (1.0 - float(y) / SIZE)            # bleached towards the top
-			var edge := mini(x, SIZE - 1 - x)
-			if edge < 3:
-				v *= 0.62 + 0.1 * edge                      # the seam
-			elif edge == 5 and (y / 3) % 2 == 0:
-				v *= 0.7                                    # its stitches
-			for r: Rect2i in patches:
-				if r.has_point(Vector2i(x, y)):
-					v *= 0.88
-					var bx := mini(x - r.position.x, r.end.x - 1 - x)
-					var by := mini(y - r.position.y, r.end.y - 1 - y)
-					if mini(bx, by) == 1 and ((x + y) / 2) % 2 == 0:
-						v *= 0.65
-			v = clampf(v, 0.0, 1.0)
-			img.set_pixel(x, y, Color(v, v * 0.98, v * 0.95))
-	return _done("hide", img)
+	return _start("hide", Color(0.85, 0.83, 0.8), func() -> Image:
+		var n := _noise(5, 0.03, 4)
+		var hair := _noise(6, 0.35, 1)
+		var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 96
+		var patches: Array = []
+		for k in 2:
+			var w := rng.randi_range(22, 40)
+			var h := rng.randi_range(18, 34)
+			patches.append(Rect2i(rng.randi_range(14, SIZE - 14 - w), rng.randi_range(10, SIZE - 10 - h), w, h))
+		for y in SIZE:
+			for x in SIZE:
+				var v := 0.84 + n.get_noise_2d(x, y) * 0.16 + hair.get_noise_2d(x * 0.3, y * 2.0) * 0.05
+				v += 0.06 * (1.0 - float(y) / SIZE)            # bleached towards the top
+				var edge := mini(x, SIZE - 1 - x)
+				if edge < 3:
+					v *= 0.62 + 0.1 * edge                      # the seam
+				elif edge == 5 and (y / 3) % 2 == 0:
+					v *= 0.7                                    # its stitches
+				for r: Rect2i in patches:
+					if r.has_point(Vector2i(x, y)):
+						v *= 0.88
+						var bx := mini(x - r.position.x, r.end.x - 1 - x)
+						var by := mini(y - r.position.y, r.end.y - 1 - y)
+						if mini(bx, by) == 1 and ((x + y) / 2) % 2 == 0:
+							v *= 0.65
+				v = clampf(v, 0.0, 1.0)
+				img.set_pixel(x, y, Color(v, v * 0.98, v * 0.95))
+		return img)
 
 
 static func _rug_tex(color: Color, accent: Color) -> ImageTexture:
 	var key := "rug_%s_%s" % [color.to_html(), accent.to_html()]
 	if _tex.has(key):
 		return _tex[key]
-	var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
-	var light := color.lightened(0.35)
-	for y in SIZE:
-		for x in SIZE:
-			var c := color
-			var by := absi(y - SIZE / 2)
-			if y < 6 or y >= SIZE - 6:
-				c = accent.darkened(0.2)                  # the borders
-			elif y in [10, 11, SIZE - 12, SIZE - 11]:
-				c = light
-			elif by < 16:
-				# A row of diamonds across the middle.
-				var dx := absi((x % 32) - 16)
-				var d := dx + by
-				c = accent if d < 13 else (light if d < 15 else color)
-				if d < 5:
-					c = color
-			elif (by > 26 and by < 30):
-				c = accent if (x / 4) % 2 == 0 else light
-			# The weave: alternate threads a touch lighter and darker.
-			var w := 0.94 if (x + y) % 2 == 0 else 1.04
-			img.set_pixel(x, y, Color(c.r * w, c.g * w, c.b * w))
-	return _done(key, img)
+	return _start(key, color, func() -> Image:
+		var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
+		var light := color.lightened(0.35)
+		for y in SIZE:
+			for x in SIZE:
+				var c := color
+				var by := absi(y - SIZE / 2)
+				if y < 6 or y >= SIZE - 6:
+					c = accent.darkened(0.2)                  # the borders
+				elif y in [10, 11, SIZE - 12, SIZE - 11]:
+					c = light
+				elif by < 16:
+					# A row of diamonds across the middle.
+					var dx := absi((x % 32) - 16)
+					var d := dx + by
+					c = accent if d < 13 else (light if d < 15 else color)
+					if d < 5:
+						c = color
+				elif (by > 26 and by < 30):
+					c = accent if (x / 4) % 2 == 0 else light
+				# The weave: alternate threads a touch lighter and darker.
+				var w := 0.94 if (x + y) % 2 == 0 else 1.04
+				img.set_pixel(x, y, Color(c.r * w, c.g * w, c.b * w))
+		return img)
 
 
 static func _grain_tex() -> ImageTexture:
 	if _tex.has("grain"):
 		return _tex.grain
-	var n := _noise(13, 0.05, 3)
-	var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
-	for y in SIZE:
-		for x in SIZE:
-			var warp := n.get_noise_2d(x * 0.4, y * 0.05) * 9.0
-			var ring := sin((x + warp) * 0.9) * 0.5 + 0.5
-			var v := 0.7 + ring * 0.22 + n.get_noise_2d(x * 3.0, y * 0.2) * 0.08
-			v = clampf(v, 0.0, 1.0)
-			img.set_pixel(x, y, Color(v, v, v))
-	return _done("grain", img)
+	return _start("grain", Color(0.8, 0.8, 0.8), func() -> Image:
+		var n := _noise(13, 0.05, 3)
+		var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
+		for y in SIZE:
+			for x in SIZE:
+				var warp := n.get_noise_2d(x * 0.4, y * 0.05) * 9.0
+				var ring := sin((x + warp) * 0.9) * 0.5 + 0.5
+				var v := 0.7 + ring * 0.22 + n.get_noise_2d(x * 3.0, y * 0.2) * 0.08
+				v = clampf(v, 0.0, 1.0)
+				img.set_pixel(x, y, Color(v, v, v))
+		return img)
 
 
 static func _can_tex(color: Color, band: Color) -> ImageTexture:
 	var key := "can_%s_%s" % [color.to_html(), band.to_html()]
 	if _tex.has(key):
 		return _tex[key]
-	var chip := _noise(17, 0.09, 4)
-	var rust_n := _noise(19, 0.05, 4)
-	var rust := Color("#6a3a1e")
-	var bare := Color("#7c7a74")
-	var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var scratches: Array = []
-	for k in 10:
-		scratches.append(Vector3(rng.randf_range(0, SIZE), rng.randf_range(0, SIZE), rng.randf_range(-0.5, 0.5)))
-	for y in SIZE:
-		var v := float(y) / SIZE                          # 0 at the top, 1 at the bottom
-		for x in SIZE:
-			var c := band if v > 0.3 and v < 0.45 else color
-			if (v > 0.08 and v < 0.1) or (v > 0.9 and v < 0.92):
-				c = c.darkened(0.35)                      # the rolled rims
-			var ch := chip.get_noise_2d(x, y)
-			if ch > 0.32:
-				c = bare                                  # paint chipped off
-			var r := rust_n.get_noise_2d(x, y) * 0.5 + 0.5
-			var up := smoothstep(0.55, 1.0, v)
-			c = c.lerp(rust, clampf(up * r * 1.6 + (0.6 if ch > 0.42 else 0.0), 0.0, 0.85))
-			for s: Vector3 in scratches:
-				var dx := float(x) - (s.x + (float(y) - s.y) * s.z)
-				if absf(dx) < 0.6 and absf(float(y) - s.y) < 14.0:
-					c = c.lightened(0.25)
-			img.set_pixel(x, y, c)
-	return _done(key, img)
+	return _start(key, color, func() -> Image:
+		var chip := _noise(17, 0.09, 4)
+		var rust_n := _noise(19, 0.05, 4)
+		var rust := Color("#6a3a1e")
+		var bare := Color("#7c7a74")
+		var img := Image.create(SIZE, SIZE, false, Image.FORMAT_RGB8)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var scratches: Array = []
+		for k in 10:
+			scratches.append(Vector3(rng.randf_range(0, SIZE), rng.randf_range(0, SIZE), rng.randf_range(-0.5, 0.5)))
+		for y in SIZE:
+			var v := float(y) / SIZE                          # 0 at the top, 1 at the bottom
+			for x in SIZE:
+				var c := band if v > 0.3 and v < 0.45 else color
+				if (v > 0.08 and v < 0.1) or (v > 0.9 and v < 0.92):
+					c = c.darkened(0.35)                      # the rolled rims
+				var ch := chip.get_noise_2d(x, y)
+				if ch > 0.32:
+					c = bare                                  # paint chipped off
+				var r := rust_n.get_noise_2d(x, y) * 0.5 + 0.5
+				var up := smoothstep(0.55, 1.0, v)
+				c = c.lerp(rust, clampf(up * r * 1.6 + (0.6 if ch > 0.42 else 0.0), 0.0, 0.85))
+				for s: Vector3 in scratches:
+					var dx := float(x) - (s.x + (float(y) - s.y) * s.z)
+					if absf(dx) < 0.6 and absf(float(y) - s.y) < 14.0:
+						c = c.lightened(0.25)
+				img.set_pixel(x, y, c)
+		return img)

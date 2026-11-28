@@ -20,23 +20,25 @@ each PR checked and measured, are in the archive under "The per-PR log".
 
 ## 1. Freezes, hitches and crashes
 
-1. **Long frames coming down to a planet, worst flying in from the gas
-   giant.** Home loading fresh (a session that has not been home yet) has 42
-   frames over the 33 ms budget, worst 384 ms: the rock landforms' meshes and
-   trimeshes (~366 ms, one step), the wrecks' boxes and plates (~320 ms piece),
-   the town garrison (~225 ms), the decor batch flush (~170 ms) and the first
-   native body (~170 ms, pipeline compiles). The descent trace warms home before
-   it measures, so it does not show this. With home loaded once already: 21
-   frames over, worst ~93 ms, p99 21.6 ms; the switch is ~71 ms (desert, its
-   dust, the ship's pilot, 96 far-ball uploads). Single pieces left: the club
-   room's booths (~85 ms) and an instrument (~48), the barge's first commit and
-   hull skin (~40 each), the cruiser's first hull piece (~38), decor step 7
-   (~41), a town box (~34), the player's body (~33), each native pack member
-   (21-39), an outpost (~20). Nothing is let go once built, and only the home
-   planet builds by sight. *(#573, #574, #693, 2026-11-26; fix: #693)*
+1. **Long frames coming down to a planet.** Flying in from the gas giant (home
+   loading fresh, `DESCENT_WARM=ringed_giant`): 27 frames over the 33 ms budget,
+   worst ~115 ms, p99 ~20 ms. Left on that route only: the first rock
+   material (~42 ms, the rock shader made the first time a session uses it),
+   the first wreck plates (~60 ms piece, the wreck shader likewise) and the
+   first native camp (21 pipelines). With home loaded once already: 18 frames
+   over, worst ~90-97 ms; the switch is ~60-97 ms (desert, its dust,
+   the ship's pilot, 96 far-ball uploads). Single pieces left on both routes:
+   the club room's booths (~80-90 ms), the barge's first commit and hull skin
+   (~40-50 each), the cruiser's first hull piece (~42-62), decor step 7 (~41),
+   a town box (~30-35), the player's body (~34), each native camp's tent
+   (35-45), NPC bodies (a patron ~43, a vendor ~31), an outpost (~28). Nothing
+   is let go once built, and only the home planet builds by sight. *(#573,
+   #574, #693, #714, 2026-11-27; fix: #716, #715, #717)*
 2. **A first descent on a fresh install** has ~14 s of ~450 ms frames between
-   2.1 and 1.4 km: shader compiles, once per install. Everyone who gets a share
-   build hits it. *(#574, 2026-11-24; fix: #693)*
+   2.1 and 1.4 km: shader compiles, once per install (with the disk shader
+   cache a shader's first draw is ~1.5 ms). Everyone who gets a share build
+   hits it. A warm-up in open space would only move the compiles there: they
+   run on the main thread. *(#574, 2026-11-24; #714, 2026-11-27)*
 3. **Godot's default Metal driver crashed at launch on this Mac**, inside the GPU
    driver, even for an empty project. Everything since has been rendered with
    `--rendering-driver vulkan`. Not rechecked on Godot 4.7.2; check which driver

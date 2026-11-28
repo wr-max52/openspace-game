@@ -629,11 +629,39 @@ static var _town_spots := {}
 
 
 static func town_spots(t, bounds: AABB) -> Array:
-	var data: Dictionary = t.data if t.data is Dictionary else {}
-	var key := "%s/%d/%s" % [str(data.get("id", "")), t.boxes().size(), bounds]
+	var key := _spots_key(t, bounds)
+	if not _town_spots.has(key) and _spot_jobs.has(key):
+		var job: Array = _spot_jobs[key]           # [task, result]
+		_spot_jobs.erase(key)
+		WorkerThreadPool.wait_for_task_completion(int(job[0]))
+		_town_spots[key] = job[1]
 	if not _town_spots.has(key):
 		_town_spots[key] = CoverPicker.candidates(t.boxes(), bounds.get_center(), bounds.size.length())
 	return _town_spots[key]
+
+
+## Issue #714: home loading fresh, the cover spots were most of the town
+## garrison's ~225 ms frame. A handoff starts them on a worker as the town is
+## loaded (TownDemo), long before the garrison asks for them. Pure data: a copy
+## of the town's boxes in, a list of spots out.
+static var _spot_jobs := {}
+
+
+static func prepare_spots(t) -> void:
+	var bounds := TownNav.town_bounds(t)
+	var key := _spots_key(t, bounds)
+	if _town_spots.has(key) or _spot_jobs.has(key):
+		return
+	var boxes: Array = (t.boxes() as Array).duplicate(true)
+	var job := [-1, []]
+	job[0] = WorkerThreadPool.add_task(func(): job[1] = CoverPicker.candidates(boxes, bounds.get_center(), bounds.size.length()),
+		false, "cover spots")
+	_spot_jobs[key] = job
+
+
+static func _spots_key(t, bounds: AABB) -> String:
+	var data: Dictionary = t.data if t.data is Dictionary else {}
+	return "%s/%d/%s" % [str(data.get("id", "")), t.boxes().size(), bounds]
 
 
 ## Drop spots the navmesh cannot reach, a slice a frame once the mesh is in
