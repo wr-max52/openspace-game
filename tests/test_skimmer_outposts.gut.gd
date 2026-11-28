@@ -535,3 +535,19 @@ func test_a_dead_troopers_gun_lies_on_the_deck_where_he_fell() -> void:
 	assert_between(at.y, 0.0, 0.6, "on the deck (%s)" % at)
 	assert_lt(Vector2(at.x - fell.x, at.z - fell.z).length(), 2.5, "by him, not slid off across the deck (%s, he fell at %s)" % [at, fell])
 	assert_lt(w.linear_velocity.length(), 0.1, "and still")
+
+
+## Issue #886: a supply run to a skimmer points at its bay.
+func test_the_supply_runs_pointer_finds_the_skimmers_bay() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	var hud := ObjectiveHud.new()
+	hud.demo = t
+	add_child_autofree(hud)
+	var at: Vector3 = hud.where("outpost:station_skimmer_east")
+	assert_ne(at, Vector3.INF, "the pointer has somewhere to go")
+	assert_lt(at.distance_to(s.objective_point("bay")), 0.01, "the skimmer's bay")
+	assert_eq(hud.where("outpost:station_nowhere"), Vector3.INF, "a station that is not here: nowhere")

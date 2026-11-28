@@ -429,7 +429,10 @@ static func open_jobs(tier: String) -> Array:
 			continue
 		if kind == "bounty" and not (bounty_ready() and not local_outposts().is_empty() and (away or Story.bounties_open())):
 			continue
-		if kind == "supply" and (away or Territory.supply_target() == "" or Territory.supplier()):
+		# Issue #886: away from the port the supply run is only where the locals' outposts
+		# run on a clock of their own front (the station city's cantina, for the belt's skimmers).
+		if kind == "supply" and ((away and not Territory.clocked_by_barracks(Territory.here())) \
+				or Territory.supply_target() == "" or Territory.supplier()):
 			continue
 		if kind == "heist" and not Heist.can_offer(j):
 			continue                       # issue #310: one at a time, somewhere to hit

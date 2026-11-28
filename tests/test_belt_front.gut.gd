@@ -16,6 +16,10 @@ func before_each() -> void:
 	WorldState.new_game(WorldState.FREEPLAY)
 
 
+func after_each() -> void:
+	GameFlow.planet_id = ""
+
+
 func after_all() -> void:
 	WorldState.reset()
 
@@ -51,8 +55,10 @@ func test_a_skimmer_runs_on_the_home_worlds_clock_till_the_barracks_fall() -> vo
 	assert_between(Territory.hold_frac(EAST), 0.99, 1.0, "the map shows its clock")
 	Territory.tick(Territory.n("hold_s", 0.0) - Territory.n("supply_warn_s", 0.0) + 1.0)
 	assert_true(Territory.short(EAST), "running short")
-	assert_true(WorldState.has_flag("outpost_short"), "Oda's board knows")
-	assert_eq(Territory.supply_target(), EAST, "the supply run goes there")
+	assert_true(WorldState.has_flag("outpost_short"), "the board knows")
+	GameFlow.planet_id = "ringed_giant"
+	assert_eq(Territory.supply_target(), EAST, "on the giant the supply run goes there")
+	GameFlow.planet_id = ""
 	Territory.tick(Territory.n("supply_warn_s", 0.0))
 	assert_eq(Territory.owner(EAST), Territory.REMNANT, "out of time: the Remnant have it back")
 
@@ -60,7 +66,8 @@ func test_a_skimmer_runs_on_the_home_worlds_clock_till_the_barracks_fall() -> vo
 func test_a_supply_run_fills_a_skimmers_clock() -> void:
 	Territory.take(EAST)
 	Territory.tick(Territory.n("hold_s", 0.0) - 100.0)
-	assert_true(Territory.start_supply(), "Oda's supply job")
+	GameFlow.planet_id = "ringed_giant"
+	assert_true(Territory.start_supply(), "the station city's supply job")
 	assert_eq(Territory.supply_out(), EAST)
 	assert_true(Territory.can_deliver(EAST))
 	var before := WorldState.credits
@@ -129,3 +136,59 @@ func test_the_home_fronts_rules_are_unchanged() -> void:
 	assert_false(Territory.clocked_by_barracks("moon"))
 	assert_false(Territory.clocked_by_barracks("lava_moon"))
 	assert_true(Territory.locked("remnant_outpost_lava_basalt"), "the lava moon's outposts still answer to the belt cruiser")
+
+
+# ------------------------------------------------------------------ the supply run at the station city (issue #886)
+
+func _short_skimmer() -> void:
+	Territory.take(EAST)
+	Territory.tick(Territory.n("hold_s", 0.0) - Territory.n("supply_warn_s", 0.0) + 1.0)
+
+
+func _board_has_supply() -> bool:
+	return WorldState.open_jobs("confidant").any(func(j): return str(j.id) == Territory.SUPPLY_JOB)
+
+
+func test_the_station_citys_cantina_offers_the_skimmers_supply_run() -> void:
+	_short_skimmer()
+	GameFlow.planet_id = "ringed_giant"
+	assert_true(_board_has_supply(), "the supplies card is on the station city's board")
+	assert_eq(Territory.supply_target(), EAST, "naming the skimmer")
+	assert_true(Territory.start_supply())
+	var o := Objective.of("supply")
+	assert_eq(str(o.get("target", "")), "outpost:" + EAST, "the pointer goes to the skimmer")
+	assert_true(str(o.get("text", "")).contains(Story.outpost_label(EAST)), "by its name")
+
+
+func test_the_ports_oda_keeps_to_the_desert() -> void:
+	_short_skimmer()
+	GameFlow.planet_id = ""
+	assert_eq(Territory.supply_target(), "", "no desert outpost is short: Oda has no run")
+	assert_false(_board_has_supply(), "and no card at the port for a skimmer")
+
+
+func test_each_cantina_sends_you_to_its_own_planets_outpost() -> void:
+	Territory.take("remnant_outpost_near")
+	Territory.take(EAST)
+	Territory.tick(Territory.n("hold_s", 0.0) - Territory.n("supply_warn_s", 0.0) + 1.0)
+	GameFlow.planet_id = ""
+	assert_eq(Territory.supply_target(), "remnant_outpost_near", "the port's Oda: the desert outpost")
+	GameFlow.planet_id = "ringed_giant"
+	assert_eq(Territory.supply_target(), EAST, "the station city's: the skimmer")
+
+
+func test_no_supply_card_where_no_front_runs_a_clock() -> void:
+	_short_skimmer()
+	GameFlow.planet_id = "grit_station"
+	assert_false(_board_has_supply(), "the moon's cantina has no supply run")
+
+
+func test_once_a_supplier_the_card_leaves_the_board() -> void:
+	_short_skimmer()
+	GameFlow.planet_id = "ringed_giant"
+	assert_true(Territory.start_supply())
+	assert_eq(Territory.deliver(EAST) > 0, true, "delivered")
+	_short_skimmer()
+	WorldState.control[EAST].hold = 100.0
+	assert_false(_board_has_supply(), "no card again: any short skimmer takes your supplies now")
+	assert_true(Territory.supplier() and Territory.can_deliver(EAST))
