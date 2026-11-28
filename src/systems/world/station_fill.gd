@@ -11,7 +11,7 @@ extends RefCounted
 ##             in the station's grey metal in the outer ring, with lanes kept clear
 ##             to every tunnel door
 ##   engines   the engine deck's rooms by turn ("rooms" in its block): reactors,
-##             cargo holds (one with the drop hatch, sealed until #317), pump
+##             cargo holds (one with the drop hatch down to the belt's wrecks, #317), pump
 ##             rooms and workshops; pipes round the walkway's ceiling
 ##
 ## The render rules (docs/station/STATION_FILL.md): every part goes through the
@@ -443,7 +443,7 @@ func _rin() -> float:
 ## inner wall): strips `step` deep across the room, cut to its shape (the inner
 ## wall's arc by the door, the side walls, the window's arc; _skirt hides the
 ## steps along the walls).
-func _cover(x0: float, x1: float, half: float, mat: Material, y := 0.0, step := 0.8) -> void:
+func _cover(x0: float, x1: float, half: float, mat: Material, y := 0.0, step := 0.8, hole := Rect2()) -> void:
 	var rin := _rin()
 	if x0 <= rin + 0.5:
 		x0 = rin * cos(half)
@@ -451,9 +451,15 @@ func _cover(x0: float, x1: float, half: float, mat: Material, y := 0.0, step := 
 	var x := x0
 	while x < x1 - 0.05:
 		var d := minf(step, x1 - x)
+		if hole.has_area() and x < hole.position.x and x + d > hole.position.x:
+			d = hole.position.x - x                  # issue #317: a strip ends at the hole's edge
+		elif hole.has_area() and x >= hole.position.x - 0.001 and x < hole.end.x:
+			d = minf(d, hole.end.x - x)
 		var xm := x + d * 0.5
 		var zo := minf(_wall_z(xm, half) + 0.05, sqrt(maxf(0.0, _win_r * _win_r - (x + d) * (x + d))))
 		var zi := sqrt(maxf(0.0, rin * rin - x * x))
+		if hole.has_area() and xm > hole.position.x and xm < hole.end.x:
+			zi = maxf(zi, hole.end.y)                # across the hole: only either side of it
 		if zi < 0.05:
 			_p(kit.box(d, 0.02, snappedf(2.0 * zo, 0.01)), mat, Vector3(xm, y + 0.01, 0))
 		elif zo > zi + 0.05:
@@ -2134,20 +2140,26 @@ func _engines(t: Dictionary, f: Dictionary, fc: Dictionary) -> void:
 	var r1 := float(f.r) - StationHull.WALL
 	var uses: Array = fc.get("rooms", ["engine", "cargo", "pumps", "workshop"])
 	var k := 0
-	var hatch := false
+	# Issue #317: the belt's drop hatch is in one of these rooms (StationHull.drop_hatch).
+	var dh := hull.drop_hatch()
+	var hatch_room := int(dh.room) if not dh.is_empty() and str(dh.tower) == str(t.id) \
+		and str((t.floors as Array)[int(dh.floor)].id) == str(f.id) else -1
 	for room in hull.rooms_of(str(t.id), str(f.id)):
 		var at := radial(t, float(f.y), float(room.a))
 		var use := str(uses[k % uses.size()])
 		var mid := (r0 + r1) * 0.5
 		var half := float(room.half)
-		_q.append(_in.bind(at, _engine_shell.bind(r0, r1, half, k, use)))
+		var hole := Rect2()
+		if k == hatch_room:
+			var hs := float(dh.size) * 0.5 + 0.05
+			hole = Rect2(float(dh.r) - hs, -hs, hs * 2.0, hs * 2.0)
+		_q.append(_in.bind(at, _engine_shell.bind(r0, r1, half, k, use, hole)))
 		match use:
 			"engine":
 				_q.append(_in.bind(at, _reactor.bind(mid + 1.5, half)))
 				_q.append(_in.bind(at, _reactor_more.bind(r0, r1, mid + 1.5, half)))
 			"cargo":
-				_q.append(_in.bind(at, _cargo.bind(r0, r1, half, not hatch, _rng.randi())))
-				hatch = true
+				_q.append(_in.bind(at, _cargo.bind(r0, r1, half, k == hatch_room, _rng.randi())))
 			"pumps":
 				_q.append(_in.bind(at, _pumps.bind(mid, half)))
 				_q.append(_in.bind(at, _pumps_more.bind(r0, r1, mid, half)))
@@ -2170,8 +2182,8 @@ func _in(at: Transform3D, job: Callable) -> void:
 ## Every engine room: tread plate on the floor, a hazard line across it inside
 ## the door, pipe runs along both walls, a catwalk round them at 6 m (railed,
 ## with a ladder up), a cable tray down the middle with lamps hung from it.
-func _engine_shell(r0: float, r1: float, half: float, k: int, use: String) -> void:
-	_cover(r0, r1, half, _t("plate", Dressing.c("station_fill", "plate_dark", "#5a6068")))
+func _engine_shell(r0: float, r1: float, half: float, k: int, use: String, hole := Rect2()) -> void:
+	_cover(r0, r1, half, _t("plate", Dressing.c("station_fill", "plate_dark", "#5a6068")), 0.0, 0.8, hole)
 	_skirt(r0, r1, half, _m("trim"))
 	_p(kit.box(0.5, 0.02, 2.0 * _half_w(r0 + 0.9, half)), _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030")), Vector3(r0 + 0.9, 0.03, 0))
 	var cat_y := 6.0
@@ -2284,7 +2296,8 @@ func _reactor_more(r0: float, r1: float, r: float, half: float) -> void:
 
 
 ## A cargo hold: containers in rows, crates stacked by them, a lift pallet; the
-## first one has the drop hatch in its floor (sealed: the wrecks below are #317).
+## one StationHull.drop_hatch names has the drop hatch in its floor, open to the
+## wrecks in the belt below (issue #317).
 ## Pallet racks along both walls under the catwalks, a loader by the door, a
 ## gantry crane over the containers, drums by the window.
 func _cargo(r0: float, r1: float, half: float, with_hatch: bool, seed: int) -> void:
@@ -2307,12 +2320,22 @@ func _cargo(r0: float, r1: float, half: float, with_hatch: bool, seed: int) -> v
 		r += 4.2
 		rows += 1
 	if with_hatch:
-		var hr := (r0 + r1) * 0.5
-		var lock := _glow(Dressing.c("station_fill", "lock_lamp", "#ffb04a"), 2.5)
-		_p(kit.box(4.4, 0.04, 4.4), _m("grate"), Vector3(hr, 0.02, 0))
+		# Issue #317: open. A hole in the floor down to the wrecks in the belt (the
+		# plate is cut round it: StationHull._hatch_plate), closed only by a shield;
+		# hazard plate round it, a lamp at each corner and a rail along the two sides
+		# you walk past, open toward the door and the window so you can drop in.
+		var dh := hull.drop_hatch()
+		var hr := float(dh.get("r", (r0 + r1) * 0.5))
+		var hs := float(dh.get("size", 4.0)) * 0.5
+		var lamp := _glow(Dressing.c("station_fill", "hatch_lamp", "#5cff9a"), 2.5)
+		var hazard := _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030"))
 		for s: float in [-1.0, 1.0]:
-			_p(kit.box(4.8, 0.06, 0.2), lock, Vector3(hr, 0.04, s * 2.3))
-			_p(kit.box(0.2, 0.06, 4.8), lock, Vector3(hr + s * 2.3, 0.04, 0))
+			_p(kit.box(hs * 2.0 + 1.6, 0.03, 0.6), hazard, Vector3(hr, 0.02, s * (hs + 0.3)))
+			_p(kit.box(0.6, 0.03, hs * 2.0), hazard, Vector3(hr + s * (hs + 0.3), 0.02, 0))
+			for e: float in [-1.0, 1.0]:
+				_p(kit.box(0.3, 0.9, 0.3), _m("trim"), Vector3(hr + e * (hs + 0.5), 0.45, s * (hs + 0.5)), true)
+				_p(kit.box(0.34, 0.12, 0.34), lamp, Vector3(hr + e * (hs + 0.5), 0.96, s * (hs + 0.5)))
+			_p(kit.box(hs * 2.0 + 1.0, 0.06, 0.08), _m("rail"), Vector3(hr, 0.9, s * (hs + 0.5)))
 		_count("drop_hatch")
 	# Pallet racks along both walls, stocked with crates and cases.
 	var orange := _t("barrel", Dressing.c("station_fill", "barrel_orange", "#d8a42a"))

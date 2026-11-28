@@ -430,8 +430,27 @@
       { "landmark": "starcruiser_wreck", "hauler": true },
       { "landmark": "starcruiser_wreck_2", "skip_routes": ["port_balcony"] },
       { "landmark": "starcruiser_wreck_3", "skip_routes": ["hold", "hold_stern", "gallery"] },
-      { "landmark": "starcruiser_wreck_4" }
+      { "landmark": "starcruiser_wreck_4" },
+      { "landmark": "belt_wreck_1", "skip_routes": [], "extra_units": [
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_mid", "start": 0, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_stern", "start": 1, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } }
+      ] },
+      { "landmark": "belt_wreck_2", "skip_routes": ["port_balcony"], "extra_units": [
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_bow", "start": 0, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_mid", "start": 1, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "assassin", "variant": "remnant", "hp": 120, "route": "spine_stern", "start": 0 },
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_stern", "start": 1, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } }
+      ] },
+      { "landmark": "belt_wreck_3", "skip_routes": [], "extra_units": [
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_bow", "start": 0, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_bow", "start": 1, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "assassin", "variant": "remnant", "hp": 120, "route": "spine_bow", "start": 1 },
+        { "kind": "floating", "variant": "remnant", "hp": 30, "route": "spine_mid", "start": 0, "gun": { "range": 22.0, "interval": 2.0, "damage": 6.0, "bolt_speed": 27.0, "spread_deg": 3.0, "color": "#ff3030" } },
+        { "kind": "assassin", "variant": "remnant", "hp": 160, "route": "spine_stern", "start": 0 },
+        { "kind": "assassin", "variant": "remnant", "hp": 160, "route": "spine_stern", "start": 1 }
+      ] }
     ],
+    "belt_note": "Issue #317: the three wrecks adrift in the belt under the ring station (stations/orbital_station.json 'belt') are sites too, with the same crews as the desert's, and extra_units of their own on top: droids on the spine routes (along the top of the hull, in its 'hull' frame, so they ride a wreck's roll with it) at both ends, where you jetpack from one wreck to the next, so every joint is a fight. Deeper is harder: two on the first, four on the second, six on the third, ending in two heavier assassins at the far end of the line.",
     "respawn_away_m": 152.4,
     "idle_beyond_m": 900.0,
     "sites_note": "Wreck field: every wreck in 'sites' gets the same units on the same routes ('landmark' is the original's, which alone keeps the hauler and its red saber). skip_routes: routes over a deck that wreck lost (its 'variant') or that the sand has buried (_3 lies sunk past its middle: its hold floor and the gallery are under the sand), left unmanned. The 'level' routes are in the interior's design coordinates, the same on every wreck whatever its pose. A destroyed unit comes back after respawn_s (3 minutes) or as soon as you are respawn_away_m (500 ft) from where it fell, whichever is first. Units more than idle_beyond_m from you stand still on their route (nobody sees them walk) so four crews cost little.",
@@ -449,6 +468,9 @@
       "gallery": { "frame": "hull", "points": [[-22, -3.3, 20], [-22, -3.3, 220]] },
       "hold": { "frame": "hull", "points": [[0, -24, -60], [0, -24, 60], [22, -24, 60], [22, -24, -60]] },
       "hold_stern": { "frame": "hull", "points": [[-12, -24, 120], [12, -24, 120], [12, -24, 250], [-12, -24, 250]] },
+      "spine_bow": { "frame": "hull", "points": [[0, 39.1, -287], [0, 39.1, -255], [0, 39.1, -225]] },
+      "spine_mid": { "frame": "hull", "points": [[0, 39.1, -40], [0, 39.1, 40]] },
+      "spine_stern": { "frame": "hull", "points": [[0, 39.1, 225], [0, 39.1, 255], [0, 39.1, 287]] },
       "deep_hold": { "frame": "level", "points": [[26, 136, 196], [33, 136, 196], [33, 136, 224], [26, 136, 224]] }
     },
     "units": [

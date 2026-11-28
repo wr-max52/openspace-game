@@ -2,6 +2,30 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The wrecks in the belt under the ring station (2026-11-28)
+
+- **Three wrecked cruisers drift under the station, end to end like stairs.**
+  Each lies 12 m lower than the last across a 4 m gap, the first level, the
+  other two heeled over to either side; the last still has its four engines.
+- **The engine deck's drop hatch is open.** It sits in the floor of a cargo
+  hold behind a shield; drop through and you land on the first wreck's spine
+  12 m down. You can jetpack back up every joint and in through the hatch.
+- **Walk the spines.** A plank crosses the hole in front of each bridge house;
+  from its roof you drop into the pit to the landing pad, and jetpack out of
+  the far end. You can also fly down and set your ship on the pad.
+- **Every joint is a fight, deeper is harder.** Each wreck has the desert
+  wrecks' crew, plus guards on the spine at both ends: two more on the first,
+  four on the second, six on the third, ending in two heavier assassins.
+- **Deeper pays better.** A crate on each bridge platform: 10 refined
+  quantonium, then 8 space whale teeth, then a seeker launcher at the bottom.
+  Stray loot along the spines and in the holds comes from a richer table than
+  the desert's.
+- **Fall off a side and the belt has you:** the screen fades out and you wake in
+  the bay, with nothing taken.
+- The steps, gaps and wrecks are data (`belt` in
+  `content/core/stations/orbital_station.json`), and a test fails if a step,
+  a gap or a jetpack change puts any climb out of the jetpack's reach.
+
 ## Build by sight on every planet (2026-11-27)
 
 - **Flying in to a moon, the gas giant or any generated planet builds nothing

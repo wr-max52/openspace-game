@@ -64,7 +64,8 @@ const KICKER_LIP := 8.0
 ## is twisted) and "salvage" (how many boxes lie at the boarding plate).
 ## Wreck poses: "deck_drop" lowers the interior (decks, ramps and bridge) that many
 ## metres in the hull, for a wreck that lies flat enough to have room above it.
-const VARIANT_KEYS := ["skip", "ramp_width", "stern_ramp_w", "rail_gaps", "shard_turn", "salvage", "deck_drop"]
+## Issue #317: "smooth_spine" leaves the dorsal ribs off (a wreck you walk along the top of).
+const VARIANT_KEYS := ["skip", "ramp_width", "stern_ramp_w", "rail_gaps", "shard_turn", "salvage", "deck_drop", "smooth_spine"]
 const MAX_RAMP_DEG := 26.0         ## the steepest ramp a pose's connectors may make
 const CLIMB_DEG := 24.0            ## the climb ramp's slope (hold floor -> starboard balcony)
 const CLIMB_X := 25.0              ## the climb ramp's middle, clear of the hold floor's open lane
@@ -140,6 +141,13 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 	var pitch := float(landmark.get("pitch_deg", PITCH_DEG))
 	var xf := Transform3D(tangent * Basis(Vector3.RIGHT, deg_to_rad(pitch)),
 		base + up * float(landmark.get("bury_height", 58.0)))
+	# Issue #317: a wreck adrift (the belt under a station, BeltWrecks) is posed by
+	# its own frame, the hull's, and has no sand: no boarding plate, salvage or kicker.
+	var adrift := bool(landmark.get("adrift", false))
+	if landmark.get("frame") is Transform3D:
+		xf = landmark.frame
+		tangent = xf.basis * Basis(Vector3.RIGHT, deg_to_rad(-pitch))
+		base = xf.origin
 	var level := Transform3D(tangent, xf.origin)
 	var prefix := str(landmark.get("id", "starcruiser_wreck")) + "/"
 	var variant: Dictionary = landmark.get("variant", {})
@@ -149,6 +157,21 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 			"floor" if bool(p.get("floor", false)) else "solid")
 		if bool(p.get("shard", false)):
 			ground.boxes[-1]["wreck_shard"] = true
+	if adrift:
+		# Torn plates fallen across a hole in the spine, as walkways (hull frame:
+		# "from" and "to" are points on the plank's top, the BeltWrecks' "planks").
+		var k := 0
+		for pk in landmark.get("planks", []):
+			var a := WorldGround._v3(pk.get("from", [0, 0, 0]))
+			var b := WorldGround._v3(pk.get("to", [0, 0, 1]))
+			var pz := (b - a).normalized()
+			var px := Vector3.UP.cross(pz).normalized()
+			var py := pz.cross(px).normalized()
+			_register(ground, prefix + "plank_%d" % k, Vector3(float(pk.get("width", 5.0)), 1.2, a.distance_to(b) + 1.0),
+				xf * Transform3D(Basis(px, py, pz), (a + b) * 0.5 - py * 0.6), "hull", base.y, "floor")
+			k += 1
+		_tag_frames(ground, prefix, xf, level, pose)
+		return
 
 	# A fallen ten-metre-wide plate joins actual sand to the breach's deck.
 	# Project the outer end onto the planet rather than assuming a flat desert.
@@ -174,8 +197,13 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 			Transform3D(PlanetSphere.tilt_to(box_up), pos + box_up * 0.7), "scorch", base.y)
 	if not _skipped("speeder_kicker", variant):
 		_add_kicker(ground, prefix, level, base.y)
-	# The "level" frame is the interior's: its design coordinates, wherever the
-	# pose put them (the original's own level frame).
+	_tag_frames(ground, prefix, xf, level, pose)
+
+
+## Every box of one wreck carries its two frames (site_point, the plates' shader).
+## The "level" frame is the interior's: its design coordinates, wherever the pose
+## put them (the original's own level frame).
+static func _tag_frames(ground: WorldGround, prefix: String, xf: Transform3D, level: Transform3D, pose: Pose) -> void:
 	var interior := level * Transform3D(Basis.IDENTITY, Vector3(0, pose.shift.x, pose.shift.y))
 	for b in ground.boxes:
 		if str(b.id).begins_with(prefix):
@@ -285,8 +313,13 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 				continue
 			out.append(plate[0])
 		# Regular, heavier frames give the exposed hull its whale-rib silhouette.
+		# Issue #317: "smooth_spine" leaves the dorsal ones off (facets 1 and 2), so the
+		# spine is plating you can walk end to end (the belt's wrecks), not a wall
+		# 2 m high every 30 m.
 		for facet in 8:
 			if z >= -90.0 and z <= 90.0 and facet in [0, 7]:
+				continue
+			if facet in [1, 2] and bool(variant.get("smooth_spine", false)):
 				continue
 			var rib: Array = []
 			_facet(rib, "rib_%d_%d" % [section, facet], width + 1.4, 39.4,

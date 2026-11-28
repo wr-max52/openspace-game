@@ -289,9 +289,12 @@ static func _pick_weighted(table: Array, u: float) -> Dictionary:
 	return table.back() if not table.is_empty() else {}
 
 
-## A supply crate's prize: { credits } or { item, count }, rolled by weight.
-func roll_crate_prize() -> Dictionary:
-	return _pick_weighted(content.get_crate_prizes(location_id), rng.randf())
+## A supply crate's prize: { credits } or { item, count }, rolled by weight from
+## the crate's own "prizes" (issue #317: the belt's deeper wrecks pay better) or
+## the location's "crate_prizes".
+func roll_crate_prize(entry: Dictionary = {}) -> Dictionary:
+	var table: Array = entry.get("prizes", content.get_crate_prizes(location_id))
+	return _pick_weighted(table, rng.randf())
 
 
 ## Issue #64: one loot box at a time. Contraband lying in the world (the desert
@@ -607,7 +610,7 @@ func _take_credits(node) -> String:
 func _open_crate(node) -> String:
 	var entry: Dictionary = node.pickup
 	if not entry.has("prize"):
-		entry["prize"] = roll_crate_prize()
+		entry["prize"] = roll_crate_prize(entry)
 	var prize: Dictionary = entry.prize
 	var id := str(prize.get("item", ""))
 	var item: Dictionary = content.get_item(id) if id != "" else {}

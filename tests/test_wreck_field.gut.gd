@@ -203,8 +203,13 @@ func test_every_wreck_crew_route_runs_on_a_floor() -> void:
 	var dc: Dictionary = DroidRoster.config().wreck
 	for site in dc.sites:
 		var id := str(site.landmark)
+		if not StarcruiserWreck.has_wreck(g, id):
+			continue                   # issue #317: the belt's wrecks are on the ringed giant (test_belt_wrecks)
+		var used := {}
+		for u in (dc.units as Array) + (site.get("extra_units", []) as Array):
+			used[str(u.route)] = true
 		for name in dc.routes:
-			if str(name) in site.get("skip_routes", []):
+			if str(name) in site.get("skip_routes", []) or not used.has(str(name)):
 				continue
 			var r: Dictionary = dc.routes[name]
 			var pts: Array = r.points.map(func(p): return StarcruiserWreck.site_point(g, Vector3(p[0], p[1], p[2]), str(r.frame), id))
@@ -312,7 +317,9 @@ func test_every_wreck_has_its_crew_and_only_the_first_its_hauler() -> void:
 	var dc: Dictionary = DroidRoster.config().wreck
 	for site in dc.sites:
 		var id := str(site.landmark)
-		var want: Array = (dc.units as Array).filter(func(u): return not (str(u.route) in site.get("skip_routes", [])))
+		if not StarcruiserWreck.has_wreck(g, id):
+			continue                   # issue #317: the belt's wrecks are on the ringed giant (test_belt_wrecks)
+		var want: Array = ((dc.units as Array) + (site.get("extra_units", []) as Array)).filter(func(u): return not (str(u.route) in site.get("skip_routes", [])))
 		var crew: Array = ctl.remnant.filter(func(u): return str(u.spec.get("site", "")) == id)
 		assert_eq(crew.size(), want.size(), "%s is manned" % id)
 		assert_eq(crew.filter(func(u): return str(u.spec.route) == "pad").size(), 2, "%s: assassins on its pad" % id)
