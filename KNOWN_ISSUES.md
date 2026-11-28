@@ -289,9 +289,9 @@ Stubs and fakes: things a player might expect that aren't there.
   can't be seen from it; without the look layer there's no furniture.
 - **The belt's wrecks (#317):** not on the F11 map or the objective pointer;
   their crates open once and stay open (as the desert's); you can't fly the
-  wrecks' own ships; the plates' 0.2 m seams every 30 m are open (too narrow to
-  fall through, but a probe on one sees the hold); the hatch's climb back up
-  needs steering against the jetpack's forward shove.
+  wrecks' own ships; you can't call your ship to the first one (it is under the
+  station); a called ship flies through the station's roofs on its way down; the
+  plates' 0.2 m seams every 30 m are open (too narrow to fall through).
 - **The cruiser:** the Map page's row doesn't flash when it changes hands; the
   belt cruiser has no holders block, so it stays empty once taken (#317).
 - **Combat and AI:** one alarm stage; nobody flees or surrenders; fights end only

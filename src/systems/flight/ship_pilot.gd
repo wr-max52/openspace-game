@@ -2601,11 +2601,16 @@ func clear_spot(near: Vector3, min_r: float = 0.0, max_r: float = -1.0, skip: in
 		var n := 1 if r < 0.5 else clampi(int(TAU * r / 6.0), 6, 48)
 		for k in n:
 			var a := TAU * float(k) / float(n)
-			var foot := ground.surface_below(near + (t1 * cos(a) + t2 * sin(a)) * r + u * 200.0)
-			var score := r + absf((foot - near).dot(u)) * 3.0
-			if score < best_score and _clear_at(foot, room, skip):
-				best = foot
-				best_score = score
+			var across := (t1 * cos(a) + t2 * sin(a)) * r
+			# From high over it (the roofs and rocks round you), and from just over
+			# your head (issue #317: under something, like the belt's stacked wrecks,
+			# from high up finds the one above you, not the floor you stand on).
+			for lift in [200.0, 4.0]:
+				var foot := ground.surface_below(near + across + u * lift)
+				var score := r + absf((foot - near).dot(u)) * 3.0
+				if score < best_score and _clear_at(foot, room, skip):
+					best = foot
+					best_score = score
 		r += 6.0
 	return best
 

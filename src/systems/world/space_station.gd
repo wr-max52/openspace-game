@@ -247,9 +247,10 @@ func _fall_guard(p: Node3D) -> void:
 
 
 ## Issue #317: over the belt (within its margin_m of a wreck, across) the pull back
-## toward the clouds is off: you may climb down the wrecks as far as they go. Out
-## of every hull and fall_m under the lowest one's spine, the belt has you: the
-## screen fades over the last fade_m and you wake in the bay. True while over it.
+## toward the clouds is off: you may go down the wrecks as far as they go. Down in
+## the clouds (clouds_y), or out of every hull and fall_m under the lowest pad, the
+## belt has you: the screen fades over the last fade_m and you wake in the bay.
+## True while over it.
 func _belt_guard(p: Node3D, l: Vector3) -> bool:
 	if belt.is_empty():
 		return false
@@ -258,15 +259,16 @@ func _belt_guard(p: Node3D, l: Vector3) -> bool:
 		_guard_fade(0.0)
 		return false
 	_warned = false
-	if BeltWrecks.in_wreck(belt, l):
-		_guard_fade(0.0)
+	if BeltWrecks.lost(belt, bc, l):
+		_lost_to_belt(p, bc)
 		return true
-	var lost := BeltWrecks.lost_below(belt, float(bc.get("fall_m", 20.0)))
+	# The last fade_m before the clouds, or (out of every hull) before fall_m under
+	# the lowest pad: the screen goes dark.
 	var fade := maxf(0.1, float(bc.get("fade_m", 10.0)))
-	if l.y > lost:
-		_guard_fade(clampf((lost + fade - l.y) / fade, 0.0, 1.0))
-		return true
-	_lost_to_belt(p, bc)
+	var line := float(bc.get("clouds_y", -300.0))
+	if not BeltWrecks.in_wreck(belt, l):
+		line = maxf(line, BeltWrecks.lost_below(belt, float(bc.get("fall_m", 25.0))))
+	_guard_fade(clampf((line + fade - l.y) / fade, 0.0, 1.0))
 	return true
 
 

@@ -245,7 +245,7 @@ func _build_site_loot(site: String) -> void:
 		var kind := str(e.get("frame", "level"))
 		var pt: Array = e.get("point", [0, 0, 0])
 		var at := StarcruiserWreck.site_point(ground, Vector3(float(pt[0]), float(pt[1]), float(pt[2])), kind, site)
-		if StarcruiserWreck._buried(ground, at):
+		if StarcruiserWreck._buried(ground, at) and not StarcruiserWreck.is_adrift(ground, site):
 			continue
 		var node = PickupNode.new()
 		node.setup(items, e, item, at)

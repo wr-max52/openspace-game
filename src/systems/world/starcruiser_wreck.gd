@@ -64,8 +64,9 @@ const KICKER_LIP := 8.0
 ## is twisted) and "salvage" (how many boxes lie at the boarding plate).
 ## Wreck poses: "deck_drop" lowers the interior (decks, ramps and bridge) that many
 ## metres in the hull, for a wreck that lies flat enough to have room above it.
-## Issue #317: "smooth_spine" leaves the dorsal ribs off (a wreck you walk along the top of).
-const VARIANT_KEYS := ["skip", "ramp_width", "stern_ramp_w", "rail_gaps", "shard_turn", "salvage", "deck_drop", "smooth_spine"]
+## Issue #317: "smooth_spine" leaves the dorsal ribs off (a wreck you walk along the top of);
+## "open_pad" tears the dorsal plates away over the bridge platform (open to the sky).
+const VARIANT_KEYS := ["skip", "ramp_width", "stern_ramp_w", "rail_gaps", "shard_turn", "salvage", "deck_drop", "smooth_spine", "open_pad"]
 const MAX_RAMP_DEG := 26.0         ## the steepest ramp a pose's connectors may make
 const CLIMB_DEG := 24.0            ## the climb ramp's slope (hold floor -> starboard balcony)
 const CLIMB_X := 25.0              ## the climb ramp's middle, clear of the hold floor's open lane
@@ -158,19 +159,10 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 		if bool(p.get("shard", false)):
 			ground.boxes[-1]["wreck_shard"] = true
 	if adrift:
-		# Torn plates fallen across a hole in the spine, as walkways (hull frame:
-		# "from" and "to" are points on the plank's top, the BeltWrecks' "planks").
-		var k := 0
-		for pk in landmark.get("planks", []):
-			var a := WorldGround._v3(pk.get("from", [0, 0, 0]))
-			var b := WorldGround._v3(pk.get("to", [0, 0, 1]))
-			var pz := (b - a).normalized()
-			var px := Vector3.UP.cross(pz).normalized()
-			var py := pz.cross(px).normalized()
-			_register(ground, prefix + "plank_%d" % k, Vector3(float(pk.get("width", 5.0)), 1.2, a.distance_to(b) + 1.0),
-				xf * Transform3D(Basis(px, py, pz), (a + b) * 0.5 - py * 0.6), "hull", base.y, "floor")
-			k += 1
 		_tag_frames(ground, prefix, xf, level, pose)
+		for b in ground.boxes:
+			if str(b.id).begins_with(prefix):
+				b["wreck_adrift"] = true
 		return
 
 	# A fallen ten-metre-wide plate joins actual sand to the breach's deck.
@@ -245,6 +237,15 @@ static func _on_sand(ground: WorldGround, p: Vector3) -> Vector3:
 	return Vector3(p.x, ground.terrain.height_at(p.x, p.z), p.z)
 
 
+## Issue #317: whether wreck `id` is adrift (the belt under a station): nothing of
+## it is ever under the sand, whatever the ball's surface under it says.
+static func is_adrift(ground: WorldGround, id: String) -> bool:
+	for b in ground.boxes:
+		if b.has("wreck_frame") and str(b.id).begins_with(id + "/"):
+			return bool(b.get("wreck_adrift", false))
+	return false
+
+
 ## Wreck poses: whether a world point is under the sand.
 static func _buried(ground: WorldGround, p: Vector3) -> bool:
 	var sp := ground.sphere()
@@ -299,6 +300,7 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 	var inner: Array = []
 	_interior(inner, pose, variant)
 	var bridge := _bridge_samples(inner)
+	var pad_z := _open_pad_z(inner) if bool(variant.get("open_pad", false)) else Vector2.INF
 	var turn := deg_to_rad(float(variant.get("shard_turn", 0.0)))
 	for section in 20:
 		var z := -285.0 + section * 30.0
@@ -311,6 +313,8 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 				facet, z, 29.8, 2.0, "hull")
 			if facet in [1, 2] and _meets(plate[0], bridge):
 				continue
+			if facet in [1, 2] and z + 15.0 > pad_z.x and z - 15.0 < pad_z.y:
+				continue               # issue #317: open_pad, torn away over the landing pad
 			out.append(plate[0])
 		# Regular, heavier frames give the exposed hull its whale-rib silhouette.
 		# Issue #317: "smooth_spine" leaves the dorsal ones off (facets 1 and 2), so the
@@ -413,6 +417,23 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 	if variant.has("skip"):
 		return out.filter(func(p): return not _skipped(str(p.id), variant))
 	return out
+
+
+## Issue #317: the hull-frame z the bridge platform spans (variant "open_pad"
+## tears the dorsal plates away over all of it, so it is open to the sky at a
+## shallow dive, where they would otherwise roof it over).
+static func _open_pad_z(inner: Array) -> Vector2:
+	for q in inner:
+		if str(q.id) != "bridge_platform":
+			continue
+		var xf: Transform3D = q.xf
+		var h: Vector3 = (q.size as Vector3) * 0.5
+		var span := Vector2(INF, -INF)
+		for k in 8:
+			var c := xf * Vector3(h.x if k & 1 else -h.x, h.y if k & 2 else -h.y, h.z if k & 4 else -h.z)
+			span = Vector2(minf(span.x, c.z), maxf(span.y, c.z))
+		return span
+	return Vector2.INF
 
 
 ## Wreck poses: points (hull frame) the bridge takes up: the platform and the

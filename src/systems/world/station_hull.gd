@@ -673,8 +673,9 @@ func dock_path(local: Vector3) -> Array:
 	var out: Array = []
 	if b.x < float(bay.r) + 40.0:
 		var mid := (top_y() + bottom_y()) * 0.5
-		# Issue #317: over the belt's wrecks, never down through them: over the towers.
-		var over := local.y >= mid or BeltWrecks.over_belt(BeltWrecks.layout(self), local, 20.0)
+		# Issue #317: with wrecks hanging in the belt under it, never under the towers
+		# (the way under runs into them): over.
+		var over := local.y >= mid or not BeltWrecks.cfg_of(self).is_empty()
 		var y := maxf(local.y, float(dc.get("over_y", 150.0))) if over else minf(local.y, float(dc.get("under_y", -110.0)))
 		out.append(Vector3(local.x, y, local.z))
 		var o := bx * Vector3(off, 0.0, lp.y)
@@ -1056,6 +1057,27 @@ func _hatch_plate(t: Dictionary, i: int) -> void:
 			Vector3(0.2, plate + 0.04, half * 2.0 + 0.4), "decor", "glow")
 		_add(pre + "_hatch_rim_z_%d" % int(s), hx * Transform3D(Basis.IDENTITY, Vector3(0, -plate * 0.5, s * (half + 0.1))),
 			Vector3(half * 2.0, plate + 0.04, 0.2), "decor", "glow")
+
+
+## Under (or over) the station, seen from above: within `grow` metres of a tower's
+## widest floor or the bay (station frame; the tunnels between them are inside that).
+func under(local: Vector3, grow: float = 0.0) -> bool:
+	for t in towers:
+		var r := 0.0
+		for f in t.floors:
+			r = maxf(r, float(f.r))
+		var c: Vector2 = t.c
+		if Vector2(local.x - c.x, local.z - c.y).length() <= r + grow:
+			return true
+	if not bay.is_empty():
+		var bc: Vector2 = bay.c
+		if Vector2(local.x - bc.x, local.z - bc.y).length() <= float(bay.r) + float(bay.apron) + grow:
+			return true
+	for tn in tunnels:
+		var l := (tn.xf as Transform3D).affine_inverse() * local
+		if l.x >= -grow and l.x <= float(tn.length) + grow and absf(l.z) <= tunnel_w * 0.5 + grow:
+			return true
+	return false
 
 
 ## Over the hatch's hole (station frame, the hole's footprint grown by `grow`).

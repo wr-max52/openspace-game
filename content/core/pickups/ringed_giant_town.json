@@ -326,9 +326,9 @@
   "crate_prizes": [
     { "item": "refined_quantonium", "count": 10, "weight": 1 }
   ],
-  "crate_note": "Issue #317: a supply crate on the bridge platform (the landing pad, down in the pit in front of the bridge house) of each wreck adrift in the belt under the station (stations/orbital_station.json 'belt'). site_point: in that wreck's level frame, as the desert wrecks' (pickups/port_town.json). The deeper the wreck, the better its crate ('prizes', the crate's own table: GearController.roll_crate_prize): the first 10 refined quantonium like every desert wreck, the second 8 space whale teeth, the last, at the bottom of the stairs, a seeker launcher. Opened once and it stays open (saved with the taken pickups), as the desert's.",
+  "crate_note": "Issue #317: a supply crate on the bridge platform (the landing pad you drop onto, behind the bridge house) of each wreck hanging in the belt under the station (stations/orbital_station.json 'belt'). site_point: in that wreck's level frame, as the desert wrecks' (pickups/port_town.json). The deeper the wreck, the better its crate ('prizes', the crate's own table: GearController.roll_crate_prize): the first 10 refined quantonium like every desert wreck, the second 8 space whale teeth, the last, at the bottom of the stairs, a seeker launcher. Opened once and it stays open (saved with the taken pickups), as the desert's.",
   "site_loot": [
-    { "id": "spine_bow", "frame": "hull", "point": [0, 38.8, -262] },
+    { "id": "spine_mid", "frame": "hull", "point": [0, 39.2, 40] },
     { "id": "spine_fore", "frame": "hull", "point": [0, 39.2, -110] },
     { "id": "spine_aft", "frame": "hull", "point": [0, 39.2, 112] },
     { "id": "spine_stern", "frame": "hull", "point": [0, 39.2, 262] },
@@ -348,5 +348,5 @@
     { "item": "sniper_rifle", "count": 1, "weight": 1 }
   ],
   "site_loot_seed": 11,
-  "site_loot_note": "Issue #317: stray loot on every belt wreck, the desert wrecks' spots (the hold, the balcony, the ledge, the deck) and four on the spine you walk along the top (hull frame, on its ridge), from a richer table than the desert's: more quantonium and credits, space whale teeth, a rare sniper rifle. Rolled per spot (id '<wreck>/<spot>') with site_loot_seed, the same every time until taken; picked up once and remembered. GearController._build_site_loot."
+  "site_loot_note": "Issue #317: stray loot on every belt wreck, the desert wrecks' spots (the hold, the balcony, the ledge, the deck) and four on the spine (hull frame, on its ridge, none so far toward a bow that it hangs in the clouds), from a richer table than the desert's: more quantonium and credits, space whale teeth, a rare sniper rifle. Rolled per spot (id '<wreck>/<spot>') with site_loot_seed, the same every time until taken; picked up once and remembered. GearController._build_site_loot."
 }
