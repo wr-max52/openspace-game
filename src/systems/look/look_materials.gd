@@ -207,6 +207,7 @@ func cloth(color: Color) -> StandardMaterial3D:
 	m.backlight_enabled = true
 	m.backlight = color.lightened(0.2)
 	_cache[key] = m
+	_keep_kind("cloth", m)
 	return m
 
 
@@ -272,4 +273,18 @@ func glow(color: Color) -> StandardMaterial3D:
 	m.emission_enabled = true
 	m.emission = color
 	m.emission_energy_multiplier = 0.15
+	_keep_kind("glow", m)
 	return m
+
+
+## Issue #716: one material of each of these kinds kept for the session. Godot
+## frees a kind's shader with its last material, so a town built again (every
+## arrival) compiled the cloth and glow kinds again: ~40 ms for one group of the
+## decor coming down. A kept one is never changed here (a glow's energy is driven
+## per material, but the shader is the kind's).
+static var _kinds := {}
+
+
+static func _keep_kind(kind: String, m: Material) -> void:
+	if not _kinds.has(kind):
+		_kinds[kind] = m

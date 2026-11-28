@@ -45,31 +45,43 @@ func _ready() -> void:
 
 ## Issue #693: the colliders in pieces of COLLIDERS_A_PIECE, then (with the look)
 ## the visuals. `st` (a StagedBuild, may be null) spreads them over frames.
-const COLLIDERS_A_PIECE := 400
+const COLLIDERS_A_PIECE := 150
 
+## Each piece is its own body, filled before it joins the tree: with Jolt, a shape
+## added to a body already in the world rebuilds the whole body, so one body for
+## them all made every piece slower than the last (34 ms up to ~106 ms coming down).
 func build_late(st: StagedBuild, mats: LookMaterials = null, sand: Material = null, with_look := false) -> void:
 	build_later = false
-	var root := StaticBody3D.new()
-	root.name = "LandmarkColliders"
-	add_child(root)
+	var root: StaticBody3D = null
 	var n := 0
+	var bodies := 0
 	for b in landmark_boxes():
+		if root == null:
+			root = StaticBody3D.new()
+			root.name = "LandmarkColliders%d" % bodies
+			bodies += 1
 		if _add_collider(root, b):
 			n += 1
 			if n % COLLIDERS_A_PIECE == 0:
+				add_child(root)
+				root = null
 				await StagedBuild.slice_of(st)
+	if root != null:
+		add_child(root)
 	if with_look:
 		await StagedBuild.slice_of(st)
-		build_visuals(mats, sand)
+		await build_visuals(mats, sand, st)
 
 
 ## Build the visible world. `sand` = the desert's own material (DesertTerrain.material),
 ## so the skirt carries on the same sand and its seam does not show from high up.
-func build_visuals(mats: LookMaterials = null, sand: Material = null) -> void:
+## Issue #714: `st` (a StagedBuild) spreads the wreck plates over frames and
+## merges them on a worker; without one it all happens now.
+func build_visuals(mats: LookMaterials = null, sand: Material = null, st: StagedBuild = null) -> void:
 	_mats = mats if mats != null else LookMaterials.new()
 	if terrain.sphere == null:
 		_build_skirt(sand)       # a ball (issue #77) has sand all the way round already
-	_build_landmark_visuals()
+	await _build_landmark_visuals(st)
 
 
 ## The location landmarks' boxes (ids "<landmark>/<building>"); town boxes collide
@@ -81,9 +93,9 @@ func landmark_boxes() -> Array:
 func _build_landmark_colliders() -> void:
 	var root := StaticBody3D.new()
 	root.name = "LandmarkColliders"
-	add_child(root)
 	for b in landmark_boxes():
 		_add_collider(root, b)
+	add_child(root)          # filled first: one body build, not one a shape (Jolt)
 
 
 func _add_collider(root: StaticBody3D, b: Dictionary) -> bool:
@@ -152,14 +164,20 @@ func _build_skirt(sand: Material = null) -> void:
 	add_child(mi)
 
 
-func _build_landmark_visuals() -> void:
+const PLATES_A_PIECE := 40       ## issue #714: wreck plates gathered between slices
+
+func _build_landmark_visuals(st: StagedBuild = null) -> void:
 	var root := Node3D.new()
 	root.name = "Landmarks"
 	add_child(root)
 	var op: Dictionary = look.get("outpost", {})
+	var n := 0
 	for b in landmark_boxes():
 		if b.has("wreck_finish"):
 			_add_wreck_plate(b)
+			n += 1
+			if n % PLATES_A_PIECE == 0:
+				await StagedBuild.slice_of(st)
 			continue
 		if not bool(b.get("visual", true)):
 			continue                 # dressed elsewhere (issue #42: Skrugs's post)
@@ -174,7 +192,7 @@ func _build_landmark_visuals() -> void:
 			Color(str(op.get("trim", "#6b1e1e"))), Color(str(op.get("color", "#b9a48a"))))
 		mi.transform = WorldGround.box_xf(b) * Transform3D(Basis.IDENTITY, (mn + mx) * 0.5 - Vector3(0, 1.0, 0))
 		root.add_child(mi)
-	_merge_wreck_plates(root)
+	await _merge_wreck_plates(root, st)
 
 
 ## Structural plates use the physics/flight boxes. Fracture lips use a pointed
@@ -252,10 +270,30 @@ static var _merged := {}               ## world key -> [{ name, mesh, material, 
 ## One mesh per wreck, material and size class. Each vertex keeps its plate's own
 ## position and normal (CUSTOM0, CUSTOM1) for wreck_metal's plate-space patterns
 ## (panel seams, ramp cleats, pad paint), so the merge looks the same as the plates.
-func _merge_wreck_plates(root: Node3D) -> void:
+## Issue #714: the merge is the data work of the field's ~2,500 plates (the
+## longest piece coming down when home loads fresh): with `st` it runs on a
+## worker thread while the frames go on, and the meshes are made one a slice.
+func _merge_wreck_plates(root: Node3D, st: StagedBuild = null) -> void:
 	var wkey := "%s/%d" % [str(ground.world.get("id", "")), _wreck_batches.size()]
 	if not _merged.has(wkey) and not _wreck_batches.is_empty():
-		_merged[wkey] = _merge_batches()
+		var keys: Array = _wreck_batches.keys()
+		var arrays: Array = []
+		arrays.resize(keys.size())
+		var batches := _wreck_batches
+		var task := WorkerThreadPool.add_group_task(func(i: int): arrays[i] = _merge_arrays(batches[keys[i]]),
+			keys.size(), -1, false, "wreck plates merge")
+		while st != null and st.slicing() and not WorkerThreadPool.is_group_task_completed(task):
+			await st.slice()
+		WorkerThreadPool.wait_for_group_task_completion(task)
+		var out: Array = []
+		for i in keys.size():
+			var batch: Dictionary = _wreck_batches[keys[i]]
+			var mesh := ArrayMesh.new()
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays[i], [], {}, MERGE_FORMAT)
+			out.append({ "name": str(keys[i]).replace("/", "_"), "mesh": mesh, "material": batch.material,
+				"small": bool(batch.small), "origin": (batch.plates[0][1] as Transform3D).origin, "ids": batch.ids })
+			await StagedBuild.slice_of(st)
+		_merged[wkey] = out
 	for m in _merged.get(wkey, []):
 		var mi := MeshInstance3D.new()
 		mi.name = str(m.name)
@@ -270,49 +308,46 @@ func _merge_wreck_plates(root: Node3D) -> void:
 	_wreck_batches.clear()
 
 
-func _merge_batches() -> Array:
-	var out: Array = []
-	var fmt := (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) \
-		| (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
-	for batch_key in _wreck_batches:
-		var batch: Dictionary = _wreck_batches[batch_key]
-		var origin: Vector3 = (batch.plates[0][1] as Transform3D).origin   # small numbers in the mesh
-		var verts := PackedVector3Array()
-		var normals := PackedVector3Array()
-		var local_pos := PackedFloat32Array()
-		var local_normal := PackedFloat32Array()
-		var index := PackedInt32Array()
-		for plate in batch.plates:
-			var arrays: Array = plate[0]
-			var xf: Transform3D = Transform3D(Basis.IDENTITY, -origin) * (plate[1] as Transform3D)
-			var nb := xf.basis.inverse().transposed()
-			var pv: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-			var pn: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-			var base := verts.size()
+const MERGE_FORMAT := (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) \
+	| (Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
+
+
+## One batch's merged surface arrays. Pure data (reads the batch and the shared
+## plate arrays, writes nothing shared): safe on a worker thread.
+static func _merge_arrays(batch: Dictionary) -> Array:
+	var origin: Vector3 = (batch.plates[0][1] as Transform3D).origin   # small numbers in the mesh
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var local_pos := PackedFloat32Array()
+	var local_normal := PackedFloat32Array()
+	var index := PackedInt32Array()
+	for plate in batch.plates:
+		var arrays: Array = plate[0]
+		var xf: Transform3D = Transform3D(Basis.IDENTITY, -origin) * (plate[1] as Transform3D)
+		var nb := xf.basis.inverse().transposed()
+		var pv: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var pn: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var base := verts.size()
+		for k in pv.size():
+			verts.append(xf * pv[k])
+			normals.append((nb * pn[k]).normalized())
+			local_pos.append_array([pv[k].x, pv[k].y, pv[k].z, 0.0])
+			local_normal.append_array([pn[k].x, pn[k].y, pn[k].z, 0.0])
+		var pi = arrays[Mesh.ARRAY_INDEX]
+		if pi is PackedInt32Array and not (pi as PackedInt32Array).is_empty():
+			for k in (pi as PackedInt32Array):
+				index.append(base + k)
+		else:
 			for k in pv.size():
-				verts.append(xf * pv[k])
-				normals.append((nb * pn[k]).normalized())
-				local_pos.append_array([pv[k].x, pv[k].y, pv[k].z, 0.0])
-				local_normal.append_array([pn[k].x, pn[k].y, pn[k].z, 0.0])
-			var pi = arrays[Mesh.ARRAY_INDEX]
-			if pi is PackedInt32Array and not (pi as PackedInt32Array).is_empty():
-				for k in (pi as PackedInt32Array):
-					index.append(base + k)
-			else:
-				for k in pv.size():
-					index.append(base + k)
-		var arr := []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = verts
-		arr[Mesh.ARRAY_NORMAL] = normals
-		arr[Mesh.ARRAY_CUSTOM0] = local_pos
-		arr[Mesh.ARRAY_CUSTOM1] = local_normal
-		arr[Mesh.ARRAY_INDEX] = index
-		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, fmt)
-		out.append({ "name": str(batch_key).replace("/", "_"), "mesh": mesh, "material": batch.material,
-			"small": bool(batch.small), "origin": origin, "ids": batch.ids })
-	return out
+				index.append(base + k)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = normals
+	arr[Mesh.ARRAY_CUSTOM0] = local_pos
+	arr[Mesh.ARRAY_CUSTOM1] = local_normal
+	arr[Mesh.ARRAY_INDEX] = index
+	return arr
 
 
 ## The merged mesh that draws wreck plate `id` ("<wreck>/<plate>"), or null.

@@ -239,7 +239,8 @@ var last_handoff: Dictionary = {}     ## what the last handoff carried (tests, w
 ## A handoff to `id` is close: start its scene's slow first-frame work now.
 ## Issue #693: heading for planet `id` from open space: the models it used last
 ## time (ModelCache.used_by) and the outfit textures start loading on worker
-## threads, long before its scene takes over and asks for them.
+## threads, long before its scene takes over and asks for them. Issue #714: so
+## does what it works out once a session (its rocks' meshes, its wrecks' parts).
 func _prepare(id: String) -> void:
 	if prepared.has(id):
 		return
@@ -247,6 +248,10 @@ func _prepare(id: String) -> void:
 	if pilot != null and bool(pilot.demo.get("use_look")):
 		ModelCache.prefetch_planet(id)
 		ModelCache.prefetch(CharacterKit.outfit_textures())
+		var planet := PlanetGen.build(id)
+		DesertLandforms.prepare(planet)            # issue #714: its rocks and wrecks, on workers
+		StarcruiserWreck.prepare(planet)
+		ShaderWarmup.start(self, id)               # and its kinds of material, one a frame (issue #714)
 
 
 func _prewarm(id: String) -> void:
@@ -309,12 +314,17 @@ func _share_parent_sky(look) -> void:
 	var home_port := PlanetGen.system_port(home_id) - PlanetGen.system_port(here_id)
 	if not home_port.is_finite():
 		return
-	var pt := PlanetTerrain.for_planet(PlanetGen.build(home_id))
-	if pt == null:
-		return
-	var home_ball: PlanetSphere = pt.sphere
-	pt.free()
+	if _home_ball == null:
+		# The home planet's ball, once a run: building its terrain to read it was
+		# ~11 ms on every switch into open space or another planet.
+		var pt := PlanetTerrain.for_planet(PlanetGen.build(home_id))
+		if pt == null:
+			return
+		_home_ball = pt.sphere
+		pt.free()
+	var home_ball := _home_ball
 	look.space_frame = func(p: Vector3) -> Basis: return home_ball.tilt_at(p - home_port)
+static var _home_ball: PlanetSphere
 
 
 ## Where the eye starts in this scene: the ship carried in by a handoff, else the port.

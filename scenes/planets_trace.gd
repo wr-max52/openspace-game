@@ -304,7 +304,14 @@ func _run() -> void:
 	out("STATION_NAME", demo.planet_name)
 	out("STATION_TOWN_NAME", demo.town_name)
 	out("STATION_GUARDS", demo.npcs.size())
-	out("STATION_LOCALS", demo.locals.size())
+	# Issue #715: the town's people come in as you walk up, so arriving from the
+	# sky they are still waiting (PeopleByDistance): counted from their markers.
+	var waiting: Array = []
+	if demo.people != null:
+		for id in demo.people._markers:
+			if not demo.people.built.has(id) and not demo.people.dead.has(id):
+				waiting.append(demo.people._markers[id])
+	out("STATION_LOCALS", demo.locals.size() + waiting.size())
 	out("STATION_BUILDINGS", t.boxes().filter(func(b): return str(b.get("look", "")).begins_with("hut") or str(b.get("look", "")).begins_with("tower")).size())
 	# Issue #545: the size-1 town's own, not the domes' homes (da2fd02, zone "dome_*").
 	out("STATION_CORE_BUILDINGS", t.boxes().filter(func(b): return (str(b.get("look", "")).begins_with("hut") or str(b.get("look", "")).begins_with("tower")) \
@@ -324,8 +331,14 @@ func _run() -> void:
 	# One of them (the domes bring their own) stands at the cantina's door.
 	out("GUARD_AT_CANTINA_DOOR", demo.npcs.any(func(g): return g.post_pos.distance_to(t.marker_pos("cantina_door")) < 5.0))
 	var merchant = demo.locals.filter(func(n): return str(n.profile.get("id", "")) == "local_merchant")
+	var merchant_x := NAN
+	if not merchant.is_empty():
+		merchant_x = merchant[0].post_pos.x
+	for m in waiting:
+		if str(m.get("soldier", "")) == "local_merchant":
+			merchant_x = t.marker_pos(str(m.id)).x
 	# Issue #261: the station's club has no building; its stall is still past the bar's door.
-	out("MERCHANT_IN_FRONT", not merchant.is_empty() and merchant[0].post_pos.x > t.marker_pos("cantina_door").x - 1.5)
+	out("MERCHANT_IN_FRONT", not is_nan(merchant_x) and merchant_x > t.marker_pos("cantina_door").x - 1.5)
 	out("ARRIVED_PILOTING", pilot.piloting)
 	out("ARRIVED_STATE", pilot.atmo.state_label())
 	out("ARRIVED_ALTITUDE", arrived_altitude)      # on the first frame, before the staged build

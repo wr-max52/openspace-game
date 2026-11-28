@@ -112,6 +112,12 @@ func _note_piece() -> void:
 	slow_pieces.append({ "step": current, "ms": ms, "at": at })
 
 
+## Issue #714: a sliced step runs under the budget now (slice() can wait a
+## frame); false under run_all(), where a step must finish on this frame.
+func slicing() -> bool:
+	return _slicing
+
+
 ## Issue #574: `sb` may be null (a build outside any staged plan): then never waits.
 static func slice_of(sb: StagedBuild) -> void:
 	if sb != null:

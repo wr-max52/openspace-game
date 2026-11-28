@@ -3,7 +3,8 @@ extends GutTest
 ## big; every kind's grammar only names lists and tongues that exist; nothing in
 ## it (or anything it makes) is a franchise name or a rude word; the same key
 ## always gives the same name; names are unique across the game, authored names
-## are never handed out, and the book survives a save.
+## are never handed out, and the book survives a save. Issue #834: a new game keeps
+## places and gear and renames people and ships.
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
@@ -186,7 +187,7 @@ func test_the_book_survives_a_save() -> void:
 	WorldState.reset()
 	var n := WorldState.names.name_for("planet", "planet:save_test")
 	var shown := NameHooks.person({ "kind": "person_drift", "titles": "remnant_rank" }, "npc:save_test")
-	var saved := JSON.parse_string(JSON.stringify(WorldState.to_save()))
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(WorldState.to_save()))
 	WorldState.reset()
 	WorldState.names.world_seed = 5
 	WorldState.from_save(saved)
@@ -195,6 +196,97 @@ func test_the_book_survives_a_save() -> void:
 	assert_true(WorldState.names.is_taken(n), "still taken after a reload")
 	assert_eq(WorldState.names.world_seed, NameBook.new(engine).world_seed, "the saved seed comes back")
 	WorldState.reset()
+
+
+# ------------------------------------------------------------ issue #834
+
+## Two new games: the same places and gear, new people and ships.
+func _two_games() -> Array:
+	var a := NameBook.fresh(engine)
+	var b := NameBook.fresh(engine)
+	while b.game_seed == a.game_seed:
+		b = NameBook.fresh(engine)
+	return [a, b]
+
+
+func test_a_new_game_keeps_places_and_gear() -> void:
+	var cc := CoreContent.new()
+	cc.load_from()
+	var world := cc.get_world("port_desert")
+	var base := NameBook.new(engine)               # seed 1517, as before #834
+	var games := _two_games()
+	for book in games:
+		for i in 20:                               # people first, so a clash would show
+			book.name_for("person_drift", "npc:crowd/%d" % i)
+	for kind in ["town", "town_station", "town_float", "planet", "moon", "star"]:
+		var key := "%s:test" % kind
+		var want := base.name_for(kind, key)
+		for book in games:
+			assert_eq(book.name_for(kind, key), want, kind + " is the same in every game")
+	assert_eq(NameHooks.town(world, games[0]), NameHooks.town(world, base), "the port's town")
+	assert_eq(NameHooks.planet(world, games[1]), NameHooks.planet(world, base), "the home planet")
+	var jet := cc.get_item("jetpack")
+	assert_eq(NameHooks.equipment(jet, "jetpack", games[0]), NameHooks.equipment(jet, "jetpack", base), "gear brands")
+
+
+func test_a_new_game_renames_people_and_ships() -> void:
+	var cc := CoreContent.new()
+	cc.load_from()
+	var g := _two_games()
+	var guard := { "kind": "person_remnant", "titles": "remnant_rank" }
+	var diff_people := 0
+	var diff_ships := 0
+	var diff_calls := 0
+	for i in 10:
+		if NameHooks.person(guard, "npc:port_town/g%d" % i, g[0]) != NameHooks.person(guard, "npc:port_town/g%d" % i, g[1]):
+			diff_people += 1
+		var ship := cc.get_ship("interceptor")
+		if NameHooks.vessel(ship, "vessel:test/%d" % i, g[0]) != NameHooks.vessel(ship, "vessel:test/%d" % i, g[1]):
+			diff_ships += 1
+		var fighter: Dictionary = cc.get_ship("remnant_fighter").naming
+		if NameHooks.callsign(fighter, "pilot:t/%d" % i, g[0]) != NameHooks.callsign(fighter, "pilot:t/%d" % i, g[1]):
+			diff_calls += 1
+	assert_gt(diff_people, 5, "guards get new names")
+	assert_gt(diff_ships, 5, "ships get new names")
+	assert_gt(diff_calls, 5, "pilots get new callsigns")
+	for book in g:
+		assert_eq(book.by_key.get("npc:cantina_owner", ""), "Oda Vell", "the story cast keeps its names")
+		assert_eq(book.by_key.get("npc:station_owner", ""), "Ilka Vell")
+
+
+func test_which_kinds_are_fixed_is_data() -> void:
+	var book := NameBook.new(engine)
+	for kind in engine.config.get("fixed_kinds", []):
+		assert_true(engine.kinds.has(kind), "fixed kind %s exists" % kind)
+		assert_true(book.is_fixed(kind))
+	for kind in ["person_remnant", "person_dune", "person_drift", "callsign", "vessel"]:
+		assert_false(book.is_fixed(kind), kind + " changes each game")
+	assert_true(book.is_fixed("authored"), "an authored name never moves")
+
+
+func test_a_place_never_yields_to_a_person() -> void:
+	var book := NameBook.new(engine)
+	var want := NameBook.new(engine).name_for("town", "town:clash")
+	book._write(want, "npc:squatter", "person_drift")    # a person got there first
+	assert_eq(book.name_for("town", "town:clash"), want, "the town keeps its name")
+	assert_false(book.has("npc:squatter"), "the person lets it go")
+	var renamed := book.name_for("person_drift", "npc:squatter")
+	assert_ne(renamed, "")
+	assert_ne(NameEngine.normalize(renamed), NameEngine.normalize(want), "and is named again")
+
+
+func test_the_game_seed_survives_a_save_and_old_saves_keep_theirs() -> void:
+	var book := NameBook.fresh(engine)
+	var guard := book.name_for("person_remnant", "npc:g")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(book.to_save()))
+	var back := NameBook.new(engine)
+	back.from_save(saved)
+	assert_eq(back.game_seed, book.game_seed, "the game seed comes back")
+	saved.erase("game_seed")                   # a save from before #834
+	var old := NameBook.new(engine)
+	old.from_save(saved)
+	assert_eq(old.game_seed, old.world_seed, "an old save's people are named from 1517, as they were")
+	assert_eq(old.by_key.get("npc:g", ""), guard, "and every name it gave out stays")
 
 
 func test_roman_numerals_and_modifiers() -> void:

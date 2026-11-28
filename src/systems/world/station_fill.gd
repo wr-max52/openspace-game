@@ -1866,13 +1866,13 @@ func _remnant_room(r: Dictionary) -> void:
 				_p(kit.box(0.35, 0.02, 4.55), hz, Vector3(r0 + 5.6 + s * 2.1, 0.03, 0))
 
 
-## Issue #838: the floor hatch in room `r` (StationHull.floor_hatch on its floor,
+## Issue #838: the gantry hatch in room `r` (StationHull.gantry_hatch on its floor,
 ## its angle the room's): { x (its middle, out from the tower's middle along the
 ## room), hw }, or {} for none.
 func _floor_hole(r: Dictionary) -> Dictionary:
 	for t in hull.towers:
 		for i in (t.floors as Array).size():
-			var fh := hull.floor_hatch(t, i)
+			var fh := hull.gantry_hatch(t, i)
 			if fh.is_empty() or absf(wrapf(float(fh.a) - float(r.room.a), -PI, PI)) > 0.01:
 				continue
 			if absf(float(t.floors[i].y) - (r.frame as Transform3D).origin.y) > 1.0:

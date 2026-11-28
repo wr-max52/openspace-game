@@ -65,6 +65,10 @@ var bay: Dictionary = {}           ## { xf (x out to the mouth), c, dir, r, mout
 var parts: Array = []
 var doors: Array = []              ## { tower, floor (index), xf, size }: the shaft's doors, opened by SpaceStation
 var hatches: Array = []            ## { tunnel, xf, size }: the shield in each tunnel's roof (you pass, the air does not)
+## The shields in every floor's ceiling over the walkway (the config's "floor_hatch"),
+## the tunnels' hatches in the floors' roofs: { tower, floor (index), a, xf, size }
+## (xf: x out from the tower's middle, y up; SpaceStation draws them, no collider).
+var floor_hatches: Array = []
 var rooms: Dictionary = {}         ## "<tower>/<floor>" -> [{ a (its door's angle), half (half its angle), open }]
 var tubes: Array = []              ## { tower, floor (index), c, r, y0, y1 }: the shield round the gap between two floors (SpaceStation draws it)
 ## Issue #603: { tower, floor (index), c, r0, r1, y }: the shield across the gap round the
@@ -111,7 +115,8 @@ func setup(d: Dictionary) -> void:
 			var count := int(rv) if (rv is float or rv is int) else (int(d.get("rooms", {}).get("count", 8)) if bool(rv) else 0)
 			fl.append({ "id": str(f.get("id", "")), "y": float(f.get("y", 0.0)), "r": float(f.get("radius", 40.0)),
 				"rooms": count > 0, "room_count": count, "open_rooms": int(f.get("open_rooms", -1)),
-				"roof_hatch": f.get("roof_hatch", {}), "floor_hatch": f.get("floor_hatch", {}) })
+				"hatches": int(f.get("hatches", -1)),
+				"roof_ladder": bool(f.get("roof_ladder", false)), "gantry_hatch": f.get("gantry_hatch", {}) })
 		fl.sort_custom(func(a, b): return float(a.y) < float(b.y))
 		towers.append({ "id": str(t.get("id", "")), "c": Vector2(float(at[0]), float(at[1])), "floors": fl,
 			"antennas": t.get("antennas", []), "skimmer": t.get("skimmer", {}) })
@@ -806,6 +811,7 @@ func _build() -> void:
 	parts = []
 	doors = []
 	hatches = []
+	floor_hatches = []
 	rooms = {}
 	tubes = []
 	gap_shields = []
@@ -907,21 +913,19 @@ func _floor(t: Dictionary, i: int) -> void:
 	# The plate, the gap's shield floor (the shaft's own floor at the bottom). Issue
 	# #603: the gap is not glass you stand on but a shield you drop through, floor
 	# after floor, out under the station from the lowest one (as the tunnels' hatches).
-	var fh: Dictionary = floor_hatch(t, i)
+	var fh: Dictionary = gantry_hatch(t, i)
 	if fh.is_empty():
 		_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
 	else:
-		_floor_hatch(t, pre, c, r, y, fh)
+		_gantry_hatch(t, pre, c, r, y, fh)
 	gap_shields.append({ "tower": str(t.id), "floor": i, "c": c, "r0": shaft_r, "r1": gap_r, "y": y - 0.05 })
 	if i == 0:
 		_ring(pre + "_pit", c, 0.0, shaft_r, y - plate, y, "floor", "deck", [], 12)
 	# A glowing band round the plate's edge outside, and the underside's trim.
 	_ring(pre + "_edge_glow", c, r + 0.05, r + 0.35, y - 0.75, y - 0.45, "decor", "glow")
-	var rh: Dictionary = roof_hatch(t, i)
-	if rh.is_empty():
-		_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
-	else:
-		_roof_hatch(pre, c, r, ceil_y, rh)
+	_ceiling(t, i, pre, ceil_y)
+	if top and bool(f.get("roof_ladder", false)):
+		_roof_ladder(t, i, pre, ceil_y)
 	# Issue #702: out on this floor's roof, a low rail round its edge (the roof walk's
 	# own finish, 24 boxes in the station's one body): you stop there, not fall off.
 	_ring(pre + "_roof_rail", c, r - 0.3, r, ceil_y + plate, ceil_y + plate + RAIL_H, "solid", "rail", [], 24)
@@ -985,63 +989,41 @@ func _floor(t: Dictionary, i: int) -> void:
 		_rooms(t, i, doors_at)
 
 
-## Issue #838: the top floor's hatch up to its roof (the floor's "roof_hatch":
-## { a_deg (round the tower's middle, 0 = +x), r (its middle from the tower's
-## middle, over the walkway), width }), or {} for none: { a, r, hw (half its width) }.
-func roof_hatch(t: Dictionary, i: int) -> Dictionary:
-	var fl: Array = t.floors
-	if i != fl.size() - 1:
-		return {}
-	var rh = fl[i].get("roof_hatch", {})
-	if not (rh is Dictionary) or (rh as Dictionary).is_empty():
-		return {}
-	return { "a": deg_to_rad(float(rh.get("a_deg", 0.0))), "r": float(rh.get("r", gap_r + walk * 0.5)),
-		"hw": float(rh.get("width", float(cfg.get("hatch", {}).get("width", 4.0)))) * 0.5 }
-
-
-## The ceiling with the hatch cut in it, closed by a shield you pass through (the
-## tunnels' roof hatch: SpaceStation draws it; jetpack up through it, onto the roof),
-## a glowing rim round it, and a ladder up the hole's outer side from the walkway
-## to a handhold over the roof (the look: you climb with the jetpack, as everywhere).
-func _roof_hatch(pre: String, c: Vector2, r: float, ceil_y: float, rh: Dictionary) -> void:
-	var a := float(rh.a)
-	var hr := float(rh.r)
-	var hw := float(rh.hw)
-	var y0 := ceil_y
-	var y1 := ceil_y + plate
-	_ring(pre + "_ceiling_in", c, gap_r, hr - hw, y0, y1, "solid", "hull")
-	_ring(pre + "_ceiling_hatch", c, hr - hw, hr + hw, y0, y1, "solid", "hull", [[a, hw]])
-	_ring(pre + "_ceiling_out", c, hr + hw, r, y0, y1, "solid", "hull")
+## Issue #838: a ladder up to the top floor's first ceiling hatch (the floor's
+## "roof_ladder": floor_hatch_angles' first), from the walkway to a handhold over the
+## roof, up the hole's outer side (the look: you climb with the jetpack, as everywhere).
+func _roof_ladder(t: Dictionary, i: int, pre: String, ceil_y: float) -> void:
+	var f: Dictionary = t.floors[i]
+	var at := floor_hatch_angles(f)
+	if at.is_empty():
+		return
+	var fh: Dictionary = cfg.get("floor_hatch", {})
+	var h0 := gap_r + float(fh.get("from_rail", 1.5))
+	var h1 := minf(h0 + float(fh.get("length", 4.0)), gap_r + walk)
+	var a: float = at[0]
 	var dir := Vector3(cos(a), 0, sin(a))
 	var side := dir.cross(UP)
-	var mid := Vector3(c.x, 0, c.y) + dir * hr
-	var shield := Transform3D(Basis(dir, UP, side), mid + Vector3(0, (y0 + y1) * 0.5, 0))
-	hatches.append({ "tunnel": pre + "_roof", "xf": shield, "size": Vector3(hw * 2.0, 0.1, hw * 2.0) })
-	for s: float in [-1.0, 1.0]:
-		_add("%s_roof_hatch_rim_%d" % [pre, int(s)], Transform3D(Basis(dir, UP, side), mid + side * s * (hw + 0.15) + Vector3(0, y1 + 0.1, 0)),
-			Vector3(hw * 2.0 + 0.6, 0.2, 0.3), "decor", "glow")
-		_add("%s_roof_hatch_end_%d" % [pre, int(s)], Transform3D(Basis(dir, UP, side), mid + dir * s * (hw + 0.15) + Vector3(0, y1 + 0.1, 0)),
-			Vector3(0.3, 0.2, hw * 2.0 + 0.6), "decor", "glow")
-	# The ladder: two rails up the hole's outer edge, rungs between them.
-	var lx := mid + dir * (hw - 0.25)
-	var top := y1 + RAIL_H
-	var y_floor := ceil_y - floor_h
+	var b := Basis(dir, UP, side)
+	var c: Vector2 = t.c
+	var lx := Vector3(c.x, 0, c.y) + dir * (h1 - 0.25)
+	var y_floor := float(f.y)
+	var top := ceil_y + plate + RAIL_H
 	for s: float in [-0.35, 0.35]:
-		_add("%s_roof_ladder_rail_%d" % [pre, int(signf(s))], Transform3D(Basis(dir, UP, side), lx + side * s + Vector3(0, (y_floor + top) * 0.5, 0)),
+		_add("%s_roof_ladder_rail_%d" % [pre, int(signf(s))], Transform3D(b, lx + side * s + Vector3(0, (y_floor + top) * 0.5, 0)),
 			Vector3(0.08, top - y_floor, 0.08), "solid", "rail")
 	var rungs := int((top - y_floor) / 0.35)
 	for k in rungs:
-		_add("%s_roof_ladder_rung_%d" % [pre, k], Transform3D(Basis(dir, UP, side), lx + Vector3(0, y_floor + 0.3 + k * 0.35, 0)),
+		_add("%s_roof_ladder_rung_%d" % [pre, k], Transform3D(b, lx + Vector3(0, y_floor + 0.3 + k * 0.35, 0)),
 			Vector3(0.06, 0.06, 0.7), "decor", "rail")
 
 
-## Issue #838: a hatch in a floor's plate (the floor's "floor_hatch": { a_deg, r,
-## width }, as roof_hatch), down to the tower's skimmer gantry below it: { a, r, hw },
+## Issue #838: a hatch in a floor's plate (the floor's "gantry_hatch": { a_deg, r,
+## width }), down to the tower's skimmer gantry below it: { a, r, hw },
 ## or {} for none. Only the lowest floor's plate opens to the outside.
-func floor_hatch(t: Dictionary, i: int) -> Dictionary:
+func gantry_hatch(t: Dictionary, i: int) -> Dictionary:
 	if i != 0:
 		return {}
-	var fh = (t.floors as Array)[i].get("floor_hatch", {})
+	var fh = (t.floors as Array)[i].get("gantry_hatch", {})
 	if not (fh is Dictionary) or (fh as Dictionary).is_empty():
 		return {}
 	return { "a": deg_to_rad(float(fh.get("a_deg", 0.0))), "r": float(fh.get("r", 25.0)),
@@ -1051,7 +1033,7 @@ func floor_hatch(t: Dictionary, i: int) -> Dictionary:
 ## The plate with the hatch cut in it, its shield (drop through it; jetpack back up),
 ## a rim round it, and a ladder from the gantry below up the hole's outer side to a
 ## handhold over the floor (the look: the jetpack climbs it, as the roof's).
-func _floor_hatch(t: Dictionary, pre: String, c: Vector2, r: float, y: float, fh: Dictionary) -> void:
+func _gantry_hatch(t: Dictionary, pre: String, c: Vector2, r: float, y: float, fh: Dictionary) -> void:
 	var a := float(fh.a)
 	var hr := float(fh.r)
 	var hw := float(fh.hw)
@@ -1176,6 +1158,57 @@ func _antennas(t: Dictionary, roof: float) -> void:
 		k += 1
 
 
+## Where a floor's ceiling hatches are (angles round its tower): `count` of the
+## config's "floor_hatch" (a floor's own "hatches" first) spread evenly, half a
+## step round from 0 so they sit between the bridges both ways (they run along x on
+## one floor, along z on the next). None when the count is 0.
+func floor_hatch_angles(f: Dictionary) -> Array:
+	var n := int(f.get("hatches", -1))
+	if n < 0:
+		n = int(cfg.get("floor_hatch", {}).get("count", 4))
+	var out: Array = []
+	for k in maxi(0, n):
+		out.append(TAU * (k + 0.5) / n)
+	return out
+
+
+## A floor's ceiling, from the gap's edge out to its glass, with the floor's hatches
+## cut in it over the walkway: a square hole closed by a shield you jump (jetpack)
+## up through onto the floor's roof, and drop back in by, as the tunnels' hatches.
+## The ceiling is three rings: inside the hatches, round them (the holes left open)
+## and outside them; a glowing rim round each hole, on the roof and underneath.
+func _ceiling(t: Dictionary, i: int, pre: String, ceil_y: float) -> void:
+	var f: Dictionary = t.floors[i]
+	var c: Vector2 = t.c
+	var r := float(f.r)
+	var at := floor_hatch_angles(f)
+	var fh: Dictionary = cfg.get("floor_hatch", {})
+	var h0 := gap_r + float(fh.get("from_rail", 1.5))
+	var h1 := minf(h0 + float(fh.get("length", 4.0)), gap_r + walk)
+	var hw := float(fh.get("width", 4.0))
+	if at.is_empty() or h1 - h0 < 1.0 or h1 >= r - 1.0:
+		_ring(pre + "_ceiling", c, gap_r, r, ceil_y, ceil_y + plate, "solid", "hull")
+		return
+	var hm := (h0 + h1) * 0.5
+	_ring(pre + "_ceiling_in", c, gap_r, h0, ceil_y, ceil_y + plate, "solid", "hull", [], maxi(12, seg / 2))
+	_ring(pre + "_ceiling_hatch", c, h0, h1, ceil_y, ceil_y + plate, "solid", "hull", at.map(func(a): return [a, hw * 0.5]))
+	_ring(pre + "_ceiling", c, h1, r, ceil_y, ceil_y + plate, "solid", "hull")
+	# The hole is a little wider at its outer end (the cut is a wedge of the ring):
+	# the shield is as wide as that end, its inner corners hidden in the ceiling.
+	var sw := hw * h1 / hm + 0.1
+	for a: float in at:
+		var deg := int(rad_to_deg(a))
+		for side: float in [ceil_y + plate + 0.1, ceil_y - 0.1]:
+			var nm := "%s_hatch_%d_%s" % [pre, deg, "top" if side > ceil_y else "under"]
+			for s: float in [-1.0, 1.0]:
+				_radial("%s_rim_%d" % [nm, int(s)], c, a, h0, h1, side - 0.1, side + 0.1, 0.3, "decor", "glow", s * (sw * 0.5 + 0.15))
+			for e: float in [h0 - 0.15, h1 + 0.15]:
+				_radial("%s_end_%d" % [nm, int(e * 10.0)], c, a, e - 0.15, e + 0.15, side - 0.1, side + 0.1, sw + 0.6, "decor", "glow")
+		var x := Vector3(cos(a), 0, sin(a))
+		floor_hatches.append({ "tower": str(t.id), "floor": i, "a": a, "size": Vector3(h1 - h0, 0.1, sw),
+			"xf": Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, ceil_y + plate * 0.5, c.y) + x * hm) })
+
+
 ## The rooms round the outside of a floor: an inner wall at the walkway's edge with
 ## a door into each room, dividers between them, and corridors from the walkway out
 ## to each tunnel.
@@ -1279,8 +1312,15 @@ func _tower_dressing(t: Dictionary) -> void:
 			Vector3(14.0 - k * 3.0, 0.5, 0.5), "decor", "trim")
 	_add("%s_beacon" % str(t.id), Transform3D(Basis.IDENTITY, Vector3(c.x, roof + mast_h + 0.6, c.y)),
 		Vector3(1.4, 1.2, 1.4), "decor", "beacon")
-	var rh := roof_hatch(t, fl.size() - 1)
-	var ring_gaps: Array = [] if rh.is_empty() else [[float(rh.a), float(rh.hw) + 0.6]]   # the way out of the hatch
+	# Issue #838: the ring leaves the way out of each ceiling hatch open (they sit over
+	# the walkway, where a small tower's ring stands).
+	var ring_gaps: Array = []
+	var fhc: Dictionary = cfg.get("floor_hatch", {})
+	var hr0 := gap_r + float(fhc.get("from_rail", 1.5))
+	var hr1 := hr0 + float(fhc.get("length", 4.0))
+	if hr1 > float(high.r) * 0.35 and hr0 < float(high.r) * 0.42:
+		for a: float in floor_hatch_angles(high):
+			ring_gaps.append([a, float(fhc.get("width", 4.0)) * 0.5 + 0.6])
 	_ring("%s_roof_ring" % str(t.id), c, float(high.r) * 0.35, float(high.r) * 0.42, roof, roof + 1.2, "solid", "trim", ring_gaps, 32)
 	_antennas(t, roof)
 	_skimmer(t)

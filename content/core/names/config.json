@@ -4,6 +4,16 @@
  "config": {
   "world_seed": 1517,
   "max_attempts": 64,
+  "fixed_kinds": [
+   "town",
+   "town_station",
+   "town_float",
+   "planet",
+   "moon",
+   "star",
+   "equipment",
+   "maker"
+  ],
   "reserved": [
    {
     "name": "Oda Vell",

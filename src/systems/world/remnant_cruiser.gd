@@ -71,6 +71,7 @@ var _floating := false                 ## we set the player's space gravity (to 
 var _stairs_reached := false           ## the fleet chapter's "infiltrate" step was reported
 var _last_aboard := Vector3.INF
 var _mats: Dictionary = {}
+static var _kept_mats: Dictionary = {}     ## issue #716: the glass and glows, shared by every cruiser
 var _flames: Array = []                ## the engines' flame nodes (Node3D), to flicker
 var holo: CruiserHolo                  ## the bridge's planet map, built the first time you are near it
 
@@ -707,9 +708,10 @@ func _build_look(st: StagedBuild = null) -> void:
 		m.set_shader_parameter("finish", FINISHES[f])
 		m.set_shader_parameter("noise_tex", noise)
 		_mats[f] = m
-	_mats["glass"] = _glass()
-	_mats["glow"] = _emissive(Color("#e8f6ff"), 3.0)
-	_mats["reactor"] = _emissive(Color("#9fdcff"), 6.0)
+	# Issue #716: kept for the session (made new, their shaders died with each scene).
+	if _kept_mats.is_empty():
+		_kept_mats = { "glass": _glass(), "glow": _emissive(Color("#e8f6ff"), 3.0), "reactor": _emissive(Color("#9fdcff"), 6.0) }
+	_mats.merge(_kept_mats, true)
 	var groups := {}
 	for p in CruiserHull.parts():
 		var f := str(p.finish)

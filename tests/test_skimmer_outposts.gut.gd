@@ -227,8 +227,8 @@ static func _inside_part(h: StationHull, p: Vector3) -> bool:
 
 func test_a_shielded_hatch_and_a_ladder_up_to_the_roof() -> void:
 	var h := _hull()
-	var roof_hatches: Array = h.hatches.filter(func(x): return str(x.tunnel).ends_with("_roof"))
-	assert_eq(roof_hatches.size(), 1, "one hatch in the deck's roof")
+	var roof_hatches: Array = h.floor_hatches.filter(func(x): return int(x.floor) == 0)
+	assert_eq(roof_hatches.size(), 4, "the station kit's four ceiling hatches")
 	if roof_hatches.is_empty():
 		return
 	var hx: Transform3D = roof_hatches[0].xf
@@ -238,11 +238,12 @@ func test_a_shielded_hatch_and_a_ladder_up_to_the_roof() -> void:
 	var flat := Vector2(hx.origin.x, hx.origin.z)
 	assert_between(flat.length(), h.gap_r, h.gap_r + h.walk, "over the walkway")
 	assert_false(_inside_part(h, hx.origin), "the hatch is a hole, closed only by its shield")
-	var beside := hx.origin + Vector3(0, 0, 3.5)
+	var beside := hx.origin + hx.basis.z.normalized() * 3.5
 	assert_true(_inside_part(h, beside), "the ceiling round it is solid")
 	var roof := float(f.y) + h.floor_h + h.plate
 	assert_false(_inside_part(h, Vector3(hx.origin.x, roof + 0.6, hx.origin.z)), "nothing on the roof over it")
-	assert_false(_inside_part(h, Vector3(hx.origin.x + 1.0, roof + 0.6, hx.origin.z)), "the roof ring leaves the way out open")
+	var out := hx.origin + hx.basis.x.normalized() * 1.0
+	assert_false(_inside_part(h, Vector3(out.x, roof + 0.6, out.z)), "the roof ring leaves the way out open")
 	assert_true(h.on_roof(Vector3(hx.origin.x, roof + 1.0, hx.origin.z)), "up through it you are out on the roof")
 	var rails := h.parts.filter(func(p): return str(p.id).contains("_roof_ladder_rail_"))
 	assert_eq(rails.size(), 2, "a ladder's two rails")
@@ -278,7 +279,7 @@ func test_you_drop_back_down_through_the_hatch_onto_the_walkway() -> void:
 	assert_not_null(s)
 	if s == null:
 		return
-	var hx: Transform3D = s.hull.hatches.filter(func(x): return str(x.tunnel).ends_with("_roof"))[0].xf
+	var hx: Transform3D = s.hull.floor_hatches.filter(func(x): return int(x.floor) == 0)[0].xf
 	var roof: float = s.hull.floor_h + s.hull.plate
 	var p = t._player
 	p.global_position = s.frame * Vector3(hx.origin.x - 0.6, roof + 0.6, hx.origin.z)

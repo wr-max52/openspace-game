@@ -198,6 +198,9 @@ static func gas_look_for(planet: Dictionary) -> Dictionary:
 ## seated on its town and flat sites, not built yet; null when its world is not a
 ## ball. The scene and a handoff's prewarm (prewarm_far) both make it here, so the
 ## far mesh one computes is the one the other needs.
+static var _flat_kept := {}            ## issue #716: cache_key -> the ball's flat sites
+
+
 static func for_planet(planet: Dictionary) -> PlanetTerrain:
 	var world: Dictionary = planet.get("world", {})
 	var r := float(world.get("terrain", {}).get("sphere_radius", 0.0))
@@ -220,10 +223,14 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 	pt.configure_site(site.floor, site.walls, site.sunken, 0.0)
 	# The mountains' playas before the race gates' pads: a gate at a tunnel's mouth
 	# stands on its mountain's level sand (the first site a point is inside wins).
-	pt.configure_flat_sites(droid_flat_sites(planet, pt.sphere) + camp_flat_sites(planet, pt.sphere)
-		+ outpost_flat_sites(planet, pt.sphere)
-		+ DesertLandforms.mountain_flat_sites(planet, pt.sphere)
-		+ RaceCourse.flat_sites(str(planet.get("world", {}).get("id", "")), pt.sphere))
+	# Issue #716: content only, so worked out once a session per ball (~17 ms on
+	# every arrival's switch frame before).
+	if not _flat_kept.has(pt.cache_key):
+		_flat_kept[pt.cache_key] = droid_flat_sites(planet, pt.sphere) + camp_flat_sites(planet, pt.sphere) \
+			+ outpost_flat_sites(planet, pt.sphere) \
+			+ DesertLandforms.mountain_flat_sites(planet, pt.sphere) \
+			+ RaceCourse.flat_sites(str(planet.get("world", {}).get("id", "")), pt.sphere)
+	pt.configure_flat_sites(_flat_kept[pt.cache_key])       # (it takes a copy)
 	return pt
 
 

@@ -2,6 +2,69 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## New version is 1.7.6 (2026-11-28)
+
+- Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New
+  version is 1.7.5", is in it.
+
+## Coming down from the gas giant: under budget (2026-11-28)
+
+- **The way down from the gas giant is now smooth.** Its worst frame was over
+  a tenth of a second; now it's under a twentieth, and the frames over budget
+  went from 62 to about 12.
+- **New kinds of material are made out in open space.** The first time a
+  session drew the club's booths, the barge's decks or the rock, the game
+  froze for a moment on the way down while it got them ready. Now home's are
+  readied one a frame from 30 km out, before you reach its sky. A fresh
+  install's first flight down gets the same.
+- A test checks that home's rocks and wrecks are all made on the way in, so
+  the way down makes nothing new.
+
+## Name your ride (2026-11-28)
+
+- **Rename your ships and speeders in the Ledger** (I). Each one has its name in
+  a field: type a new one and press Enter, or press the dice for a fresh one.
+- **Speeders have names now,** generated like your ship's.
+- **Typed names go through the same filter** as generated ones: 4 to 32
+  characters, nothing rude, no franchise names, and nothing another thing in
+  the game already has. A refused name puts the old one back and says why.
+- **The new name is used everywhere,** on the HUD and the dash, in the call
+  toasts and in space, and it is saved.
+
+## Jump from one stolen ship to the next (2026-11-28)
+
+- **No more waiting for the ship you ejected from.** Before, you could not board
+  or hijack another ship until the empty one had landed or been towed. Now you
+  can climb into the next ship (or hijack one in the air) the moment you are out.
+- **The one you left goes down as a wreck.** If she is still falling, a copy of
+  her carries on down at her own speed and blows up where she lands. A stolen or
+  borrowed ship is gone; a pad's own ship that is nobody's is towed back to her
+  pad. If she had already crashed and was waiting for her tow, the tow happens
+  at once.
+- Your own ship still flies home when you eject, as before.
+
+## New game, new crew (2026-11-28)
+
+- **Each new game names its people and ships afresh.** Guards, locals, dancers,
+  the DJ, bounty targets, the cruiser general, native folk, the Fixer, other
+  planets' cantina owners' surnames, every ship's own name (yours too) and the
+  pilots' callsigns come from a seed rolled for that game.
+- **The world stays the same.** Planets, moons, stars, towns, outposts and gear
+  brands have the same names in every game and on every machine, and the story
+  cast (Oda, Ilka, Skrugs, Grubba, T-89 and the rest) keep theirs.
+- **The seed is in the Ledger** (I), under the jobs, so you can tell a friend.
+  Old saves keep every name they had.
+
+## Hatches in the station's ceilings (2026-11-28)
+
+- **Every floor of the space station has shield hatches in its ceiling,** like
+  the ones in the tunnels' roofs: four square holes over the walkway, each
+  closed by a shield the air cannot pass and you can.
+- **Jetpack up through one** and you are out on that floor's roof (or the
+  tower's roof over the top floor); drop back through it to get in.
+- The count, size and spot are the `floor_hatch` block in
+  `content/core/stations/orbital_station.json`; a floor can have its own count.
+
 ## Build by sight on every planet (2026-11-27)
 
 - **Flying in to a moon, the gas giant or any generated planet builds nothing
@@ -26,6 +89,37 @@ Plain English, newest on top. One entry per milestone.
 - **Nobody out of view is posed:** a person behind you or off screen keeps their
   last pose until they come into view, as a far one already did.
 - The distances are in `content/core/npcs/wake_rings.json` (`by_distance`).
+
+## Coming down: the last big hitches (2026-11-27)
+
+- **The switch to the home planet is lighter:** the blowing sand comes in a
+  moment after the planet takes over (nobody sees it from that high up), and
+  the planet's level pads are worked out once a session, not on every arrival.
+- **The cantina's first table, the upright bass, the barge's hull and the
+  cruiser's glass no longer stall the way down.** Their see-through and glowing
+  materials are made once a session and shared; made new each time, the game
+  had to prepare them again on every arrival.
+- **The stair tower, the pit and the lookout** are worked out once a session.
+- **The town's cloth and glowing props** keep their material kinds for the
+  session, so the town's decor no longer prepares them again on each arrival.
+
+## Coming down from the gas giant: no more long freezes (2026-11-27)
+
+- **Flying home from the gas giant is much smoother.** That flight loads the
+  home planet fresh, and its worst frame on the way down was over three
+  quarters of a second (the rocks). Now the worst is about an eighth of a
+  second, and half as many frames go over budget.
+- **The rocks and wrecks are worked out on the way in.** From 30 km out in open
+  space, the mountains', spires' and boulders' shapes and the wrecks' parts
+  are made on other threads; on the way down they only go in, a rock at a time.
+- **The wreck field and the garrisons' cover spots are worked out off the main
+  thread**, and the natives' camp textures paint behind a plain colour, as the
+  club's already do.
+- **Ships' hulls are fitted once, not every session:** the shapes are kept in
+  `user://hull_fits.json`, so the port's parked ships and the interceptor no
+  longer cost a fifth of a second each time.
+- Graphics may come in a moment later on that flight; nothing looks different
+  once it has.
 
 ## The racers drive the checkpoints, down the valleys (2026-11-27)
 
