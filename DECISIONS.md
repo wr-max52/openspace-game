@@ -2406,3 +2406,28 @@ Issue #878 (epic #873): the red world's folklore and its worm, Dool'rey Kah.
   stall's trade prompt in reach, so he gets his own marker in the cantina's far
   corner rather than a patron's stool by the counter.
 
+## The sea is solid and the drowning is a check (2026-11-28)
+
+Issue #879 (epic #873): the tide world, a round sea you ride.
+
+- **Solid water, separate drowning.** The sea ball's collider stands at sea level
+  like any ground, so ships land, speeders hover and nothing new is needed in the
+  physics. Drowning is `OceanSphere.in_sea`, checked by the platform world. The
+  old platform fall (below y -25) would kill you a few hundred metres out on a
+  ball, so a sea ball skips it.
+- **The swell only moves what floats.** The hover model feels the swell; the
+  collider, the mesh and the pads keep the still sea, so towns and outposts never
+  bob and the shader's rollers are only a look.
+- **Pads are ground, not boxes.** The pontoons and the speeder pad are flat sites
+  on the ball (the same raise the moon's pads use), with ramps a speeder can ride
+  up. A hidden plate box under the speeder pad only lets its markers pass the town
+  check.
+- **A new ground shader.** The issue said no new shader, but the ball's ground
+  takes a ShaderMaterial and the stock water is not a ball's ground, so
+  `sea.gdshader` is new. It follows the other ground shaders (layers, hole sink,
+  dusk).
+- **Favela by style and kit.** The rusted favela look is a town style
+  (`favela_rust`) and a town kit of packed stepped huts and towers, not the
+  station's ring packer, which only fills a ring.
+- **Outposts copy the red world's.** The five pontoon outposts are the red flats
+  outpost with new ids, not the gas giant's skimmer decks, which float 200 m up.

@@ -186,6 +186,44 @@ The red world is haunted. Its beast is Dool'rey Kah, a worm (the `beast` block i
 
 `scenes/folklore_trace.gd` and `tests/test_folklore_trace.gut.gd` check it.
 
+## The tide world: a round sea (issue #879)
+
+`port_tide.json` is the red system's second world, a sea all the way round with no
+land. Copy it for any water world you can ride.
+
+- **The type is `water_ball`:** the water type made a real ball (`ground: "ball"`,
+  `deck: true`, `surface.kind: "water"`). `PlanetTerrain.for_planet` gives it an
+  `OceanSphere` (`src/systems/planets/ocean_sphere.gd`): the deck sits on the
+  ball's radius and the still sea lies `depth` (2.5 m) under it all the way round.
+  It is drawn by `sea.gdshader` (rollers, chop, crest foam, foam where the water
+  laps a pad).
+- **The sea holds things up.** The terrain collider is the still sea, so a ship
+  can set down on it. A speeder's hover model rides it through `height_above`,
+  with the swell (`swell_m`, `swell_s`) lifting and settling it on open water.
+  Nothing built on it moves with the swell.
+- **On foot it drowns you.** `PlatformWorld` checks `OceanSphere.in_sea` (open
+  water, within `drown_m` of the surface) instead of the platform's fall height,
+  so it works anywhere on the ball. You fade out with the type's `fall_text` and
+  wake by the landing bay.
+- **The town** is a generated deck town in the `favela_rust` style (rusted
+  palette) with a `town_kit` of stepped huts and tall blocks packed close. It has
+  no glass wall (`enclosure_height` 0).
+- **The speeder pad** (`speeder_pad`): a pontoon out front of the gate at the
+  deck's level, `length` by `width` metres, its ramp down to the sea all round
+  (`PlanetGen.add_speeder_pad`, `PlanetTerrain.speeder_pad_site`). Five
+  `speeder_spot` markers on it are where your own speeders wait, and with
+  `loaner` the town's own speeder waits further out, free to ride.
+- **The outposts:** five Remnant outposts (`remnant_outpost_tide_*`) stand on
+  pontoons 1.5 m out of the sea, 1.2 to 4.2 km out. Any `location` landmark on a
+  sea ball gets one (`PlanetTerrain.outpost_flat_sites`). They are the Territory
+  front `tide` in `content/core/story/territory.json`.
+- **The trip:** 30 to 50 seconds from the red world in the courier
+  (`space.trips.bands`).
+
+`scenes/sea_trace.gd` and `tests/test_sea_trace.gut.gd` check it: a speeder
+crosses a kilometre of sea to the nearest outpost and back, and a person in the
+water drowns and wakes at the bay.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the

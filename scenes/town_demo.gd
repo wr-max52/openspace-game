@@ -116,6 +116,7 @@ var barge: PartyBarge                 ## issue #269: the planet's party barge, i
 var beast: PlanetBeast                ## issue #220: the planet's beast (a deadly purple blob), if it has one
 var natives: NativesDirector          ## issue #96: the planet's native packs and wild animals
 var gate_speeders: Array = []         ## issue #82: the Remnant's Sand-boxers parked outside the front gate
+var sea_loaner: SpeederNode = null   ## issue #879: the tide town's loaner speeder on its pad (sea_loaner marker)
 var planet: Dictionary = {}           ## issue #45: the planet this scene is (PlanetGen.build), from GameFlow
 var world: Dictionary = {}            ## its world (terrain, atmosphere, detail): authored or generated
 var style: TownStyle                  ## its town style (metallic, snowy, pastel, words...)
@@ -1566,6 +1567,20 @@ func _build_speeder_post(st: StagedBuild = null) -> void:
 ## markers), parked outside the front gate while the garrison holds it. Not
 ## rideable: they are the Remnant's.
 func _park_gate_speeders(st: StagedBuild = null) -> void:
+	# Issue #879: the tide town's loaner on its speeder pad, anyone's to take (no
+	# holder, no alarm): on the sea a speeder is the only way about.
+	for m in town.markers_with_role("sea_loaner"):
+		if sea_loaner != null and is_instance_valid(sea_loaner):
+			break
+		sea_loaner = SpeederNode.new()
+		sea_loaner.setup(self, pilot.ground, {}, true, "")
+		add_child(sea_loaner)
+		sea_loaner.name = "SeaLoaner"
+		var at: Vector3 = town.marker_pos(str(m.id))
+		if terrain != null:
+			at.y = terrain.height_at(at.x, at.z)
+		sea_loaner.place(at, deg_to_rad(float(m.get("yaw_deg", 0.0))))
+		sea_loaner.set_meta("loaner", true)
 	# Issue #613: whoever holds the town parks it (the locals in their paint), and
 	# it can be ridden: stealing it is GateChase's business.
 	var holder := GateChase.holder()
@@ -2142,6 +2157,8 @@ func _dress_desert() -> void:
 		return          # issue #99: the asteroid's rock: no sand, dust or desert landforms
 	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).gas_look.is_empty():
 		return          # a gas ball's cloud tops: no sand either
+	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).sea_look.is_empty():
+		return          # issue #879: a round sea: no sand, dust or landforms
 	_desert_dressed = true
 	_hide_desert_floors()
 	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
@@ -2180,7 +2197,8 @@ func _hide_desert_floors() -> void:
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
 func _build_landforms(st: StagedBuild = null) -> void:
-	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty()):
+	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty() \
+			and (terrain as PlanetTerrain).sea_look.is_empty()):
 		return
 	if with_landforms:
 		landforms = DesertLandforms.new()

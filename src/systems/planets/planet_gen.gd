@@ -172,6 +172,8 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 			opts["domes"] = cfg.domes              # a sealed station's other domes, off its landing pit
 		town = TownGen.generate(town_id, size, int(cfg.get("seed", NameEngine.fnv(id) % 100000)), opts, _town_kit(cfg))
 		_swap_locals(town, cfg.get("locals", {}))
+		if cfg.has("speeder_pad"):
+			add_speeder_pad(town, cfg.speeder_pad)    # issue #879: the tide world's pad out front
 	var world: Dictionary = {}
 	if cfg.has("world"):
 		world = CoreContent.resolve_layout(cc.get_world(str(cfg.world)), layout)    # issue #295: landmarks per layout
@@ -238,6 +240,51 @@ static func _town_kit(cfg: Dictionary) -> Dictionary:
 ## Issue #875: a planet's own people in its town: `locals` maps a soldier
 ## profile the town generator places to the one this planet uses instead (its
 ## locals' look: "local_resident": "red_local_resident").
+## Issue #879: a speeder pad out front of a deck town (a planet's "speeder_pad"):
+## a level pad `length` metres out past the deck's front edge (the gate's side,
+## +x) and `width` across, centred on the gate. Writes town.speeder_pad
+## ({ rect: Rect2 on the map, y, ramp }: PlanetTerrain.speeder_pad_site stands it
+## up out of the sea), five speeder_spot markers in a row across it (where the
+## speeders you own wait: SpeederPost.line_spot) and, with "loaner", a
+## sea_loaner marker further out, the town's own speeder anyone may take.
+static func add_speeder_pad(town: Dictionary, pad: Dictionary) -> void:
+	var front := -INF
+	for b in town.get("boxes", []):
+		if str(b.get("kind", "")) == "floor":
+			front = maxf(front, float(b.max[0]))
+	if not is_finite(front):
+		return
+	var gz := 0.0
+	for b in town.get("boxes", []):
+		if str(b.get("id", "")) == "gate_lintel":
+			gz = (float(b.min[2]) + float(b.max[2])) * 0.5
+	var length := float(pad.get("length", 34.0))
+	var width := float(pad.get("width", 40.0))
+	var x0 := front - 1.0                     # tucked a metre under the deck's edge: no gap
+	town["speeder_pad"] = { "rect": Rect2(x0, gz - width * 0.5, length + 1.0, width), "y": 0.0,
+		"ramp": float(pad.get("ramp_m", 16.0)) }
+	# A painted plate under it, data only (hidden, nothing to trip on: the pontoon
+	# itself is the sea ball's ground), so the markers on it stand on something.
+	var zone := "outside"
+	for b in town.get("boxes", []):
+		if str(b.get("id", "")) == "gate_lintel":
+			zone = str(b.get("zone", zone))
+	var boxes: Array = town.get("boxes", [])
+	boxes.append({ "id": "speeder_pad_plate", "zone": zone, "kind": "pad", "standable": true, "hidden": true,
+		"min": [front, -0.2, gz - width * 0.5], "max": [front + length, 0.0, gz + width * 0.5] })
+	town["boxes"] = boxes
+	var markers: Array = town.get("markers", [])
+	var n := 5
+	for i in n:
+		var z := gz + (float(i) - (n - 1) * 0.5) * minf(8.0, (width - 6.0) / n)
+		markers.append({ "id": "speeder_spot_%d" % (i + 1), "role": "speeder_spot", "yaw_deg": -90,
+			"pos": [snappedf(front + length * 0.3, 0.1), 0, snappedf(z, 0.1)] })
+	if bool(pad.get("loaner", false)):
+		markers.append({ "id": "sea_loaner", "role": "sea_loaner", "yaw_deg": -90,
+			"pos": [snappedf(front + length * 0.72, 0.1), 0, snappedf(gz, 0.1)] })
+	town["markers"] = markers
+
+
 static func _swap_locals(town: Dictionary, locals: Dictionary) -> void:
 	if locals.is_empty():
 		return
