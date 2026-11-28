@@ -157,7 +157,7 @@ func setup(town_demo, all: Array) -> void:
 	checkpoint = Checkpoint.new(profile.get("checkpoint", {}))
 	var gcfg: Dictionary = town.data.get("garrison", {}) if town.data is Dictionary else {}
 	alarm = TownAlarm.new(gcfg.get("alarm", {}))
-	lines = CharacterKit._read_json(LINES_PATH).get("lines", {})
+	lines = CoreContent.read_json(LINES_PATH).get("lines", {})
 	gate_pos = town.marker_pos("gate")
 	for spec in zone_specs:
 		_add_zone(spec)
@@ -947,7 +947,7 @@ static var _drop_cfg: Dictionary = {}
 
 static func _grenade_drop() -> Dictionary:
 	if _drop_cfg.is_empty():
-		var w := CharacterKit._read_json(Grenade.CFG_PATH)
+		var w := CoreContent.read_json(Grenade.CFG_PATH)
 		_drop_cfg = (w.get("drop", {}) as Dictionary).duplicate()
 		_drop_cfg["item"] = str(w.get("item", "grenade"))
 	return _drop_cfg

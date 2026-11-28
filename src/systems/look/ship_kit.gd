@@ -22,6 +22,8 @@ extends RefCounted
 ## is warm, worn and asymmetric-friendly; the remnant side is dark plate with oxblood
 ## trim and amber glass, the same language as the remnant trooper.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const LOOKS_PATH := "res://content/look/ships.json"
 const FALLBACK_FRAME := "dart"
 
@@ -32,17 +34,9 @@ var bolts: Dictionary = {}
 
 func _init(materials: LookMaterials = null, looks_override: Dictionary = {}) -> void:
 	mats = materials if materials != null else LookMaterials.new()
-	var data := looks_override if not looks_override.is_empty() else _read_json(LOOKS_PATH)
+	var data := looks_override if not looks_override.is_empty() else CoreContent.read_json(LOOKS_PATH)
 	looks = data.get("looks", {})
 	bolts = data.get("bolts", {})
-
-
-static func _read_json(path: String) -> Dictionary:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var d = JSON.parse_string(f.get_as_text())
-	return d if d is Dictionary else {}
 
 
 func look_ids() -> Array:
@@ -328,11 +322,8 @@ func _glow_cached(color: Color, energy: float) -> StandardMaterial3D:
 func _part_mesh(part: Dictionary) -> Mesh:
 	match str(part.get("mesh", "box")):
 		"cyl":
-			var c := _cyl(float(part.get("top", 0.2)), float(part.get("bottom", 0.2)), float(part.get("h", 0.5)), 20)
-			if bool(part.get("open", false)):
-				c.cap_top = false
-				c.cap_bottom = false
-			return c
+			return LookMeshKit.cyl(float(part.get("top", 0.2)), float(part.get("bottom", 0.2)), float(part.get("h", 0.5)), 20, 1,
+				not bool(part.get("open", false)))   # an open tube has no caps
 		"torus":
 			var t := TorusMesh.new()
 			var r := float(part.get("r", 0.3))
@@ -343,8 +334,8 @@ func _part_mesh(part: Dictionary) -> Mesh:
 			t.ring_segments = 8
 			return t
 		"sphere":
-			return _sphere(float(part.get("r", 0.2)))
-	return _box(_v(part.get("size", [0.2, 0.2, 0.2])))
+			return LookMeshKit.ball(float(part.get("r", 0.2)), 16, 8)
+	return LookMeshKit.box(_v(part.get("size", [0.2, 0.2, 0.2])))
 
 
 static func _v(a) -> Vector3:
@@ -529,31 +520,6 @@ func _mi(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, rot: Vector3 =
 	return mi
 
 
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _cyl(top: float, bottom: float, h: float, seg: int = 12) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
-func _sphere(r: float) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	s.radial_segments = 16
-	s.rings = 8
-	return s
-
-
 func _prism(size: Vector3) -> PrismMesh:
 	var pm := PrismMesh.new()
 	pm.size = size
@@ -562,7 +528,7 @@ func _prism(size: Vector3) -> PrismMesh:
 
 ## Engine glow disc facing +Z (the exhaust side), and its flame.
 func _engine(engines: Node3D, color: Color, pos: Vector3, r: float) -> void:
-	var mi := _mi(engines, _cyl(r, r, 0.12, 14), _glow(color, 5.0), pos, Vector3(PI * 0.5, 0, 0))
+	var mi := _mi(engines, LookMeshKit.cyl(r, r, 0.12, 14, 1), _glow(color, 5.0), pos, Vector3(PI * 0.5, 0, 0))
 	mi.name = "Glow%d" % engines.get_child_count()
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_flame(engines.get_parent().get_node("Flames"), pos + Vector3(0, 0, 0.06), r * 0.9)
@@ -630,21 +596,21 @@ func _dart(body: Node3D, engines: Node3D, p: Dictionary) -> void:
 	var eng := _c(p, "engine", "#8fd8ff")
 	var r := H * 0.36
 
-	_mi(body, _cyl(r, r * 1.15, L * 0.62), hull, Vector3(0, 0, L * 0.08), ALONG_Z, Vector3.ONE, "Fuselage")
-	_mi(body, _cyl(0.0, r, L * 0.32, 12), hull, Vector3(0, 0, -L * 0.39), TIP_FORWARD, Vector3.ONE, "Nose")
-	_mi(body, _sphere(r * 0.95), _glass(_c(p, "canopy", "#1f7a78")),
+	_mi(body, LookMeshKit.cyl(r, r * 1.15, L * 0.62, 12, 1), hull, Vector3(0, 0, L * 0.08), ALONG_Z, Vector3.ONE, "Fuselage")
+	_mi(body, LookMeshKit.cyl(0.0, r, L * 0.32, 12, 1), hull, Vector3(0, 0, -L * 0.39), TIP_FORWARD, Vector3.ONE, "Nose")
+	_mi(body, LookMeshKit.ball(r * 0.95, 16, 8), _glass(_c(p, "canopy", "#1f7a78")),
 		Vector3(0, r * 0.75, -L * 0.12), Vector3.ZERO, Vector3(0.8, 0.6, 1.9), "Canopy")
 	for side in [-1.0, 1.0]:
-		var wing := _mi(body, _box(Vector3(S * 0.46, 0.14, L * 0.3)), hull,
+		var wing := _mi(body, LookMeshKit.box(Vector3(S * 0.46, 0.14, L * 0.3)), hull,
 			Vector3(side * S * 0.25, -r * 0.2, L * 0.14), Vector3(0, -side * 0.38, 0), Vector3.ONE,
 			"Wing" + ("L" if side < 0 else "R"))
-		_mi(wing, _box(Vector3(S * 0.18, 0.16, L * 0.05)), trim, Vector3(side * S * 0.08, 0.01, -L * 0.07))
-		_mi(body, _cyl(0.12, 0.12, L * 0.42, 8), dark, Vector3(side * S * 0.47, -r * 0.2, -L * 0.02), ALONG_Z)
-		_mi(body, _cyl(r * 0.55, r * 0.6, L * 0.34), dark, Vector3(side * r * 1.25, -r * 0.1, L * 0.3), ALONG_Z)
+		_mi(wing, LookMeshKit.box(Vector3(S * 0.18, 0.16, L * 0.05)), trim, Vector3(side * S * 0.08, 0.01, -L * 0.07))
+		_mi(body, LookMeshKit.cyl(0.12, 0.12, L * 0.42, 8, 1), dark, Vector3(side * S * 0.47, -r * 0.2, -L * 0.02), ALONG_Z)
+		_mi(body, LookMeshKit.cyl(r * 0.55, r * 0.6, L * 0.34, 12, 1), dark, Vector3(side * r * 1.25, -r * 0.1, L * 0.3), ALONG_Z)
 		_engine(engines, eng, Vector3(side * r * 1.25, -r * 0.1, L * 0.475), r * 0.46)
 	_mi(body, _prism(Vector3(L * 0.26, H * 0.9, 0.12)), hull, Vector3(0, r + H * 0.4, L * 0.32),
 		FIN, Vector3.ONE, "Fin")
-	_mi(body, _box(Vector3(r * 0.5, 0.06, L * 0.5)), trim, Vector3(0, r * 1.02, L * 0.05))
+	_mi(body, LookMeshKit.box(Vector3(r * 0.5, 0.06, L * 0.5)), trim, Vector3(0, r * 1.02, L * 0.05))
 
 
 ## "blade": the remnant fighter. A dark armoured pod with forward-swept, drooping
@@ -658,19 +624,19 @@ func _blade(body: Node3D, engines: Node3D, p: Dictionary) -> void:
 	var dark := _plate(_c(p, "dark", "#1e1c1c"))
 	var r := L * 0.24
 
-	_mi(body, _sphere(r), hull, Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.85, 1.5), "Pod")
-	_mi(body, _cyl(r * 0.5, r * 0.62, 0.2, 10), _glass(_c(p, "canopy", "#ffae4a")),
+	_mi(body, LookMeshKit.ball(r, 16, 8), hull, Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.85, 1.5), "Pod")
+	_mi(body, LookMeshKit.cyl(r * 0.5, r * 0.62, 0.2, 10, 1), _glass(_c(p, "canopy", "#ffae4a")),
 		Vector3(0, r * 0.12, -r * 1.42), ALONG_Z, Vector3.ONE, "Eye")
-	_mi(body, _cyl(r * 0.66, r * 0.66, 0.08, 10), trim, Vector3(0, r * 0.12, -r * 1.34), ALONG_Z)
+	_mi(body, LookMeshKit.cyl(r * 0.66, r * 0.66, 0.08, 10, 1), trim, Vector3(0, r * 0.12, -r * 1.34), ALONG_Z)
 	for side in [-1.0, 1.0]:
-		var wing := _mi(body, _box(Vector3(S * 0.46, 0.12, L * 0.42)), hull,
+		var wing := _mi(body, LookMeshKit.box(Vector3(S * 0.46, 0.12, L * 0.42)), hull,
 			Vector3(side * S * 0.26, -r * 0.35, -L * 0.04), Vector3(0, side * 0.5, -side * 0.38), Vector3.ONE,
 			"Wing" + ("L" if side < 0 else "R"))
-		_mi(wing, _box(Vector3(S * 0.46, 0.14, L * 0.06)), trim, Vector3(0, 0.01, -L * 0.2))
-		_mi(body, _cyl(0.09, 0.09, L * 0.3, 6), dark, Vector3(side * r * 0.45, -r * 0.55, -L * 0.3), ALONG_Z)
+		_mi(wing, LookMeshKit.box(Vector3(S * 0.46, 0.14, L * 0.06)), trim, Vector3(0, 0.01, -L * 0.2))
+		_mi(body, LookMeshKit.cyl(0.09, 0.09, L * 0.3, 6, 1), dark, Vector3(side * r * 0.45, -r * 0.55, -L * 0.3), ALONG_Z)
 	_mi(body, _prism(Vector3(L * 0.62, H * 0.55, 0.14)), dark, Vector3(0, r * 0.8 + H * 0.2, L * 0.08),
 		FIN, Vector3.ONE, "Spine")
-	_mi(body, _cyl(r * 0.45, r * 0.55, L * 0.18), dark, Vector3(0, 0, r * 1.45), ALONG_Z)
+	_mi(body, LookMeshKit.cyl(r * 0.45, r * 0.55, L * 0.18, 12, 1), dark, Vector3(0, 0, r * 1.45), ALONG_Z)
 	_engine(engines, _c(p, "engine", "#ff7a4a"), Vector3(0, 0, r * 1.56), r * 0.38)
 
 
@@ -685,17 +651,17 @@ func _hauler(body: Node3D, engines: Node3D, p: Dictionary) -> void:
 	var dark := _plate(_c(p, "dark", "#1e1c1c"))
 	var eng := _c(p, "engine", "#ff7a4a")
 
-	_mi(body, _box(Vector3(S * 0.42, H, L * 0.62)), hull, Vector3(0, 0, L * 0.06), Vector3.ZERO, Vector3.ONE, "Hull")
+	_mi(body, LookMeshKit.box(Vector3(S * 0.42, H, L * 0.62)), hull, Vector3(0, 0, L * 0.06), Vector3.ZERO, Vector3.ONE, "Hull")
 	_mi(body, _prism(Vector3(S * 0.42, L * 0.3, H)), hull, Vector3(0, 0, -L * 0.4), TIP_FORWARD,
 		Vector3.ONE, "Prow")
-	_mi(body, _box(Vector3(S * 0.18, H * 0.3, L * 0.08)), _glass(_c(p, "canopy", "#ffae4a")),
+	_mi(body, LookMeshKit.box(Vector3(S * 0.18, H * 0.3, L * 0.08)), _glass(_c(p, "canopy", "#ffae4a")),
 		Vector3(0, H * 0.48, -L * 0.2), Vector3(-0.3, 0, 0), Vector3.ONE, "Bridge")
-	_mi(body, _box(Vector3(S * 0.43, H * 0.14, L * 0.04)), trim, Vector3(0, H * 0.2, -L * 0.1))
+	_mi(body, LookMeshKit.box(Vector3(S * 0.43, H * 0.14, L * 0.04)), trim, Vector3(0, H * 0.2, -L * 0.1))
 	for side in [-1.0, 1.0]:
-		_mi(body, _box(Vector3(S * 0.22, H * 0.22, L * 0.22)), dark, Vector3(side * S * 0.3, 0, L * 0.12))
-		_mi(body, _cyl(H * 0.42, H * 0.46, L * 0.6), hull, Vector3(side * S * 0.42, 0, L * 0.04), ALONG_Z,
+		_mi(body, LookMeshKit.box(Vector3(S * 0.22, H * 0.22, L * 0.22)), dark, Vector3(side * S * 0.3, 0, L * 0.12))
+		_mi(body, LookMeshKit.cyl(H * 0.42, H * 0.46, L * 0.6, 12, 1), hull, Vector3(side * S * 0.42, 0, L * 0.04), ALONG_Z,
 			Vector3.ONE, "Nacelle" + ("L" if side < 0 else "R"))
-		_mi(body, _cyl(H * 0.47, H * 0.47, L * 0.05), trim, Vector3(side * S * 0.42, 0, -L * 0.18), ALONG_Z)
+		_mi(body, LookMeshKit.cyl(H * 0.47, H * 0.47, L * 0.05, 12, 1), trim, Vector3(side * S * 0.42, 0, -L * 0.18), ALONG_Z)
 		_engine(engines, eng, Vector3(side * S * 0.42, 0, L * 0.345), H * 0.34)
-	_mi(body, _box(Vector3(S * 0.12, H * 0.5, L * 0.3)), dark, Vector3(0, H * 0.7, L * 0.2))
+	_mi(body, LookMeshKit.box(Vector3(S * 0.12, H * 0.5, L * 0.3)), dark, Vector3(0, H * 0.7, L * 0.2))
 	_engine(engines, eng, Vector3(0, H * 0.7, L * 0.355), H * 0.2)

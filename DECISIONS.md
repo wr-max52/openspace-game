@@ -2,6 +2,95 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — The player can rename their ships and speeders (issue #835)
+
+- **A rename is a write into the name book, under the same key.** The ship's name
+  lives at `vessel:player/<ship id>` (`NameHooks.player_ship_key`), which the HUD,
+  the dogfight and the Ledger already read, so nothing else needed to change. Speeders
+  are keyed by parking slot (`vessel:speeder/<slot>`); slots are only ever added.
+  Alternative: a name field on the fleet entry or the speeder fit -- rejected,
+  because then the name would not be in the book, and nothing would stop a ship
+  being called what a guard or a town is called.
+- **Typed names pass the generated names' filter** (`NameEngine.acceptable` with
+  the kind's lengths, then free in the book). Why: the IP rule covers what players
+  can put on the HUD in a screenshot as much as what we write.
+- **The dice are deterministic too.** A roll seeds from the key and a roll count,
+  and the count is saved, so the next roll after a load is still a new name.
+- **One known edge:** a typed name that a place has not been named with yet can
+  later be taken by that place (a place never yields, #834), and the ship gets a
+  generated name back. The name kinds barely overlap, so it is left as is.
+
+## 2026-11-28 — Boarding another ship lets the falling one go as a wreck
+
+- **Why:** the player wants to jump out of one stolen ship and take the next.
+  `ShipPilot` drives one `AtmoFlight`, and the ship you ejected from was still in
+  it (ADRIFT, or crashed and waiting for her tow), so boarding was blocked until
+  she was down.
+- **What:** boarding or hijacking another ship first calls `_let_go_falling`. A
+  ship still falling becomes a `CrashWreck` copy carrying her drift velocity, so
+  she still visibly goes down and blows up, and then `_tow_home` runs at once (a
+  stolen or borrowed ship is lost, a pad's own ship is back on her pad).
+- **Alternative:** an `AtmoFlight` per ship, so she keeps falling and may still
+  land softly. Rejected: it reopens "berths, not a ship picker" (one flight, one
+  berth) for a ship you have already walked away from.
+
+## 2026-11-28 — Two name seeds: one for the world, one for each game (issue #834)
+
+- **Places and gear use the world seed, people and ships the game's.** The kinds
+  in `config.fixed_kinds` (towns, planets, moons, stars, equipment, makers) are
+  named from `world_seed` (1517) as before; every other kind from `game_seed`,
+  rolled by `NameBook.fresh()` at each new game and saved with it. Why: a new
+  game should have a new crew, but the map, the gear and the story should read
+  the same, and friends should be able to talk about the same towns.
+  Alternative: one random seed per game -- rejected, because towns and planets
+  are generated too, so the whole map would be renamed.
+- **A place never yields to a person.** A fixed name is only held back by another
+  fixed or authored name. If a person already holds the name a place wants, the
+  place takes it and the person is named again. So a place's name never depends
+  on the order things were named in. The kinds' templates barely overlap, so in
+  play this is a guard rail, not something seen.
+- **A new game no longer keeps its slot's names** (this replaces "the names go
+  with the save" below for new games). Loading a save still keeps every name it
+  gave out, and a save from before this has no `game_seed`, so it uses 1517 and
+  looks exactly as it did.
+- **Titles follow the game seed too,** so a guard's rank changes with the guard.
+
+## 2026-11-28 — Every station floor has shield hatches in its ceiling
+
+- **The tunnels' hatches, in the floors' roofs.** Each floor's ceiling is cut
+  into three rings (inside the hatches, round them with the holes left open,
+  outside them), so the holes need no new collider kind and the ship's ground
+  and the walkers' colliders get them for free. The holes sit over the walkway,
+  half a step round from 0, so they are between the bridges on every floor.
+- **No collider on the shield, only the look** (`StationHull.floor_hatches`,
+  drawn by `SpaceStation._build_hatches` with the tunnels' hatches; one mesh
+  and one material a size). `aboard` runs to half a metre over the ceiling and
+  `on_roof` starts there, so going up through a hatch never trips the fall
+  guard. How many, how big and how far out is the station file's `floor_hatch`
+  block; a floor's own `hatches` overrides the count.
+
+## 2026-11-27 — The physics engine is Jolt (Godot's own), for the far side of the ball
+
+- **Why:** on foot on the far side (Cragfall, Farleap, any sand 9 km or more from
+  the world origin) the player snagged nearly every tick and made 0.4 to 3 m/s of
+  the 7 asked (issue #802). Godot's default physics engine loses its contacts that
+  far out: its motion test's recovery pushed the capsule backwards off a dead flat
+  floor. It is the engine, not the game: a bare capsule on a flat heightmap 9.5 km
+  out walks at 1.6 m/s with the 1 mm default margin, 0.2 m/s tilted as Cragfall
+  is, and a triangle mesh does no better. At the origin and at Saltpan (3.4 km) it
+  is 7.0. Under Jolt every case walks at 7.0.
+- **Alternatives:** a larger `safe_margin` (the plan in #802) tops out at 4.6 m/s
+  tilted even at 2 cm, a gap you would see; a floating origin fixes precision at
+  the root but every system assumes the port is the origin. Jolt is built into
+  Godot 4.7.2 (no plugin) and is one line in `project.godot`.
+- **What changes:** the player, NPCs and colliders are the same nodes. Jolt
+  builds its own height field when the near ground swaps in (every 48 m walked),
+  about 3 ms more than before. `areas_detect_static_bodies` is on so an Area3D
+  still sees walls and ground as it did (bolts use rays first anyway).
+- **The outpost ground sits 5 cm under the near ground** (`PlanetTerrain.TOWN_SINK`,
+  as the town collider does), with a uniform scale, so under a village the
+  player's near ground is the one underfoot, not whichever grid is a hair higher.
+
 ## 2026-11-27 — Laser droid settings move to the Ledger; E is its safety
 
 - **Two settings, not one cycle.** The rig used to be one value stepped by E (off,
@@ -469,8 +558,8 @@ planet is seen from one system frame and flown to through open space.)
   loaded *before* the town reloads, so every part of the build sees the right
   mode. The town being left saves first, then stops saving (`autosave` off), so
   its exit cannot write the next game into its file.
-- **The outfit and the names go with the save.** The outfit file is per slot. A
-  new game keeps the names of its own slot, not the game you were playing.
+- **The outfit and the names go with the save.** The outfit file is per slot.
+  (Since issue #834 a new game rolls new people and ship names; places keep theirs.)
 - **The old `save.json` is copied, not moved,** into the slot its mode says, once
   (the pick file marks it done). Builds from before the slots, in other
   worktrees, keep finding it.

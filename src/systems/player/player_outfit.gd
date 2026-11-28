@@ -21,6 +21,8 @@ extends RefCounted
 ## armour). Then every part and colour of it is open, for good (a flag), even
 ## once the item is sold.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 const ARCHETYPE := "player_smuggler"
 const PARTS := ["head", "torso", "legs"]
 const UNLOCK_FLAG := "outfit_unlocked_%s"   ## WorldState flag: a locked piece the player has opened
@@ -104,7 +106,7 @@ static func locked_items() -> Array:
 
 
 static func _model() -> Dictionary:
-	return CharacterKit._read_json(CharacterKit.PALETTES_PATH).get("archetypes", {}).get(ARCHETYPE, {}).get("model", {})
+	return CoreContent.read_json(CharacterKit.PALETTES_PATH).get("archetypes", {}).get(ARCHETYPE, {}).get("model", {})
 
 
 ## The colours of a piece's part, from the texture file names (as _wear_outfit

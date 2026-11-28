@@ -21,6 +21,7 @@ const NetWorld := preload("res://src/systems/net/net_world.gd")
 const Hijack := preload("res://src/systems/vehicles/hijack.gd")
 const TownDecor := preload("res://src/systems/world/town_decor.gd")
 const NpcRingsT := preload("res://src/systems/npc/npc_rings.gd")   ## issue #541
+const PeopleByDistanceT := preload("res://src/systems/npc/people_by_distance.gd")   ## issue #715
 const StairTower := preload("res://src/systems/world/stair_tower.gd")
 const PitBowl := preload("res://src/systems/world/pit_bowl.gd")
 const RingWall := preload("res://src/systems/world/ring_wall.gd")
@@ -93,6 +94,7 @@ var garrison: Garrison                ## M15: runs every trooper in town (null w
 var locals: Array = []                ## NpcBody, one per marker whose profile is in the "locals" faction
 var townsfolk: Townsfolk              ## runs every local (null with npc_brains off)
 var npc_rings                         ## issue #541: NpcRings, how often the town's people think by distance (null with npc_brains off)
+var people                            ## issue #715: PeopleByDistance, the ambient people built near and let go far (null: off)
 var locals_garrison: Garrison         ## the locals' guards on the barracks posts (gate, yard, tower) while they hold it, else null
 var town_name := ""                   ## issue #15: this town's generated name ("" when its world names none)
 var planet_name := ""                 ## and the planet it is on
@@ -160,6 +162,7 @@ func _ready() -> void:
 		return
 	world = planet.world
 	style = TownStyle.parse(str(planet.get("style", "")))
+	Dressing.use((planet.get("cfg", {}) as Dictionary).get("dressing", ""))   # issue #542: its palette variant(s), if any
 	PlanetGen.reserve_names(planet)
 	town.load_from_dict(planet.town)
 	if town.data.is_empty():
@@ -227,6 +230,8 @@ func _build_by_sight() -> void:
 		staged.hold_until(str(step_name), func() -> bool: return below(agl))
 	staged.add_trickle("outposts_late", func() -> bool:
 		return outposts != null and is_instance_valid(outposts) and outposts.late_step())
+	staged.add_trickle("ranches_late", func() -> bool:       # issue #717
+		return ranches != null and is_instance_valid(ranches) and ranches.late_step())
 
 
 ## Issue #693: everything a handoff is still holding back, built now (tests).
@@ -1023,18 +1028,30 @@ func _build_npcs() -> void:
 
 
 ## The NPCs' parent (issue #121: the build plan makes them one at a time).
+## Issue #715: and the rule that builds the ambient people by distance.
 func _npcs_root() -> Node3D:
 	var root := get_node_or_null("Npcs") as Node3D
 	if root == null:
 		root = Node3D.new()
 		root.name = "Npcs"
 		add_child(root)
+		if people == null and with_npcs and not lookdev_mode:
+			people = PeopleByDistanceT.make(self)
+			if people != null:
+				add_child(people)
 	return root
 
 
-func _build_npc(m: Dictionary) -> void:
+## Issue #715: returns the body (null when none was built). A marker the people
+## rule manages waits on a handoff from the sky (`people.defer`) and is built
+## when someone comes near; `by_people` is that build.
+func _build_npc(m: Dictionary, by_people := false) -> NpcBody:
 	if not _is_live_npc(m):
-		return
+		return null
+	var managed: bool = not by_people and people != null and people.manages(m)
+	if managed and staging and people.far():
+		people.defer(m)
+		return null
 	var soldier := str(m.soldier)
 	var key := "npc:%s/%s" % [str(town.data.get("id", "town")), str(m.id)]
 	var barracks_post := ""
@@ -1043,15 +1060,15 @@ func _build_npc(m: Dictionary) -> void:
 		soldier = Territory.barracks_local(str(m.id), Territory.here())
 		key += "/locals"
 		if soldier == "":
-			return
+			return null
 		# Issue #303: one guard a post, and a dead one stays dead (the Remnant take
 		# the town back when the last of them dies).
 		barracks_post = str(m.id)
 		var had = barracks_locals.get(barracks_post)
 		if (had != null and is_instance_valid(had)) or Territory.barracks_dead(Territory.here()).has(barracks_post):
-			return
+			return null
 	elif _is_remnant_post(m) and Territory.remnant_gone_on(Territory.here()) and Territory.remnant_dead(Territory.here()).has(str(m.id)):
-		return                        # the fleet is beaten (or this front's cruiser fallen): a dead trooper stays dead
+		return null                   # the fleet is beaten (or this front's cruiser fallen): a dead trooper stays dead
 	var here := town.marker_pos(str(m.id))
 	var face := town.marker_pos("gate") if m.role == "trooper_post" else town.marker_pos("cantina_door")
 	if m.has("face"):
@@ -1059,7 +1076,7 @@ func _build_npc(m: Dictionary) -> void:
 	var npc := make_soldier(soldier, here, atan2(face.x - here.x, face.z - here.z), str(m.id), key, null,
 		_community().look_for(str(m.id)))
 	if npc == null:
-		return
+		return null
 	_community().dressed(str(m.id), npc)          # issue #147: a player-made stall keeper's name and build
 	characters[str(m.id)] = npc.look_body if npc.look_body != null else npc
 	built_markers += 1
@@ -1069,6 +1086,9 @@ func _build_npc(m: Dictionary) -> void:
 		npc.died.connect(Territory.barracks_guard_died.bind(barracks_post, Territory.here()))
 	elif _is_remnant_post(m):
 		npc.died.connect(Territory.remnant_guard_died.bind(str(m.id), _remnant_posts(), Territory.here()))
+	if managed:
+		people.track(m, npc)
+	return npc
 
 
 ## The town's Remnant trooper posts (the ones with a soldier): every one of them
@@ -1140,7 +1160,7 @@ func _npc_brains(st: StagedBuild = null) -> void:
 		# with no Remnant left in town or at the outposts (a garrison of nobody).
 		if garrison == null and (outposts == null or outposts.garrisons.is_empty()):
 			garrison = _make_garrison("Garrison", [], true)
-	if npc_brains and not locals.is_empty():
+	if npc_brains and (not locals.is_empty() or (people != null and people.has_any())):
 		townsfolk = make_townsfolk("Townsfolk", locals, TownAlarm.place_name("town_locals", _town_label()))
 		if gear != null:
 			gear.vendor_open = townsfolk.vendor_open
@@ -1157,6 +1177,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 				outposts.folks[str(o.id)] = make_locals_outpost_garrison(o, mine)
 	if outposts != null:
 		outposts.late = true             # issue #693: an outpost that comes into sight from now on starts its own
+	if ranches != null:
+		ranches.late = true              # issue #717: a ranch likewise
 	if npc_brains:
 		# Issue #541: the town's own people think less far off and sleep past the
 		# draw distance (content/core/npcs/wake_rings.json).

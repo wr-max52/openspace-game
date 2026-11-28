@@ -345,11 +345,24 @@ func _load_category(root: String, category: String, into: Dictionary) -> void:
 
 
 func _read_dir_entry(root: String, dir: String, id: String) -> Dictionary:
-	return _read_json(root, dir, id + ".json")
+	return _read_json_at(root_path(root, dir + "/" + id + ".json"))
 
 
-func _read_json(root: String, dir: String, name: String) -> Dictionary:
-	return _read_json_at(root_path(root, dir + "/" + name))
+## Issue #544: the one JSON reader for every kit and system. The object in the file at
+## `path`, or {} when it is missing, cannot be opened or is not a JSON object. Quiet:
+## a caller that wants a warning checks is_empty() itself.
+static func read_json(path: String) -> Dictionary:
+	var parsed: Variant = parse_json(path)
+	return parsed if parsed is Dictionary else {}
+
+
+## Whatever JSON value is in the file at `path` (null when it cannot be opened). Quiet,
+## like read_json(); for files that may hold an array.
+static func parse_json(path: String) -> Variant:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return null
+	return JSON.parse_string(f.get_as_text())
 
 
 func _read_json_at(path: String) -> Dictionary:

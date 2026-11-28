@@ -311,10 +311,8 @@ func _part(mesh: Mesh, xf: Transform3D, finish: String, group := "") -> void:
 	parts.append({ "mesh": mesh, "xf": xf, "finish": finish, "group": group })
 
 
-func _box(size: Vector3, at: Vector3, finish: String, solid := true, rot := Basis.IDENTITY, group := "") -> void:
-	var bm := BoxMesh.new()
-	bm.size = size
-	_part(bm, Transform3D(rot, at), finish, group)
+func _add_box(size: Vector3, at: Vector3, finish: String, solid := true, rot := Basis.IDENTITY, group := "") -> void:
+	_part(LookMeshKit.box(size), Transform3D(rot, at), finish, group)
 	if solid:
 		var cs := _solid(size, at, rot)
 		if group == "gangplank":
@@ -333,14 +331,8 @@ func _solid(size: Vector3, at: Vector3, rot := Basis.IDENTITY) -> CollisionShape
 	return cs
 
 
-func _cyl(r: float, h: float, at: Vector3, finish: String, solid := false, rot := Basis.IDENTITY, group := "") -> void:
-	var cm := CylinderMesh.new()
-	cm.top_radius = r
-	cm.bottom_radius = r
-	cm.height = h
-	cm.radial_segments = 12
-	cm.rings = 1
-	_part(cm, Transform3D(rot, at), finish, group)
+func _add_cyl(r: float, h: float, at: Vector3, finish: String, solid := false, rot := Basis.IDENTITY, group := "") -> void:
+	_part(LookMeshKit.cyl(r, r, h, 12, 1), Transform3D(rot, at), finish, group)
 	if solid:
 		var cs := CollisionShape3D.new()
 		var sh := CylinderShape3D.new()
@@ -352,13 +344,8 @@ func _cyl(r: float, h: float, at: Vector3, finish: String, solid := false, rot :
 		_shapes.append(cs)
 
 
-func _ball(r: float, at: Vector3, finish: String) -> void:
-	var sm := SphereMesh.new()
-	sm.radius = r
-	sm.height = r * 2.0
-	sm.radial_segments = 10
-	sm.rings = 6
-	_part(sm, Transform3D(Basis.IDENTITY, at), finish)
+func _add_ball(r: float, at: Vector3, finish: String) -> void:
+	_part(LookMeshKit.ball(r, 10, 6), Transform3D(Basis.IDENTITY, at), finish)
 
 
 ## A floor slab (top surface at y) over the inside of the hull, with a stairwell hole.
@@ -382,7 +369,7 @@ func _floor(y: float, hole: Rect2, finish: String) -> void:
 		rects.append(Rect2(hx0, hz1, hx1 - hx0, z1 - hz1))
 	for r in rects:
 		if r.size.x > 0.01 and r.size.y > 0.01:
-			_box(Vector3(r.size.x, t, r.size.y), Vector3(r.get_center().x, y - t * 0.5, r.get_center().y), finish)
+			_add_box(Vector3(r.size.x, t, r.size.y), Vector3(r.get_center().x, y - t * 0.5, r.get_center().y), finish)
 
 
 ## A walkable ramp from a (top) to b (bottom), w wide; its top face runs through both.
@@ -397,7 +384,7 @@ func _ramp(a: Vector3, b: Vector3, w: float, finish: String, group := "") -> voi
 		n = -n
 	var t := 0.3
 	var basis := Basis(side, n, -along)
-	_box(Vector3(w, t, d.length() + 0.4), (a + b) * 0.5 - n * t * 0.5, finish, true, basis, group)
+	_add_box(Vector3(w, t, d.length() + 0.4), (a + b) * 0.5 - n * t * 0.5, finish, true, basis, group)
 
 
 # ------------------------------------------------------------------ the hull
@@ -420,21 +407,21 @@ func _build_hull() -> void:
 	var top := float(_y[2])
 	var wall_h := top + 1.1 - h
 	# Bottom (the steerage floor), sides, bow and stern. Rusted iron inside and out.
-	_box(Vector3(_W, _y[0] - h, _L), Vector3(0, (h + _y[0]) * 0.5, 0), "hull")
+	_add_box(Vector3(_W, _y[0] - h, _L), Vector3(0, (h + _y[0]) * 0.5, 0), "hull")
 	for sx in [-1.0, 1.0]:
-		_box(Vector3(0.4, wall_h, _L), Vector3(sx * (_W * 0.5 - 0.2), h + wall_h * 0.5, 0), "hull")
-		_box(Vector3(0.5, 0.18, _L + 0.2), Vector3(sx * (_W * 0.5 - 0.2), top + 1.19, 0), "trim", false)   # gunwale
+		_add_box(Vector3(0.4, wall_h, _L), Vector3(sx * (_W * 0.5 - 0.2), h + wall_h * 0.5, 0), "hull")
+		_add_box(Vector3(0.5, 0.18, _L + 0.2), Vector3(sx * (_W * 0.5 - 0.2), top + 1.19, 0), "trim", false)   # gunwale
 	# The bow wall stops at the top deck: past it the deck runs on over the prow
 	# (_build_prow), so the bow is open, behind a railing.
-	_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, -_L * 0.5 + 0.2), "hull")
+	_add_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, -_L * 0.5 + 0.2), "hull")
 	# The stern: solid up to the top deck, a bulwark either side of the gangplank.
-	_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, _L * 0.5 - 0.2), "hull")
+	_add_box(Vector3(_W - 0.8, top - h, 0.4), Vector3(0, (h + top) * 0.5, _L * 0.5 - 0.2), "hull")
 	for sx in [-1.0, 1.0]:
-		_box(Vector3(_W * 0.5 - 2.0, 1.1, 0.4), Vector3(sx * (_W * 0.25 + 0.6), top + 0.55, _L * 0.5 - 0.2), "hull")
+		_add_box(Vector3(_W * 0.5 - 2.0, 1.1, 0.4), Vector3(sx * (_W * 0.25 + 0.6), top + 0.55, _L * 0.5 - 0.2), "hull")
 	# Decks: planks on top and in the lounge, darker boards down in steerage.
 	_floor(_y[1], HOLE_LOWER, "deck")
 	_floor(top, HOLE_TOP, "deck")
-	_box(Vector3(_W - 0.8, 0.02, _L - 0.8), Vector3(0, _y[0] + 0.01, 0), "steerage", false)
+	_add_box(Vector3(_W - 0.8, 0.02, _L - 0.8), Vector3(0, _y[0] + 0.01, 0), "steerage", false)
 	# Stairs: top -> lower down the port side, lower -> steerage down the starboard.
 	var cx := HOLE_TOP.get_center().x
 	_ramp(Vector3(cx, top, HOLE_TOP.position.y), Vector3(cx, _y[1], HOLE_TOP.end.y), HOLE_TOP.size.x - 0.2, "deck")
@@ -446,12 +433,12 @@ func _build_hull() -> void:
 		for i in 6:
 			var f := float(i) / 5.0
 			var p := Vector3(sx * 1.6, lerpf(top, -1.0, f) + 0.5, lerpf(_L * 0.5, _L * 0.5 + 22.0, f))
-			_cyl(0.05, 1.0, p, "brass", false, Basis.IDENTITY, "gangplank")
+			_add_cyl(0.05, 1.0, p, "brass", false, Basis.IDENTITY, "gangplank")
 	# Railings round the stairwells (so nobody steps in by mistake).
-	_box(Vector3(0.1, 1.0, HOLE_TOP.size.y), Vector3(HOLE_TOP.end.x + 0.05, top + 0.5, HOLE_TOP.get_center().y), "brass")
-	_box(Vector3(HOLE_TOP.size.x, 1.0, 0.1), Vector3(HOLE_TOP.get_center().x, top + 0.5, HOLE_TOP.end.y + 0.05), "brass")
-	_box(Vector3(0.1, 1.0, HOLE_LOWER.size.y), Vector3(HOLE_LOWER.position.x - 0.05, _y[1] + 0.5, HOLE_LOWER.get_center().y), "brass")
-	_box(Vector3(HOLE_LOWER.size.x, 1.0, 0.1), Vector3(HOLE_LOWER.get_center().x, _y[1] + 0.5, HOLE_LOWER.end.y + 0.05), "brass")
+	_add_box(Vector3(0.1, 1.0, HOLE_TOP.size.y), Vector3(HOLE_TOP.end.x + 0.05, top + 0.5, HOLE_TOP.get_center().y), "brass")
+	_add_box(Vector3(HOLE_TOP.size.x, 1.0, 0.1), Vector3(HOLE_TOP.get_center().x, top + 0.5, HOLE_TOP.end.y + 0.05), "brass")
+	_add_box(Vector3(0.1, 1.0, HOLE_LOWER.size.y), Vector3(HOLE_LOWER.position.x - 0.05, _y[1] + 0.5, HOLE_LOWER.get_center().y), "brass")
+	_add_box(Vector3(HOLE_LOWER.size.x, 1.0, 0.1), Vector3(HOLE_LOWER.get_center().x, _y[1] + 0.5, HOLE_LOWER.end.y + 0.05), "brass")
 
 
 func _build_top() -> void:
@@ -459,47 +446,47 @@ func _build_top() -> void:
 	var bow := -_L * 0.5 + 0.4
 	# Masts and their solar sails: panels on yards, tipped back a little.
 	for mz in MASTS:
-		_cyl(0.32, 16.0, Vector3(0, top + 8.0, mz), "trim", true)
+		_add_cyl(0.32, 16.0, Vector3(0, top + 8.0, mz), "trim", true)
 		for k in 2:
 			var w := _W * (0.92 if k == 0 else 0.62)
 			var hgt := 6.4 if k == 0 else 2.6
 			var y := top + 4.8 + hgt * 0.5 if k == 0 else top + 13.0
 			var tilt := Basis(Vector3.RIGHT, -0.16)
-			_box(Vector3(w, hgt, 0.08), Vector3(0, y, mz + 0.85), "solar", false, tilt)
-			_box(Vector3(w + 0.3, 0.16, 0.16), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.85 - 0.5 * hgt * sin(0.16)), "trim", false)   # yard
-			_box(Vector3(w + 0.3, 0.12, 0.12), Vector3(0, y - hgt * 0.5 - 0.06, mz + 0.85 + 0.5 * hgt * sin(0.16)), "trim", false)
-			_box(Vector3(0.12, 0.12, 0.85), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.42 - 0.5 * hgt * sin(0.16)), "trim", false)    # to the mast
+			_add_box(Vector3(w, hgt, 0.08), Vector3(0, y, mz + 0.85), "solar", false, tilt)
+			_add_box(Vector3(w + 0.3, 0.16, 0.16), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.85 - 0.5 * hgt * sin(0.16)), "trim", false)   # yard
+			_add_box(Vector3(w + 0.3, 0.12, 0.12), Vector3(0, y - hgt * 0.5 - 0.06, mz + 0.85 + 0.5 * hgt * sin(0.16)), "trim", false)
+			_add_box(Vector3(0.12, 0.12, 0.85), Vector3(0, y + hgt * 0.5 + 0.08, mz + 0.42 - 0.5 * hgt * sin(0.16)), "trim", false)    # to the mast
 	# The band's stage at the bow (low enough to step up). No wall behind it: the
 	# open prow is past it.
 	var sz := bow + STAGE_D * 0.5
-	_box(Vector3(_W - 1.2, 0.12, STAGE_D), Vector3(0, top + 0.06, sz), "stage")
+	_add_box(Vector3(_W - 1.2, 0.12, STAGE_D), Vector3(0, top + 0.06, sz), "stage")
 	_build_prow()
 	# The awning over the dance floor, on brass poles.
 	var a0 := bow + STAGE_D + 0.4
 	var a1 := -6.6
 	for sx in [-1.0, 1.0]:
 		for z in [a0, a1]:
-			_cyl(0.07, 4.4, Vector3(sx * (_W * 0.5 - 0.7), top + 2.2, z), "brass")
+			_add_cyl(0.07, 4.4, Vector3(sx * (_W * 0.5 - 0.7), top + 2.2, z), "brass")
 	var n := 8
 	for i in n:
 		var w := (a1 - a0) / n
-		_box(Vector3(_W - 1.2, 0.05, w), Vector3(0, top + 4.42, a0 + w * (i + 0.5)), "awning" if i % 2 == 0 else "awning_stripe", false)
+		_add_box(Vector3(_W - 1.2, 0.05, w), Vector3(0, top + 4.42, a0 + w * (i + 0.5)), "awning" if i % 2 == 0 else "awning_stripe", false)
 	# String lights along both gunwales.
 	for sx in [-1.0, 1.0]:
 		for i in 22:
 			var z := lerpf(-_L * 0.5 + 1.0, _L * 0.5 - 1.0, i / 21.0)
-			_ball(0.08, Vector3(sx * (_W * 0.5 - 0.2), top + 1.6 + 0.22 * sin(i * 1.3), z), "lamp")
+			_add_ball(0.08, Vector3(sx * (_W * 0.5 - 0.2), top + 1.6 + 0.22 * sin(i * 1.3), z), "lamp")
 	# The bar (starboard).
-	_box(Vector3(1.0, 1.1, 6.0), Vector3(_W * 0.5 - 1.2, top + 0.55, -1.0), "bar")
-	_box(Vector3(1.2, 0.08, 6.2), Vector3(_W * 0.5 - 1.2, top + 1.14, -1.0), "brass", false)
+	_add_box(Vector3(1.0, 1.1, 6.0), Vector3(_W * 0.5 - 1.2, top + 0.55, -1.0), "bar")
+	_add_box(Vector3(1.2, 0.08, 6.2), Vector3(_W * 0.5 - 1.2, top + 1.14, -1.0), "brass", false)
 	# The boss's dais and lounger, facing the stern: he stands in front of the seat.
 	_boss_home = Vector3(0, top + 0.12, 11.1)
-	_box(Vector3(4.0, 0.12, 3.0), Vector3(0, top + 0.06, 10.5), "brass")
-	_box(Vector3(3.2, 0.6, 1.1), Vector3(0, top + 0.42, 10.1), "velvet", false)
-	_box(Vector3(3.2, 1.6, 0.3), Vector3(0, top + 0.92, 9.4), "velvet", false)
+	_add_box(Vector3(4.0, 0.12, 3.0), Vector3(0, top + 0.06, 10.5), "brass")
+	_add_box(Vector3(3.2, 0.6, 1.1), Vector3(0, top + 0.42, 10.1), "velvet", false)
+	_add_box(Vector3(3.2, 1.6, 0.3), Vector3(0, top + 0.92, 9.4), "velvet", false)
 	# The control panel near the stern, starboard: you stand aft of it, facing the bow.
 	console_spot = Vector3(3.6, top + 0.05, 17.1)
-	_box(Vector3(1.8, 1.0, 0.8), Vector3(3.6, top + 0.5, 16.1), "console")
+	_add_box(Vector3(1.8, 1.0, 0.8), Vector3(3.6, top + 0.5, 16.1), "console")
 
 
 ## Stations along the prow, 0 at the bow wall to 1 at its tip (BargeLook's hull
@@ -556,7 +543,7 @@ func _build_prow() -> void:
 	for i in range(edge.size() - 2, -1, -1):
 		rail.append(Vector3(-rail[i].x, top, rail[i].z))
 	for i in rail.size():
-		_cyl(0.045, RAIL_H, rail[i] + Vector3(0, RAIL_H * 0.5, 0), "brass")
+		_add_cyl(0.045, RAIL_H, rail[i] + Vector3(0, RAIL_H * 0.5, 0), "brass")
 		if i == rail.size() - 1:
 			break
 		var a: Vector3 = rail[i]
@@ -564,8 +551,8 @@ func _build_prow() -> void:
 		var rot := Basis.looking_at(b - a, Vector3.UP)
 		var mid := (a + b) * 0.5
 		var length := a.distance_to(b)
-		_box(Vector3(0.06, 0.06, length + 0.04), mid + Vector3(0, RAIL_H, 0), "brass", false, rot)
-		_box(Vector3(0.04, 0.04, length), mid + Vector3(0, RAIL_H * 0.5, 0), "brass", false, rot)
+		_add_box(Vector3(0.06, 0.06, length + 0.04), mid + Vector3(0, RAIL_H, 0), "brass", false, rot)
+		_add_box(Vector3(0.04, 0.04, length), mid + Vector3(0, RAIL_H * 0.5, 0), "brass", false, rot)
 		_solid(Vector3(0.12, RAIL_H + 0.1, length + 0.06), mid + Vector3(0, (RAIL_H + 0.1) * 0.5, 0), rot)
 
 
@@ -573,12 +560,12 @@ func _build_below() -> void:
 	var y1 := float(_y[1])
 	var bow := -_L * 0.5 + 0.4
 	# The DJ's desk at the bow end of the lower deck (its look is BargeLook's).
-	_box(Vector3(1.6, 1.0, 0.7), Vector3(0, y1 + 0.5, bow + 3.0 + 0.55), "console", true)
+	_add_box(Vector3(1.6, 1.0, 0.7), Vector3(0, y1 + 0.5, bow + 3.0 + 0.55), "console", true)
 	# Steerage: crates and hammocks.
 	for i in 6:
-		_box(Vector3(1.2, 1.0, 1.2), Vector3(-4.6, _y[0] + 0.5, -16.0 + i * 1.6), "crate")
+		_add_box(Vector3(1.2, 1.0, 1.2), Vector3(-4.6, _y[0] + 0.5, -16.0 + i * 1.6), "crate")
 	for i in 4:
-		_box(Vector3(0.9, 0.08, 2.4), Vector3(-3.0 + i * 1.6, y1 - 1.0, -6.0), "awning", false, Basis(Vector3.FORWARD, 0.08 * (i % 2 * 2 - 1)))
+		_add_box(Vector3(0.9, 0.08, 2.4), Vector3(-3.0 + i * 1.6, y1 - 1.0, -6.0), "awning", false, Basis(Vector3.FORWARD, 0.08 * (i % 2 * 2 - 1)))
 
 
 ## The hull and decks (the big merged meshes, which the look's own pass leaves
@@ -842,15 +829,6 @@ func _bit(mesh: Mesh, at: Vector3, color: String, parent: Node3D) -> MeshInstanc
 	return mi
 
 
-func _sphere(r: float) -> SphereMesh:
-	var sm := SphereMesh.new()
-	sm.radius = r
-	sm.height = r * 2.0
-	sm.radial_segments = 10
-	sm.rings = 6
-	return sm
-
-
 ## The boss on his dais: the barge duke's own model (boss.look). Without it (no
 ## asset, or the look layer off) a stand-in body, made big, wide and ugly, warts
 ## and all.
@@ -866,11 +844,11 @@ func _build_boss(p: Dictionary) -> void:
 	var head := _joint(body, "head")
 	var chest := _joint(body, "chest")
 	if chest != null:
-		_bit(_sphere(0.32), Vector3(0, -0.22, 0.14), "#7a5a3a", chest).scale = Vector3(1.15, 0.95, 1.0)
+		_bit(LookMeshKit.ball(0.32, 10, 6), Vector3(0, -0.22, 0.14), "#7a5a3a", chest).scale = Vector3(1.15, 0.95, 1.0)
 	if head != null:
 		for k in 6:
-			_bit(_sphere(0.03 + 0.02 * (k % 3)), Vector3(_rng.randf_range(-0.1, 0.1), _rng.randf_range(0.0, 0.16), _rng.randf_range(0.02, 0.12)), "#6f7a4a", head)
-		_bit(_sphere(0.07), Vector3(0, 0.02, 0.13), "#8a6a4a", head)     # a big nose
+			_bit(LookMeshKit.ball(0.03 + 0.02 * (k % 3), 10, 6), Vector3(_rng.randf_range(-0.1, 0.1), _rng.randf_range(0.0, 0.16), _rng.randf_range(0.02, 0.12)), "#6f7a4a", head)
+		_bit(LookMeshKit.ball(0.07, 10, 6), Vector3(0, 0.02, 0.13), "#8a6a4a", head)     # a big nose
 	if owned:
 		_boss_below()
 

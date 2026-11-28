@@ -265,12 +265,12 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 		var aj := TAU * float(s) / segs
 		if s % 2 == 0 and absf(wrapf(aj, -PI, PI)) > door:
 			var post := Vector3((r - 0.04) * sin(aj), 0, (r - 0.04) * cos(aj))
-			_mesh(upright, _cyl(0.045, wall_h + 0.1), wood, Transform3D(Basis.IDENTITY, post + Vector3(0, (wall_h + 0.1) * 0.5, 0)))
+			_mesh(upright, LookMeshKit.cyl(0.045, 0.045, wall_h + 0.1, 8, 1), wood, Transform3D(Basis.IDENTITY, post + Vector3(0, (wall_h + 0.1) * 0.5, 0)))
 			if s % 4 == 0:
 				var top := Vector3((r + 0.05) * sin(aj), wall_h + 0.02, (r + 0.05) * cos(aj))
 				var stake := Vector3((r + 1.3) * sin(aj), 0.0, (r + 1.3) * cos(aj))
 				_line(upright, top, stake, 0.012, rope)
-				_mesh(upright, _cyl(0.035, 0.3), wood, Transform3D(Basis.IDENTITY, stake + Vector3(0, 0.1, 0)))
+				_mesh(upright, LookMeshKit.cyl(0.035, 0.035, 0.3, 8, 1), wood, Transform3D(Basis.IDENTITY, stake + Vector3(0, 0.1, 0)))
 	# Flaps tied back either side of the doorway, and the door frame.
 	for sgn: float in [-1.0, 1.0]:
 		var a := sgn * door
@@ -278,7 +278,7 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 		var fq := QuadMesh.new()
 		fq.size = Vector2(0.9, wall_h * 0.92)
 		_mesh(upright, fq, dark, Transform3D(b, Vector3((r + 0.25) * sin(a), wall_h * 0.46, (r + 0.25) * cos(a))))
-		_mesh(upright, _cyl(0.05, wall_h + 0.15), wood, Transform3D(Basis.IDENTITY, Vector3(r * sin(a), (wall_h + 0.15) * 0.5, r * cos(a))))
+		_mesh(upright, LookMeshKit.cyl(0.05, 0.05, wall_h + 0.15, 8, 1), wood, Transform3D(Basis.IDENTITY, Vector3(r * sin(a), (wall_h + 0.15) * 0.5, r * cos(a))))
 		_line(upright, Vector3((r + 0.3) * sin(a), wall_h * 0.55, (r + 0.3) * cos(a)),
 			Vector3((r + 0.15) * sin(a + sgn * 0.18), wall_h * 0.55, (r + 0.15) * cos(a + sgn * 0.18)), 0.015, rope)
 	_line(upright, Vector3(-r * sin(door), wall_h + 0.08, r * cos(door)), Vector3(r * sin(door), wall_h + 0.08, r * cos(door)), 0.05, wood)
@@ -313,7 +313,7 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 	cap.height = 0.3
 	cap.radial_segments = 8
 	_mesh(upright, cap, dark, Transform3D(Basis.IDENTITY, apex + Vector3(0, 0.02, 0)))
-	_mesh(upright, _cyl(0.06, wall_h + roof_h + 0.3), wood, Transform3D(Basis.IDENTITY, Vector3(0, (wall_h + roof_h + 0.3) * 0.5, 0)))
+	_mesh(upright, LookMeshKit.cyl(0.06, 0.06, wall_h + roof_h + 0.3, 8, 1), wood, Transform3D(Basis.IDENTITY, Vector3(0, (wall_h + roof_h + 0.3) * 0.5, 0)))
 	_shape(body, _cyl_shape(0.1, wall_h + roof_h), Transform3D(Basis.IDENTITY, Vector3(0, (wall_h + roof_h) * 0.5, 0)))
 	# Streamers off the top of the pole, in the rug's colours.
 	if mats != null:
@@ -334,8 +334,8 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 	var heap_q := QuadMesh.new()
 	heap_q.size = Vector2(2.2, 1.6)
 	_mesh(heap, heap_q, dark, Transform3D(Basis(Vector3.UP, 0.7) * Basis(Vector3.RIGHT, -PI * 0.5), Vector3(-1.2, 0.08, 1.1)))
-	_mesh(heap, _cyl(0.06, 3.2), wood, Transform3D(Basis(Vector3.FORWARD, 1.45), Vector3(0, 0.12, 0.4)))
-	_mesh(heap, _cyl(0.045, 2.0), wood, Transform3D(Basis(Vector3.UP, 1.1) * Basis(Vector3.FORWARD, 1.5), Vector3(-0.6, 0.1, -0.9)))
+	_mesh(heap, LookMeshKit.cyl(0.06, 0.06, 3.2, 8, 1), wood, Transform3D(Basis(Vector3.FORWARD, 1.45), Vector3(0, 0.12, 0.4)))
+	_mesh(heap, LookMeshKit.cyl(0.045, 0.045, 2.0, 8, 1), wood, Transform3D(Basis(Vector3.UP, 1.1) * Basis(Vector3.FORWARD, 1.5), Vector3(-0.6, 0.1, -0.9)))
 	t["heap"] = heap
 	# Inside: a woven rug, a rock table with rock seats and cushions, a bedroll, the
 	# chest, pots and a canister or two, a lamp hanging from the pole.
@@ -345,14 +345,13 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 		_mesh(root, rq, CampTextures.rug(rug_col, accent), Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0, 0.025, -0.2)))
 	var table := Vector3(0.0, 0.0, -1.1)
 	_mesh(root, _rock_mesh(0.32, 0.5, rng), rock, Transform3D(Basis.IDENTITY, table + Vector3(0, 0.25, 0)))
-	_mesh(root, _box(Vector3(1.2, 0.14, 0.75)), rock, Transform3D(Basis(Vector3.UP, 0.08), table + Vector3(0, 0.57, 0)))
+	_mesh(root, LookMeshKit.box(Vector3(1.2, 0.14, 0.75)), rock, Transform3D(Basis(Vector3.UP, 0.08), table + Vector3(0, 0.57, 0)))
 	_shape(body, _box_shape(Vector3(1.2, 0.64, 0.75)), Transform3D(Basis.IDENTITY, table + Vector3(0, 0.32, 0)))
 	for seat: Vector3 in [Vector3(-1.0, 0, -1.0), Vector3(1.0, 0, -1.2), Vector3(0.2, 0, -2.0)]:
 		_mesh(root, _rock_mesh(0.27, 0.44, rng), rock, Transform3D(Basis(Vector3.UP, seat.x), seat + Vector3(0, 0.22, 0)))
 		_shape(body, _cyl_shape(0.27, 0.44), Transform3D(Basis.IDENTITY, seat + Vector3(0, 0.22, 0)))
 		if mats != null:
-			var cush := _cyl(0.24, 0.07)
-			cush.radial_segments = 10
+			var cush := LookMeshKit.cyl(0.24, 0.24, 0.07, 10, 1)
 			_mesh(root, cush, mats.cloth(accent.darkened(0.25)), Transform3D(Basis.IDENTITY, seat + Vector3(0, 0.475, 0)))
 	# On the table: a bowl and a pot.
 	var clay: Material = CampTextures.clay(Color("#c47e50")) if mats != null else null
@@ -366,24 +365,24 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 	_mesh(root, bowl, clay, Transform3D(Basis(Vector3.RIGHT, PI), table + Vector3(0.3, 0.76, -0.1)))
 	var bed := Vector3(-1.75, 0.0, 0.5)
 	if mats != null:
-		_mesh(root, _box(Vector3(0.85, 0.12, 1.9)), CampTextures.hide(hide_col.lightened(0.2)), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(0, 0.06, 0)))
-		_mesh(root, _box(Vector3(0.6, 0.14, 0.32)), mats.cloth(rug_col.darkened(0.2)), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(0.18, 0.14, -0.75)))
-		_mesh(root, _box(Vector3(0.8, 0.05, 0.7)), CampTextures.rug(accent.darkened(0.4), rug_col), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(-0.02, 0.14, 0.45)))
+		_mesh(root, LookMeshKit.box(Vector3(0.85, 0.12, 1.9)), CampTextures.hide(hide_col.lightened(0.2)), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(0, 0.06, 0)))
+		_mesh(root, LookMeshKit.box(Vector3(0.6, 0.14, 0.32)), mats.cloth(rug_col.darkened(0.2)), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(0.18, 0.14, -0.75)))
+		_mesh(root, LookMeshKit.box(Vector3(0.8, 0.05, 0.7)), CampTextures.rug(accent.darkened(0.4), rug_col), Transform3D(Basis(Vector3.UP, 0.25), bed + Vector3(-0.02, 0.14, 0.45)))
 	var chest := Vector3(1.75, 0.0, 0.1)
 	var cb := Basis(Vector3.UP, -PI * 0.5)      # its front faces the middle of the tent
-	_mesh(root, _box(Vector3(0.85, 0.5, 0.52)), wood, Transform3D(cb, chest + Vector3(0, 0.25, 0)))
+	_mesh(root, LookMeshKit.box(Vector3(0.85, 0.5, 0.52)), wood, Transform3D(cb, chest + Vector3(0, 0.25, 0)))
 	_shape(body, _box_shape(Vector3(0.85, 0.5, 0.52)), Transform3D(cb, chest + Vector3(0, 0.25, 0)))
 	# Its iron bands.
 	var iron: Material = CampTextures.canister(Color("#3a3634"), Color("#3a3634")) if mats != null else null
 	for bx: float in [-0.3, 0.3]:
-		_mesh(root, _box(Vector3(0.06, 0.52, 0.54)), iron, Transform3D(cb, chest + cb * Vector3(bx, 0.25, 0)))
+		_mesh(root, LookMeshKit.box(Vector3(0.06, 0.52, 0.54)), iron, Transform3D(cb, chest + cb * Vector3(bx, 0.25, 0)))
 	var hinge := Node3D.new()
 	hinge.name = "Lid"
 	root.add_child(hinge)
 	hinge.transform = Transform3D(cb, chest + cb * Vector3(0, 0.5, -0.26))
-	_mesh(hinge, _box(Vector3(0.88, 0.08, 0.54)), wood, Transform3D(Basis.IDENTITY, Vector3(0, 0.04, 0.27)))
+	_mesh(hinge, LookMeshKit.box(Vector3(0.88, 0.08, 0.54)), wood, Transform3D(Basis.IDENTITY, Vector3(0, 0.04, 0.27)))
 	for bx: float in [-0.3, 0.3]:
-		_mesh(hinge, _box(Vector3(0.06, 0.1, 0.56)), iron, Transform3D(Basis.IDENTITY, Vector3(bx, 0.04, 0.27)))
+		_mesh(hinge, LookMeshKit.box(Vector3(0.06, 0.1, 0.56)), iron, Transform3D(Basis.IDENTITY, Vector3(bx, 0.04, 0.27)))
 	t["lid"] = hinge
 	# Beside the chest: a canister and a water jar.
 	_canister(root, Transform3D(Basis.IDENTITY, chest + Vector3(0.1, 0, 0.85)), 0.2, 0.62, rng, mats)
@@ -395,9 +394,9 @@ func _tent(i: int, at: Vector3, depth: float, mats: LookMaterials) -> Dictionary
 	var lamp_at := Vector3(0.0, wall_h + 0.05, 0.12)
 	_line(root, Vector3(0, wall_h + 0.5, 0.05), lamp_at + Vector3(0, 0.12, 0), 0.008, rope)
 	if mats != null:
-		var lantern := _cyl(0.07, 0.16)
+		var lantern := LookMeshKit.cyl(0.07, 0.07, 0.16, 8, 1)
 		_mesh(root, lantern, iron, Transform3D(Basis.IDENTITY, lamp_at + Vector3(0, 0.1, 0)))
-		var glass := _cyl(0.055, 0.12)
+		var glass := LookMeshKit.cyl(0.055, 0.055, 0.12, 8, 1)
 		var gm := mats.glow(Color(1.0, 0.7, 0.35))
 		gm.emission_energy_multiplier = 2.0
 		_mesh(root, glass, gm, Transform3D(Basis.IDENTITY, lamp_at - Vector3(0, 0.02, 0)))
@@ -533,7 +532,7 @@ func _firepit(at: Vector3, mats: LookMaterials) -> Dictionary:
 		st.rings = 3
 		_mesh(root, st, rock, Transform3D(Basis(Vector3.UP, a), at_l + Vector3(0, st.height * 0.3, 0)))
 	for k in 4:
-		_mesh(root, _cyl(0.06, 1.0), wood, Transform3D(Basis(Vector3.UP, k * 0.8) * Basis(Vector3.RIGHT, 1.3), _ground_local(root, Vector3.ZERO) + Vector3(0, 0.14, 0)))
+		_mesh(root, LookMeshKit.cyl(0.06, 0.06, 1.0, 8, 1), wood, Transform3D(Basis(Vector3.UP, k * 0.8) * Basis(Vector3.RIGHT, 1.3), _ground_local(root, Vector3.ZERO) + Vector3(0, 0.14, 0)))
 	# A spit across it on two forked sticks, a pot hung from it.
 	for sgn: float in [-1.0, 1.0]:
 		var foot := _ground_local(root, Vector3(1.05 * sgn, 0, 0))
@@ -625,7 +624,8 @@ func _props(mats: LookMaterials) -> void:
 					var col := float(k % 4) - 1.5 + row * 0.5
 					var l := Transform3D(face * Basis(Vector3.FORWARD, PI * 0.5) * Basis(Vector3.UP, rng.randf_range(-0.15, 0.15)),
 						_ground_local(root, at) + face * Vector3(0, 0.12 + row * 0.2, col * 0.22))
-					_mesh(root, _cyl(rng.randf_range(0.08, 0.11), rng.randf_range(1.2, 1.6)), wood, l)
+					var log_r := rng.randf_range(0.08, 0.11)   # drawn before the length, as before
+					_mesh(root, LookMeshKit.cyl(log_r, log_r, rng.randf_range(1.2, 1.6), 8, 1), wood, l)
 				_shape(body, _box_shape(Vector3(1.6, 0.6, 1.0)), Transform3D(face, _ground_local(root, at) + Vector3(0, 0.3, 0)))
 				for k in 3:
 					_pot(root, _ground_local(root, at + face * Vector3(1.1 + k * 0.45, 0, 0.4)), rng.randf_range(0.18, 0.26), clay)
@@ -676,7 +676,7 @@ func _props(mats: LookMaterials) -> void:
 		var d := _ring_dir(a)
 		var p := _ground_local(root, d * 4.4)
 		var lb := Basis(Vector3.UP, atan2(d.x, d.z)) * Basis(Vector3.FORWARD, PI * 0.5)
-		_mesh(root, _cyl(0.17, 1.5), wood, Transform3D(lb, p + Vector3(0, 0.15, 0)))
+		_mesh(root, LookMeshKit.cyl(0.17, 0.17, 1.5, 8, 1), wood, Transform3D(lb, p + Vector3(0, 0.15, 0)))
 
 
 ## Lights on and the fire flickering only near the player (checked twice a second).
@@ -745,8 +745,7 @@ func _ground_local(root: Node3D, l: Vector3) -> Vector3:
 ## A thin rod from `a` to `b` (a pole, a rope, a spear).
 func _line(parent: Node3D, a: Vector3, b: Vector3, radius: float, mat: Material) -> MeshInstance3D:
 	var d := b - a
-	var c := _cyl(radius, d.length())
-	c.radial_segments = 5
+	var c := LookMeshKit.cyl(radius, radius, d.length(), 5, 1)
 	var basis := Basis(Quaternion(Vector3.UP, d.normalized())) if d.length() > 0.001 else Basis.IDENTITY
 	return _mesh(parent, c, mat, Transform3D(basis, (a + b) * 0.5))
 
@@ -796,27 +795,10 @@ func _canister(parent: Node3D, xf: Transform3D, radius: float, height: float, rn
 	mi.visibility_range_end = 220.0
 	var metal: Material = CampTextures.canister(Color("#4a4846"), Color("#4a4846")) if mats != null else null
 	for y: float in [0.02, height - 0.02]:
-		var rim := _cyl(radius + 0.015, 0.035)
-		rim.radial_segments = 12
+		var rim := LookMeshKit.cyl(radius + 0.015, radius + 0.015, 0.035, 12, 1)
 		_mesh(parent, rim, metal, xf * Transform3D(Basis.IDENTITY, Vector3(0, y, 0))).visibility_range_end = 120.0
-	var cap := _cyl(radius * 0.22, 0.06)
+	var cap := LookMeshKit.cyl(radius * 0.22, radius * 0.22, 0.06, 8, 1)
 	_mesh(parent, cap, metal, xf * Transform3D(Basis.IDENTITY, Vector3(radius * 0.5, height + 0.03, 0))).visibility_range_end = 120.0
-
-
-static func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-static func _cyl(r: float, h: float) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = r
-	c.bottom_radius = r
-	c.height = h
-	c.radial_segments = 8
-	c.rings = 1
-	return c
 
 
 static func _box_shape(size: Vector3) -> BoxShape3D:

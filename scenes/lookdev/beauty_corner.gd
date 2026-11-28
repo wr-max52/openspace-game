@@ -115,22 +115,6 @@ func _frustum(w: float, d: float, h: float, lean: float) -> ArrayMesh:
 	return LookMeshKit.frustum(w, d, h, lean)
 
 
-func _box(size: Vector3) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = size
-	return b
-
-
-func _cyl(top: float, bottom: float, h: float, seg: int = 24) -> CylinderMesh:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = seg
-	c.rings = 1
-	return c
-
-
 func _solid(mi: MeshInstance3D) -> void:
 	mi.create_trimesh_collision()
 
@@ -160,7 +144,7 @@ func _build_port() -> void:
 	add_child(port)
 
 	# Paving disk and its collider.
-	var pave := _add(_cyl(WALL_R + 1.5, WALL_R + 1.5, 1.0, 96),
+	var pave := _add(LookMeshKit.cyl(WALL_R + 1.5, WALL_R + 1.5, 1.0, 96, 1),
 		mats.paving(1.6), Vector3(0, FLOOR_Y - 0.5, 0), port)
 	pave.name = "Paving"
 	var body := StaticBody3D.new()
@@ -178,8 +162,7 @@ func _build_port() -> void:
 	plinth_noise.seed = 12
 	plinth_noise.frequency = 0.006
 	plinth_noise.fractal_octaves = 3
-	var plinth := _cyl(WALL_R + 8.0, WALL_R + 46.0, 74.0, 72)
-	plinth.rings = 14
+	var plinth := LookMeshKit.cyl(WALL_R + 8.0, WALL_R + 46.0, 74.0, 72, 14)
 	var cliff_mat := mats.rock(-30.0, 0.3)
 	_add(LookMeshKit.rock(plinth, plinth_noise, 0.07, 0.42, 1.0), cliff_mat, Vector3(0, 4.0 - 37.0, 0), port)
 	# Irregular rock masses around the plinth so the cliff is not a perfect drum.
@@ -191,8 +174,7 @@ func _build_port() -> void:
 		var rr := _rng.randf_range(18.0, 36.0)
 		var hh := _rng.randf_range(30.0, 66.0)
 		rn.frequency = 1.3 / rr
-		var m := _cyl(rr * 0.82, rr, hh, 18)
-		m.rings = 12
+		var m := LookMeshKit.cyl(rr * 0.82, rr, hh, 18, 12)
 		var dist := WALL_R + 12.0 + rr * 0.45
 		_add(LookMeshKit.rock(m, rn, 0.22, 0.5, float(i) * 7.0, 0.18), cliff_mat,
 			Vector3(cos(a) * dist, 2.0 - hh * 0.5 - _rng.randf_range(2.0, 12.0), sin(a) * dist), port, Vector3(0, _rng.randf_range(0, 360), 0))
@@ -230,7 +212,7 @@ func _build_breach_rubble(port: Node3D) -> void:
 	# Broken parapet ends, and a scorch mark on the paving.
 	for side in [-1.0, 1.0]:
 		var a: float = BREACH_A + side * (BREACH_HALF + 0.004)
-		_add(_box(Vector3(1.8, 1.0, 2.6)), mat, Vector3(cos(a) * (WALL_R + 1.5), FLOOR_Y + 0.9, sin(a) * (WALL_R + 1.5)), port,
+		_add(LookMeshKit.box(Vector3(1.8, 1.0, 2.6)), mat, Vector3(cos(a) * (WALL_R + 1.5), FLOOR_Y + 0.9, sin(a) * (WALL_R + 1.5)), port,
 			Vector3(0, -rad_to_deg(a), side * 18.0))
 	# Soft scorch decal fanning back from the breach.
 	var grad := Gradient.new()
@@ -277,7 +259,7 @@ func _build_wall(port: Node3D) -> void:
 		var a := a0 + 0.06
 		while a < a1 - 0.04:
 			var p := Vector3(cos(a), 0, sin(a)) * (WALL_R + 6.0)
-			_add(_box(Vector3(4.5, 15.0, 3.2)), wall_mat, p + Vector3(0, 0.0, 0), port, Vector3(0, -rad_to_deg(a), 0))
+			_add(LookMeshKit.box(Vector3(4.5, 15.0, 3.2)), wall_mat, p + Vector3(0, 0.0, 0), port, Vector3(0, -rad_to_deg(a), 0))
 			a += 0.105
 	# Round bastions at the gates and between them.
 	for i in 6:
@@ -285,7 +267,7 @@ func _build_wall(port: Node3D) -> void:
 		if absf(wrapf(a - (-PI * 0.5), -PI, PI)) < 0.25:
 			continue   # keep the hero view open
 		var p := Vector3(cos(a), 0, sin(a)) * (WALL_R + 3.0)
-		_solid(_add(_cyl(7.5, 8.5, 26.0, 28), wall_mat, p + Vector3(0, 3.0, 0), port))
+		_solid(_add(LookMeshKit.cyl(7.5, 8.5, 26.0, 28, 1), wall_mat, p + Vector3(0, 3.0, 0), port))
 		_add(LookMeshKit.ring_segment(6.6, 8.2, 16.0, 17.2, 0.0, TAU, 28),
 			mats.plaster(FLOOR_Y), p, port)
 		_banner(port, p + Vector3(0, 15.5, 0) + Vector3(cos(a), 0, sin(a)) * 8.6, a, 3.2, 9.0, LookMaterials.CLOTH_MADDER)
@@ -303,7 +285,7 @@ func _dome_house(parent: Node3D, pos: Vector3, r: float, h: float, yaw: float, b
 	parent.add_child(house)
 	var mat := mats.plaster(FLOOR_Y, FLOOR_Y + h - 0.6, band)
 	h += 2.5
-	_solid(_add(_cyl(r, r * 1.04, h, 28), mat, Vector3(0, h * 0.5, 0), house))
+	_solid(_add(LookMeshKit.cyl(r, r * 1.04, h, 28, 1), mat, Vector3(0, h * 0.5, 0), house))
 	_add(LookMeshKit.ring_segment(r - 0.1, r + 0.35, h - 0.1, h + 0.5, 0.0, TAU, 28), mat, Vector3.ZERO, house)
 	var dome := SphereMesh.new()
 	dome.radius = r * 0.92
@@ -314,12 +296,12 @@ func _dome_house(parent: Node3D, pos: Vector3, r: float, h: float, yaw: float, b
 	_add(dome, mat, Vector3(0, h, 0), house)
 	_cyl_solid(house, Vector3(0, h + r * 0.31, 0), r * 0.92, r * 0.62)
 	# Door and windows face +X locally (the lane).
-	_add(_box(Vector3(1.6, 3.4, 2.6)), mat, Vector3(r - 0.3, 1.7, 0), house)
-	_add(_box(Vector3(0.2, 2.6, 1.5)), mats.flat(Color("#241a15")), Vector3(r + 0.45, 1.3, 0), house)
+	_add(LookMeshKit.box(Vector3(1.6, 3.4, 2.6)), mat, Vector3(r - 0.3, 1.7, 0), house)
+	_add(LookMeshKit.box(Vector3(0.2, 2.6, 1.5)), mats.flat(Color("#241a15")), Vector3(r + 0.45, 1.3, 0), house)
 	var win := mats.glow(Color("#ffb46a"))
 	look.track_glow(win)
 	for z in [-r * 0.5, r * 0.5]:
-		_add(_box(Vector3(0.4, 0.8, 0.6)), win, Vector3(r * 0.86, h * 0.62, z), house)
+		_add(LookMeshKit.box(Vector3(0.4, 0.8, 0.6)), win, Vector3(r * 0.86, h * 0.62, z), house)
 	_lamp(house, Vector3(r + 0.7, 3.0, 1.6))
 
 
@@ -331,21 +313,21 @@ func _block_house(parent: Node3D, pos: Vector3, size: Vector3, yaw: float, band:
 	var mat := mats.plaster(FLOOR_Y, FLOOR_Y + size.y * 0.35, band)
 	# Battered (inward-sloping) walls: a four-sided frustum, scaled to the footprint.
 	_solid(_add(_frustum(size.x, size.z, size.y, 0.12), mat, Vector3(0, size.y * 0.5, 0), house))
-	_add(_box(Vector3(size.x * 0.88 + 0.5, 0.5, size.z * 0.88 + 0.5)), mat, Vector3(0, size.y + 0.25, 0), house)
+	_add(LookMeshKit.box(Vector3(size.x * 0.88 + 0.5, 0.5, size.z * 0.88 + 0.5)), mat, Vector3(0, size.y + 0.25, 0), house)
 	if size.y > 10.0:
 		# A smaller stepped upper storey.
 		_add(_frustum(size.x * 0.5, size.z * 0.55, 3.2, 0.1), mat, Vector3(-size.x * 0.12, size.y + 2.1, 0), house)
 	# Salvaged hull plate bolted on: the port is built from the empire's leftovers.
 	if _rng.randf() < 0.5:
-		_add(_box(Vector3(0.2, minf(size.y * 0.3, 3.0), minf(size.z * 0.25, 3.2))), mats.hull(-50.0, 0.8),
+		_add(LookMeshKit.box(Vector3(0.2, minf(size.y * 0.3, 3.0), minf(size.z * 0.25, 3.2))), mats.hull(-50.0, 0.8),
 			Vector3(size.x * 0.44 + 0.1, size.y * 0.45, size.z * 0.22), house, Vector3(0, 0, -5.0))
-	_add(_box(Vector3(0.2, 2.6, 1.5)), mats.flat(Color("#241a15")), Vector3(size.x * 0.5 + 0.02, 1.3, -size.z * 0.25), house)
+	_add(LookMeshKit.box(Vector3(0.2, 2.6, 1.5)), mats.flat(Color("#241a15")), Vector3(size.x * 0.5 + 0.02, 1.3, -size.z * 0.25), house)
 	var win := mats.glow(Color("#ffb46a"))
 	look.track_glow(win)
-	_add(_box(Vector3(0.4, 0.9, 0.7)), win, Vector3(size.x * 0.5, size.y * 0.7, -size.z * 0.25), house)
+	_add(LookMeshKit.box(Vector3(0.4, 0.9, 0.7)), win, Vector3(size.x * 0.5, size.y * 0.7, -size.z * 0.25), house)
 	# Roof clutter breaks the silhouette.
-	_add(_box(Vector3(1.6, 1.0, 1.2)), mats.hull(FLOOR_Y + size.y, 0.8), Vector3(-size.x * 0.2, size.y + 1.0, size.z * 0.2), house)
-	_add(_cyl(0.08, 0.08, 4.0, 6), mats.flat(Color("#3b3532"), 0.6, 0.5), Vector3(size.x * 0.3, size.y + 2.5, -size.z * 0.3), house)
+	_add(LookMeshKit.box(Vector3(1.6, 1.0, 1.2)), mats.hull(FLOOR_Y + size.y, 0.8), Vector3(-size.x * 0.2, size.y + 1.0, size.z * 0.2), house)
+	_add(LookMeshKit.cyl(0.08, 0.08, 4.0, 6, 1), mats.flat(Color("#3b3532"), 0.6, 0.5), Vector3(size.x * 0.3, size.y + 2.5, -size.z * 0.3), house)
 	_lamp(house, Vector3(size.x * 0.5 + 0.6, 2.9, -size.z * 0.25 + 1.3))
 
 
@@ -372,7 +354,7 @@ func _awning(parent: Node3D, pos: Vector3, yaw: float, w: float, color: Color) -
 	for side in [-0.5, 0.5]:
 		var post_pos := pos + Vector3(0, 0, 0)
 		var off := Vector3(w * side, 0, 0).rotated(Vector3.UP, yaw) + Vector3(0, 0, 2.8).rotated(Vector3.UP, yaw)
-		_add(_cyl(0.06, 0.06, 3.1, 6), mats.flat(Color("#4a3a2c")), Vector3(post_pos.x + off.x, FLOOR_Y + 1.55, post_pos.z + off.z), parent)
+		_add(LookMeshKit.cyl(0.06, 0.06, 3.1, 6, 1), mats.flat(Color("#4a3a2c")), Vector3(post_pos.x + off.x, FLOOR_Y + 1.55, post_pos.z + off.z), parent)
 
 
 func _build_lane(port: Node3D) -> void:
@@ -436,9 +418,9 @@ func _build_lane(port: Node3D) -> void:
 		var p := Vector3(side, FLOOR_Y, _rng.randf_range(-95.0, 35.0))
 		var s := _rng.randf_range(0.7, 1.3)
 		if _rng.randf() < 0.5:
-			_add(_box(Vector3(s, s * 0.8, s * 1.2)), crate_mat, p + Vector3(0, s * 0.4, 0), port, Vector3(0, _rng.randf_range(-20, 20), 0))
+			_add(LookMeshKit.box(Vector3(s, s * 0.8, s * 1.2)), crate_mat, p + Vector3(0, s * 0.4, 0), port, Vector3(0, _rng.randf_range(-20, 20), 0))
 		else:
-			_add(_cyl(0.4, 0.4, 1.1, 12), mats.flat(Color("#6a5848").lerp(LookMaterials.CLOTH_TEAL, _rng.randf() * 0.4), 0.7, 0.3), p + Vector3(0, 0.55, 0), port)
+			_add(LookMeshKit.cyl(0.4, 0.4, 1.1, 12, 1), mats.flat(Color("#6a5848").lerp(LookMaterials.CLOTH_TEAL, _rng.randf() * 0.4), 0.7, 0.3), p + Vector3(0, 0.55, 0), port)
 
 
 func _build_spire(port: Node3D, base: Vector3) -> void:
@@ -447,11 +429,11 @@ func _build_spire(port: Node3D, base: Vector3) -> void:
 	spire.position = base
 	port.add_child(spire)
 	var mat := mats.plaster(FLOOR_Y, FLOOR_Y + 9.0, LookMaterials.CLOTH_MADDER, Color("#d2bc98"))
-	_solid(_add(_cyl(7.0, 9.0, 10.0, 8), mat, Vector3(0, 5.0, 0), spire))
-	_add(_cyl(3.0, 5.0, 48.0, 8), mat, Vector3(0, 34.0, 0), spire)
+	_solid(_add(LookMeshKit.cyl(7.0, 9.0, 10.0, 8, 1), mat, Vector3(0, 5.0, 0), spire))
+	_add(LookMeshKit.cyl(3.0, 5.0, 48.0, 8, 1), mat, Vector3(0, 34.0, 0), spire)
 	for y in [16.0, 27.0, 38.0, 49.0]:
 		_add(LookMeshKit.ring_segment(4.4 - y * 0.03, 6.6 - y * 0.03, y, y + 1.3, 0.0, TAU, 16), mats.hull(0.0, 2.0), Vector3.ZERO, spire)
-	_add(_cyl(0.5, 1.2, 20.0, 8), mats.hull(0.0, 2.0), Vector3(0, 68.0, 0), spire)
+	_add(LookMeshKit.cyl(0.5, 1.2, 20.0, 8, 1), mats.hull(0.0, 2.0), Vector3(0, 68.0, 0), spire)
 	var dish := SphereMesh.new()
 	dish.radius = 5.0
 	dish.height = 2.5
@@ -480,10 +462,10 @@ func _build_landing_bay(port: Node3D, c: Vector3) -> void:
 	bay.position = Vector3(c.x, 0, c.z)
 	port.add_child(bay)
 	_solid(_add(LookMeshKit.ring_segment(26.0, 30.0, 0.5, FLOOR_Y + 0.6, 0.0, TAU, 64), mats.plaster(0.5, 6.0, LookMaterials.CLOTH_SAFFRON), Vector3.ZERO, bay))
-	_add(_cyl(26.0, 26.0, 1.0, 64), mats.hull(-10.0, 6.0), Vector3(0, 0.5, 0), bay)
+	_add(LookMeshKit.cyl(26.0, 26.0, 1.0, 64, 1), mats.hull(-10.0, 6.0), Vector3(0, 0.5, 0), bay)
 	for i in 6:
 		var a := TAU * i / 6.0
-		_add(_box(Vector3(4.0, 3.0, 2.0)), mats.hull(0.0, 1.5), Vector3(cos(a) * 24.5, FLOOR_Y + 1.5, sin(a) * 24.5), bay, Vector3(0, -rad_to_deg(a), 0))
+		_add(LookMeshKit.box(Vector3(4.0, 3.0, 2.0)), mats.hull(0.0, 1.5), Vector3(cos(a) * 24.5, FLOOR_Y + 1.5, sin(a) * 24.5), bay, Vector3(0, -rad_to_deg(a), 0))
 	var l := OmniLight3D.new()
 	l.position = Vector3(0, 4.0, 0)
 	l.light_color = Color("#ffcf8a")
@@ -510,10 +492,10 @@ func _hooded_figure(parent: Node3D, pos: Vector3, yaw: float, cloak: Color, heig
 	hood.radial_segments = 10
 	_add(hood, mats.cloth(cloak.darkened(0.15)), Vector3(0, height * 0.88, 0.03), f)
 	# Face wrap: covered faces are a rule (docs/ART_DIRECTION.md, Characters).
-	_add(_box(Vector3(0.22, 0.09, 0.05)), mats.flat(Color("#1c1816")), Vector3(0, height * 0.88, -0.17), f)
+	_add(LookMeshKit.box(Vector3(0.22, 0.09, 0.05)), mats.flat(Color("#1c1816")), Vector3(0, height * 0.88, -0.17), f)
 	var scarf := _add(LookMeshKit.cloth(0.35, 0.9, 0.1, 2, 4), mats.cloth(LookMaterials.CLOTH_MADDER if cloak != LookMaterials.CLOTH_MADDER else LookMaterials.CLOTH_TEAL), Vector3(0.12, height * 0.8, 0.2), f)
 	scarf.rotation_degrees = Vector3(-12, 0, 8)
-	_add(_cyl(0.025, 0.03, height * 1.05, 5), mats.flat(Color("#4a3a2c")), Vector3(0.38, height * 0.52, -0.05), f, Vector3(0, 0, -4))
+	_add(LookMeshKit.cyl(0.025, 0.03, height * 1.05, 5, 1), mats.flat(Color("#4a3a2c")), Vector3(0.38, height * 0.52, -0.05), f, Vector3(0, 0, -4))
 
 
 func _build_hero_foreground(port: Node3D) -> void:
@@ -522,21 +504,21 @@ func _build_hero_foreground(port: Node3D) -> void:
 	t.position = Vector3(-17, FLOOR_Y, -139)
 	port.add_child(t)
 	var mat := mats.plaster(FLOOR_Y, FLOOR_Y + 7.5, LookMaterials.CLOTH_TEAL)
-	_solid(_add(_box(Vector3(6.5, 11, 6.5)), mat, Vector3(0, 5.5, 0), t, Vector3(0, 12, 0)))
-	_add(_box(Vector3(7.5, 0.6, 7.5)), mat, Vector3(0, 11.3, 0), t, Vector3(0, 12, 0))
-	_add(_box(Vector3(5.0, 3.0, 5.0)), mat, Vector3(0, 13.1, 0), t, Vector3(0, 12, 0))
-	_add(_cyl(0.07, 0.07, 9.0, 6), mats.flat(Color("#3b3532"), 0.6, 0.4), Vector3(1.6, 19.0, 1.2), t)
+	_solid(_add(LookMeshKit.box(Vector3(6.5, 11, 6.5)), mat, Vector3(0, 5.5, 0), t, Vector3(0, 12, 0)))
+	_add(LookMeshKit.box(Vector3(7.5, 0.6, 7.5)), mat, Vector3(0, 11.3, 0), t, Vector3(0, 12, 0))
+	_add(LookMeshKit.box(Vector3(5.0, 3.0, 5.0)), mat, Vector3(0, 13.1, 0), t, Vector3(0, 12, 0))
+	_add(LookMeshKit.cyl(0.07, 0.07, 9.0, 6, 1), mats.flat(Color("#3b3532"), 0.6, 0.4), Vector3(1.6, 19.0, 1.2), t)
 	_lamp(t, Vector3(3.5, 3.2, -1.5))
 	# A market stall at the right edge, cloth catching the low sun.
 	_awning(port, Vector3(19.0, FLOOR_Y + 3.4, -141.0), PI, 5.5, LookMaterials.CLOTH_MADDER)
-	_add(_box(Vector3(4.0, 1.0, 1.6)), mats.hull(FLOOR_Y, 0.8), Vector3(19.0, FLOOR_Y + 0.5, -141.5), port)
+	_add(LookMeshKit.box(Vector3(4.0, 1.0, 1.6)), mats.hull(FLOOR_Y, 0.8), Vector3(19.0, FLOOR_Y + 0.5, -141.5), port)
 	for i in 5:
-		_add(_box(Vector3(0.8, 0.6, 0.6)), mats.hull(FLOOR_Y, 0.6), Vector3(16.0 + i * 1.3, FLOOR_Y + 0.3, -138.5 + (i % 2) * 0.8), port, Vector3(0, i * 17, 0))
+		_add(LookMeshKit.box(Vector3(0.8, 0.6, 0.6)), mats.hull(FLOOR_Y, 0.6), Vector3(16.0 + i * 1.3, FLOOR_Y + 0.3, -138.5 + (i % 2) * 0.8), port, Vector3(0, i * 17, 0))
 	# Foreground clutter in the bottom of the frame: crates, a tarp, a water jar.
 	var crate := mats.hull(FLOOR_Y, 0.7)
-	_add(_box(Vector3(1.4, 1.0, 1.1)), crate, Vector3(-2.6, FLOOR_Y + 0.5, -143.6), port, Vector3(0, 14, 0))
-	_add(_box(Vector3(1.0, 0.8, 0.9)), crate, Vector3(-2.4, FLOOR_Y + 1.4, -143.5), port, Vector3(0, -8, 0))
-	_add(_box(Vector3(1.2, 0.9, 1.0)), crate, Vector3(-1.0, FLOOR_Y + 0.45, -144.6), port, Vector3(0, 31, 0))
+	_add(LookMeshKit.box(Vector3(1.4, 1.0, 1.1)), crate, Vector3(-2.6, FLOOR_Y + 0.5, -143.6), port, Vector3(0, 14, 0))
+	_add(LookMeshKit.box(Vector3(1.0, 0.8, 0.9)), crate, Vector3(-2.4, FLOOR_Y + 1.4, -143.5), port, Vector3(0, -8, 0))
+	_add(LookMeshKit.box(Vector3(1.2, 0.9, 1.0)), crate, Vector3(-1.0, FLOOR_Y + 0.45, -144.6), port, Vector3(0, 31, 0))
 	var tarp := _add(LookMeshKit.cloth(2.2, 1.6, 0.35, 4, 4), mats.cloth(LookMaterials.CLOTH_TEAL), Vector3(-2.6, FLOOR_Y + 1.85, -143.0), port)
 	tarp.rotation_degrees = Vector3(-75, 14, 0)
 	var jar := SphereMesh.new()
@@ -569,9 +551,9 @@ func _build_wreck() -> void:
 	ship.position = Vector3(0, 120, 0)
 	ship.rotation_degrees = Vector3(0, 0, 57)
 	wreck.add_child(ship)
-	_add(_cyl(48.0, 60.0, 420.0, 32), hull, Vector3(0, -150.0, 0), ship)          # buried forward hull
-	_add(_cyl(40.0, 46.0, 170.0, 32), hull, Vector3(0, 275.0, 0), ship)           # aft section
-	_add(_cyl(26.0, 26.0, 170.0, 16), hull, Vector3(-14.0, 105.0, 0), ship)       # keel through the open section
+	_add(LookMeshKit.cyl(48.0, 60.0, 420.0, 32, 1), hull, Vector3(0, -150.0, 0), ship)          # buried forward hull
+	_add(LookMeshKit.cyl(40.0, 46.0, 170.0, 32, 1), hull, Vector3(0, 275.0, 0), ship)           # aft section
+	_add(LookMeshKit.cyl(26.0, 26.0, 170.0, 16, 1), hull, Vector3(-14.0, 105.0, 0), ship)       # keel through the open section
 	# Open section: ribs on the dorsal side, the hull plating torn away.
 	for i in 9:
 		var y := 30.0 + i * 18.0
@@ -580,7 +562,7 @@ func _build_wreck() -> void:
 	for i in 4:
 		var y := 40.0 + i * 38.0 + _rng.randf_range(-6, 6)
 		var a := _rng.randf_range(-1.0, 1.0)
-		_add(_box(Vector3(2.5, 26.0, 22.0)), hull, Vector3(cos(a) * 52.0, y, sin(a) * 52.0), ship,
+		_add(LookMeshKit.box(Vector3(2.5, 26.0, 22.0)), hull, Vector3(cos(a) * 52.0, y, sin(a) * 52.0), ship,
 			Vector3(_rng.randf_range(-20, 20), -rad_to_deg(a), _rng.randf_range(-25, 25)))
 	# The comb: radiator fins along the dorsal spine. The wreck's signature silhouette.
 	for i in 9:
@@ -588,16 +570,16 @@ func _build_wreck() -> void:
 		if y > 25.0 and y < 195.0:
 			continue
 		var fin_h := 20.0 + 26.0 * sin(float(i) / 8.0 * PI)
-		_add(_box(Vector3(fin_h, 18.0, 3.0)), hull, Vector3(48.0 + fin_h * 0.5, y, 0), ship)
+		_add(LookMeshKit.box(Vector3(fin_h, 18.0, 3.0)), hull, Vector3(48.0 + fin_h * 0.5, y, 0), ship)
 	for i in 5:
 		var y := 205.0 + i * 26.0
 		var fin_h := 30.0 - i * 3.0
-		_add(_box(Vector3(fin_h, 16.0, 3.0)), hull, Vector3(42.0 + fin_h * 0.5, y, 0), ship)
+		_add(LookMeshKit.box(Vector3(fin_h, 16.0, 3.0)), hull, Vector3(42.0 + fin_h * 0.5, y, 0), ship)
 	# Engine bells at the raised stern.
 	for i in 4:
 		var a := TAU * i / 4.0 + 0.4
-		_add(_cyl(13.0, 20.0, 34.0, 20), mats.hull(gy, 3.0), Vector3(cos(a) * 22.0, 375.0, sin(a) * 22.0), ship)
-	_add(_cyl(30.0, 40.0, 16.0, 24), hull, Vector3(0, 362.0, 0), ship)
+		_add(LookMeshKit.cyl(13.0, 20.0, 34.0, 20, 1), mats.hull(gy, 3.0), Vector3(cos(a) * 22.0, 375.0, sin(a) * 22.0), ship)
+	_add(LookMeshKit.cyl(30.0, 40.0, 16.0, 24, 1), hull, Vector3(0, 362.0, 0), ship)
 
 	# A broken-off section lying in the sand, ribs up, like a beached skeleton.
 	var piece := Node3D.new()
@@ -606,7 +588,7 @@ func _build_wreck() -> void:
 	wreck.add_child(piece)
 	for i in 7:
 		_add(LookMeshKit.ring_segment(44.0, 49.0, -2.0 + i * 20.0, 2.0 + i * 20.0, -1.2, 1.2 - (0.5 if i == 4 else 0.0), 22), hull, Vector3.ZERO, piece)
-	_add(_box(Vector3(6.0, 130.0, 8.0)), hull, Vector3(48.0, 60.0, 0), piece)
+	_add(LookMeshKit.box(Vector3(6.0, 130.0, 8.0)), hull, Vector3(48.0, 60.0, 0), piece)
 
 	# Scavenger scaffold against the buried hull: tiny, so the wreck reads as huge.
 	var scaf := mats.flat(Color("#3a302a"), 0.8, 0.3)
@@ -629,7 +611,7 @@ func _build_wreck() -> void:
 		var p := Vector3(_rng.randf_range(-520, 420), 0, _rng.randf_range(-260, 280))
 		var world := wreck.transform * p
 		var y := terrain.height_at(world.x, world.z) - gy
-		_add(_box(Vector3(_rng.randf_range(8, 26), 1.5, _rng.randf_range(6, 18))), hull, Vector3(p.x, y + 1.0, p.z), wreck,
+		_add(LookMeshKit.box(Vector3(_rng.randf_range(8, 26), 1.5, _rng.randf_range(6, 18))), hull, Vector3(p.x, y + 1.0, p.z), wreck,
 			Vector3(_rng.randf_range(-35, 35), _rng.randf_range(0, 180), _rng.randf_range(-35, 35)))
 
 
@@ -649,7 +631,7 @@ func _build_megaring() -> void:
 	_add(LookMeshKit.ring_segment(388.0, 398.0, -14.0, 14.0, PI - 0.55, TAU - 1.05, 90), mat, Vector3.ZERO, ring)
 	for i in 16:
 		var a := PI - 0.5 + i * 0.12
-		_add(_box(Vector3(26.0, 10.0, 84.0)), mat, Vector3(cos(a) * 441.0, 0.0, sin(a) * 441.0), ring, Vector3(0, -rad_to_deg(a), 0))
+		_add(LookMeshKit.box(Vector3(26.0, 10.0, 84.0)), mat, Vector3(cos(a) * 441.0, 0.0, sin(a) * 441.0), ring, Vector3(0, -rad_to_deg(a), 0))
 	# The snapped-off piece, fallen flat and half buried.
 	var frag := Node3D.new()
 	frag.position = Vector3(gx + 520.0, gy - 6.0, gz + 260.0)
@@ -677,8 +659,7 @@ func _build_landforms() -> void:
 		var r: float = m[2]
 		var h: float = m[3]
 		noise.frequency = 0.9 / r
-		var base := _cyl(r * 0.8, r, h, 40)
-		base.rings = 14
+		var base := LookMeshKit.cyl(r * 0.8, r, h, 40, 14)
 		var mesh := LookMeshKit.rock(base, noise, 0.18, 28.0 / h, float(m[0]) * 0.01, 0.35)
 		var gy := terrain.height_at(m[0], m[1])
 		_add(mesh, mats.rock(gy, 0.11), Vector3(m[0], gy + h * 0.42, m[1]), land, Vector3(0, _rng.randf_range(0, 360), 0))
@@ -689,8 +670,7 @@ func _build_landforms() -> void:
 		var r: float = hd[2]
 		var h: float = hd[3]
 		noise.frequency = 1.4 / r
-		var base := _cyl(r * 0.55, r, h, 16)
-		base.rings = 10
+		var base := LookMeshKit.cyl(r * 0.55, r, h, 16, 10)
 		var gy := terrain.height_at(hd[0], hd[1])
 		var mat := mats.rock(gy, 0.35)
 		_add(LookMeshKit.rock(base, noise, 0.28, 3.0, float(hd[0]), 0.4), mat, Vector3(hd[0], gy + h * 0.45, hd[1]), land)

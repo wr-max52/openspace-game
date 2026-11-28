@@ -23,6 +23,13 @@
     "ground_detail_below": 1500.0,
     "ground_detail_note": "The mid ring (the 1 km square of fine sand under the camera, src/systems/look/planet_terrain.gd) is built only below this many metres over the ground, with the props tier; higher up only the whole ball is drawn, so the square is not seen from kilometres out. 0 = always.",
     "hysteresis": 40.0,
+    "sight": {
+      "note": "Issue #717: build by sight on every ball and generated planet (the home planet's own world file has its own block). Read by src/systems/world/sight_gate.gd and scenes/town_demo.gd _build_by_sight: a no-fade handoff builds nothing the ship could not see yet. range_m: never built further from the camera than this; horizon_margin_m: built this far before it would crest the curve of the ball; release_m: kept this much further out once in. hold: build steps that wait till the ship is under that many metres over the ground. A type (types.<type>.sight) or a planet file (sight) can change any of it; a hold given there replaces this one.",
+      "range_m": 6000.0,
+      "horizon_margin_m": 1200.0,
+      "release_m": 2000.0,
+      "hold": { "beast": 2600.0, "natives": 1500.0, "native_bodies": 1200.0 }
+    },
     "motion": {
       "above": 550.0,
       "altitude_hysteresis": 60.0,

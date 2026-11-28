@@ -529,7 +529,7 @@ func test_the_ringed_giant_replaces_the_painting() -> void:
 	assert_true(bool(n.sky_giant))
 	assert_gt(float(n.bands), 0.0, "banded like the painting")
 	assert_false((n.ring as Dictionary).is_empty(), "with its ring")
-	var sky: Dictionary = ItemKit._read_json("res://content/look/time_of_day.json").presets.golden.sky
+	var sky: Dictionary = CoreContent.read_json("res://content/look/time_of_day.json").presets.golden.sky
 	var painted := LookEnvironment.direction(float(sky.planet_azimuth_deg), float(sky.planet_elevation_deg))
 	var at: Vector3 = n.at
 	assert_lt(rad_to_deg(at.normalized().angle_to(painted)), 0.5, "where the painting was")

@@ -411,18 +411,7 @@ static func _chitin(c: Color, metal: float, rough: float) -> StandardMaterial3D:
 
 
 static func _sphere(parent: Node3D, r: float, sc: Vector3, at: Vector3, mat: Material) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = r
-	sm.height = r * 2.0
-	sm.radial_segments = 24
-	sm.rings = 12
-	mi.mesh = sm
-	mi.material_override = mat
-	mi.position = at
-	mi.scale = sc
-	parent.add_child(mi)
-	return mi
+	return LookMeshKit.mi(parent, LookMeshKit.ball(r, 24, 12), mat, at, Basis.from_scale(sc))
 
 
 ## A tapered rod from a to b (r0 at a, r1 at b).

@@ -7,6 +7,7 @@ extends GutTest
 ## vanishing while the player flies.
 
 const Garrison := preload("res://src/systems/npc/garrison.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 var r: DroidRoster
 var rng: RandomNumberGenerator
@@ -39,7 +40,7 @@ func test_three_kinds_with_variants_and_prices() -> void:
 ## The pit is T-89's: the Remnant's street patrol walks round its rim, never
 ## across the floor where the player wakes up.
 func test_remnant_patrol_stays_out_of_the_pit() -> void:
-	var cfg: Dictionary = CharacterKit._read_json("res://content/core/droids/droids.json")
+	var cfg: Dictionary = CoreContent.read_json("res://content/core/droids/droids.json")
 	var pts: Array = cfg.remnant.patrol
 	var pit_r := 28.0
 	for i in pts.size():

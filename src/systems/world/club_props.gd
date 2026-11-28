@@ -93,61 +93,61 @@ static func _pulse(beats: float) -> float:
 func dj_desk(at: Transform3D) -> Node3D:
 	var root := _group("DjDesk", at)
 	var jazz := style == "jazz"
-	var body_mat: Material = ClubTextures.wood(Color("#4a2a18"), 0.12) if jazz else ClubTextures.brushed(Color("#1a1a1e"), 0.6)
-	var top_mat: Material = ClubTextures.brushed(Color("#3a3a3e") if jazz else Color("#26262a"), 0.7)
-	var trim: Material = ClubTextures.brushed(Color("#b08e50"), 0.9) if jazz else ClubTextures.glow(Color("#ff2bd6"), 2.5)
+	var body_mat: Material = ClubTextures.wood(Dressing.c("club", "desk_wood", "#4a2a18"), 0.12) if jazz else ClubTextures.brushed(Dressing.c("club", "desk_metal", "#1a1a1e"), 0.6)
+	var top_mat: Material = ClubTextures.brushed(Dressing.c("club", "desk_top_jazz", "#3a3a3e") if jazz else Dressing.c("club", "desk_top_rave", "#26262a"), 0.7)
+	var trim: Material = ClubTextures.brushed(Dressing.c("club", "brass", "#b08e50"), 0.9) if jazz else ClubTextures.glow(Dressing.c("club", "desk_neon", "#ff2bd6"), 2.5)
 	var y := ClubMoves.DJ_TOP
 	var z := ClubMoves.DJ_Z + 0.06
 	var w := ClubMoves.DJ_DECK_X * 2.0 + 0.5
-	_box(root, Vector3(w, y - 0.04, 0.6), Vector3(0, (y - 0.04) * 0.5, z), body_mat)
-	_box(root, Vector3(w + 0.06, 0.04, 0.66), Vector3(0, y - 0.02, z), top_mat)
-	_box(root, Vector3(w + 0.08, 0.03, 0.03), Vector3(0, y - 0.02, z + 0.34), trim)
-	_box(root, Vector3(w + 0.08, 0.03, 0.03), Vector3(0, y - 0.02, z - 0.34), trim)
+	_put(root, LookMeshKit.box(Vector3(w, y - 0.04, 0.6)), Vector3(0, (y - 0.04) * 0.5, z), body_mat)
+	_put(root, LookMeshKit.box(Vector3(w + 0.06, 0.04, 0.66)), Vector3(0, y - 0.02, z), top_mat)
+	_put(root, LookMeshKit.box(Vector3(w + 0.08, 0.03, 0.03)), Vector3(0, y - 0.02, z + 0.34), trim)
+	_put(root, LookMeshKit.box(Vector3(w + 0.08, 0.03, 0.03)), Vector3(0, y - 0.02, z - 0.34), trim)
 	# The audience side: a lit panel and a strip of LEDs that run with the beat.
-	var face := ClubTextures.glow(Color("#c8601c") if jazz else Color("#1a8cff"), 0.5)
-	face.albedo_color = Color("#1a0c06") if jazz else Color("#040c18")
-	_box(root, Vector3(w - 0.2, 0.36, 0.02), Vector3(0, y * 0.55, z + 0.31), face)
+	var face := ClubTextures.glow(Dressing.c("club", "desk_face_jazz", "#c8601c") if jazz else Dressing.c("club", "desk_face_rave", "#1a8cff"), 0.5)
+	face.albedo_color = Dressing.c("club", "desk_face_back_jazz", "#1a0c06") if jazz else Dressing.c("club", "desk_face_back_rave", "#040c18")
+	_put(root, LookMeshKit.box(Vector3(w - 0.2, 0.36, 0.02)), Vector3(0, y * 0.55, z + 0.31), face)
 	pulses.append([face, 0.15, 0.9, 1.0, 0.0])
 	var n := 12
 	for i in n:
 		var led := ClubTextures.glow(Color.from_hsv(float(i) / n, 0.7, 1.0), 1.0)
-		_box(root, Vector3(0.05, 0.05, 0.02), Vector3(-w * 0.4 + w * 0.8 * i / (n - 1), y * 0.85, z + 0.31), led)
+		_put(root, LookMeshKit.box(Vector3(0.05, 0.05, 0.02)), Vector3(-w * 0.4 + w * 0.8 * i / (n - 1), y * 0.85, z + 0.31), led)
 		pulses.append([led, 0.2, 3.5, 2.0, float(i) / n])
 	# Two decks, each a glowing ring round a spinning record.
 	for side in [-1.0, 1.0]:
 		var c := Vector3(side * ClubMoves.DJ_DECK_X, y, ClubMoves.DJ_Z)
-		_box(root, Vector3(0.36, 0.03, 0.34), c + Vector3(0, 0.015, 0), ClubTextures.brushed(Color("#2a2a2e"), 0.7))
-		var ring := ClubTextures.glow(Color("#3fe8ff") if side > 0 else Color("#ff6a2b"), 3.0)
-		_cyl(root, 0.155, 0.012, c + Vector3(0, 0.034, 0), ring)
+		_put(root, LookMeshKit.box(Vector3(0.36, 0.03, 0.34)), c + Vector3(0, 0.015, 0), ClubTextures.brushed(Dressing.c("club", "deck_plinth", "#2a2a2e"), 0.7))
+		var ring := ClubTextures.glow(Dressing.c("club", "deck_ring_a", "#3fe8ff") if side > 0 else Dressing.c("club", "deck_ring_b", "#ff6a2b"), 3.0)
+		_cone(root, 0.155, 0.155, 0.012, c + Vector3(0, 0.034, 0), ring)
 		pulses.append([ring, 1.6, 4.5, 1.0, 0.5 if side > 0 else 0.0])
 		var platter := Node3D.new()
 		platter.position = c + Vector3(0, 0.042, 0)
 		root.add_child(platter)
-		_cyl(platter, 0.142, 0.008, Vector3.ZERO, _flat(Color("#0c0c0e"), 0.25))
-		_cyl(platter, 0.045, 0.01, Vector3.ZERO, _flat(Color("#c9a058") if side > 0 else Color("#a8322a"), 0.6))
-		_box(platter, Vector3(0.012, 0.012, 0.09), Vector3(0.0, 0.006, 0.08), _flat(Color("#e8dcc0"), 0.6))
+		_cone(platter, 0.142, 0.142, 0.008, Vector3.ZERO, _flat(Dressing.c("club", "platter", "#0c0c0e"), 0.25))
+		_cone(platter, 0.045, 0.045, 0.01, Vector3.ZERO, _flat(Dressing.c("club", "label_a", "#c9a058") if side > 0 else Dressing.c("club", "label_b", "#a8322a"), 0.6))
+		_put(platter, LookMeshKit.box(Vector3(0.012, 0.012, 0.09)), Vector3(0.0, 0.006, 0.08), _flat(Dressing.c("club", "platter_mark", "#e8dcc0"), 0.6))
 		spins.append([platter, 3.5])
-		_cyl(root, 0.012, 0.06, c + Vector3(-0.15 * side, 0.06, -0.12), _flat(Color("#c0c0c4"), 0.3, 0.9))
-		var arm := _box(root, Vector3(0.015, 0.012, 0.2), c + Vector3(-0.12 * side, 0.08, -0.04), _flat(Color("#c0c0c4"), 0.3, 0.9))
+		_cone(root, 0.012, 0.012, 0.06, c + Vector3(-0.15 * side, 0.06, -0.12), _flat(Dressing.c("club", "tonearm", "#c0c0c4"), 0.3, 0.9))
+		var arm := _put(root, LookMeshKit.box(Vector3(0.015, 0.012, 0.2)), c + Vector3(-0.12 * side, 0.08, -0.04), _flat(Dressing.c("club", "tonearm", "#c0c0c4"), 0.3, 0.9))
 		arm.rotation.y = 0.35 * side
 	# The mixer between them: faders, knobs and a grid of glowing buttons.
 	var mx := Vector3(0, y, ClubMoves.DJ_Z - 0.04)
-	_box(root, Vector3(0.24, 0.05, 0.32), mx + Vector3(0, 0.025, 0), _flat(Color("#141416"), 0.5, 0.3))
+	_put(root, LookMeshKit.box(Vector3(0.24, 0.05, 0.32)), mx + Vector3(0, 0.025, 0), _flat(Dressing.c("club", "mixer", "#141416"), 0.5, 0.3))
 	for i in 4:
-		_box(root, Vector3(0.012, 0.012, 0.09), mx + Vector3(-0.08 + i * 0.053, 0.055, -0.08), _flat(Color("#2a2a2a"), 0.6))
-		_box(root, Vector3(0.03, 0.02, 0.016), mx + Vector3(-0.08 + i * 0.053, 0.066, -0.08 + 0.02 * (i % 3)), _flat(Color("#e8e8ea"), 0.4))
+		_put(root, LookMeshKit.box(Vector3(0.012, 0.012, 0.09)), mx + Vector3(-0.08 + i * 0.053, 0.055, -0.08), _flat(Dressing.c("club", "fader_slot", "#2a2a2a"), 0.6))
+		_put(root, LookMeshKit.box(Vector3(0.03, 0.02, 0.016)), mx + Vector3(-0.08 + i * 0.053, 0.066, -0.08 + 0.02 * (i % 3)), _flat(Dressing.c("club", "fader_cap", "#e8e8ea"), 0.4))
 		for k in 3:
-			_cyl(root, 0.012, 0.018, mx + Vector3(-0.08 + i * 0.053, 0.06, 0.0 + k * 0.045), _flat(Color("#d8d8dc"), 0.4, 0.4))
-	var palette := [Color("#ff3a8c"), Color("#3fe8ff"), Color("#ffcc33"), Color("#7aff5a")]
+			_cone(root, 0.012, 0.012, 0.018, mx + Vector3(-0.08 + i * 0.053, 0.06, 0.0 + k * 0.045), _flat(Dressing.c("club", "knob", "#d8d8dc"), 0.4, 0.4))
+	var palette := Dressing.list("club", "mixer_leds", "#ff3a8c")
 	for gx in 4:
 		for gz in 2:
 			var b := ClubTextures.glow(palette[(gx + gz) % palette.size()], 2.0)
-			_box(root, Vector3(0.03, 0.012, 0.03), mx + Vector3(-0.08 + gx * 0.053, 0.056, 0.1 + gz * 0.04), b)
+			_put(root, LookMeshKit.box(Vector3(0.03, 0.012, 0.03)), mx + Vector3(-0.08 + gx * 0.053, 0.056, 0.1 + gz * 0.04), b)
 			pulses.append([b, 0.4, 4.0, 1.0 if gz == 0 else 0.5, float(gx) * 0.25])
 	# A laptop on the right wing, its screen lit.
 	var lap := _group("Laptop", Transform3D(Basis(Vector3.UP, 0.3), Vector3(-ClubMoves.DJ_DECK_X - 0.12, y, ClubMoves.DJ_Z + 0.16)), root)
-	_box(lap, Vector3(0.3, 0.015, 0.21), Vector3(0, 0.008, 0), _flat(Color("#9a9ca0"), 0.35, 0.8))
-	var screen := _box(lap, Vector3(0.3, 0.2, 0.01), Vector3(0, 0.11, 0.1), ClubTextures.glow(Color("#6ab0ff"), 1.4))
+	_put(lap, LookMeshKit.box(Vector3(0.3, 0.015, 0.21)), Vector3(0, 0.008, 0), _flat(Dressing.c("club", "laptop", "#9a9ca0"), 0.35, 0.8))
+	var screen := _put(lap, LookMeshKit.box(Vector3(0.3, 0.2, 0.01)), Vector3(0, 0.11, 0.1), ClubTextures.glow(Dressing.c("club", "laptop_screen", "#6ab0ff"), 1.4))
 	screen.rotation.x = -0.25
 	return root
 
@@ -160,9 +160,9 @@ func dj_desk(at: Transform3D) -> Node3D:
 func drum_kit(at: Transform3D) -> Node3D:
 	var root := _group("DrumKit", at)
 	var z := ClubMoves.DRUM_Z
-	var hues := [Color("#3fe8ff"), Color("#ff3a8c"), Color("#ffb040")] if style == "jazz" else [Color("#2bd9ff"), Color("#ff2bd6"), Color("#7aff5a")]
+	var hues: Array = Dressing.list("club", "drum_holo_jazz", "#3fe8ff", 3) if style == "jazz" else Dressing.list("club", "drum_holo_rave", "#2bd9ff", 3)
 	# The projector: a black puck with a lit ring, and its cone of light.
-	_cyl(root, 0.26, 0.06, Vector3(0, 0.03, z + 0.05), _flat(Color("#0e0e10"), 0.3, 0.5))
+	_cone(root, 0.26, 0.26, 0.06, Vector3(0, 0.03, z + 0.05), _flat(Dressing.c("club", "drum_pad", "#0e0e10"), 0.3, 0.5))
 	var ring := ClubTextures.glow(hues[0], 3.0)
 	var rm := TorusMesh.new()
 	rm.inner_radius = 0.22
@@ -225,7 +225,7 @@ func _holo_pad(parent: Node3D, c: Vector3, r: float, hue: Color, phase: float, s
 ## Two drumsticks, one in each of a drummer's hands (`joints` of their body).
 static func sticks(joints: Dictionary) -> void:
 	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color("#d8b888")
+	wood.albedo_color = Dressing.c("club", "stick_wood", "#d8b888")
 	wood.roughness = 0.5
 	for side in ["l", "r"]:
 		var wrist := joints.get(side + "_wrist") as Node3D
@@ -259,29 +259,29 @@ func upright_bass(at: Transform3D) -> Node3D:
 	root.add_child(axis)
 	var varnish := _kept_mat("varnish", func() -> StandardMaterial3D:     # gloss black lacquer
 		var m := StandardMaterial3D.new()
-		m.albedo_color = Color("#0c0c0e")
+		m.albedo_color = Dressing.c("club", "bass_varnish", "#0c0c0e")
 		m.roughness = 0.18
 		m.metallic = 0.2
 		m.clearcoat_enabled = true
 		m.clearcoat = 1.0
 		return m)
-	var dark := _flat(Color("#120c08"), 0.4)
-	_cyl(axis, 0.01, 0.16, Vector3(0, 0.08, 0), ClubTextures.brushed(Color("#a0a0a4")))
+	var dark := _flat(Dressing.c("club", "bass_dark", "#120c08"), 0.4)
+	_cone(axis, 0.01, 0.01, 0.16, Vector3(0, 0.08, 0), ClubTextures.brushed(Dressing.c("club", "bass_endpin", "#a0a0a4")))
 	# The body: the bass's outline (wide lower bout, pinched waist, narrower
 	# upper bout, sloped shoulders) as a slab with bevelled edges.
 	_put(axis, _bass_body(0.24), Vector3.ZERO, varnish)
 	# The front: a black fingerboard up the neck, f-holes, bridge and four strings.
-	_box(axis, Vector3(0.06, 0.66, 0.05), Vector3(0, 1.38, 0.02), varnish)
-	_box(axis, Vector3(0.05, 0.84, 0.015), Vector3(0, 1.22, 0.06), dark)
+	_put(axis, LookMeshKit.box(Vector3(0.06, 0.66, 0.05)), Vector3(0, 1.38, 0.02), varnish)
+	_put(axis, LookMeshKit.box(Vector3(0.05, 0.84, 0.015)), Vector3(0, 1.22, 0.06), dark)
 	for side in [-1.0, 1.0]:
-		var f := _box(axis, Vector3(0.012, 0.16, 0.01), Vector3(side * 0.1, 0.62, 0.125), dark)
+		var f := _put(axis, LookMeshKit.box(Vector3(0.012, 0.16, 0.01)), Vector3(side * 0.1, 0.62, 0.125), dark)
 		f.rotation.z = side * 0.15
-	_box(axis, Vector3(0.12, 0.07, 0.012), Vector3(0, 0.56, 0.13), _flat(Color("#2a2a2e"), 0.4, 0.6))
-	_box(axis, Vector3(0.09, 0.2, 0.012), Vector3(0, 0.34, 0.125), dark)
+	_put(axis, LookMeshKit.box(Vector3(0.12, 0.07, 0.012)), Vector3(0, 0.56, 0.13), _flat(Dressing.c("club", "bass_plate", "#2a2a2e"), 0.4, 0.6))
+	_put(axis, LookMeshKit.box(Vector3(0.09, 0.2, 0.012)), Vector3(0, 0.34, 0.125), dark)
 	# Laser strings: four beams from the tailpiece to the nut, each with a soft
 	# halo, flaring as they are played and cycling through the colours; a lit
 	# emitter at each end.
-	var laser := Color("#ff2a3a")
+	var laser := Dressing.c("club", "laser", "#ff2a3a")
 	for k in 4:
 		var x := -0.024 + k * 0.016
 		var a := Vector3(x, 0.34, 0.138)
@@ -295,8 +295,8 @@ func upright_bass(at: Transform3D) -> Node3D:
 		cycles.append([halo.material_override, 0.08, float(k) * 0.06])
 	var emitter := ClubTextures.glow(laser, 4.0)
 	cycles.append([emitter, 0.08, 0.0])
-	_box(axis, Vector3(0.08, 0.025, 0.02), Vector3(0, 0.34, 0.14), emitter)
-	_box(axis, Vector3(0.07, 0.02, 0.02), Vector3(0, 1.64, 0.075), emitter)
+	_put(axis, LookMeshKit.box(Vector3(0.08, 0.025, 0.02)), Vector3(0, 0.34, 0.14), emitter)
+	_put(axis, LookMeshKit.box(Vector3(0.07, 0.02, 0.02)), Vector3(0, 1.64, 0.075), emitter)
 	var glow := OmniLight3D.new()
 	glow.light_color = laser
 	glow.light_energy = 0.6
@@ -306,10 +306,10 @@ func upright_bass(at: Transform3D) -> Node3D:
 	axis.add_child(glow)
 	cycles.append([glow, 0.08, 0.1])
 	# The scroll and pegs at the top.
-	_box(axis, Vector3(0.05, 0.14, 0.06), Vector3(0, ClubMoves.BASS_HEIGHT - 0.1, 0.0), varnish)
+	_put(axis, LookMeshKit.box(Vector3(0.05, 0.14, 0.06)), Vector3(0, ClubMoves.BASS_HEIGHT - 0.1, 0.0), varnish)
 	_sphere(axis, 0.04, Vector3(0, ClubMoves.BASS_HEIGHT - 0.02, 0.02), varnish)
 	for k in 4:
-		_cyl(axis, 0.008, 0.12, Vector3(0, ClubMoves.BASS_HEIGHT - 0.16 + k * 0.03, 0.0), ClubTextures.brushed(Color("#c9a058")), Vector3(0, 0, 90))
+		_cone(axis, 0.008, 0.008, 0.12, Vector3(0, ClubMoves.BASS_HEIGHT - 0.16 + k * 0.03, 0.0), ClubTextures.brushed(Dressing.c("club", "bass_strings", "#c9a058")), Vector3(0, 0, 90))
 	return root
 
 
@@ -354,15 +354,15 @@ static func _bass_body(depth: float) -> ArrayMesh:
 ## A round table: a dark top, a brass pedestal, a candle and two glasses.
 func cocktail_table(pos: Vector3, r := 0.42, h := 0.78, candle := true) -> Node3D:
 	var root := _group("ClubTable", Transform3D(Basis.IDENTITY, pos))
-	_cyl(root, r, 0.04, Vector3(0, h - 0.02, 0), ClubTextures.wood(Color("#2e1a10"), 0.1, 0.35))
-	_cyl(root, r + 0.01, 0.015, Vector3(0, h - 0.045, 0), ClubTextures.brushed(Color("#b08e50"), 0.9))
-	_cyl(root, 0.035, h - 0.06, Vector3(0, (h - 0.06) * 0.5, 0), ClubTextures.brushed(Color("#b08e50"), 0.9))
-	_cyl(root, r * 0.55, 0.03, Vector3(0, 0.015, 0), ClubTextures.brushed(Color("#2a2420"), 0.8))
+	_cone(root, r, r, 0.04, Vector3(0, h - 0.02, 0), ClubTextures.wood(Dressing.c("club", "table_top", "#2e1a10"), 0.1, 0.35))
+	_cone(root, r + 0.01, r + 0.01, 0.015, Vector3(0, h - 0.045, 0), ClubTextures.brushed(Dressing.c("club", "brass", "#b08e50"), 0.9))
+	_cone(root, 0.035, 0.035, h - 0.06, Vector3(0, (h - 0.06) * 0.5, 0), ClubTextures.brushed(Dressing.c("club", "brass", "#b08e50"), 0.9))
+	_cone(root, r * 0.55, r * 0.55, 0.03, Vector3(0, 0.015, 0), ClubTextures.brushed(Dressing.c("club", "table_foot", "#2a2420"), 0.8))
 	if candle:
 		self.candle(root, Vector3(0, h, 0))
 	for k in 2:
 		var a := 1.2 + k * 2.4
-		_glass(root, Vector3(cos(a) * r * 0.55, h, sin(a) * r * 0.55), [Color("#c98a3a"), Color("#3f8f8a")][k])
+		_glass(root, Vector3(cos(a) * r * 0.55, h, sin(a) * r * 0.55), Dressing.list("club", "drinks", "#c98a3a", 2)[k])
 	return root
 
 
@@ -373,15 +373,15 @@ func candle(parent: Node3D, at: Vector3) -> void:
 		m.albedo_color = Color(0.7, 0.12, 0.1, 0.55)
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.emission_enabled = true
-		m.emission = Color("#ff6a2b")
+		m.emission = Dressing.c("club", "candle_cup", "#ff6a2b")
 		m.emission_energy_multiplier = 1.4
 		m.roughness = 0.1
 		return m)
-	_cyl(parent, 0.04, 0.08, at + Vector3(0, 0.04, 0), cup)
-	var flame := ClubTextures.glow(Color("#ffb060"), 6.0)
+	_cone(parent, 0.04, 0.04, 0.08, at + Vector3(0, 0.04, 0), cup)
+	var flame := ClubTextures.glow(Dressing.c("club", "candle_flame", "#ffb060"), 6.0)
 	_sphere(parent, 0.012, at + Vector3(0, 0.085, 0), flame).scale = Vector3(1, 1.8, 1)
 	var l := OmniLight3D.new()
-	l.light_color = Color("#ff9a4a")
+	l.light_color = Dressing.c("club", "candle_light", "#ff9a4a")
 	l.light_energy = 0.5
 	l.omni_range = 2.2
 	l.shadow_enabled = false
@@ -395,12 +395,12 @@ func candle(parent: Node3D, at: Vector3) -> void:
 func booth(at: Transform3D, length: float, tint := Color("#5a1e1a")) -> Node3D:
 	var root := _group("Booth", at)
 	var leather := ClubTextures.leather(tint)
-	_box(root, Vector3(length, 0.28, 0.62), Vector3(0, 0.14, 0.31), ClubTextures.wood(Color("#2e1a10"), 0.12))
-	_box(root, Vector3(length, 0.16, 0.58), Vector3(0, 0.36, 0.33), leather)
-	_box(root, Vector3(length, 0.72, 0.16), Vector3(0, 0.8, 0.08), leather)
-	_box(root, Vector3(length + 0.04, 0.05, 0.2), Vector3(0, 1.18, 0.08), ClubTextures.brushed(Color("#b08e50"), 0.9))
+	_put(root, LookMeshKit.box(Vector3(length, 0.28, 0.62)), Vector3(0, 0.14, 0.31), ClubTextures.wood(Dressing.c("club", "booth_wood", "#2e1a10"), 0.12))
+	_put(root, LookMeshKit.box(Vector3(length, 0.16, 0.58)), Vector3(0, 0.36, 0.33), leather)
+	_put(root, LookMeshKit.box(Vector3(length, 0.72, 0.16)), Vector3(0, 0.8, 0.08), leather)
+	_put(root, LookMeshKit.box(Vector3(length + 0.04, 0.05, 0.2)), Vector3(0, 1.18, 0.08), ClubTextures.brushed(Dressing.c("club", "brass", "#b08e50"), 0.9))
 	for side in [-1.0, 1.0]:
-		_box(root, Vector3(0.08, 0.7, 0.62), Vector3(side * (length * 0.5 + 0.04), 0.35, 0.31), ClubTextures.wood(Color("#2e1a10"), 0.12))
+		_put(root, LookMeshKit.box(Vector3(0.08, 0.7, 0.62)), Vector3(side * (length * 0.5 + 0.04), 0.35, 0.31), ClubTextures.wood(Dressing.c("club", "booth_wood", "#2e1a10"), 0.12))
 	return root
 
 
@@ -408,24 +408,24 @@ func booth(at: Transform3D, length: float, tint := Color("#5a1e1a")) -> Node3D:
 ## throb on the beat.
 func speaker(at: Transform3D, size := Vector3(0.7, 1.2, 0.6)) -> Node3D:
 	var root := _group("Speaker", at)
-	var case_mat: Material = ClubTextures.wood(Color("#1e1612"), 0.2) if style == "jazz" else ClubTextures.brushed(Color("#18181a"), 0.4)
-	_box(root, size, Vector3(0, size.y * 0.5, 0), case_mat)
-	_box(root, Vector3(size.x - 0.06, size.y - 0.06, 0.02), Vector3(0, size.y * 0.5, size.z * 0.5), ClubTextures.grille())
+	var case_mat: Material = ClubTextures.wood(Dressing.c("club", "speaker_jazz", "#1e1612"), 0.2) if style == "jazz" else ClubTextures.brushed(Dressing.c("club", "speaker_rave", "#18181a"), 0.4)
+	_put(root, LookMeshKit.box(size), Vector3(0, size.y * 0.5, 0), case_mat)
+	_put(root, LookMeshKit.box(Vector3(size.x - 0.06, size.y - 0.06, 0.02)), Vector3(0, size.y * 0.5, size.z * 0.5), ClubTextures.grille())
 	var cones := [[size.x * 0.36, size.y * 0.32], [size.x * 0.2, size.y * 0.75]]
 	for c in cones:
 		var holder := Node3D.new()
 		holder.position = Vector3(0, float(c[1]), size.z * 0.5 + 0.012)
 		holder.rotation_degrees.x = 90.0
 		root.add_child(holder)
-		_cyl(holder, float(c[0]) + 0.02, 0.01, Vector3.ZERO, ClubTextures.brushed(Color("#4a4a4e"), 0.8))
+		_cone(holder, float(c[0]) + 0.02, float(c[0]) + 0.02, 0.01, Vector3.ZERO, ClubTextures.brushed(Dressing.c("club", "speaker_rim", "#4a4a4e"), 0.8))
 		var cone := Node3D.new()
 		holder.add_child(cone)
-		_cone(cone, float(c[0]) * 0.25, float(c[0]), 0.03, Vector3(0, 0.02, 0), _flat(Color("#141414"), 0.7))
-		_cyl(cone, float(c[0]) * 0.22, 0.02, Vector3(0, 0.04, 0), _flat(Color("#2a2a2c"), 0.4))
+		_cone(cone, float(c[0]) * 0.25, float(c[0]), 0.03, Vector3(0, 0.02, 0), _flat(Dressing.c("club", "speaker_cone", "#141414"), 0.7))
+		_cone(cone, float(c[0]) * 0.22, float(c[0]) * 0.22, 0.02, Vector3(0, 0.04, 0), _flat(Dressing.c("club", "speaker_cap", "#2a2a2c"), 0.4))
 		throbs.append([cone, 1.4, 0.0])
 	if style == "rave":
-		var edge := ClubTextures.glow(Color("#2bd9ff"), 2.0)
-		_box(root, Vector3(size.x, 0.02, 0.02), Vector3(0, size.y - 0.01, size.z * 0.5 + 0.01), edge)
+		var edge := ClubTextures.glow(Dressing.c("club", "speaker_edge", "#2bd9ff"), 2.0)
+		_put(root, LookMeshKit.box(Vector3(size.x, 0.02, 0.02)), Vector3(0, size.y - 0.01, size.z * 0.5 + 0.01), edge)
 		pulses.append([edge, 0.5, 4.0, 1.0, 0.0])
 	return root
 
@@ -437,9 +437,9 @@ func spot(from: Vector3, to: Vector3, color: Color, energy := 6.0, sweep := 0.0,
 	pivot.name = "Spot"
 	add_child(pivot)
 	pivot.transform = Transform3D(Basis.looking_at(to - from, Vector3.UP if absf((to - from).normalized().y) < 0.99 else Vector3.FORWARD), from)
-	var can := _cyl(pivot, 0.12, 0.3, Vector3(0, 0, 0.0), ClubTextures.brushed(Color("#1a1a1c"), 0.6), Vector3(90, 0, 0))
+	var can := _cone(pivot, 0.12, 0.12, 0.3, Vector3(0, 0, 0.0), ClubTextures.brushed(Dressing.c("club", "spot_can", "#1a1a1c"), 0.6), Vector3(90, 0, 0))
 	can.name = "Can"
-	_cyl(pivot, 0.1, 0.01, Vector3(0, 0, -0.155), ClubTextures.glow(color, 4.0), Vector3(90, 0, 0))
+	_cone(pivot, 0.1, 0.1, 0.01, Vector3(0, 0, -0.155), ClubTextures.glow(color, 4.0), Vector3(90, 0, 0))
 	var l := SpotLight3D.new()
 	l.light_color = color
 	l.light_energy = energy
@@ -514,9 +514,9 @@ func laser_fan(parent: Node3D, face: Basis, o: Dictionary = {}) -> void:
 		parent.add_child(beam)
 		beam.basis = Basis.looking_at(dir, Vector3.UP)
 		var col := Color(str(cols[i % cols.size()]))
-		var core := _cyl(beam, 0.01, length, Vector3(0, 0, -length * 0.5), ClubTextures.glow(col, 7.0), Vector3(90, 0, 0))
+		var core := _cone(beam, 0.01, 0.01, length, Vector3(0, 0, -length * 0.5), ClubTextures.glow(col, 7.0), Vector3(90, 0, 0))
 		core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var halo := _cyl(beam, 0.04, length, Vector3(0, 0, -length * 0.5), ClubTextures.beam(col, 0.2), Vector3(90, 0, 0))
+		var halo := _cone(beam, 0.04, 0.04, length, Vector3(0, 0, -length * 0.5), ClubTextures.beam(col, 0.2), Vector3(90, 0, 0))
 		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		fades.append([halo.material_override, 0.05, 0.3, 0.5, i * 0.11])
 		sweeps.append([beam, beam.basis, Vector3.UP, float(o.get("sweep_deg", 18.0)), float(o.get("sweep_s", 3.2)), i * 0.07])
@@ -526,12 +526,12 @@ func laser_fan(parent: Node3D, face: Basis, o: Dictionary = {}) -> void:
 
 
 func mirror_ball(pos: Vector3, ceiling: float, r := 0.35) -> void:
-	_rod(self, pos + Vector3(0, r, 0), Vector3(pos.x, ceiling, pos.z), 0.01, _flat(Color("#808084"), 0.4, 0.8))
+	_rod(self, pos + Vector3(0, r, 0), Vector3(pos.x, ceiling, pos.z), 0.01, _flat(Dressing.c("club", "ball_rod", "#808084"), 0.4, 0.8))
 	var ball := Node3D.new()
 	ball.position = pos
 	add_child(ball)
 	var mirror := StandardMaterial3D.new()
-	mirror.albedo_color = Color("#d0d4dc")
+	mirror.albedo_color = Dressing.c("club", "mirror", "#d0d4dc")
 	mirror.metallic = 1.0
 	mirror.roughness = 0.05
 	_sphere(ball, r, Vector3.ZERO, mirror)
@@ -541,7 +541,7 @@ func mirror_ball(pos: Vector3, ceiling: float, r := 0.35) -> void:
 		for rk in 4:
 			var e := -0.9 + rk * 0.6
 			var d := Vector3(cos(a) * cos(e), sin(e), sin(a) * cos(e))
-			var tile := _box(ball, Vector3(0.06, 0.06, 0.005), d * (r + 0.002), mirror)
+			var tile := _put(ball, LookMeshKit.box(Vector3(0.06, 0.06, 0.005)), d * (r + 0.002), mirror)
 			tile.basis = Basis.looking_at(d, Vector3.UP if absf(d.y) < 0.99 else Vector3.RIGHT)
 	spins.append([ball, 0.4])
 
@@ -564,47 +564,25 @@ func _flat(c: Color, rough := 0.8, metal := 0.0) -> StandardMaterial3D:
 	return m
 
 
+## `rot` in degrees, like rotation_degrees. A box is _put(parent, LookMeshKit.box(size), pos, mat).
 func _put(parent: Node3D, mesh: Mesh, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
-	mi.position = pos
+	var mi := LookMeshKit.mi(null, mesh, mat, pos)
 	mi.rotation_degrees = rot
 	parent.add_child(mi)
 	return mi
 
 
-func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
-	var b := BoxMesh.new()
-	b.size = size
-	return _put(parent, b, pos, mat)
-
-
-func _cyl(parent: Node3D, r: float, h: float, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
-	return _cone(parent, r, r, h, pos, mat, rot)
-
-
 func _cone(parent: Node3D, top: float, bottom: float, h: float, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
-	var c := CylinderMesh.new()
-	c.top_radius = top
-	c.bottom_radius = bottom
-	c.height = h
-	c.radial_segments = 20
-	return _put(parent, c, pos, mat, rot)
+	return _put(parent, LookMeshKit.cyl(top, bottom, h, 20), pos, mat, rot)
 
 
 func _sphere(parent: Node3D, r: float, pos: Vector3, mat: Material) -> MeshInstance3D:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	s.radial_segments = 20
-	s.rings = 12
-	return _put(parent, s, pos, mat)
+	return _put(parent, LookMeshKit.ball(r, 20, 12), pos, mat)
 
 
 ## A rod from `a` to `b`.
 func _rod(parent: Node3D, a: Vector3, b: Vector3, r: float, mat: Material) -> MeshInstance3D:
-	var mi := _cyl(parent, r, a.distance_to(b), (a + b) * 0.5, mat)
+	var mi := _cone(parent, r, r, a.distance_to(b), (a + b) * 0.5, mat)
 	var d := (b - a).normalized()
 	if absf(d.dot(Vector3.UP)) < 0.999:
 		var x := Vector3.UP.cross(d).normalized()

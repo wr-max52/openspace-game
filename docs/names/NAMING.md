@@ -2,8 +2,17 @@
 
 Everything in the game that needs a name gets one from **one engine**, with **no
 LLM**: people (by culture), pilots' callsigns, ships, equipment and its makers,
-towns, planets, moons and stars. Names are **deterministic**: the same world seed
-and the same thing always get the same name, on every machine. They are also
+towns, planets, moons and stars. Names are **deterministic**: the same seed and
+the same thing always get the same name, on every machine.
+
+**Two seeds (issue #834).** Places and gear (`config.fixed_kinds`: `town`,
+`town_station`, `town_float`, `planet`, `moon`, `star`, `equipment`, `maker`) use
+the **world seed** (1517), so they are the same in every game. Everything else
+(people, callsigns, vessels, and the titles picked for people) uses the **game
+seed**, rolled at each new game (`NameBook.fresh()`), saved with it and shown in
+the Ledger. Authored names (Oda, Skrugs, T-89...) are written by hand and never
+change. Moving a kind between the two is one line in
+`tools/names/lexicon_source.py`. They are also
 **unique across the game**: each new name is checked against every name already
 given out (and the authored ones) before it is saved.
 
@@ -37,7 +46,9 @@ given out (and the authored ones) before it is saved.
    (`config.json`), or contains a franchise name (`ip_blocklist.json`: `terms`
    anywhere, `name_terms` as whole words) is thrown away and re-rolled.
 5. **The name book** (`NameBook`, in `WorldState.names`, saved with the game). It
-   seeds the engine from (world seed, kind, key, attempt). If the name is already
+   seeds the engine from (seed, kind, key, attempt), the seed being the world's
+   or the game's by kind. A place never yields to a person: if a person holds
+   the name a place wants, the place takes it and the person is named again. If the name is already
    taken, it tries the next attempt. Otherwise it writes the name down for that
    key. Asking for the same key again returns the same name.
 
@@ -52,9 +63,17 @@ A thing's data says how it is named, in a `naming` block. Code never picks a kin
 | Your ship | `ships/interceptor.json` `naming.vessel` | `vessel:player/<ship>` | the board prompt, the flight HUD, the same name in space |
 | The jetpack | `items/jetpack.json` `naming` (equipment, class) | `item:<id>` | pick up / buy / sell prompts: `Jetpack (Embry XR-76 Skylark)` |
 | The town and planet | `worlds/port_desert.json` `naming` | `town:<id>`, `planet:<world>` | a place card on arrival, the space banner, "Leaving <planet>...", the cantina owner's briefing |
+| Your speeders | `vehicles/*.json` `naming.vessel` | `vessel:speeder/<slot>` | the Ledger (issue #835) |
 | The cantina owner | authored ("Oda Vell") | `npc:cantina_owner` | reserved in `config.json`, so it is never generated for anyone else |
 
 Each sortie brings new pilots, keyed by a sortie counter in WorldState.
+
+**Renaming (issue #835).** Your ships and speeders have a name field and a dice
+button in the Ledger. `NameBook.rename(key, name)` checks a typed name with the
+same filter as generated ones (the kind's lengths, rude words, franchise names)
+and that nothing else has it, then writes it under the same key, so every place
+that shows the name shows the new one. `NameBook.reroll(key)` is the dice: a new
+generated name of the same kind, seeded by a saved roll count.
 
 ## Adding to it
 
@@ -67,8 +86,8 @@ Each sortie brings new pilots, keyed by a sortie counter in WorldState.
 - **A new kind of thing** (a moon, a cantina, a gang): add a kind to `KINDS`, then
   call `WorldState.names.name_for("<kind>", "<stable key>")`, or a `NameHooks`
   helper, when it spawns.
-- **A different world:** `config.world_seed` changes every generated name at once.
-  It is saved with the game, so a future "new game" can roll a fresh one.
+- **A different world:** `config.world_seed` changes every place's name at once.
+  A new game rolls only `game_seed`; both are saved with the game.
 
 ## Why not train on a game's names
 

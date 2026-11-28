@@ -24,7 +24,7 @@ func before_each() -> void:
 	_sp = PlanetSphere.new(5000.0)
 	_sp.configure_site(Rect2(-200, -200, 400, 400), Rect2(-210, -210, 420, 420), [], 0.0)
 	PlanetSphere.current = _sp
-	var world: Dictionary = ItemKit._read_json("res://content/core/worlds/port_desert.json")
+	var world: Dictionary = CoreScript.read_json("res://content/core/worlds/port_desert.json")
 	_wrecks = world.landmarks.filter(func(lm): return str(lm.kind) == "wreck")
 	g = WorldGround.new()
 	g.setup({ "terrain": { "sphere_radius": 5000.0 }, "landmarks": _wrecks }, null, null)

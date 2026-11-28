@@ -3,6 +3,7 @@ extends GutTest
 ## independent from dialogue text. No API calls or credentials are used here.
 
 const VoiceScript := preload("res://src/systems/voice/npc_voice.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 
 func _voice():
@@ -112,7 +113,7 @@ func test_scripted_lines_have_bundled_clips() -> void:
 	assert_eq(VoiceScript.bundled_path("  Papers.  ", guard), VoiceScript.bundled_path("Papers.", guard),
 		"edges do not change the clip")
 	var recorded := 0
-	var lines: Dictionary = VoiceScript._read_json("res://content/core/dialogue/gate_guard_lines.json").get("lines", {})
+	var lines: Dictionary = CoreContent.read_json("res://content/core/dialogue/gate_guard_lines.json").get("lines", {})
 	for key in lines:
 		for line in lines[key]:
 			var path: String = VoiceScript.bundled_path(str(line), guard)
@@ -134,7 +135,7 @@ func test_bracketed_keys_are_said_bare() -> void:
 	assert_eq(VoiceScript.spoken_keys("[scared] Hold [E]."), "[scared] Hold E.", "audio tags stay")
 	var voice = _voice()
 	var t89 := str(voice.voice_for(voice.profile_for_npc("t89", {})).voice_id)
-	var pages: Array = VoiceScript._read_json("res://content/core/npcs/t89.json").get("tutorial", [])
+	var pages: Array = CoreContent.read_json("res://content/core/npcs/t89.json").get("tutorial", [])
 	for i in [0, 2, 4, 5, 7]:      # pages with keys that were recorded before they had brackets
 		var page := str(pages[i])
 		assert_true(page.contains("["), "page %d writes its keys in brackets" % i)
@@ -147,7 +148,7 @@ func test_bracketed_keys_are_said_bare() -> void:
 ## crews' taunts and jeers recorded.
 func test_rival_racers_have_dark_voices_and_recorded_lines() -> void:
 	var voice = _voice()
-	var racer: Dictionary = VoiceScript._read_json("res://content/core/soldiers/local_racer.json")
+	var racer: Dictionary = CoreContent.read_json("res://content/core/soldiers/local_racer.json")
 	assert_eq(str(racer.get("voice_role", "")), "racer")
 	assert_eq(str(racer.get("voice_mood", "")), "menacing")
 	var pool: Array = voice._profiles.get("role_profiles", {}).get("racer", [])
@@ -162,7 +163,7 @@ func test_rival_racers_have_dark_voices_and_recorded_lines() -> void:
 	assert_gte(picked.size(), 2, "racers do not all share one voice")
 	assert_ne(str(voice._profiles.get("mood_tags", {}).get("menacing", "")), "")
 	for crew in ["yard", "basin", "salt", "crag", "leap"]:
-		var said: Dictionary = VoiceScript._read_json("res://content/core/racing/crews/%s.json" % crew).get("lines", {})
+		var said: Dictionary = CoreContent.read_json("res://content/core/racing/crews/%s.json" % crew).get("lines", {})
 		for key in ["taunts", "jeers"]:
 			for line in said.get(key, []):
 				for p in pool:

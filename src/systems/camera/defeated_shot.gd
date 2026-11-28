@@ -12,6 +12,8 @@ extends Node
 ## time on LAN (NetSession: the session's clock is shared). Every number and the
 ## text are content/core/flow/defeated.json.
 
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+
 signal done
 
 const PATH := "res://content/core/flow/defeated.json"
@@ -42,7 +44,7 @@ static func start(parent: Node, who: Node3D, camera_rig: Node) -> DefeatedShot:
 	s.name = "DefeatedShot"
 	s.player = who
 	s.rig = camera_rig
-	s.cfg = CharacterKit._read_json(PATH)
+	s.cfg = CoreContent.read_json(PATH)
 	parent.add_child(s)
 	return s
 

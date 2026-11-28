@@ -76,7 +76,7 @@ static func _from_model(model: Node3D, look: Dictionary, body: Color, eye: Color
 	var r := float(look.get("eye_radius", 0.04))
 	var i := 0
 	for e in look.get("eyes", []):
-		_mesh(model, _ball(r), mats.glow(eye), Vector3(float(e[0]), float(e[1]), float(e[2])), Vector3.ZERO, "Eye" if i == 0 else "Eye%d" % (i + 1))
+		_mesh(model, LookMeshKit.ball(r), mats.glow(eye), Vector3(float(e[0]), float(e[1]), float(e[2])), Vector3.ZERO, "Eye" if i == 0 else "Eye%d" % (i + 1))
 		i += 1
 	if look.has("muzzle"):
 		var mz := Node3D.new()
@@ -307,19 +307,6 @@ static func _mesh(parent: Node3D, mesh: Mesh, mat: Material, pos := Vector3.ZERO
 	return m
 
 
-static func _box(x: float, y: float, z: float) -> BoxMesh:
-	var b := BoxMesh.new()
-	b.size = Vector3(x, y, z)
-	return b
-
-
-static func _ball(r: float) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = r
-	s.height = r * 2.0
-	return s
-
-
 static func _rod(r: float, h: float) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.top_radius = r
@@ -331,25 +318,25 @@ static func _rod(r: float, h: float) -> CylinderMesh:
 
 ## A hovering ball with a band and one eye (the range remote's shape).
 static func _floating(m: Node3D, body: Color, trim: Color, eye: Color, mats: LookMaterials) -> void:
-	_mesh(m, _ball(0.25), mats.flat(body, 0.45, 0.7))
+	_mesh(m, LookMeshKit.ball(0.25), mats.flat(body, 0.45, 0.7))
 	var tor := TorusMesh.new()
 	tor.inner_radius = 0.24
 	tor.outer_radius = 0.3
 	_mesh(m, tor, mats.flat(trim, 0.4, 0.8))
-	_mesh(m, _ball(0.07), mats.glow(eye), Vector3(0, 0, -0.22), Vector3.ZERO, "Eye")
+	_mesh(m, LookMeshKit.ball(0.07), mats.glow(eye), Vector3(0, 0, -0.22), Vector3.ZERO, "Eye")
 
 
 ## A small box on four wheels with a lid seam and one eye.
 static func _cargo(m: Node3D, body: Color, trim: Color, eye: Color, mats: LookMaterials) -> void:
 	var b := mats.flat(body, 0.7, 0.3)
 	var t := mats.flat(trim, 0.6, 0.5)
-	_mesh(m, _box(0.6, 0.48, 0.7), b, Vector3(0, 0.42, 0))
-	_mesh(m, _box(0.64, 0.05, 0.74), t, Vector3(0, 0.67, 0))
-	_mesh(m, _box(0.5, 0.18, 0.04), t, Vector3(0, 0.45, -0.36))
+	_mesh(m, LookMeshKit.box(Vector3(0.6, 0.48, 0.7)), b, Vector3(0, 0.42, 0))
+	_mesh(m, LookMeshKit.box(Vector3(0.64, 0.05, 0.74)), t, Vector3(0, 0.67, 0))
+	_mesh(m, LookMeshKit.box(Vector3(0.5, 0.18, 0.04)), t, Vector3(0, 0.45, -0.36))
 	for x in [-0.32, 0.32]:
 		for z in [-0.24, 0.24]:
 			_mesh(m, _rod(0.12, 0.08), t, Vector3(x, 0.12, z), Vector3(0, 0, 90), "Wheel")
-	_mesh(m, _ball(0.05), mats.glow(eye), Vector3(0, 0.58, -0.36), Vector3.ZERO, "Eye")
+	_mesh(m, LookMeshKit.ball(0.05), mats.glow(eye), Vector3(0, 0.58, -0.36), Vector3.ZERO, "Eye")
 
 
 ## Tall, thin and skeletal: rod limbs, a ribbed narrow chest, a skull with two eyes,
@@ -359,18 +346,18 @@ static func _assassin(m: Node3D, body: Color, trim: Color, eye: Color, mats: Loo
 	var t := mats.flat(trim, 0.5, 0.7)
 	for x in [-0.12, 0.12]:
 		_mesh(m, _rod(0.035, 0.6), b, Vector3(x, 0.3, 0))          # shin
-		_mesh(m, _ball(0.05), t, Vector3(x, 0.6, 0))               # knee
+		_mesh(m, LookMeshKit.ball(0.05), t, Vector3(x, 0.6, 0))               # knee
 		_mesh(m, _rod(0.04, 0.55), b, Vector3(x, 0.88, 0))         # thigh
-		_mesh(m, _box(0.08, 0.04, 0.2), t, Vector3(x, 0.02, -0.05))  # foot
-	_mesh(m, _box(0.3, 0.08, 0.14), t, Vector3(0, 1.17, 0))        # pelvis
+		_mesh(m, LookMeshKit.box(Vector3(0.08, 0.04, 0.2)), t, Vector3(x, 0.02, -0.05))  # foot
+	_mesh(m, LookMeshKit.box(Vector3(0.3, 0.08, 0.14)), t, Vector3(0, 1.17, 0))        # pelvis
 	_mesh(m, _rod(0.035, 0.42), b, Vector3(0, 1.4, 0))             # spine
 	for i in 4:
-		_mesh(m, _box(0.32 - i * 0.03, 0.035, 0.16), b, Vector3(0, 1.48 + i * 0.08, 0))  # ribs
-	_mesh(m, _box(0.5, 0.06, 0.12), t, Vector3(0, 1.82, 0))        # shoulders
+		_mesh(m, LookMeshKit.box(Vector3(0.32 - i * 0.03, 0.035, 0.16)), b, Vector3(0, 1.48 + i * 0.08, 0))  # ribs
+	_mesh(m, LookMeshKit.box(Vector3(0.5, 0.06, 0.12)), t, Vector3(0, 1.82, 0))        # shoulders
 	_mesh(m, _rod(0.025, 0.14), b, Vector3(0, 1.9, 0))             # neck
-	_mesh(m, _box(0.18, 0.24, 0.22), b, Vector3(0, 2.08, 0), Vector3.ZERO, "Head")
+	_mesh(m, LookMeshKit.box(Vector3(0.18, 0.24, 0.22)), b, Vector3(0, 2.08, 0), Vector3.ZERO, "Head")
 	for x in [-0.045, 0.045]:
-		_mesh(m, _ball(0.025), mats.glow(eye), Vector3(x, 2.1, -0.115), Vector3.ZERO, "Eye")
+		_mesh(m, LookMeshKit.ball(0.025), mats.glow(eye), Vector3(x, 2.1, -0.115), Vector3.ZERO, "Eye")
 	# Left arm hangs; the right one is raised to aim the pistol forward.
 	_mesh(m, _rod(0.03, 0.75), b, Vector3(-0.27, 1.45, 0))
 	var arm := Node3D.new()
@@ -378,7 +365,7 @@ static func _assassin(m: Node3D, body: Color, trim: Color, eye: Color, mats: Loo
 	arm.position = Vector3(0.27, 1.8, 0)
 	m.add_child(arm)
 	_mesh(arm, _rod(0.03, 0.62), b, Vector3(0, 0, -0.31), Vector3(90, 0, 0))
-	_mesh(arm, _box(0.05, 0.12, 0.26), t, Vector3(0, 0.02, -0.68))  # pistol
+	_mesh(arm, LookMeshKit.box(Vector3(0.05, 0.12, 0.26)), t, Vector3(0, 0.02, -0.68))  # pistol
 	var muzzle := Node3D.new()
 	muzzle.name = "Muzzle"
 	muzzle.position = Vector3(0, 0.04, -0.84)

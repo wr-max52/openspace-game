@@ -49,6 +49,22 @@ static func vessel(ship_cfg: Dictionary, key: String, book: NameBook = null) -> 
 	return b.name_for(kind, key)
 
 
+## Issue #835: the key your ship's name is kept under (the HUD, space and the
+## Ledger all read this one), by ship id.
+static func player_ship_key(ship_id: String) -> String:
+	return "vessel:player/" + ship_id
+
+
+## Issue #835: your speeder in parking slot `slot` (slots are only ever added).
+static func speeder_key(slot: int) -> String:
+	return "vessel:speeder/%d" % slot
+
+
+## Issue #835: your speeder's own name, from its vehicle file's `naming` block.
+static func speeder(vehicle_cfg: Dictionary, slot: int, book: NameBook = null) -> String:
+	return vessel(vehicle_cfg, speeder_key(slot), book)
+
+
 ## An item's make and model ("Redfern BX-14 Wingbeat"). One per item id: every
 ## jetpack of that id is the same model.
 static func equipment(item_cfg: Dictionary, item_id: String, book: NameBook = null) -> String:

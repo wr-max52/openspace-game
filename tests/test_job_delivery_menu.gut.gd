@@ -22,7 +22,7 @@ func after_all() -> void:
 func _gear() -> GearController:
 	var gear := GearController.new()
 	gear.content = content
-	gear.labels = CharacterKit._read_json("res://content/core/flow/gear.json").labels
+	gear.labels = CoreContent.read_json("res://content/core/flow/gear.json").labels
 	gear.vendor_talk = { "fence": Callable() }     # he has a brain: "Talk" is on his menu
 	autofree(gear)
 	return gear

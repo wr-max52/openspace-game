@@ -63,6 +63,14 @@ var folks: Dictionary = {}         ## ranch id -> its Townsfolk
 var _cc: CoreContent
 var _queue: Array = []             ## the pieces still to build, in order (Callables)
 var _started := false
+## Issue #717: build by sight, as the outposts. Ranches not in sight yet wait
+## here ({ lm, loc, at }); the town's trickle builds each one as it comes into
+## view (late_step). `late` is set by the town's brains step: a ranch built from
+## then on starts its own brains, stands and droid stand when it is whole.
+var _pending: Array = []
+var _whole := false
+var late := false
+var _late_ids: Array = []
 
 
 func setup(town_demo, world_ground: WorldGround) -> void:
@@ -73,6 +81,7 @@ func setup(town_demo, world_ground: WorldGround) -> void:
 
 ## Build every ranch now (a staged handoff calls build_step once a frame instead).
 func build() -> void:
+	_whole = true
 	while not build_step():
 		pass
 
@@ -86,11 +95,64 @@ func build_step() -> bool:
 		for lm in _cc.world_for_town("port_town").get("landmarks", []):
 			var loc := _cc.get_location(str(lm.get("location", "")))
 			if str(loc.get("kind", "")) in KINDS:
-				_queue.append(_place.bind(lm, loc))
+				_pending.append({ "lm": lm, "loc": loc, "at": _origin(lm) })
+	_take_in_sight()
 	if _queue.is_empty():
-		return true
+		return true                  # what can be seen is built; late_step() does the rest
 	(_queue.pop_front() as Callable).call()
 	return _queue.is_empty()
+
+
+## Issue #717: the ranches the viewer could see now join the queue (all of them
+## on a normal arrival, or with nothing built by sight).
+func _take_in_sight() -> void:
+	for p in _pending.duplicate():
+		if _whole or demo == null or not demo.has_method("could_see") or demo.could_see(p.at):
+			_pending.erase(p)
+			_queue.append(_place.bind(p.lm, p.loc))
+			if late:
+				_late_ids.append(str(p.loc.get("id", "")))
+
+
+## Issue #717: after the town's first build (its StagedBuild trickle): the next
+## piece of a ranch that has come into sight. True when one was built.
+func late_step() -> bool:
+	if not _started:
+		return false
+	_take_in_sight()
+	if _queue.is_empty():
+		_start_late()
+		return false
+	(_queue.pop_front() as Callable).call()
+	if _queue.is_empty():
+		_start_late()
+	return true
+
+
+## Ranches built after the town's brains: what start_brains gives the others.
+func _start_late() -> void:
+	if _late_ids.is_empty():
+		return
+	for r in ranches:
+		if not _late_ids.has(str(r.id)) or folks.has(str(r.id)):
+			continue
+		var mine: Array = people.filter(func(g): return is_instance_valid(g) and str(g.get_meta("ranch", "")) == str(r.id))
+		if demo.npc_brains and not mine.is_empty():
+			folks[str(r.id)] = demo.make_townsfolk("Ranch_" + str(r.id), mine, str(r.label))
+	_late_ids.clear()
+	_give_vendors()
+	var droids = demo.get("droids")
+	if droids != null and is_instance_valid(droids) and "vendor_sites" in droids:
+		for site in droid_sites:
+			if not droids.vendor_sites.has(site):
+				droids.vendor_sites.append(site)
+
+
+## Where a ranch landmark stands on the ground.
+func _origin(lm: Dictionary) -> Vector3:
+	var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
+	var sp := ground.sphere()
+	return sp.surface_at(at.x, at.z) if sp != null else Vector3(at.x, ground.terrain.height_at(at.x, at.z), at.z)
 
 
 func _place(lm: Dictionary, loc: Dictionary) -> void:
@@ -272,7 +334,7 @@ func _dress(r: Dictionary) -> void:
 	var mats: LookMaterials = d.mats if d != null and d.get("mats") != null else demo._flat_mats()
 	var kit := RanchKit.new(mats, demo.look)
 	var market := TownMarket.new(kit)
-	var looks: Dictionary = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
+	var looks: Dictionary = CoreContent.read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
 	var stall_cfg: Dictionary = r.cfg.get("stalls", {})
 	var lk: Dictionary = r.cfg.get("look", {})          # the racers' outpost: their own paint
 	var wall := mats.plaster(-1.0e7, -1.0e7, LookMaterials.CLOTH_SAND, Color("#d6c09c"))

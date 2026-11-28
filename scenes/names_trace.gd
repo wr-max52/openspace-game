@@ -126,12 +126,19 @@ func _run() -> void:
 	WorldState.reset()
 	await make_town()
 	out("NEW_GAME_SAME_NAMES", "|".join(guard_names()) == "|".join(g) and demo.town_name == lines_get("TOWN_NAME"))
-	# Another seed: another world.
+	# Another game seed (issue #834): new guards, the same town.
 	WorldState.reset()
-	WorldState.names.world_seed = 99173
+	WorldState.names.game_seed = 99173
 	await make_town()
 	out("OTHER_SEED_TOWN", demo.town_name)
-	out("OTHER_SEED_DIFFERENT", "|".join(guard_names()) != "|".join(g) and demo.town_name != lines_get("TOWN_NAME"))
+	out("OTHER_SEED_DIFFERENT", "|".join(guard_names()) != "|".join(g))
+	out("OTHER_SEED_SAME_TOWN", demo.town_name == lines_get("TOWN_NAME"))
+	# Another world seed: another world, towns too.
+	WorldState.reset()
+	WorldState.names.world_seed = 99173
+	WorldState.names.game_seed = 99173
+	await make_town()
+	out("OTHER_WORLD_DIFFERENT", demo.town_name != lines_get("TOWN_NAME"))
 	demo.queue_free()
 	await frames(2)
 

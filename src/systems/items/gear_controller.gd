@@ -117,7 +117,7 @@ func _ready() -> void:
 	name = "Gear"
 	if content == null:
 		content = CoreContent.shared()
-	var raw = ItemKit._read_json(LABELS_PATH)
+	var raw = CoreContent.read_json(LABELS_PATH)
 	labels = raw.get("labels", {}) if raw is Dictionary else {}
 	items = ItemKit.new()
 	hud = GearHud.new()

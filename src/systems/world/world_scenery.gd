@@ -13,6 +13,7 @@ extends Node3D
 
 const LOOK_PATH := "res://content/look/world.json"
 const WRECK_SHADER := preload("res://src/systems/look/shaders/wreck_metal.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const SMALL_PART := 6.0          ## metres corner to corner: a wreck plate this small is detail
 const SMALL_PART_RANGE := 1500.0
 
@@ -37,7 +38,7 @@ var build_later := false
 
 func _ready() -> void:
 	name = "WorldScenery"
-	look = ItemKit._read_json(LOOK_PATH)
+	look = CoreContent.read_json(LOOK_PATH)
 	if not build_later:
 		_build_landmark_colliders()
 

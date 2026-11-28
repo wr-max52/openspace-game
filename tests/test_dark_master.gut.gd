@@ -403,7 +403,7 @@ func test_his_blade_falls_where_he_does_and_you_activate_it() -> void:
 	var gear := GearController.new()
 	gear.content = content
 	gear.items = ItemKit.new()
-	gear.labels = ItemKit._read_json(GearController.LABELS_PATH).get("labels", {})
+	gear.labels = CoreScript.read_json(GearController.LABELS_PATH).get("labels", {})
 	var item := str(DarkPact.cfg().get("drops", ""))
 	var at := Vector3(3, -14, 20)
 	var node = gear.drop_item({ "id": "dark_master_blade_cruiser", "item": item, "reach": 2.6 }, at)

@@ -135,7 +135,7 @@ static func lookout_parts(room: Dictionary, tower: Dictionary) -> Dictionary:
 	for i in 8:
 		var a := TAU * (i + 0.5) / 8.0
 		var p := cy + Vector3(cos(a), 0, sin(a)) * (rr - 0.15)
-		_box(posts, Vector3(p.x, fy + PARAPET_H, p.z), Vector3(p.x, fy + ROOM_H, p.z), 0.14, a)
+		_add_column(posts, Vector3(p.x, fy + PARAPET_H, p.z), Vector3(p.x, fy + ROOM_H, p.z), 0.14, a)
 	var pillar := _st()
 	_band(pillar, 0.0, float(t.rc), fy, fy + ROOM_H, 0.0, TAU, 16, cy)
 	var roof := _st()
@@ -200,7 +200,7 @@ static func _band(st: SurfaceTool, r0: float, r1: float, y0: float, y1: float, a
 
 
 ## An upright square post of half-width w from a to b, turned by yaw.
-static func _box(st: SurfaceTool, a: Vector3, b: Vector3, w: float, yaw: float) -> void:
+static func _add_column(st: SurfaceTool, a: Vector3, b: Vector3, w: float, yaw: float) -> void:
 	var u := Vector3(cos(yaw), 0, sin(yaw)) * w
 	var v := Vector3(-sin(yaw), 0, cos(yaw)) * w
 	var corners := [u + v, -u + v, -u - v, u - v]

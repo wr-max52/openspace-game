@@ -9,6 +9,7 @@ extends Node
 ## "robot_male"), a voice picked by description; voice_profiles.json says who uses which.
 
 const LLMConfigScript := preload("res://src/systems/llm/llm_config.gd")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const PROFILES_PATH := "res://content/core/npcs/voice_profiles.json"
 const LIBRARY_PATH := "res://content/core/npcs/voice_library.json"
 const SETTINGS_PATH := "user://npc_voice_settings.cfg"
@@ -49,15 +50,8 @@ static func get_singleton() -> Node:
 
 
 func _load_profiles() -> void:
-	_profiles = _read_json(PROFILES_PATH)
-	_library = _read_json(LIBRARY_PATH).get("voices", {})
-
-
-static func _read_json(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
-	return parsed if parsed is Dictionary else {}
+	_profiles = CoreContent.read_json(PROFILES_PATH)
+	_library = CoreContent.read_json(LIBRARY_PATH).get("voices", {})
 
 
 func _load_settings() -> void:
@@ -326,7 +320,7 @@ func _play_stream(target: Node3D, stream: AudioStream, near: bool = false, radio
 # ------------------------------------------------------------------ comms
 
 func _load_comms() -> void:
-	_comms = _read_json(SOUNDS_PATH).get("comms", {})
+	_comms = CoreContent.read_json(SOUNDS_PATH).get("comms", {})
 	ensure_comms_bus(_comms)
 	var sr := int(_comms.get("mix_rate", 22050))
 	_comms_hiss = noise_wav(float(_comms.get("hiss_s", 1.5)), sr, float(_comms.get("crackle", 6.0)), 0.0, 1)

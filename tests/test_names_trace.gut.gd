@@ -64,7 +64,9 @@ func test_names_survive_a_reload_and_repeat_for_the_same_seed() -> void:
 	_true("RELOAD_SAME_TOWN")
 	_true("RELOAD_SAME_VESSEL")
 	_true("NEW_GAME_SAME_NAMES", "deterministic: same seed, same world")
-	_true("OTHER_SEED_DIFFERENT")
+	_true("OTHER_SEED_DIFFERENT", "a new game seed gives new guards")
+	_true("OTHER_SEED_SAME_TOWN", "but the town keeps its name (issue #834)")
+	_true("OTHER_WORLD_DIFFERENT", "a new world seed renames the town")
 
 
 func test_pilots_are_named_in_space() -> void:

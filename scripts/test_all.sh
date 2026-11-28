@@ -247,6 +247,15 @@ if [ ! -f test_results/desert_walk_trace.txt ]; then
   exit 1
 fi
 echo "CI: desert trace present ($(wc -l < test_results/desert_walk_trace.txt) lines)"
+# Issue #802: on foot on the far side of the ball (Cragfall, Farleap, open sand)
+# as smoothly as by the port: 60 m sprints that used to snag nearly every tick.
+echo "CI: generating far walk trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/far_walk_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/far_walk_trace.txt ]; then
+  echo "CI: ERROR -- far walk trace was not generated" >&2
+  exit 1
+fi
+echo "CI: far walk trace present ($(wc -l < test_results/far_walk_trace.txt) lines)"
 # M12 (optional): a REAL llama-server through the game's sidecar, when one and a
 # model are available (LLAMA_SERVER=/path/llama-server TEST_GGUF=/path/model.gguf).
 rm -f test_results/m12_sidecar_trace.txt

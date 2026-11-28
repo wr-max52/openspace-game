@@ -137,6 +137,7 @@ const GAS_SHADER := preload("res://src/systems/look/shaders/gas_giant.gdshader")
 ## Issue #272: lava in the rock's low ground (lava_rock.gdshader), when the ball's
 ## surface has a "lava" block (AsteroidSphere.lava).
 const LAVA_SHADER := preload("res://src/systems/look/shaders/lava_rock.gdshader")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 
 ## A ball type's surface: its rock colours, and its lava if it has any.
@@ -303,7 +304,7 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		var location_id := str(lm.get("location", ""))
 		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_") or location_id == "outpost"):
 			continue
-		var loc = ItemKit._read_json("res://content/core/locations/%s.json" % location_id)
+		var loc = CoreContent.read_json("res://content/core/locations/%s.json" % location_id)
 		if not (loc is Dictionary) or not bool(loc.get("pad", true)):
 			continue             # a ranch village's outpost: the ranch's yard levels it
 		var half := 0.0
@@ -999,10 +1000,14 @@ func _apply_collider(p: Dictionary) -> void:
 	if true:
 		var step: float = p.step
 		var data: PackedFloat32Array = p.heights
-		var scaled := PackedFloat32Array()
-		scaled.resize(data.size())
-		for i in data.size():
-			scaled[i] = data[i] / step
+		# Issue #802: the heights are already in cells at the near ground's 1 m step:
+		# no 66,049-sample loop on the frame it swaps in (every 48 m you walk).
+		var scaled := data
+		if step != 1.0:
+			scaled = PackedFloat32Array()
+			scaled.resize(data.size())
+			for i in data.size():
+				scaled[i] = data[i] / step
 		var shape := HeightMapShape3D.new()
 		shape.map_width = int(p.cells) + 1
 		shape.map_depth = int(p.cells) + 1

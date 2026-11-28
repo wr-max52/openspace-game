@@ -208,3 +208,97 @@ static func frustum(w: float, d: float, h: float, lean: float) -> ArrayMesh:
 	add_quad(st, t[0], t[1], t[2], t[3], Vector3.UP)
 	add_quad(st, b[0], b[1], b[2], b[3], Vector3.DOWN)
 	return _finish(st)
+
+
+# ---------------------------------------------------------------- primitives (issue #544)
+# The one place props get their boxes, cylinders and balls. Each is cached by its exact
+# numbers, so every prop asking for the same box shares one mesh (and can batch).
+# A mesh handed out here is shared: never change it. Ask for the numbers you want
+# instead, or duplicate() it first. The cache holds weak references, so a mesh no
+# prop uses any more is freed with the place that used it.
+
+static var _prims := {}             ## [kind, numbers...] -> WeakRef to the mesh
+static var _prims_lock := Mutex.new()
+const _PRIMS_SWEEP := 4096          ## past this many keys, drop the ones whose mesh is gone
+
+
+## The live mesh cached under `key`, or null. Call with _prims_lock held.
+static func _prim_get(key: Array) -> PrimitiveMesh:
+	var wr: WeakRef = _prims.get(key)
+	return wr.get_ref() if wr != null else null
+
+
+## Cache `m` under `key`. Call with _prims_lock held.
+static func _prim_put(key: Array, m: PrimitiveMesh) -> void:
+	if _prims.size() >= _PRIMS_SWEEP:
+		for k in _prims.keys():
+			if (_prims[k] as WeakRef).get_ref() == null:
+				_prims.erase(k)
+	_prims[key] = weakref(m)
+
+
+## A shared BoxMesh of `size`.
+static func box(size: Vector3) -> BoxMesh:
+	var key := ["b", size]
+	_prims_lock.lock()
+	var b := _prim_get(key) as BoxMesh
+	if b == null:
+		b = BoxMesh.new()
+		b.size = size
+		_prim_put(key, b)
+	_prims_lock.unlock()
+	return b
+
+
+## A shared CylinderMesh. `seg` and `rings` default to Godot's own, so leaving one out
+## is the same as never setting it.
+static func cyl(top: float, bottom: float, h: float, seg: int = 64, rings: int = 4,
+		caps: bool = true) -> CylinderMesh:
+	var key := ["c", top, bottom, h, seg, rings, caps]
+	_prims_lock.lock()
+	var c := _prim_get(key) as CylinderMesh
+	if c == null:
+		c = CylinderMesh.new()
+		c.top_radius = top
+		c.bottom_radius = bottom
+		c.height = h
+		c.radial_segments = seg
+		c.rings = rings
+		c.cap_top = caps
+		c.cap_bottom = caps
+		_prim_put(key, c)
+	_prims_lock.unlock()
+	return c
+
+
+## A shared SphereMesh of radius `r`, `h` tall (a negative `h` means round: 2r).
+## `seg` and `rings` default to Godot's own.
+static func ball(r: float, seg: int = 64, rings: int = 32, h: float = -1.0,
+		hemi: bool = false) -> SphereMesh:
+	var tall: float = h if h > 0.0 else r * 2.0
+	var key := ["s", r, tall, seg, rings, hemi]
+	_prims_lock.lock()
+	var s := _prim_get(key) as SphereMesh
+	if s == null:
+		s = SphereMesh.new()
+		s.radius = r
+		s.height = tall
+		s.radial_segments = seg
+		s.rings = rings
+		s.is_hemisphere = hemi
+		_prim_put(key, s)
+	_prims_lock.unlock()
+	return s
+
+
+## A MeshInstance3D of `mesh` in `mat`, placed at `pos` turned by `basis`, under `parent`
+## (null: the caller adds it).
+static func mi(parent: Node, mesh: Mesh, mat: Material, pos := Vector3.ZERO,
+		basis := Basis.IDENTITY) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	m.mesh = mesh
+	m.material_override = mat
+	m.transform = Transform3D(basis, pos)
+	if parent != null:
+		parent.add_child(m)
+	return m

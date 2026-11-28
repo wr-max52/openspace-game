@@ -261,7 +261,7 @@ func _dress_market(town) -> void:
 ## vendors are this location's (content/core/vendors) and the droid merchant
 ## (droids.json "vendor"), wherever its marker is.
 func _stall_trades(town, stalls: Array) -> Dictionary:
-	var looks: Dictionary = ItemKit._read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
+	var looks: Dictionary = CoreContent.read_json(ItemKit.LOOKS_PATH).get("stalls", {}).get("vendors", {})
 	var cc: CoreContent = CoreContent.shared()
 	var vendors: Array = cc.vendors_in(location_id)
 	for key in ["vendor", "club_vendor"]:          # issue #392: and the moon rave's

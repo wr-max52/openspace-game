@@ -14,6 +14,7 @@ extends Node3D
 ##   DroidController takes it on (release_remote). A tamed remote is gone for good.
 
 const BoltScene := preload("res://scenes/entities/bolt.tscn")
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const DATA := "res://content/core/locations/training_range.json"
 
 signal target_down(id: String)
@@ -37,7 +38,7 @@ var _mats: LookMaterials
 
 func _ready() -> void:
 	name = "TrainingRange"
-	spec = CharacterKit._read_json(DATA)
+	spec = CoreContent.read_json(DATA)
 	# Issue #545: a layout's own spots (the round port parks a ship where the square
 	# port's targets stood), laid over the file like a pickup's "layouts" block.
 	var over: Dictionary = spec.get("layouts", {}).get(layout, {})
