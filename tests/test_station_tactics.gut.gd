@@ -260,23 +260,43 @@ func test_on_the_alarm_they_take_cover_in_the_barracks_then_leave_it_to_hunt() -
 	var homes := {}
 	for g in off:
 		homes[g] = StationTactics.area_key(tac.where(s.to_local_point(g.global_position)))
-	for i in 60 * 30:
+	# The station staggers them (hunt_after_s plus each one's share of
+	# hunt_stagger_s): they come out of the rooms over time, not all at once.
+	var hunt_from := 0.0
+	var hunt_to := 0.0
+	for g in off:
+		if gar.brains.has(g):
+			hunt_from = (gar.brains[g] as GuardBrain).c("hunt_after_s", 6.0)
+			hunt_to = hunt_from + (gar.brains[g] as GuardBrain).c("hunt_stagger_s", 0.0)
+			break
+	var hunted_at := {}
+	var f0 := Engine.get_physics_frames()          # a GUT wait can be more than one frame: count the engine's
+	while Engine.get_physics_frames() - f0 < int(60 * (hunt_to + 8.0)):
 		await wait_physics_frames(1)
+		var i := Engine.get_physics_frames() - f0
 		for g in off:
 			if not is_instance_valid(g) or g.dead or not gar.brains.has(g):
 				continue
 			var b: GuardBrain = gar.brains[g]
 			if b.cover != Vector3.INF and g.global_position.distance_to(b.cover) < 1.2 and not b.hunting():
 				covered[g] = true
+			if b.hunting() and not hunted_at.has(g):
+				hunted_at[g] = i / 60.0
 			var w := tac.where(s.to_local_point(g.global_position))
 			if covered.has(g) and StationTactics.area_key(w) != homes[g] and b.hunting():
 				out_of_room[g] = true
-		if out_of_room.size() >= 2:
+		if out_of_room.size() >= 4 and hunted_at.size() >= 6:
 			break
 	assert_gte(covered.size(), 4, "at least half of them reached cover in their own room (got %d)" % covered.size())
-	assert_gte(out_of_room.size(), 2, "and after a while they leave it to hunt (got %d)" % out_of_room.size())
+	assert_gte(out_of_room.size(), 3, "and after a while they leave it to hunt (got %d)" % out_of_room.size())
+	var times: Array = hunted_at.values()
+	times.sort()
+	assert_gte(times.size(), 6, "most of them go hunting")
+	if times.size() >= 2:
+		assert_gt(float(times.back()) - float(times.front()), 4.0, "one by one, not all at once (%s)" % [times])
+		assert_gte(float(times.front()), hunt_from - 0.1, "none before hunt_after_s")
 	var stuck := 0
 	for g in off:
 		stuck += int(g.stuck_events)
 	assert_lt(stuck, 8 * 4, "nobody pinned in a corner over and over (stuck events %d)" % stuck)
-	gut.p("station tactics: %d of 8 reached cover, %d left the room to hunt, %d stuck events" % [covered.size(), out_of_room.size(), stuck])
+	gut.p("station tactics: %d of 8 reached cover, %d left the room to hunt, %d stuck events, hunts began at %s s" % [covered.size(), out_of_room.size(), stuck, times.map(func(x): return snappedf(x, 0.1))])

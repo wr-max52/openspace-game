@@ -17,9 +17,15 @@ extends RefCounted
 ##   ATTEND   stand, face the player, rifle at the ready (a challenge is on);
 ##            with walk_up set, walk up to the player first
 ##   COMBAT   cover, hide, wind up, burst, back down; in the open if no cover.
-##            Nobody in sight for hunt_after_s: hunt (rifle up, sweeping, walking
-##            search points round where the player was), so a trooper on the
-##            alarm is always plainly looking for you, even one that never saw you
+##            Nobody in sight for hunt_after_s (plus up to hunt_stagger_s, rolled
+##            for each guard each fight, so a squad comes out of cover one by
+##            one): hunt (rifle up, sweeping, walking search points round where
+##            the player was), so a trooper on the alarm is always plainly
+##            looking for you, even one that never saw you. A hunter who spots
+##            you (or is shot) pops out shooting and then chases: he fights in
+##            the open and runs at where you were whenever you break sight,
+##            rather than going back to cover, until he loses you for his hunt
+##            delay and hunts again
 ##   SEARCH   walk to where the player was last seen or heard and look around
 ##   RETURN   back to the loop
 ##
@@ -85,6 +91,8 @@ var _investigate_at := Vector3.INF
 var _look_base := 0.0
 var _walking_up := false
 var _hunting := false
+var _hunt_after := -1.0           ## this fight's hunt delay (hunt_after_s + its share of hunt_stagger_s)
+var _chase := false               ## a hunter who found them: in the open, after them
 var _hunt_to := Vector3.INF
 var _hunt_wait := 0.0
 var _hunt_center := Vector3.INF
@@ -109,7 +117,9 @@ func pt(key: String, fallback: float) -> float:
 
 func state_name() -> String:
 	if state == State.COMBAT:
-		return "COMBAT/HUNT" if _hunting else "COMBAT/" + Fight.keys()[fight]
+		if _hunting:
+			return "COMBAT/HUNT"
+		return ("COMBAT/CHASE/" if _chase else "COMBAT/") + Fight.keys()[fight]
 	return State.keys()[state]
 
 
@@ -142,6 +152,8 @@ func engage() -> void:
 		want_cover = true
 	_no_sight = 0.0
 	_hunting = false
+	_chase = false
+	_hunt_after = c("hunt_after_s", 6.0) + _rng.randf() * c("hunt_stagger_s", 0.0)
 	_hunt_to = Vector3.INF
 	_sweep_base = facing          # with nowhere to look, it looks round the way it faced (fixed: turning must not drag it round)
 	_say("contact", 0.0)
@@ -150,6 +162,18 @@ func engage() -> void:
 ## Hunting: on the alarm, nobody in sight for a while (rifle up, looking).
 func hunting() -> bool:
 	return state == State.COMBAT and _hunting
+
+
+## Chasing: a hunter who found them, after them in the open.
+func chasing() -> bool:
+	return state == State.COMBAT and _chase and not _hunting
+
+
+## This fight's hunt delay: hunt_after_s plus this guard's share of hunt_stagger_s.
+func hunt_delay() -> float:
+	if _hunt_after < 0.0:
+		_hunt_after = c("hunt_after_s", 6.0) + _rng.randf() * c("hunt_stagger_s", 0.0)
+	return _hunt_after
 
 
 ## The fight is over for now: go and look, then go back.
@@ -353,15 +377,17 @@ func _combat(dt: float, hit: bool) -> void:
 	if hit and _rng.randf() < 0.5:
 		_say("hit", 3.0)
 	if _hunting and (visible or hit):
-		# There they are: back to the fight, shooting first.
+		# There they are: pop out shooting, then after them (not back to cover).
 		_hunting = false
+		_chase = not holds_ground()
 		_hunt_to = Vector3.INF
 		_no_sight = 0.0
 		fight = Fight.WINDUP
 		_timer = c("windup_s", 0.35)
 		_opening = true
-	elif not _hunting and not visible and _no_sight >= c("hunt_after_s", 6.0) and not reloading:
+	elif not _hunting and not visible and _no_sight >= hunt_delay() and not reloading:
 		_hunting = true
+		_chase = false
 		_hunt_to = Vector3.INF
 		_hunt_center = Vector3.INF
 		_hunt_wait = 0.0
@@ -407,9 +433,14 @@ func _combat(dt: float, hit: bool) -> void:
 					fight = Fight.BURST
 					_burst_left = _rng.randi_range(int(c("burst_min", 3)), int(c("burst_max", 5)))
 				elif _no_sight >= c("no_sight_reposition_s", 3.0):
-					# Nothing to shoot from here: find a spot that covers us from where they were.
-					want_cover = true
-					fight = Fight.TO_COVER
+					if _chase:
+						# Chasing: after them, not into cover.
+						fight = Fight.OPEN
+						_strafe_left = 0.0
+					else:
+						# Nothing to shoot from here: find a spot that covers us from where they were.
+						want_cover = true
+						fight = Fight.TO_COVER
 				elif _opening:
 					_after_burst()
 				else:
@@ -436,11 +467,18 @@ func _combat(dt: float, hit: bool) -> void:
 				_strafe_to = pos + side
 				_burst_left = _rng.randi_range(int(c("burst_min", 3)), int(c("burst_max", 5)))
 			go_to = _strafe_to
+			if _chase and visible:
+				# After them: far off, close in as it shoots (a step toward them each burst).
+				var gap := Vector3(target_pos.x - pos.x, 0.0, target_pos.z - pos.z)
+				if gap.length() > c("chase_close_m", 12.0):
+					go_to = pos + gap.normalized() * 3.0 + (_strafe_to - pos) * 0.5
 			fire = visible and _burst_left > 0 and not reloading
-			if not visible and _no_sight > c("no_sight_reposition_s", 3.0):
+			if not visible and _no_sight > (c("chase_lost_s", 0.8) if _chase else c("no_sight_reposition_s", 3.0)):
 				# Close in on where they were (ours, or the alarm's), running.
 				go_to = threat
 				sprint = true
+			if _chase:
+				return                     # after them: no stopping for cover
 			# Keep asking for cover as we close in: a spot in range may turn up.
 			_cover_ask_left -= dt
 			if _cover_ask_left <= 0.0:
@@ -585,7 +623,12 @@ func _after_burst() -> void:
 		_opening = false
 		_hide()
 		return
-	if _opening:
+	if _chase:
+		# Found them while hunting: keep after them in the open, shooting.
+		_opening = false
+		fight = Fight.OPEN
+		_strafe_left = 0.0
+	elif _opening:
 		_opening = false
 		fight = Fight.TO_COVER
 		want_cover = true

@@ -2,6 +2,17 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Guards come out to hunt one by one, and chase you when they find you (2026-11-28)
+
+- **Everywhere, not just the station:** on an alarm with nobody in sight,
+  each guard waits his own time before he leaves cover to hunt, so a squad
+  trickles out over a few seconds instead of all at once. Aboard the ring
+  station they leave their rooms over about 8 to 22 seconds.
+- **A hunter who finds you pops out shooting and comes after you.** He stays
+  in the open, closes in as he fires if you're far off, and when you duck out
+  of sight he runs straight to where you were instead of going back to cover.
+  He only settles into hunting again once he has lost you for a while.
+
 ## The station's Remnant fight from cover and come hunting (2026-11-28)
 
 - **On the alarm, the Remnant aboard the ring station duck behind their room's
