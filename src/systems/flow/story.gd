@@ -195,8 +195,9 @@ static func ends_on(c: Dictionary, name: String) -> bool:
 # ------------------------------------------------------------------ steps
 
 ## A chapter's steps ("steps": [{ id, done_on, text, target }]): its objective one
-## step at a time, each with its own waypoint (the fleet: land in the cruiser's
-## bay, reach the stairs, kill the general). A step is done when its flag is set.
+## step at a time, each with its own waypoint (the fleet: get a working ship from
+## T-89, land in the cruiser's bay, reach the stairs, kill the general). A step is
+## done when its flag is set, or while its "done_if" holds (_step_met).
 static func steps(c: Dictionary = {}) -> Array:
 	if c.is_empty():
 		c = chapter_cfg()
@@ -208,7 +209,23 @@ static func step_flag(c: Dictionary, s: Dictionary) -> String:
 
 
 static func step_done(c: Dictionary, s: Dictionary) -> bool:
-	return WorldState.has_flag(step_flag(c, s))
+	return WorldState.has_flag(step_flag(c, s)) or _step_met(str(s.get("done_if", "")))
+
+
+## A step's "done_if": a condition that counts it done while it holds.
+static func _step_met(cond: String) -> bool:
+	match cond:
+		"working_ship":
+			return has_working_ship()
+	return false
+
+
+## The player has a ship that flies: free roam's (the fleet unlocks the port's),
+## the one they flew in on, or one they own that is not shot to pieces.
+static func has_working_ship() -> bool:
+	if not WorldState.story_mode() or GameFlow.flown_ship != "":
+		return true
+	return WorldState.owns_ship() and not ShipSalesman.needs_repair()
 
 
 ## The step the chapter is on (the first not done), or {}.
@@ -229,7 +246,7 @@ static func _step_event(c: Dictionary, name: String) -> bool:
 		return false
 	var changed := false
 	for s in steps(c):
-		if not step_done(c, s):
+		if not WorldState.has_flag(step_flag(c, s)):     # not step_done: a done_if met by this very event still says what is next
 			WorldState.set_flag(step_flag(c, s))
 			changed = true
 		if str(s.get("done_on", "")) == name:
