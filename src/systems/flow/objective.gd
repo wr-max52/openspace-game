@@ -44,6 +44,8 @@ const AUTO := ["bounty", "heist", "smuggle", "supply", "story", "cruiser"]     #
 ## and before it a waypoint set on the F11 map (GlobeMap; only one is ever on).
 ## Then the job the player made the waypoint in the Ledger (pin), then the most
 ## urgent (AUTO). `key` names the job log entry it is ("map" for the F11 map's).
+## Nothing at all while the opening landing is still to play out (WorldState.opening_due:
+## the autopilot bringing the ship down, until E gets you out).
 ## Issue #611: set by a race while you race it: { text, target: "race:<course>:<gate>", key }.
 static var race: Dictionary = {}
 ## Issue #711: metres from the player to the bounty's outpost while its officer is
@@ -53,6 +55,8 @@ static var bounty_dist := INF
 
 
 static func current() -> Dictionary:
+	if WorldState.opening_due():
+		return {}                         # the opening landing's shots: no quest line, no waypoint till you get out
 	if not race.is_empty():
 		return race                       # issue #611: racing, the pointer is the next gate
 	var mark := GlobeMap.waypoint()

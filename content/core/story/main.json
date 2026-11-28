@@ -1,6 +1,6 @@
 {
   "id": "main",
-  "note": "Issue #215: chapters land -> general -> t89 -> meet_oda -> range -> remote -> smuggle_1 -> droid_merchant -> heist (issue #413) -> bounty -> fleet -> debrief (issue #303) -> end -> free. 'done_on' may be a list: any of its events ends the chapter. 'modes': the save modes a chapter is in (default all; land, general and t89 are story only, so a freeplay story starts at meet_oda). 'chapter_renames': old chapter ids a save may hold. Issue #64: the main story line. Issue #193: 'done_flag': a chapter whose flag is already set when it starts is over at once (the cruiser taken before Oda asked). 'pays': credits the teller hands over with the intro. 'skipped': what finishing the chapter leaves behind, given when the settings skip past it (Story.skip_to): flags, counters (at least this many: the fence's armour wants a bounty paid) credits (the first bounty's first_pay, the cruiser's reward) and standing (the cruiser's reward); the chapter's 'pays' comes with them. Credits and standing are given once: not for a chapter already played, nor when its done_flag is set or its counters are already met. A skipped chapter's one-off job card (one with 'completes_on') is done, and in a story save the quests its telling unlocks ('told:<chapter>') are offered. A smuggling run pays what the fence gives for its goods, so skipping it pays nothing. Read by src/systems/flow/story.gd. Chapters run in order; each one ends on a game event ('done_on', reported to Story.event()). 'wrap_up' (optional) closes the chapter before it: said first, on its own, and the 'intro' and its job card come after it when the player presses Next. 'deliver': the droids Oda's friend wants ('pays': what the merchant hands over for the last one). 'intro' is what the teller says the first time you talk to them in that chapter (it replaces their greeting), 'remind' what they say on later visits while it is still open. 'job' puts that job's card in front of the player with the line. T-89 (the droid in the pit) points you at Oda; Oda tells every other chapter. The last chapter ('free') never ends: smuggling runs and bounty contracts on repeat. Issue #381: 'time' is the chapter's time of day in a story save until the cruiser is won (src/systems/world/day_clock.gd), and 'time_after_job' switches it once you have taken that job (the bounty chapter goes to dusk on j_bounty). The town switches while you are indoors, or at the next trigger; a chapter with no 'time' keeps the light it has.",
+  "note": "Issue #215: chapters land -> general -> t89 -> meet_oda -> remote -> smuggle_1 -> droid_merchant -> heist (issue #413) -> bounty -> fleet -> debrief (issue #303) -> end -> free. 'done_on' may be a list: any of its events ends the chapter. 'modes': the save modes a chapter is in (default all; land, general and t89 are story only, so a freeplay story starts at meet_oda). 'chapter_renames': old chapter ids a save may hold (the range chapter, Oda's first target practice, was cut: a save there goes on to the sparring droid). Issue #64: the main story line. Issue #193: 'done_flag': a chapter whose flag is already set when it starts is over at once (the cruiser taken before Oda asked). 'pays': credits the teller hands over with the intro. 'skipped': what finishing the chapter leaves behind, given when the settings skip past it (Story.skip_to): flags, counters (at least this many: the fence's armour wants a bounty paid) credits (the first bounty's first_pay, the cruiser's reward) and standing (the cruiser's reward); the chapter's 'pays' comes with them. Credits and standing are given once: not for a chapter already played, nor when its done_flag is set or its counters are already met. A skipped chapter's one-off job card (one with 'completes_on') is done, and in a story save the quests its telling unlocks ('told:<chapter>') are offered. A smuggling run pays what the fence gives for its goods, so skipping it pays nothing. Read by src/systems/flow/story.gd. Chapters run in order; each one ends on a game event ('done_on', reported to Story.event()). 'wrap_up' (optional) closes the chapter before it: said first, on its own, and the 'intro' and its job card come after it when the player presses Next. 'deliver': the droids Oda's friend wants ('pays': what the merchant hands over for the last one). 'intro' is what the teller says the first time you talk to them in that chapter (it replaces their greeting), 'remind' what they say on later visits while it is still open. 'job' puts that job's card in front of the player with the line. T-89 (the droid in the pit) points you at Oda; Oda tells every other chapter. The last chapter ('free') never ends: smuggling runs and bounty contracts on repeat. Issue #381: 'time' is the chapter's time of day in a story save until the cruiser is won (src/systems/world/day_clock.gd), and 'time_after_job' switches it once you have taken that job (the bounty chapter goes to dusk on j_bounty). The town switches while you are indoors, or at the next trigger; a chapter with no 'time' keeps the light it has.",
   "chapters": [
     {
       "id": "land",
@@ -36,21 +36,11 @@
       "remind": "Oda Vell is waiting at the cantina, at the far end of town. Go and talk to her."
     },
     {
-      "id": "range",
-      "time": "golden",
-      "teller": "cantina_owner",
-      "done_on": "range_visited",
-      "intro": "New face, and you want work. First, get some practice in. There's a range down in the landing pit: shoot a few targets, then come back and see me.",
-      "remind": "The range is in the pit. Go and shoot something that isn't a customer, then come back."
-    },
-    {
       "id": "remote",
       "time": "golden",
       "teller": "cantina_owner",
       "done_on": "range_visited",
-      "pays": 40,
-      "wrap_up": "Practice is practice: here's forty for your trouble.",
-      "intro": "One more thing down in the pit, if you're up to it. There's a sparring droid by the range that takes shots at you. Block five in a row with a blade and it'll follow you home. Go on, then come back for real work.",
+      "intro": "New face, and you want work. First let's see what you're made of. There's a sparring droid down in the landing pit, by the range, that takes shots at you. Block five in a row with a blade and it'll follow you home. Go and have a look, then come back for real work.",
       "remind": "The sparring droid's in the pit. Five blocks in a row and it's yours. Or don't; just come back when you've had a look."
     },
     {
@@ -140,7 +130,7 @@
       "remind": ""
     }
   ],
-  "chapter_renames": { "smuggle_2": "droid_merchant", "cruiser": "free" },
+  "chapter_renames": { "smuggle_2": "droid_merchant", "cruiser": "free", "range": "remote" },
   "end_card": {
     "title": "THE REMNANT LEAVE THE MOON",
     "general_dead": "Their fleet broken and their general dead, the last of the Remnant pack up the barracks and lift off at dawn. Nobody waves. The port has its gate back, and you have a ship of your own.",
@@ -156,7 +146,6 @@
       "general": { "text": "Answer the Remnant general", "target": "npc:general" },
       "t89": { "text": "Talk to T-89, the droid in the pit", "target": "npc:t89" },
       "meet_oda": { "text": "Find Oda Vell at the cantina, far end of town", "target": "npc:cantina_owner" },
-      "range": { "text": "Shoot the targets at the range in the landing pit", "target": "range" },
       "remote": { "text": "Try the sparring droid in the pit, then go back to Oda", "target": "remote" },
       "smuggle_1": { "text": "Ask Oda about the drop", "target": "npc:cantina_owner" },
       "droid_merchant": { "text": "Take a cargo droid to the nearest droid merchant's post", "target": "droid_post" },

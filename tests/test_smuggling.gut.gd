@@ -86,11 +86,26 @@ func test_loop_repeats_and_moves_the_drop() -> void:
 		assert_false(j.is_empty(), "offered again on run %d" % run)
 		areas.append(str(WorldState.smuggle_offers[JOB].area))
 		_run_once()
+		WorldState.on_contraband_sold()          # the fence has it: the first drop's front gate is spent
 		assert_false(WorldState.carrying_contraband())
 	for i in range(1, areas.size()):
 		assert_ne(areas[i], areas[i - 1], "never the same area twice running")
 	assert_eq(WorldState.count("smuggle_runs"), 8)
 	assert_gt(WorldState.credits, c0, "the fence paid")
+
+
+## The first drop for the fence is always out the front gate; once one has been
+## sold, the next can be anywhere in the job's desert.
+func test_the_first_drop_is_out_the_front_gate() -> void:
+	for i in 6:
+		WorldState.smuggle_offers.erase(JOB)
+		assert_false(_offered().is_empty())
+		assert_eq(str(WorldState.smuggle_offers[JOB].area), "east_desert", "the first drop, every roll")
+	_run_once()
+	WorldState.on_contraband_sold()
+	assert_eq(WorldState.count(WorldState.DROPS_SOLD + JOB), 1, "the fence got it")
+	assert_false(_offered().is_empty())
+	assert_eq(str(WorldState.smuggle_offers[JOB].area), "back_desert", "then around the desert")
 
 
 func test_not_offered_while_a_drop_is_out_or_carried() -> void:

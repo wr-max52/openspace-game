@@ -3,9 +3,8 @@ extends RefCounted
 ## The main story line (issue #64). Pure and static, like WorldState, and its
 ## state lives there (WorldState.story, saved with the world):
 ##
-##   T-89 says talk to Oda -> she sends you to practice at the range -> she pays
-##   for it and tells you about the sparring droid (optional: go to the pit and
-##   come back, on your honour) -> two smuggling runs
+##   T-89 says talk to Oda -> she tells you about the sparring droid in the pit
+##   (optional: go to the pit and come back, on your honour) -> two smuggling runs
 ##   (the first with her old jetpack if she is amused or warm) -> Skrugs and a
 ##   bounty at a Remnant outpost -> the Remnant fleet in orbit (the port's ships
 ##   unlock): one mission, the general on the bridge of their star cruiser far out
@@ -294,7 +293,7 @@ static func catch_up() -> void:
 
 ## What `teller` says when the player walks up, if the story has something to
 ## say: { say, job } (job = a job id whose card goes with it, or ""), else {}.
-## Talking to Oda for the first time finishes "meet_oda" and starts the range.
+## Talking to Oda for the first time finishes "meet_oda" and starts the sparring droid.
 static func beat(teller: String) -> Dictionary:
 	if teller == "cantina_owner" and chapter() == "meet_oda":
 		event("met_oda")
@@ -319,7 +318,7 @@ static func beat(teller: String) -> Dictionary:
 ## Told a chapter that sends you somewhere, with no job card to be the news: the
 ## banner says the objective it wants now, after a "New Quest" with the chapter's
 ## title when it has one (the fleet). A "talk to the teller" banner still waiting
-## from the chapter before (met Oda, and she told the range in the same breath)
+## from the chapter before (met Oda, and she told the sparring droid in the same breath)
 ## is dropped: it is answered.
 static func _told_news(c: Dictionary) -> void:
 	var o := Objective.chapter_objective()
@@ -334,7 +333,7 @@ static func _told_news(c: Dictionary) -> void:
 static func _tell(c: Dictionary, first: bool) -> Dictionary:
 	if first and int(c.get("pays", 0)) > 0:
 		WorldState.credits += int(c.pays)
-		WorldState.log_event("Oda paid %d cr for the practice." % int(c.pays), "cantina")
+		WorldState.log_event("Oda paid %d cr." % int(c.pays), "cantina")
 	if chapter() == "fleet":
 		WorldState.set_flag("ships_unlocked")
 	if chapter() == "free":

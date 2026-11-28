@@ -68,8 +68,8 @@ func test_the_story_walks_every_chapter() -> void:
 	Story.beat("t89")
 	assert_eq(Story.chapter(), "meet_oda", "T-89 told it: Oda next")
 	Story.beat("cantina_owner")
-	assert_eq(Story.chapter(), "range")
-	for s in [["range_visited", "remote"], ["range_visited", "smuggle_1"]]:
+	assert_eq(Story.chapter(), "remote", "no target practice: the sparring droid first")
+	for s in [["range_visited", "smuggle_1"]]:
 		Story.event(s[0])
 		assert_eq(Story.chapter(), s[1])
 	WorldState.story.took_run = true

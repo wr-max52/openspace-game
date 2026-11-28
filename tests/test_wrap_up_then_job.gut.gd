@@ -27,11 +27,11 @@ func test_the_heist_beat_splits_the_wrap_up_from_the_job() -> void:
 	assert_false(again.has("wrap_up"), "the wrap-up is said once")
 
 
-func test_the_bounty_and_the_sparring_droid_too() -> void:
+func test_the_bounty_too_and_not_the_sparring_droid() -> void:
 	Story.skip_to("remote")
 	var beat := Story.beat("cantina_owner")
-	assert_true(str(beat.wrap_up).contains("forty"))
-	assert_true(str(beat.then).contains("five"))
+	assert_false(beat.has("wrap_up"), "meeting Oda: no chapter of hers to close (the target practice is gone)")
+	assert_true(str(beat.say).contains("five"))
 	Story.skip_to("bounty")
 	beat = Story.beat("cantina_owner")
 	assert_true(str(beat.wrap_up).contains("flask"))
