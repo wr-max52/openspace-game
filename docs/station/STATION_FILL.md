@@ -91,8 +91,8 @@ where it hangs). Keys any station can use:
 
 | Key | Where | What it adds |
 |---|---|---|
-| `roof_ladder` | a top floor | a ladder up to its first ceiling hatch (the station's `floor_hatch` block), to a handhold over the roof (the look: the jetpack climbs) |
-| `gantry_hatch` | the lowest floor | a shielded hatch in its plate with a ladder down to the tower's skimmer gantry |
+| `roof_ladder` | a top floor | a ladder up to its first ceiling hatch (the station's `floor_hatch` block), to a handhold over the roof; you climb it (`Ladders`, content/core/flow/ladders.json) |
+| `gantry_hatch` | the lowest floor | a shielded hatch in its plate with a ladder down to the tower's skimmer gantry, climbable as the roof's |
 | `antennas` | a tower | dishes and whip antennas on its roof, posts solid (cover) |
 | `skimmer` | a tower | a gantry hung under its lowest floor, trusses, the intake pipe, and `units`: QuantoniumRefinery tanks on it (SpaceStation builds them) |
 | `remnant.roof` | the Remnant block | a guard walking a loop round the roof (`roof_trooper`, `roof_guard`) |
