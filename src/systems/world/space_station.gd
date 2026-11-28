@@ -21,6 +21,9 @@ extends Node3D
 ##     the ringed giant): the bay's shield lets you walk out, you roam outside on
 ##     the jetpack, and you are pulled back only if you drop toward a gas ball's
 ##     clouds (open_air)
+##   - issue #317: the wrecks adrift in the belt under it (BeltWrecks; their boxes
+##     are in the ground with the station's), down through the engine deck's drop
+##     hatch; over them no pull back, but fall off one and the belt has you
 ## Nothing here is about one planet: SpaceStation is built for every "station"
 ## landmark of the world it is in (town_demo._build_stations).
 
@@ -55,6 +58,8 @@ var fill_ms := 0.0                     ## the longest tick spent building the fi
 var crowd: StationCrowd                ## issue #315: the people aboard (the config's "crowd")
 var remnant: StationRemnant            ## issue #314: the Remnant's deck and who holds it (the config's "remnant")
 var open_air := false                  ## the planet's air is breathable: you may go outside (setup)
+var belt: Array = []                   ## issue #317: the wrecks adrift under it (BeltWrecks.layout), station frame
+var belt_falls := 0                    ## times the belt had you (traces, tests)
 var refineries: Array = []             ## issue #838: QuantoniumRefinery on the skimmer gantry (StationHull.skimmer_units)
 
 var _root: Node3D
@@ -65,6 +70,8 @@ var _was_aboard := false
 var _warned := false                   ## issue #702: warned of the pull on this drop
 var _shadow_capped := false
 var _fill_tick := 0
+var _fade: ColorRect                   ## issue #317: black over the screen as the belt takes you
+var _fade_tw: Tween
 
 static var _meshes: Dictionary = {}    ## "<station>/<finish>" -> ArrayMesh, built once a session
 
@@ -82,6 +89,8 @@ func setup(town_demo, world_ground: WorldGround, lm: Dictionary) -> void:
 	vessel_name = NameHooks.vessel(cfg, "station:" + id)
 	var pl = demo.get("planet") if demo != null else null
 	open_air = pl is Dictionary and not (pl as Dictionary).is_empty() and HarmfulSurface.config(pl).is_empty()
+	if hull != null:
+		belt = BeltWrecks.layout(hull)
 
 
 func _ready() -> void:
@@ -270,7 +279,13 @@ func _fall_guard(p: Node3D) -> void:
 		return
 	if open_air:
 		if ground == null or ground.lethal_below == -INF or aboard(p.global_position):
+			_guard_fade(0.0)
 			return
+		if _belt_guard(p, inv * p.global_position):
+			return
+		if _another_holds(p.global_position):
+			_warned = false
+			return                         # issue #317: another station (its belt, or nearer) has this one
 		var outside: Dictionary = cfg.get("outside", {})
 		var drop := float(outside.get("drop_below", 40.0))
 		var below := hull.bottom_y() - (inv * p.global_position).y
@@ -296,6 +311,90 @@ func _fall_guard(p: Node3D) -> void:
 		_was_aboard = false            # moved away (woken in the pit, towed home), not fallen
 		return
 	_pull_back(p, line("fell"))
+
+
+## Issue #317: over the belt (within its margin_m of a wreck, across) the pull back
+## toward the clouds is off: you may go down the wrecks as far as they go. Down in
+## the clouds (clouds_y), or out of every hull and fall_m under the lowest pad, the
+## belt has you: the screen fades over the last fade_m and you wake in the bay.
+## True while over it.
+func _belt_guard(p: Node3D, l: Vector3) -> bool:
+	if belt.is_empty():
+		return false
+	var bc := BeltWrecks.cfg_of(hull)
+	if not BeltWrecks.over_belt(belt, l, float(bc.get("margin_m", 40.0))):
+		_guard_fade(0.0)
+		return false
+	_warned = false
+	if BeltWrecks.lost(belt, bc, l):
+		_lost_to_belt(p, bc)
+		return true
+	# The last fade_m before the clouds, or (out of every hull) before fall_m under
+	# the lowest pad: the screen goes dark.
+	var fade := maxf(0.1, float(bc.get("fade_m", 10.0)))
+	var line := float(bc.get("clouds_y", -300.0))
+	if not BeltWrecks.in_wreck(belt, l):
+		line = maxf(line, BeltWrecks.lost_below(belt, float(bc.get("fall_m", 25.0))))
+	_guard_fade(clampf((line + fade - l.y) / fade, 0.0, 1.0))
+	return true
+
+
+## Issue #317: with more than one station in this sky (the ring station and the
+## skimmer outposts over the giant), only the one you are nearest, or whose belt
+## you are over, guards your fall: never a far one pulling you off another's
+## wrecks.
+func _another_holds(at: Vector3) -> bool:
+	var list = demo.get("stations") if demo != null else null
+	if not (list is Array):
+		return false
+	var mine := distance(at)
+	for s in list:
+		if s == self or not is_instance_valid(s):
+			continue
+		var o: SpaceStation = s
+		if not o.belt.is_empty() and BeltWrecks.over_belt(o.belt, o.inv * at,
+				float(BeltWrecks.cfg_of(o.hull).get("margin_m", 40.0))):
+			return true
+		if o.distance(at) < mine:
+			return true
+	return false
+
+
+## The belt had you: back in the bay, nothing taken (the fall did this, as off a
+## platform world's edge), and the screen comes back up from black.
+func _lost_to_belt(p: Node3D, bc: Dictionary) -> void:
+	belt_falls += 1
+	WorldState.bump("falls")
+	var text := str(bc.get("lines", {}).get("fell", ""))
+	if text != "":
+		WorldState.log_event(text)
+	_pull_back(p, (text + "  " if text != "" else "") + GameFlow.label("fall_wake"))
+	_set_fade(1.0)
+	if is_inside_tree():
+		_fade_tw = create_tween()
+		_fade_tw.tween_method(_set_fade, 1.0, 0.0, 0.8)
+
+
+## The guard's fade, unless the screen is still coming back up after a fall.
+func _guard_fade(a: float) -> void:
+	if _fade_tw != null and _fade_tw.is_running():
+		return
+	_set_fade(a)
+
+
+func _set_fade(a: float) -> void:
+	if _fade == null:
+		if a <= 0.0:
+			return
+		var layer := CanvasLayer.new()
+		layer.layer = 20
+		add_child(layer)
+		_fade = ColorRect.new()
+		_fade.color = Color(0, 0, 0, 0)
+		_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_fade)
+	_fade.color.a = a
 
 
 func _pull_back(p: Node3D, text: String) -> void:
@@ -598,6 +697,8 @@ func _build_hatches() -> void:
 		list.append(["Hatch_" + str(hc.tunnel), hc])
 	for hc in hull.floor_hatches:
 		list.append(["FloorHatch_%s_%d_%d" % [str(hc.tower), int(hc.floor), int(rad_to_deg(float(hc.a)))], hc])
+	if not hull.drop_shield.is_empty():
+		list.append(["Hatch_drop", hull.drop_shield])   # issue #317: the engine deck's drop hatch, down to the belt
 	for e in list:
 		var hc: Dictionary = e[1]
 		var size: Vector3 = hc.size

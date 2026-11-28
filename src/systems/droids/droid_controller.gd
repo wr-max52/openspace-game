@@ -1864,7 +1864,9 @@ func _build_wreck_site(st: StagedBuild = null) -> void:
 		if not StarcruiserWreck.has_wreck(ground, id):
 			continue
 		var skip: Array = site.get("skip_routes", [])
-		for spec in wc.get("units", []):
+		# Issue #317: a site's own extra_units on top of the shared crew (the belt's
+		# guards on the spine, more the deeper the wreck).
+		for spec in (wc.get("units", []) as Array) + (site.get("extra_units", []) as Array):
 			if str(spec.get("route", "")) in skip:
 				continue
 			var route := wreck_route(str(spec.get("route", "")), id)

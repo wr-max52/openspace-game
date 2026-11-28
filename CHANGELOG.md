@@ -2,6 +2,33 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The wrecks in the belt under the ring station (2026-11-28)
+
+- **Three wrecked cruisers hang under the station, stacked and never touching.**
+  Each lies 50 m under the last, at its own heading, dive and list. The first
+  dives nose down like the home planet's nearest wreck, its stern up by the
+  station and its bow down in the clouds; the last lies almost flat just over
+  the cloud haze, and off its side is the drop into them.
+- **The engine deck's drop hatch is open.** It sits in the floor of a cargo
+  hold behind a shield; drop through it to the first wreck's landing pad 50 m
+  down.
+- **Going down takes a jetpack.** Every drop would kill you on its own; time a
+  burn and you land softly. From each wreck you drop onto the next one below.
+- **Coming back up takes your ship.** Call it from the inventory and it flies
+  down and sets down on the pad by you (every pad but the first is open to the
+  sky).
+- **Every wreck is a fight, deeper is harder.** Each has the desert wrecks'
+  crew, plus guards on its spine: two more on the first, four on the second,
+  six on the third, ending in two heavier assassins.
+- **Deeper pays better.** A crate on each bridge platform: 10 refined
+  quantonium, then 8 space whale teeth, then a seeker launcher at the bottom.
+  Stray loot on the spines and in the holds comes from a richer table than the
+  desert's.
+- **Fall off a side, or into the clouds, and the belt has you:** the screen
+  fades out and you wake in the bay, with nothing taken.
+- The wrecks' poses and drops are data (`belt` in
+  `content/core/stations/orbital_station.json`), and a test fails if two wrecks
+  touch, a pad is covered, or a jetpack change makes a drop too hard to land.
 ## New version is 1.7.6 (2026-11-28)
 
 - Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New

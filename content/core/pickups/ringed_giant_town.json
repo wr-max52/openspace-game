@@ -314,5 +314,39 @@
         ]
       }
     ]
-  }
+  },
+  "site_crates": [
+    { "id": "belt_crate_1", "site": "belt_wreck_1", "site_point": [10.5, 146, 148.5],
+      "prizes": [ { "item": "refined_quantonium", "count": 10, "weight": 1 } ] },
+    { "id": "belt_crate_2", "site": "belt_wreck_2", "site_point": [-11, 146, 147],
+      "prizes": [ { "item": "space_whale_teeth", "count": 8, "weight": 1 } ] },
+    { "id": "belt_crate_3", "site": "belt_wreck_3", "site_point": [11.5, 146, 131],
+      "prizes": [ { "item": "seeker_launcher", "count": 1, "weight": 1 } ] }
+  ],
+  "crate_prizes": [
+    { "item": "refined_quantonium", "count": 10, "weight": 1 }
+  ],
+  "crate_note": "Issue #317: a supply crate on the bridge platform (the landing pad you drop onto, behind the bridge house) of each wreck hanging in the belt under the station (stations/orbital_station.json 'belt'). site_point: in that wreck's level frame, as the desert wrecks' (pickups/port_town.json). The deeper the wreck, the better its crate ('prizes', the crate's own table: GearController.roll_crate_prize): the first 10 refined quantonium like every desert wreck, the second 8 space whale teeth, the last, at the bottom of the stairs, a seeker launcher. Opened once and it stays open (saved with the taken pickups), as the desert's.",
+  "site_loot": [
+    { "id": "spine_mid", "frame": "hull", "point": [0, 39.2, 40] },
+    { "id": "spine_fore", "frame": "hull", "point": [0, 39.2, -110] },
+    { "id": "spine_aft", "frame": "hull", "point": [0, 39.2, 112] },
+    { "id": "spine_stern", "frame": "hull", "point": [0, 39.2, 262] },
+    { "id": "hold_breach", "frame": "hull", "point": [12, -24, -28] },
+    { "id": "hold_mid", "frame": "hull", "point": [-8, -24, 14] },
+    { "id": "hold_stern", "frame": "hull", "point": [10, -24, 70] },
+    { "id": "balcony", "frame": "level", "point": [28, 119, 204] },
+    { "id": "ledge", "frame": "level", "point": [33, 126, 166] },
+    { "id": "deck", "frame": "level", "point": [30, 136, 214] }
+  ],
+  "site_loot_table": [
+    { "item": "quartz", "count": [6, 12], "weight": 2 },
+    { "item": "grenade", "count": [3, 5], "weight": 3 },
+    { "credits": [250, 600], "weight": 3 },
+    { "item": "refined_quantonium", "count": [4, 6], "weight": 3 },
+    { "item": "space_whale_teeth", "count": [2, 4], "weight": 2 },
+    { "item": "sniper_rifle", "count": 1, "weight": 1 }
+  ],
+  "site_loot_seed": 11,
+  "site_loot_note": "Issue #317: stray loot on every belt wreck, the desert wrecks' spots (the hold, the balcony, the ledge, the deck) and four on the spine (hull frame, on its ridge, none so far toward a bow that it hangs in the clouds), from a richer table than the desert's: more quantonium and credits, space whale teeth, a rare sniper rifle. Rolled per spot (id '<wreck>/<spot>') with site_loot_seed, the same every time until taken; picked up once and remembered. GearController._build_site_loot."
 }

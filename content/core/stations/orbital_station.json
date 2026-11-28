@@ -143,6 +143,29 @@
   "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
   "tunnel": { "width": 6.0, "height": 5.0 },
   "hatch": { "length": 4.0, "width": 4.0, "note": "A hatch in the middle of every tunnel's roof, closed by a shield the air cannot pass and you can: jump up through it (the jetpack) and walk the roof between its railings, out in space, like a bridge; drop back through it to get in." },
+  "belt_note": "Issue #317: three wrecked cruisers hanging in the belt under the station, stacked one under another 50 m apart (the giant reads as ground for ships about 200 m under the station's floor, so three drops of 50 m are what fits; every pad stays over it), never touching, each at its own heading, dive and list (src/systems/world/belt_wrecks.gd lays them out; each is the desert's wreck, src/systems/world/starcruiser_wreck.gd, 'adrift': no sand, so no boarding plate, salvage or kicker). 'hatch': the drop hatch in the floor of the first room of 'floor' whose fill use is 'room' (the engine deck's first cargo hold), size metres square, closed by a shield you drop through (StationHull.drop_hatch). Each wreck is placed by its landing pad ('pad': the bridge platform's open end in the interior's design coordinates, level whatever the pose): the first pad drop_m under the hatch, each next one drop_m under the last and 'shift' [out, across] metres from it, out along the hatch room's line; yaw_deg turns the stern from straight out, pitch_deg dives the bow (the first like the home planet's nearest wreck, its bow down in the clouds), roll_deg lists it. 'variant': as the desert wrecks' (StarcruiserWreck.VARIANT_KEYS; smooth_spine leaves the dorsal ribs off so you can walk the spine; open_pad tears the plating away over a pad a shallow dive would roof over; deck_drop fits the level interior to a shallow dive). The way down is on foot: off a wreck's side and down onto the next with a jetpack burn to land softly (BeltWrecks.landing_speed: no drop may hurt more than landing.max_damage at best, tests/test_belt_wrecks.gut.gd). The way back up is your ship: call it (inventory, Call) and it lands on the pad by you; every pad is open to the sky and out from under the station, but the first, under the hatch. clearance_m: the least gap between two wrecks (checked). The station's up holds round every wreck (a gravity zone each: BeltWrecks.zone_frame). The fall: over the belt (within margin_m of a wreck, across) the station's pull back is off; down under clouds_y (the cloud tops are at about -320), or out of every hull fall_m under the lowest pad, the belt has you: the screen fades over the last fade_m and you wake in the bay (lines.fell, then the planet pads' fall_wake). Their droids, crates and loot: droids.json 'wreck'.sites, pickups/ringed_giant_town.json.",
+  "belt": {
+    "hatch": { "tower": "main", "floor": "engines", "room": "cargo", "size": 4.0 },
+    "pad": [0, 146, 138],
+    "wrecks": [
+      { "id": "belt_wreck_1", "drop_m": 50.0, "shift": [0, 0], "yaw_deg": 0.0, "pitch_deg": -34.0, "roll_deg": 0.0,
+        "variant": { "smooth_spine": true, "skip": ["radiator_2", "hull_band_-150"], "rail_gaps": { "starboard_deck_rail": [2], "bridge_port_rail": [1] }, "shard_turn": 5 },
+        "note": "Nose down at 34 degrees like the home planet's nearest wreck, its stern up by the station and its bow down in the clouds; its pad straight under the hatch." },
+      { "id": "belt_wreck_2", "drop_m": 50.0, "shift": [30, 130], "yaw_deg": -150.0, "pitch_deg": -14.0, "roll_deg": 9.0,
+        "variant": { "deck_drop": 4, "smooth_spine": true, "skip": ["port_drop", "port_balcony", "radiator_1", "radiator_4"], "ramp_width": { "climb_ramp": 10.0 }, "rail_gaps": { "mid_catwalk_bow_rail": [2, 6], "bridge_starboard_rail": [2] }, "shard_turn": -8 },
+        "note": "Off the first one's flank and turned nearly round, a shallower dive, listing to starboard." },
+      { "id": "belt_wreck_3", "drop_m": 50.0, "shift": [100, 180], "yaw_deg": 120.0, "pitch_deg": -3.0, "roll_deg": 2.0,
+        "variant": { "deck_drop": 9, "smooth_spine": true, "open_pad": true, "skip": ["port_drop", "radiator_0", "hull_band_135"], "rail_gaps": { "port_deck_outer_rail": [0, 3], "upper_catwalk_stern_rail": [1] }, "shard_turn": 12 },
+        "note": "The deepest, almost flat, just over the cloud haze: as low as a called ship can still set down. Off its side the belt has you." }
+    ],
+    "clearance_m": 10.0,
+    "landing": { "max_damage": 30 },
+    "margin_m": 40.0,
+    "clouds_y": -300.0,
+    "fall_m": 25.0,
+    "fade_m": 10.0,
+    "lines": { "fell": "You slipped off the wreck and tumbled away into the belt." }
+  },
   "floor_hatch": { "count": 4, "length": 4.0, "width": 4.0, "from_rail": 1.5, "note": "The tunnels' hatches in every floor's ceiling: 'count' square holes over the walkway ('from_rail' metres out from the gap's railing, 'length' out by 'width' across), spread evenly round the tower between the bridges, each closed by a shield the air cannot pass and you can. Jetpack up through one onto the floor's roof (the open space under the next floor, or the tower's roof over the top floor) and drop back in through it. A floor's own 'hatches' (a count, 0 for none) overrides 'count'." },
   "tunnels_note": "Enclosed glass-walled tunnels between two towers ('to': a tower id) at a level both have, or from a tower to the bay ('to': 'bay') at the bay's deck.",
   "tunnels": [
@@ -195,7 +218,7 @@
     "brake_in": 26.0,
     "spin_secs": 1.3,
     "settle": 3.0,
-    "note": "Z within radius metres flies you in: round the towers (over_y above or under_y below them, in the station's frame) when you start behind the bay's mouth, out to approach metres off the mouth at hold_y over the deck, in through the shield and to a stop over the dock pad, then turned nose out and set down (ShipPilot's docking autopilot, the same flight as the cruiser's)."
+    "note": "Z within radius metres flies you in: round the towers (over_y above or under_y below them, in the station's frame; with wrecks in the belt under the station it always goes over, issue #317) when you start behind the bay's mouth, out to approach metres off the mouth at hold_y over the deck, in through the shield and to a stop over the dock pad, then turned nose out and set down (ShipPilot's docking autopilot, the same flight as the cruiser's)."
   },
   "outside": { "drop_below": 40.0, "warn_before": 15.0, "note": "Issue #702: warn_before metres short of drop_below you are warned once (lines.fell_clouds_warn). Where the planet's air is breathable (no harmful_surface, the ringed giant) the station is open to it (SpaceStation.open_air): the bay's shield lets you walk out of the mouth onto the apron, and you can roam outside on the jetpack. Over a gas ball's clouds, drop more than drop_below metres under the lowest floor and you are pulled back into the bay (lines.fell_clouds). Where you cannot breathe it is sealed as before: the shield holds you in and falling out pulls you straight back (lines.fell)." },
   "detail_altitude": 600.0,

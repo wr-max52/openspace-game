@@ -2177,3 +2177,47 @@ there; between planets, past every bubble, it is open space, its own place.)
   turning early can miss it. The Crooked Mile's switchbacks turn on two square
   corners each. An NPC probe (rookie, default and pro drivers, two laps of every
   course) passed every gate with none missed.
+
+
+## The belt's wrecks are the desert's wreck, adrift, laid out from the station (2026-11-28)
+
+Issue #317, reshaped by the player: not stairs end to end, but three wrecks
+stacked one under another, 50 to 100 m apart, never touching, each at its own
+angle; the first nose down like the home planet's nearest wreck; down with the
+jetpack, back up in your ship.
+
+- **Placed by their pads, not by map points.** `BeltWrecks.layout` works them
+  out from the station's `belt` block: each wreck's landing pad (the bridge
+  platform, level at any pose: the desert wrecks' one interior design) `drop_m`
+  under the one before and `shift` across, then the hull turned, dived and
+  listed round it. Each comes out as an ordinary `wreck` landmark with a
+  `frame` and `adrift: true`, added to the ground with the station
+  (`StationHull.add_to_ground`), so the droid sites, crates, loot, colliders and
+  plates the desert wrecks use work unchanged.
+- **Checked, not eyeballed.** No two hulls come within `clearance_m`
+  (`gap_between`, box against box), nothing of one is inside another, every pad
+  but the first (under the hatch) is open to the sky and out from under the
+  station (`pad_open`), so a called ship can come straight down.
+- **The drops are a jetpack skill.** A 50 m drop lands at 32 m/s and 70 m at
+  the 45 m/s cap: lethal either way (falls.json). `landing_speed` steps a fall
+  and a full burn lit at each height (60 a second, the jetpack item's numbers)
+  and keeps the softest; `too_hard` fails a test if any drop cannot be landed
+  under `landing.max_damage`.
+- **Back up is the ship you already have.** Call (issue #368) flies your
+  primary to clear ground by you. Its search for that ground looked down from
+  200 m up, which over stacked wrecks finds the one above you; it now looks from
+  just over your head too. The dock autopilot never takes its way under the
+  towers when a belt hangs there.
+- **Adrift means no sand.** No boarding plate (it would run down to the
+  clouds), no salvage and no kicker. `smooth_spine` leaves the dorsal ribs off
+  (2.2 m proud of the plating every 30 m) so you can walk a spine.
+- **The station's up over every wreck.** Out past the giant's flat top the
+  ball's up leans a long way, so each wreck has a gravity zone with the
+  station's up (its heading only: a dived or listed wreck is a slope you walk).
+- **The fall is the station's fall guard,** not a new system: over the belt
+  (`margin_m` round the wrecks) the pull back is off; under `clouds_y`, or out
+  of every hull `fall_m` under the lowest pad, you wake in the bay as off a
+  platform world's edge, the screen fading over the last `fade_m`.
+- **Crates keep the desert's rule:** opened once, they stay open. A crate may
+  carry its own `prizes`, so the deeper ones pay better.
+

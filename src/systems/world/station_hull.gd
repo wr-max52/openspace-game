@@ -65,6 +65,7 @@ var bay: Dictionary = {}           ## { xf (x out to the mouth), c, dir, r, mout
 var parts: Array = []
 var doors: Array = []              ## { tower, floor (index), xf, size }: the shaft's doors, opened by SpaceStation
 var hatches: Array = []            ## { tunnel, xf, size }: the shield in each tunnel's roof (you pass, the air does not)
+var drop_shield: Dictionary = {}   ## issue #317: { xf, size }: the shield over the belt's drop hatch, as those
 ## The shields in every floor's ceiling over the walkway (the config's "floor_hatch"),
 ## the tunnels' hatches in the floors' roofs: { tower, floor (index), a, xf, size }
 ## (xf: x out from the tower's middle, y up; SpaceStation draws them, no collider).
@@ -393,6 +394,16 @@ static func add_to_ground(ground: WorldGround, lm: Dictionary) -> void:
 			"", false, xf * (p.xf as Transform3D))
 		ground.boxes[-1]["station_frame"] = xf
 	sp.add_gravity_zone(xf, h.gravity_box())
+	# Issue #317: the wrecks adrift in the belt under it (its "belt" block), each with
+	# the station's own up round it (out past the giant's flat top the ball's up leans
+	# a long way). Left for later like the ground's own wrecks on a no-fade handoff.
+	for w in BeltWrecks.layout(h):
+		sp.add_gravity_zone(xf * BeltWrecks.zone_frame(w), BeltWrecks.zone_box(w))
+	for wl in BeltWrecks.landmarks(h, xf):
+		if ground.defer_kinds.has("wreck"):
+			ground.deferred.append(wl)
+		else:
+			StarcruiserWreck.add_to_ground(ground, wl)
 
 
 ## A landmark's station frame from the ground's boxes, or identity when it is not there.
@@ -689,7 +700,10 @@ func dock_path(local: Vector3) -> Array:
 	var out: Array = []
 	if b.x < float(bay.r) + 40.0:
 		var mid := (top_y() + bottom_y()) * 0.5
-		var y := maxf(local.y, float(dc.get("over_y", 150.0))) if local.y >= mid else minf(local.y, float(dc.get("under_y", -110.0)))
+		# Issue #317: with wrecks hanging in the belt under it, never under the towers
+		# (the way under runs into them): over.
+		var over := local.y >= mid or not BeltWrecks.cfg_of(self).is_empty()
+		var y := maxf(local.y, float(dc.get("over_y", 150.0))) if over else minf(local.y, float(dc.get("under_y", -110.0)))
 		out.append(Vector3(local.x, y, local.z))
 		var o := bx * Vector3(off, 0.0, lp.y)
 		out.append(Vector3(o.x, y, o.z))
@@ -811,6 +825,7 @@ func _build() -> void:
 	parts = []
 	doors = []
 	hatches = []
+	drop_shield = {}
 	floor_hatches = []
 	rooms = {}
 	tubes = []
@@ -913,8 +928,13 @@ func _floor(t: Dictionary, i: int) -> void:
 	# The plate, the gap's shield floor (the shaft's own floor at the bottom). Issue
 	# #603: the gap is not glass you stand on but a shield you drop through, floor
 	# after floor, out under the station from the lowest one (as the tunnels' hatches).
+	# Issue #317: the floor with the belt's drop hatch lays its plate after its rooms
+	# (_hatch_plate: the hatch is in one of them), round the hole.
+	var hatch_here := _hatch_floor(t, i)
 	var fh: Dictionary = gantry_hatch(t, i)
-	if fh.is_empty():
+	if hatch_here:
+		pass
+	elif fh.is_empty():
 		_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
 	else:
 		_gantry_hatch(t, pre, c, r, y, fh)
@@ -987,6 +1007,122 @@ func _floor(t: Dictionary, i: int) -> void:
 			"xf": Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, y + dh * 0.5, c.y) + dir * shaft_r) })
 	if bool(f.rooms):
 		_rooms(t, i, doors_at)
+	if hatch_here:
+		_hatch_plate(t, i)
+
+
+# ------------------------------------------------------------------ the drop hatch (issue #317)
+
+## Whether tower `t`'s floor `i` is the one the belt's drop hatch is in.
+func _hatch_floor(t: Dictionary, i: int) -> bool:
+	var hc: Dictionary = cfg.get("belt", {}).get("hatch", {})
+	return not hc.is_empty() and str(hc.get("tower", "")) == str(t.id) \
+		and str(hc.get("floor", "")) == str((t.floors as Array)[i].id) and bool((t.floors as Array)[i].rooms)
+
+
+## Issue #317: the drop hatch over the wrecks in the belt (the station's "belt"
+## block, "hatch"): a square hole in the floor of the first room of its floor whose
+## fill use is "room" (the engine deck's first cargo hold), halfway from the room's
+## door to its window. { tower, floor (index), room (index), a (the room's angle),
+## r (out from the tower's middle), at (the middle of the hole, on the floor's top,
+## station frame), size (its side), xf (the hole's frame: x out along the room) }, or
+## {} with no hatch. A shield closes it (drop_shield): you drop through, the air does not.
+func drop_hatch() -> Dictionary:
+	var hc: Dictionary = cfg.get("belt", {}).get("hatch", {})
+	if hc.is_empty():
+		return {}
+	var t := tower(str(hc.get("tower", "")))
+	if t.is_empty():
+		return {}
+	var fi := -1
+	for i in (t.floors as Array).size():
+		if str(t.floors[i].id) == str(hc.get("floor", "")):
+			fi = i
+	var list := rooms_of(str(t.id), str(hc.get("floor", "")))
+	if fi < 0 or list.is_empty():
+		return {}
+	var f: Dictionary = t.floors[fi]
+	var uses: Array = cfg.get("fill", {}).get("floors", {}).get(str(f.id), {}).get("rooms", [])
+	var k := 0
+	for j in list.size():
+		if not uses.is_empty() and str(uses[j % uses.size()]) == str(hc.get("room", "cargo")):
+			k = j
+			break
+	var a := float(list[k].a)
+	var r := (gap_r + walk + 0.4 + float(f.r) - WALL) * 0.5
+	var c: Vector2 = t.c
+	var dir := Vector3(cos(a), 0, sin(a))
+	var at := Vector3(c.x, float(f.y), c.y) + dir * r
+	return { "tower": str(t.id), "floor": fi, "room": k, "a": a, "r": r, "at": at,
+		"size": float(hc.get("size", 4.0)), "xf": Transform3D(Basis(dir, UP, dir.cross(UP)), at) }
+
+
+## The plate of the hatch's floor: the ring with a wedge left open along the hatch's
+## room, and that wedge filled again round the hole (in from it, out from it and
+## either side), so the hole is the hatch's square and nothing more.
+func _hatch_plate(t: Dictionary, i: int) -> void:
+	var f: Dictionary = t.floors[i]
+	var c: Vector2 = t.c
+	var y := float(f.y)
+	var r := float(f.r)
+	var pre := "%s_%s" % [str(t.id), str(f.id)]
+	var h := drop_hatch()
+	if h.is_empty():
+		_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck")
+		return
+	var half := float(h.size) * 0.5
+	var hr := float(h.r)
+	var wedge := (half + 0.3) / (hr - half)        # its half angle: open past the hole's inner corners
+	_ring(pre + "_plate", c, gap_r, r, y - plate, y, "floor", "deck", [[float(h.a), wedge * (gap_r + r) * 0.5]])
+	var a := float(h.a)
+	var wide := 2.0 * r * tan(wedge) + 0.4
+	_radial(pre + "_plate_hatch_in", c, a, gap_r, hr - half, y - plate, y, 2.0 * (hr - half) * tan(wedge) + 0.2, "floor", "deck")
+	_radial(pre + "_plate_hatch_out", c, a, hr + half, r, y - plate, y, wide, "floor", "deck")
+	var side := (wide * 0.5 - half)
+	for s: float in [-1.0, 1.0]:
+		_radial(pre + "_plate_hatch_side_%d" % int(s), c, a, hr - half - 0.05, hr + half + 0.05, y - plate, y, side, "floor", "deck",
+			s * (half + side * 0.5))
+	# The shield across it (no collider: SpaceStation draws it, as the tunnels' roofs),
+	# and a glowing rim round the hole, on the plate's edge.
+	drop_shield = { "xf": (h.xf as Transform3D) * Transform3D(Basis.IDENTITY, Vector3(0, -plate * 0.5, 0)),
+		"size": Vector3(half * 2.0, 0.08, half * 2.0) }
+	var hx: Transform3D = h.xf
+	for s: float in [-1.0, 1.0]:
+		_add(pre + "_hatch_rim_x_%d" % int(s), hx * Transform3D(Basis.IDENTITY, Vector3(s * (half + 0.1), -plate * 0.5, 0)),
+			Vector3(0.2, plate + 0.04, half * 2.0 + 0.4), "decor", "glow")
+		_add(pre + "_hatch_rim_z_%d" % int(s), hx * Transform3D(Basis.IDENTITY, Vector3(0, -plate * 0.5, s * (half + 0.1))),
+			Vector3(half * 2.0, plate + 0.04, 0.2), "decor", "glow")
+
+
+## Under (or over) the station, seen from above: within `grow` metres of a tower's
+## widest floor or the bay (station frame; the tunnels between them are inside that).
+func under(local: Vector3, grow: float = 0.0) -> bool:
+	for t in towers:
+		var r := 0.0
+		for f in t.floors:
+			r = maxf(r, float(f.r))
+		var c: Vector2 = t.c
+		if Vector2(local.x - c.x, local.z - c.y).length() <= r + grow:
+			return true
+	if not bay.is_empty():
+		var bc: Vector2 = bay.c
+		if Vector2(local.x - bc.x, local.z - bc.y).length() <= float(bay.r) + float(bay.apron) + grow:
+			return true
+	for tn in tunnels:
+		var l := (tn.xf as Transform3D).affine_inverse() * local
+		if l.x >= -grow and l.x <= float(tn.length) + grow and absf(l.z) <= tunnel_w * 0.5 + grow:
+			return true
+	return false
+
+
+## Over the hatch's hole (station frame, the hole's footprint grown by `grow`).
+func over_hatch(local: Vector3, grow: float = 0.0) -> bool:
+	var h := drop_hatch()
+	if h.is_empty():
+		return false
+	var l := (h.xf as Transform3D).affine_inverse() * local
+	var half := float(h.size) * 0.5 + grow
+	return absf(l.x) <= half and absf(l.z) <= half
 
 
 ## Issue #838: a ladder up to the top floor's first ceiling hatch (the floor's
