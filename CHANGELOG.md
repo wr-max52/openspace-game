@@ -2,6 +2,20 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Sandstorms (2026-11-28)
+
+- **Now and then a sandstorm sweeps the whole planet.** The wind picks up over
+  about 50 seconds, the sun dims, the sky goes brown and you can see less and
+  less; it blows at full strength for about a minute, then dies down over 40
+  seconds. Wherever you are on the ground, you are in it.
+- The dust gets thick: faster grains, big rolling clouds of sand, and the
+  sheets of sand blowing over the ground turn bright and wide.
+- It is a ground thing: fly up and it falls away below you. Under the
+  cantina's roof you only see a little of it.
+- Only on the sand worlds (the home planet and the red deserts), never on snow,
+  water, lava, gas or rock.
+- **F11 > Game > Weather** starts one now (or ends it), and shows how far along it is.
+
 ## The race crews stop getting stuck on the rocks (2026-11-28)
 
 - **Every race crew drives one of three good tracks round their course**, a

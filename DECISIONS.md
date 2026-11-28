@@ -2,6 +2,43 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — Sandstorms lean on the light, fog and dust already there (issue #175)
+
+- **A storm is a number, 0..1, that three things lean on.** `Sandstorm`
+  (`src/systems/look/sandstorm.gd`) runs the clock (clear, building, full,
+  fading) and pushes how hard it is blowing to `LookEnvironment.set_storm`,
+  `DustWind.set_storm` and the sand shader's `drift_boost`. No new geometry,
+  no new pass, no new material (the storm's dust layers use the same
+  `StandardMaterial3D` and `ParticleProcessMaterial` settings as the clear
+  weather's, so nothing compiles on the first storm). Alternative: a volumetric
+  dust volume or a screen-space sand pass. Rejected: the issue asks for cheap,
+  and the fog already gives the brown-out.
+- **No sky radiance rebuild.** The sky shader's colours are left alone; the
+  storm browns the sky with `fog_sky_affect` and the fog colour, and the
+  ambient with `ambient_light_color` / `ambient_light_sky_contribution`.
+  Changing the sky material every frame would re-bake the radiance map each
+  time. Only sun, ambient, fog, volumetric density and the grade move, and only
+  when the storm moves by 0.002 (a few hundred writes a storm, none in clear weather).
+- **The storm leans on the time of day, it never replaces it.** `_apply_values`
+  keeps what the time of day set (`_air`) and re-applies the storm on top, so
+  the day clock or the F11 slider can move mid-storm. `AltitudeSky`'s thinned
+  fog goes through `set_air` for the same reason. The storm's colours are for
+  the golden sun (`ref_sun_energy`); a darker hour dims them, so a dusk storm
+  is not brighter than dusk.
+- **`drift_boost`, not `wind_strength`.** The sand's blowing sheets scroll with
+  `TIME * wind_strength`; ramping that would jump the scroll by `TIME` times the
+  change (hundreds of metres a second for a moment). `drift_boost` only scales
+  how bright and wide the sheets are.
+- **The storm's dust layers are made once, the first time a storm blows**, and
+  sit not emitting between storms, so clear weather costs what it always did.
+- **A ground thing.** The storm fades out between 120 m and 450 m up (the dust's
+  weather tier goes at 500 m) and to 15% under a roof (`town_demo.indoors`).
+- **The clock runs without the look** (`use_look = false` still has a storm and
+  its signal), so the native packs can hide from it later (#96) without needing
+  the renderer. `Sandstorm.state_now()` answers for anyone without the node.
+- Storms are not saved and not shared over LAN yet: each scene starts clear
+  with the first storm 5 to 12 minutes off, and a LAN guest runs their own.
+
 ## 2026-11-28 — Race tracks: lanes worked out from the rocks, picked at random (issue #853)
 
 - **NPC racers drive tracks, not straight at the gates.** On the Crooked Mile
