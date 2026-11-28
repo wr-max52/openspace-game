@@ -2,6 +2,17 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Name your ride (2026-11-28)
+
+- **Rename your ships and speeders in the Ledger** (I). Each one has its name in
+  a field: type a new one and press Enter, or press the dice for a fresh one.
+- **Speeders have names now,** generated like your ship's.
+- **Typed names go through the same filter** as generated ones: 4 to 32
+  characters, nothing rude, no franchise names, and nothing another thing in
+  the game already has. A refused name puts the old one back and says why.
+- **The new name is used everywhere,** on the HUD and the dash, in the call
+  toasts and in space, and it is saved.
+
 ## New game, new crew (2026-11-28)
 
 - **Each new game names its people and ships afresh.** Guards, locals, dancers,
