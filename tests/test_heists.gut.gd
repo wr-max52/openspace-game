@@ -148,9 +148,18 @@ func _story_heist(kill_all: bool) -> String:
 	var id := _rob(Heist.LOCALS_JOB)
 	assert_eq(id, Heist.STORY_FIRST, "the first story heist hits the broken ridge outpost")
 	if kill_all:
-		Territory.take(id)                    # what killing every trooper there does (RemnantOutposts)
+		# What killing every trooper there does during the heist (RemnantOutposts):
+		# noted, and nothing changes hands while the heist is on.
+		assert_true(Heist.note_cleared(id))
+		Territory.take(id)
+		assert_eq(Territory.owner(id), Territory.REMNANT, "still the Remnant's while the heist is on")
 	Heist.collect("fence")
 	assert_eq(Story.chapter(), "bounty", "paid at the fence: the bounty next")
+	if kill_all:
+		assert_eq(Territory.owner(id), Territory.REMNANT, "paid, but not handed over till you are well away")
+		assert_true(Heist.handover_due(id))
+		assert_true(Heist.hand_over(id), "well away: it changes hands")
+	assert_false(Heist.handover_due(id))
 	return id
 
 
@@ -172,3 +181,56 @@ func test_skipping_past_the_heist() -> void:
 	assert_eq(WorldState.credits - c0, int(Story.chapter_cfg("heist").skipped.credits), "its pay as credits")
 	assert_eq(Territory.held().size(), 0, "no outpost flipped")
 	assert_false(Heist.on())
+
+
+# ---- the outpost keeps its holder while the heist is on ----------------------------------
+
+func test_the_heists_outpost_keeps_its_holder_till_handed_over() -> void:
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB))
+	var id := Heist.target()
+	assert_true(Territory.frozen(id), "frozen while the heist is on")
+	Territory.take(id)
+	assert_eq(Territory.owner(id), Territory.REMNANT, "taking it does nothing during the heist")
+	assert_eq(Heist.wave_soldier(Territory.owner(id)), "yard_trooper", "the wave is the incumbent's")
+	assert_false(Heist.note_cleared("remnant_outpost_far" if id != "remnant_outpost_far" else "remnant_outpost_near"),
+		"only the heist's outpost is noted")
+	assert_true(Heist.note_cleared(id))
+	assert_true(Heist.holds(id))
+	assert_false(Heist.handover_due(id), "not while the heist is on")
+	assert_false(Heist.hand_over(id))
+	assert_true(Heist.give_up())
+	assert_false(Territory.frozen(id), "over: no longer frozen")
+	assert_eq(Territory.owner(id), Territory.REMNANT, "over, but still theirs till you are well away")
+	assert_true(Heist.holds(id), "it waits to change hands")
+	assert_true(Heist.handover_due(id))
+	assert_true(Heist.hand_over(id))
+	assert_eq(Territory.owner(id), Territory.LOCALS, "handed over: the locals have it")
+	assert_false(Heist.holds(id))
+	assert_false(Heist.hand_over(id), "once")
+
+
+func test_a_handover_waits_through_the_next_heist() -> void:
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB))
+	var id := Heist.target()
+	Heist.note_cleared(id)
+	Heist.give_up()
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB), "a new heist taken before the old outpost changed hands")
+	assert_true(Heist.holds(id), "the old one still waits")
+	if Heist.target() != id:
+		assert_true(Heist.hand_over(id), "and goes once you are away")
+		assert_eq(Territory.owner(id), Territory.LOCALS)
+
+
+func test_the_general_heists_outpost_goes_back_to_the_remnant_after() -> void:
+	Territory.take("remnant_outpost_far")
+	WorldState.standing["imperial_remnant"] = 0
+	assert_true(WorldState.accept_job(Heist.REMNANT_JOB))
+	var id := Heist.target()
+	assert_eq(id, "remnant_outpost_far")
+	Territory.guards_lost(id)
+	assert_eq(Territory.owner(id), Territory.LOCALS, "the locals keep it during the heist")
+	Heist.note_cleared(id)
+	Heist.give_up()
+	assert_true(Heist.hand_over(id))
+	Territory.tick(0.1)                       # their guards lost: the Remnant retake it on the next tick
+	assert_eq(Territory.owner(id), Territory.REMNANT, "handed over: the Remnant have it back")
