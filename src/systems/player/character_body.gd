@@ -529,6 +529,18 @@ func apply_damage_from(amount: float, shooter: Node) -> void:
 	apply_damage(amount)
 
 
+## Downed outright, whatever the health: your ship destroyed with you aboard
+## (ShipPilot._defeat_aboard). Not in god mode or a grace period (false then).
+func down_now() -> bool:
+	if is_downed or invulnerable_left > 0.0:
+		return false
+	_since_hit = 0.0
+	health.apply_damage(health.hp)
+	is_downed = true
+	downed.emit()
+	return true
+
+
 ## Back on your feet (after being downed): full health, a short grace period.
 func revive(grace_s: float = 3.0) -> void:
 	health = HealthT.new(max_health)
