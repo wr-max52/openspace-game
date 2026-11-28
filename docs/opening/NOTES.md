@@ -1,5 +1,32 @@
 # Opening cutscene
 
+## v4: longer on the ship (about 105 s)
+
+> "This is getting a lot better. The shots of the ship are good but they need to last longer every one of them. Very First shot is good except the player ship should fly a bit slower and be closer to the camera when it enters the frame. Oda s line "wonder whose side theyll pick" should be a worried tone. Last shot holds on the ship for longer coming into orbit" (the user, on the v3 cut)
+
+- **Every push on the ship lasts longer:** the push takes `PUSH` (1.4 s), then the
+  camera holds on the ship, following it, the lens creeping in a little to the cut
+  (`TAIL` 2.4 to 3.8 s, the pit's 5 s). Shot 4, his view of the ship, is a second
+  longer too. Each hold has the ship's engine under it, far off.
+- **Shot 1:** the ship enters 9 m off the lens instead of 24, and flies at a bit
+  over half its old speed.
+- **The last shot** holds on the ship for 5 s, its track slowed to match.
+- **Oda's "Wonder whose side they'll pick."** is worried now, not amused.
+- **New narration on the nomad:** "Some people were here long before there was any
+  war." Then over the barge, solemn: "The rich still throw parties like nothing
+  has changed." (the user: "On the nomad shot, it should say "some people were here
+  long before there was any war." Then solemnly "the rich still throw parties like
+  nothing has changed"")
+- **The cruiser shot** (8) is pulled far back and high, looking down on two
+  cruisers of the fleet against the lit planet, pushing slowly toward the near
+  one's bridge (the user: "The cruiser shot needs to be farther away and show 2").
+  The second is the same hull, copied for the shot.
+- **Shot 1's ship** now enters at the lower right a few metres off the lens and
+  glides away into the frame, picking up speed as it dives (eased along its track).
+- **Every zoom closes evenly** (in zoom, not degrees), so the end of a push no
+  longer snaps.
+- The cut runs about 105 s, past the old 90 s cap, because of the holds.
+
 ## v3: Oda tells it, with sound (about 90 s)
 
 > "The voiceover needs to be Oda. Don't "call themselves" the remnant say rather "they are hardly even a remnant of what they once were, but still have a hold". Need dialogue for the shots and sound fx. Each shot needs to pan a bit slower and be more patient. It can be 90 seconds max. The zoom in on the ship after each shot of just waiting still while the ship is in the background" (the user, on the v2 cut)
@@ -29,12 +56,12 @@
 |---|---|---|
 | 1 | Space, one move: stars, the tilt onto the lit planet and the Remnant cruiser; the ship streaks past and dives; push in on it. | "For fifty years, the Hegemony ruled this world." / "Then its heart gave out, and the whole thing came apart." |
 | 2 | Under the buried star cruiser wreck, craning up as the ship goes over; push in on it. | "Their great ships came down like rain. Nobody ever cleaned them up." |
-| 3 | The nomad walks toward us, stops, looks up; the camera tilts with him. | |
+| 3 | The nomad walks toward us, stops, looks up; the camera tilts with him. | "Some people were here long before there was any war." |
 | 4 | His view: the long-lens push on the ship. | |
-| 5 | The party barge on the dunes, its music carrying; push in on the ship. | "The rich still throw their parties out on the dunes." |
+| 5 | The party barge on the dunes, its music carrying; push in on the ship. | "The rich still throw parties like nothing has changed." (solemn) |
 | 6 | Wide on the Remnant outpost, in to the gate; the trooper turns a local back, then shoots him; push in on the ship. | "What's left of their army still holds the desert." / Trooper: "Halt! Back in the dirt, sand rat." |
 | 7 | The Basin Run past the beast's head; the seeker lands on "home"; push in on the ship. | "Out in the basin, folk race for coin. Not all of them make it home." |
-| 8 | Over the cruiser's hull to the bridge tower. | "They are hardly even a remnant of what they once were. But they still have a hold." |
+| 8 | High and far off, looking down on two cruisers over the planet; a slow push toward the near one's bridge. | "They are hardly even a remnant of what they once were. But they still have a hold." |
 | 9 | The holo of the planet, pulling back to the general. | |
 | 10 | Close on the general; the guard reports; he turns to camera. | Guard: "Sir, a ship has just entered orbit. They are landing at the port." / General: "And who do we have here?" |
 | 11 | On the counter: Oda sets the drink down. | |

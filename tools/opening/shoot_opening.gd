@@ -20,15 +20,19 @@ const FONT := "res://assets/fonts/AnonymousPro-Bold.ttf"
 
 ## Each shot's action is authored in its own time (u, the v2 timings); TS slows it
 ## down (camera, ship, walkers, the race all together) and TAIL adds a last push in
-## on the ship after the action. A shot runs BASE * TS + TAIL seconds.
-const BASE := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 2.5, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
+## on the ship after the action (PUSH seconds), then holds on it, following it, for
+## the rest of the tail. A shot runs BASE * TS + TAIL seconds.
+const BASE := { 1: 10.0, 2: 4.0, 3: 4.0, 4: 3.4, 5: 3.0, 6: 5.0, 7: 6.0, 8: 4.0, 9: 3.0,
 	10: 6.0, 11: 1.0, 12: 3.0, 13: 2.5, 14: 2.0, 15: 2.0, 16: 4.5 }
 const TS := { 1: 1.0, 2: 1.3, 3: 1.15, 4: 1.4, 5: 1.25, 6: 1.35, 7: 1.2, 8: 1.5, 9: 1.1,
 	10: 1.3, 11: 1.5, 12: 1.2, 13: 1.3, 14: 1.35, 15: 1.35, 16: 1.25 }
-const TAIL := { 1: 1.6, 2: 1.2, 5: 1.1, 6: 1.1, 7: 0.9, 13: 1.2, 15: 1.0, 16: 1.4 }
+const TAIL := { 1: 3.8, 2: 2.6, 5: 2.5, 6: 2.5, 7: 2.4, 13: 2.5, 15: 2.4, 16: 5.0 }
+const PUSH := 1.4
+## Shots whose push takes longer than PUSH (the long lens in space).
+const PUSH_AT := { 1: 2.4 }
 ## The spoken lines (Oda's voiceover and the dialogue), shown as subtitles timed to
 ## the recorded clips' speech (voice.py writes vo/spans.json).
-const PUSH_MIN := { 1: 0.12 }
+const PUSH_MIN := { 1: 0.045 }
 const LINES := "res://tools/opening/lines.json"
 const SPANS := "res://test_results/cine2/vo/spans.json"
 
@@ -349,6 +353,9 @@ func _fly_ship(t: float) -> void:
 	var t0: float = v.get("ship_t0", 0.0)
 	var t1: float = v.get("ship_t1", secs)
 	var k := (t - t0) / (t1 - t0)
+	if v.has("ship_ease") and k > 0.0:
+		# Gliding in slow past the lens, then gathering speed down the dive.
+		k = v.ship_ease * k + (1.0 - v.ship_ease) * k * k
 	var a: Vector3 = v.ship_a
 	var b: Vector3 = v.ship_b
 	var at := a.lerp(b, k)
@@ -458,11 +465,14 @@ func _setup_space() -> void:
 	keys = [[0.0, eye, stars, 44.0], [0.9, eye, stars, 44.0], [4.6, eye.lerp(eye2, 0.3), aim, 42.0], [10.0, eye2, aim, 40.0]]
 	v.space = true
 	_take_ship()
-	# From behind our right shoulder, past us, over the cruiser, down at the planet.
-	v.ship_a = _rel(eye, aim, uc, 24.0, -5.0, -80.0)
-	v.ship_b = C + (c - C).normalized() * 1400.0 + side * 160.0
+	# From just behind our right shoulder (where the lens is when it comes), close
+	# past us and away into the frame, over the cruiser and down at the planet.
+	var at_pass: Vector3 = eye.lerp(eye2, 0.32)
+	v.ship_a = _rel(at_pass, aim, uc, 8.0, -2.5, -15.0)
+	v.ship_b = _rel(at_pass, aim, uc, 60.0, -150.0, 2200.0)
 	v.ship_t0 = 4.9
-	v.ship_t1 = 10.6
+	v.ship_t1 = 20.0
+	v.ship_ease = 0.6
 	say("cruiser %s eye %s dist %.0f" % [C, eye, eye.distance_to(C)])
 
 
@@ -572,7 +582,7 @@ func _setup_nomad() -> void:
 		v.ship_a = look_pt + sd * -40.0
 		v.ship_b = look_pt + sd * 70.0 - u * 55.0 + (look_pt - head).normalized() * 60.0
 		v.ship_t0 = 0.0
-		v.ship_t1 = 2.5
+		v.ship_t1 = 3.4
 		v.head = head
 		keys = [[0.0, head, look_pt, 24.0]]
 	say("camp %s nearest outpost %s" % [camp, _nearest_outpost(camp)])
@@ -696,8 +706,16 @@ func _setup_cruiser() -> void:
 		_sunlit_cruiser()
 		var F: Transform3D = v.cr_frame
 		up = F.basis.y.normalized()
-		keys = [[0.0, F * Vector3(270, 230, -330), F * Vector3(0, 40, 150), 44.0],
-			[4.0, F * Vector3(175, 160, 40), F * Vector3(0, 58, 230), 40.0]]
+		# A second cruiser of the fleet, astern and above on the far side (the same
+		# hull, copied: only ever seen from out here).
+		var twin: Node3D = c._hull.duplicate()
+		c.add_child(twin)
+		twin.transform = F * Transform3D(Basis(Vector3.UP, deg_to_rad(-6.0)), Vector3(-620, 80, 640))
+		v.twin = twin
+		# High off their starboard side looking down, both against the lit planet; a
+		# slow push toward the near one's bridge tower.
+		keys = [[0.0, F * Vector3(900, 2600, -800), F * Vector3(-200, 0, 420), 44.0],
+			[4.0, F * Vector3(560, 1500, -260), F * Vector3(-170, 30, 430), 40.0]]
 		return
 	# The planet's warm light on him through the side window (a fill for the shot).
 	var fill := OmniLight3D.new()
@@ -750,10 +768,10 @@ func _setup_cantina() -> void:
 			# Outside, over the roofs as we leave: the ship coming down.
 			_take_ship(1.4)
 			var e1 := Vector3(-73.0, 2.4, 0.0)
-			v.ship_a = e1 + Vector3(-150.0, 200.0, -150.0)
-			v.ship_b = e1 + Vector3(-190.0, 165.0, 40.0)
+			v.ship_a = e1 + Vector3(-150.0, 205.0, -150.0)
+			v.ship_b = e1 + Vector3(-190.0, 195.0, 40.0)
 			v.ship_t0 = 0.0
-			v.ship_t1 = 3.0
+			v.ship_t1 = 4.4
 
 
 ## Shots 14 and 15: the general and two gate guards walk the main street toward
@@ -829,7 +847,7 @@ func _setup_pit() -> void:
 	v.ship_a = _rel(e0, tg0 + Vector3(4, 7, 0), Vector3.UP, 60.0, 120.0, 260.0)
 	v.ship_b = _rel(e0, tg0 + Vector3(4, 7, 0), Vector3.UP, 10.0, 75.0, 220.0)
 	v.ship_t0 = 1.5
-	v.ship_t1 = 5.5
+	v.ship_t1 = 7.5
 
 
 # ------------------------------------------------------------------ direction
@@ -1043,21 +1061,29 @@ func _find_holo() -> Node3D:
 
 # ------------------------------------------------------------------ cameras
 
-## The last TAIL seconds of a shot: the camera turns onto the ship and the lens
-## closes in until it fills about a third of the frame (still moving at the cut),
-## never tighter than PUSH_MIN of the shot's own lens (the far dive in space).
+## The last TAIL seconds of a shot: over PUSH seconds the camera turns onto the ship
+## and the lens closes in until it fills about a third of the frame, never tighter
+## than PUSH_MIN of the shot's own lens (the far dive in space); then it holds on
+## the ship, following it, the lens still creeping in a little to the cut.
 func _ship_push(t: float, eye: Vector3, tgt: Vector3, fov: float) -> Array:
 	var tail: float = TAIL.get(shot, 0.0)
 	if tail <= 0.0 or ship == null:
 		return [tgt, fov]
-	var k := _ease((t - (secs - tail)) / (tail * 1.1))
+	var into := t - (secs - tail)
+	var push: float = minf(PUSH_AT.get(shot, PUSH), tail)
+	var k := _ease(into / push)
 	if k <= 0.0:
 		return [tgt, fov]
+	var hold := maxf(tail - push, 0.01)
+	var creep := 1.0 - 0.12 * _ease((into - push) / hold)
 	var to := ship.global_position - eye
 	var dir := (tgt - eye).normalized().slerp(to.normalized(), k)
-	var want := clampf(rad_to_deg(2.0 * atan(float(v.get("ship_len", 12.0)) * 1.5 / to.length())), 2.5, fov)
+	var want := clampf(rad_to_deg(2.0 * atan(float(v.get("ship_len", 12.0)) * 1.5 / to.length())), 1.5, fov)
 	want = maxf(want, fov * float(PUSH_MIN.get(shot, 0.15)))
-	return [eye + dir * 10.0, lerpf(fov, want, k)]
+	# The lens closes evenly to the eye (in zoom, not degrees), so no snap at the end.
+	var z0 := log(tan(deg_to_rad(fov) * 0.5))
+	var z1 := log(tan(deg_to_rad(want * creep) * 0.5))
+	return [eye + dir * 10.0, rad_to_deg(2.0 * atan(exp(lerpf(z0, z1, k))))]
 
 
 func _place_camera(t: float) -> void:
@@ -1088,6 +1114,9 @@ func _place_camera(t: float) -> void:
 				fov = lerpf(24.0, 9.0, e)
 		var pushed := _ship_push(t, eye, tgt, fov)
 		_look(eye, pushed[0], up, pushed[1])
+		if OS.has_environment("CINE_SHIPLOG") and ship != null and fmod(t, 0.25) < 1.0 / 60.0:
+			say("t=%.2f ship local %s screen %s dist %.0f fov %.1f" % [t, cam.to_local(ship.global_position).snapped(Vector3.ONE * 0.1),
+				cam.unproject_position(ship.global_position).snapped(Vector2.ONE), cam.global_position.distance_to(ship.global_position), cam.fov])
 	if v.get("space", false):
 		_space_sky()
 	rcam.global_transform = cam.global_transform

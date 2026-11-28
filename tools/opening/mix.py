@@ -41,6 +41,12 @@ def shot_ts():
     return {int(k): float(v) for k, v in re.findall(r"(\d+):\s*([0-9.]+)", body)}
 
 
+def shot_tail():
+    src = open(os.path.join(ROOT, "tools", "opening", "shoot_opening.gd")).read()
+    body = re.search(r"const TAIL := \{([^}]*)\}", src).group(1)
+    return {int(k): float(v) for k, v in re.findall(r"(\d+):\s*([0-9.]+)", body)}
+
+
 def starts():
     """{shot: start second in the cut}, and the cut's length with the title card."""
     out, at = {}, 0.0
@@ -60,16 +66,17 @@ def seeker_hit(ts7):
         return 4.6
 
 
-def cues(hit):
+def cues(hit, tails):
     """[shot, at, file, gain, opts]: opts dur (looped if longer), fi/fo fades,
-    rate (pitch), lp (low-pass Hz)."""
+    rate (pitch), lp (low-pass Hz). A negative `at` counts back from the shot's end."""
     pass_by = {"dur": 3.6, "fi": 1.0, "fo": 1.8}
     far = {"dur": 2.4, "fi": 0.8, "fo": 1.0, "lp": 1400}
     return [
         # 1 space: the ship streaks past us, coughing
-        [1, 5.0, ENGINE, 0.55, dict(pass_by, dur=4.2, fo=2.6)],
+        [1, 4.9, ENGINE, 0.6, dict(pass_by, dur=5.6, fi=0.6, fo=3.4)],
         [1, 6.1, sfx("ship_hit"), 0.25, {}],
         [1, 7.4, sfx("ship_hit"), 0.15, {"lp": 2000}],
+        [1, 11.6, sfx("ship_hit"), 0.12, {"lp": 1800}],
         # 2 the wreck: it goes over
         [2, 0.6, ENGINE, 0.4, pass_by],
         [2, 2.4, sfx("ship_hit"), 0.15, {"lp": 2500}],
@@ -77,10 +84,10 @@ def cues(hit):
         [3, 0.0, kenney("walking"), 0.3, {"dur": 2.4, "fo": 0.4, "lp": 1800}],
         [3, 2.2, ENGINE, 0.22, dict(far, dur=2.4)],
         # 4 his view: the ship, far off and sputtering
-        [4, 0.0, ENGINE, 0.28, {"dur": 3.5, "fi": 0.4, "fo": 0.8, "lp": 2200}],
+        [4, 0.0, ENGINE, 0.28, {"dur": 4.76, "fi": 0.4, "fo": 0.8, "lp": 2200}],
         [4, 1.7, sfx("ship_hit"), 0.15, {"lp": 2000}],
         # 5 the barge: its party music carries, the ship goes over
-        [5, 0.0, BARGE, 0.2, {"dur": 4.85, "fi": 0.3, "fo": 0.5, "lp": 700, "skip": 40.0}],
+        [5, 0.0, BARGE, 0.2, {"dur": 6.2, "fi": 0.3, "fo": 0.5, "lp": 700, "skip": 40.0}],
         [5, 1.2, ENGINE, 0.3, pass_by],
         # 6 the outpost: one shot; the ship rumbles over as we find it
         [6, 6.14, kenney("blaster"), 0.6, {}],
@@ -104,14 +111,18 @@ def cues(hit):
         [13, 2.8, ENGINE, 0.3, dict(far, dur=1.7, fo=0.4)],
         # 14, 15 the general's walk
         [14, 0.0, kenney("walking"), 0.32, {"dur": 2.7, "fi": 0.2, "fo": 0.2}],
-        [15, 0.0, kenney("walking"), 0.24, {"dur": 3.7, "fo": 0.6}],
+        [15, 0.0, kenney("walking"), 0.24, {"dur": 4.4, "fo": 1.6}],
         [15, 2.4, ENGINE, 0.3, dict(far, dur=1.3, fo=0.3)],
         # 16 the pit: T-89's torch, his chirps, the ship roaring in
         [16, 0.0, sfx("droid_fix"), 0.35, {"dur": 1.75, "fo": 0.3}],
         [16, 0.0, kenney("walking"), 0.18, {"dur": 3.0, "fi": 0.5, "fo": 0.6}],
         [16, 2.0, sfx("droid_beep_2"), 0.3, {}],
         [16, 3.3, sfx("droid_beep_1"), 0.3, {"rate": 0.9}],
-        [16, 3.0, ENGINE, 0.55, {"dur": 5.5, "fi": 3.0, "fo": 1.2}],
+        [16, 3.0, ENGINE, 0.55, {"dur": 10.6, "fi": 3.0, "fo": 2.0}],
+    ] + [
+        # Every hold on the ship: its engine, far off and sputtering, under the push.
+        [s, -tl, ENGINE, 0.2, {"dur": tl, "fi": 0.8, "fo": 1.0, "lp": 1600}]
+        for s, tl in tails.items() if s != 16
     ]
 
 
@@ -171,7 +182,9 @@ def main():
         filt.append("[%d:a]%s[vo%d]" % (k, ",".join(f), k))
         vo_tags.append("[vo%d]" % k)
 
-    for shot, at, path, gain, opts in cues(seeker_hit(ts.get(7, 1.0))):
+    for shot, at, path, gain, opts in cues(seeker_hit(ts.get(7, 1.0)), shot_tail()):
+        if at < 0:
+            at += (st[shot + 1] if shot < 16 else total_shots) - st[shot]
         L = length(path)
         k = inp(path, loop=opts.get("dur", L) + opts.get("skip", 0.0) > L)
         f = chain(path, L, opts)
