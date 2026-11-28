@@ -1,0 +1,6 @@
+{
+  "id": "tide_local_resident",
+  "base": "local_resident",
+  "archetype": "tide_local",
+  "note": "Issue #879: local_resident on the tide world (port_tide), in the tide locals' look (content/look/characters.json 'tide_local'). Everything else is local_resident's ('base')."
+}

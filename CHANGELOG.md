@@ -26,6 +26,17 @@ Plain English, newest on top. One entry per milestone.
   a room's corner. Now every move goes out of the door and round the
   walkway, and steps round tables and bunks in the way.
 
+## A water world in the red system (2026-11-28)
+
+- **The tide world**, the red system's second planet: a sea all the way round,
+  half a minute's flight from the red world.
+- **The town sits low on the water**, a packed, rusty favela on a deck, with a
+  speeder pad out front and a free speeder waiting on it.
+- **Speeders are the way about.** They ride the sea, lifting a little on the
+  swell. Ships can set down on the water too.
+- **Walk into the sea and you drown**, and wake by the landing bay.
+- **Five Remnant outposts on pontoons** out on the sea, a new front to take.
+
 ## The Remnant on the ring station's top floor (2026-11-28)
 
 - **A Remnant general stands on the bridge's command dais** by the great window,

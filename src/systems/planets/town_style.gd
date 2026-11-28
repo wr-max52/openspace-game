@@ -112,6 +112,8 @@ func _apply_words(text: String, depth: int) -> void:
 
 
 static func _color(name: String) -> Color:
+	if name.begins_with("#"):
+		return Color(name)              # issue #879: a preset's palette may give hex colours
 	var c: Dictionary = data().get("colors", {})
 	return Color(str(c.get(name, "#808080")))
 

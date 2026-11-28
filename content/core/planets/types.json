@@ -29,7 +29,8 @@
       "bands": [
         { "from": "grit_station", "to": "port_desert", "seconds": [20.0, 30.0] },
         { "from": "cinder_station", "to": "ringed_giant", "seconds": [20.0, 30.0] },
-        { "from": "port_desert", "to": "ringed_giant", "seconds": [50.0, 70.0] }
+        { "from": "port_desert", "to": "ringed_giant", "seconds": [50.0, 70.0] },
+        { "from": "port_red", "to": "port_tide", "seconds": [30.0, 50.0] }
       ]
     },
     "hysteresis": 300.0,
@@ -120,6 +121,24 @@
       "body": { "radius": 6500.0, "color": "#2a6a90", "dark": "#0b2235" },
       "arrival": { "altitude": 2200.0, "distance": 2800.0 },
       "fall_text": "You went over the edge and into the sea."
+    },
+    "water_ball": {
+      "town_naming": "town_float",
+      "label": "ocean world",
+      "ground": "ball",
+      "deck": true,
+      "default_style": "favela_rust",
+      "enclosure_height": 0.0,
+      "surface": { "kind": "water", "radius": 4500.0, "depth": 2.5, "flat_radius": 200.0, "up_blend": 300.0, "color": "#1d4f6e", "deep": "#0b2235", "foam": "#d8e8ec", "pad": "#7a4a2e", "roughness": 0.14, "metallic": 0.1,
+                   "swell_m": 0.35, "swell_s": 7.0, "drown_m": 0.6,
+                   "note": "Issue #879: the water type as a real ball (src/systems/planets/ocean_sphere.gd), as gas_ball is the gas type's: a round sea you fly round and ride. radius is the deck's level; the sea is depth metres under it all the way round, a smooth ball the speeders' hover model rides (WorldGround.height_above) and ships can set down on. The town sits low on it on a deck (PlatformWorld) with no glass (enclosure_height 0). Anything level a planet asks for (its outposts' pads, the speeder pad out front) stands up out of the sea as a rusted pontoon (pad colour, sea.gdshader). A person on foot within drown_m of the water drowns: the type's fall line, and you wake by the landing bay. swell_m and swell_s: the gentle roll a speeder feels (metres, seconds); 0 turns it off." },
+      "sky": { "sky": { "zenith": "#3f78b0", "horizon": "#b8d8e8", "ground": "#2a5a78", "cloud_cover": 0.5 },
+               "fog": { "color": "#a8c8dc", "density": 0.00006 } },
+      "atmosphere": { "upper_start": 300.0, "cloud_deck": 1250.0, "sky_black_at": 3000.0, "space_altitude": 3500.0 },
+      "space": { "handoff": 6000.0, "note": "As the red world's: within handoff metres of the sea its own scene flies you, with no fade." },
+      "body": { "radius": 4500.0, "color": "#2a6a90", "dark": "#0b2235" },
+      "arrival": { "altitude": 900.0, "distance": 1200.0 },
+      "fall_text": "You went into the sea and the swell took you under."
     },
     "lava": {
       "town_naming": "town_float",

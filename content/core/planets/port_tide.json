@@ -1,0 +1,186 @@
+{
+  "id": "port_tide",
+  "note": "Issue #879: the red system's second world, a round sea. A water_ball (the water type made a real ball, src/systems/planets/ocean_sphere.gd) 4.5 km in radius, in the red system near its sun. No land: the town (a generated town on a deck sitting low on the water, packed and stacked like the station favela and rusted: town_kit, style favela_rust) has a speeder pad out front (speeder_pad: a pontoon standing out of the sea at the deck's level, with a ramp down to the water all round, the gate's loaner speeder and any you own parked on it), and speeders are the way about. Five Remnant outposts on pontoons out on the sea are a Territory front ('tide'), each a speeder ride or a short hop away. Walk off the deck or the pad into the water and you drown, and wake by the landing bay. See docs/planets/PLANETS.md.",
+  "name": "",
+  "type": "water_ball",
+  "system": "red_reach",
+  "town_size": 40,
+  "seed": 879,
+  "near": "red_reach_sun",
+  "at": [
+    -38000,
+    9000,
+    -20000
+  ],
+  "style": "favela_rust",
+  "features": [
+    "speeders"
+  ],
+  "encounter": "",
+  "replaces_sky_painting": true,
+  "town_kit": {
+    "note": "Issue #879: the tide town packed and stacked like the station favela: the shared kit (content/core/planets/town_kit.json) with small lots and lanes, mostly stepped and block huts built tall (shacks on shacks), and squat tower blocks. Only this planet's town.",
+    "lot": 9.0,
+    "lane": 3.0,
+    "tower_share": 0.45,
+    "huts": [
+      {
+        "look": "hut_stepped",
+        "w": [
+          5,
+          7
+        ],
+        "d": [
+          4,
+          6
+        ],
+        "h": [
+          6.0,
+          8.5
+        ],
+        "weight": 5
+      },
+      {
+        "look": "hut_block",
+        "w": [
+          4,
+          6
+        ],
+        "d": [
+          4,
+          5
+        ],
+        "h": [
+          5.0,
+          7.5
+        ],
+        "weight": 4
+      },
+      {
+        "look": "hut_long",
+        "w": [
+          6,
+          8
+        ],
+        "d": [
+          4,
+          5
+        ],
+        "h": [
+          3.5,
+          4.5
+        ],
+        "weight": 2
+      }
+    ],
+    "towers": [
+      {
+        "look": "tower_block",
+        "w": [
+          5,
+          7
+        ],
+        "d": [
+          5,
+          7
+        ],
+        "h": [
+          9.0,
+          13.0
+        ],
+        "weight": 4
+      },
+      {
+        "look": "tower_wide",
+        "w": [
+          7,
+          9
+        ],
+        "d": [
+          6,
+          7
+        ],
+        "h": [
+          8.0,
+          10.0
+        ],
+        "weight": 2
+      }
+    ]
+  },
+  "locals": {
+    "note": "Issue #879: the town's people in the tide locals' look (content/look/characters.json 'tide_local').",
+    "local_resident": "tide_local_resident",
+    "local_merchant": "tide_local_merchant",
+    "local_patron": "tide_local_patron"
+  },
+  "speeder_pad": {
+    "note": "Issue #879: the speeder pad out front (PlanetTerrain.speeder_pad_site): a pontoon at the deck's level just past the deck's edge in front of the gate, length metres out from the deck and width across, its ramp ramp_m down to the sea all round. The gate's speeders ('vehicle' markers moved out here) and any you own (speeder_spot markers) park on it. loaner: a speeder waits there even when you own none.",
+    "length": 34.0,
+    "width": 40.0,
+    "ramp_m": 16.0,
+    "loaner": true
+  },
+  "landmarks": [
+    {
+      "id": "remnant_outpost_tide_spit",
+      "kind": "location",
+      "location": "remnant_outpost_tide_spit",
+      "at": [
+        1220,
+        0,
+        0
+      ],
+      "yaw_deg": 180,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_tide_reef",
+      "kind": "location",
+      "location": "remnant_outpost_tide_reef",
+      "at": [
+        700,
+        0,
+        -1500
+      ],
+      "yaw_deg": 120,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_tide_swell",
+      "kind": "location",
+      "location": "remnant_outpost_tide_swell",
+      "at": [
+        -1800,
+        0,
+        1400
+      ],
+      "yaw_deg": 300,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_tide_drift",
+      "kind": "location",
+      "location": "remnant_outpost_tide_drift",
+      "at": [
+        -2600,
+        0,
+        -1900
+      ],
+      "yaw_deg": 40,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_tide_far",
+      "kind": "location",
+      "location": "remnant_outpost_tide_far",
+      "at": [
+        3300,
+        0,
+        2600
+      ],
+      "yaw_deg": 220,
+      "clear": 60
+    }
+  ]
+}

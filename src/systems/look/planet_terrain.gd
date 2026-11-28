@@ -132,6 +132,10 @@ const ROCK_SHADER := preload("res://src/systems/look/shaders/moon_rock.gdshader"
 ## (gas_giant.gdshader), { color_a, color_b, bands, ring_normal, haze }.
 var gas_look := {}
 const GAS_SHADER := preload("res://src/systems/look/shaders/gas_giant.gdshader")
+## Issue #879: a water ball's sea (OceanSphere): the type's surface block (its
+## colours, gloss, the pontoons' pad colour), drawn with sea.gdshader. {} = no sea.
+var sea_look := {}
+const SEA_SHADER := preload("res://src/systems/look/shaders/sea.gdshader")
 
 
 ## Issue #272: lava in the rock's low ground (lava_rock.gdshader), when the ball's
@@ -155,6 +159,19 @@ func _ground_material(center: Vector3) -> ShaderMaterial:
 			if k != "haze":
 				m.set_shader_parameter(k, gas_look[k])
 		SpaceTravel.set_gas_fog(m, gas_look.get("haze", {}), sphere.radius + sphere.elevation(Vector3.UP))
+		return m
+	if not sea_look.is_empty():
+		m.shader = SEA_SHADER              # issue #879: the round sea and its pontoons
+		for k in ["color", "deep", "foam", "pad"]:
+			if sea_look.has(k):
+				m.set_shader_parameter(k, Color(str(sea_look[k])))
+		for k in ["roughness", "metallic", "swell_s"]:
+			if sea_look.has(k):
+				m.set_shader_parameter(k, float(sea_look[k]))
+		m.set_shader_parameter("noise_tex", LookEnvironment.make_noise_texture(512, 7, 0.01))
+		m.set_shader_parameter("planet_center", center)
+		m.set_shader_parameter("planet_radius", sphere.radius)
+		m.set_shader_parameter("sea_radius", sphere.radius + (sphere as OceanSphere).sea_level())
 		return m
 	var lava_sphere: AsteroidSphere = sphere as AsteroidSphere if sphere is AsteroidSphere and (sphere as AsteroidSphere).has_lava() else null
 	m.shader = LAVA_SHADER if lava_sphere != null else (SAND_SHADER if rock_look.is_empty() else ROCK_SHADER)
@@ -212,6 +229,10 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 		# The ringed giant: smooth cloud tops all the way round, the town on a deck above.
 		pt.use_sphere(GasSphere.new(r, surf))
 		pt.gas_look = gas_look_for(planet)
+	elif str(planet.get("ground", "")) == "ball" and str(surf.get("kind", "")) == "water":
+		# Issue #879: the tide world: a round sea, the town low on it on a deck.
+		pt.use_sphere(OceanSphere.new(r, surf))
+		pt.sea_look = surf
 	elif str(planet.get("ground", "")) == "ball":
 		# Issue #99: the asteroid: cratered rock all the way round.
 		pt.use_sphere(AsteroidSphere.new(r, surf))
@@ -227,11 +248,29 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 	# every arrival's switch frame before).
 	if not _flat_kept.has(pt.cache_key):
 		_flat_kept[pt.cache_key] = droid_flat_sites(planet, pt.sphere) + camp_flat_sites(planet, pt.sphere) \
-			+ outpost_flat_sites(planet, pt.sphere) \
+			+ outpost_flat_sites(planet, pt.sphere) + speeder_pad_site(planet, pt.sphere) \
 			+ DesertLandforms.mountain_flat_sites(planet, pt.sphere) \
 			+ RaceCourse.flat_sites(str(planet.get("world", {}).get("id", "")), pt.sphere)
 	pt.configure_flat_sites(_flat_kept[pt.cache_key])       # (it takes a copy)
 	return pt
+
+
+## Issue #879: the speeder pad out front of a deck town on the sea (the town's
+## speeder_pad, PlanetGen.add_speeder_pad): level with the deck (a plane square to
+## the port's up), its ramp running down to the water all round.
+static func speeder_pad_site(planet: Dictionary, _sp: PlanetSphere) -> Array:
+	var pad = planet.get("town", {}).get("speeder_pad", null)
+	if not (pad is Dictionary):
+		return []
+	var r: Rect2 = pad.rect
+	var c := r.get_center()
+	return [{
+		"rect": r,
+		"y": float(pad.get("y", 0.0)),
+		"plane_c": Vector3(c.x, float(pad.get("y", 0.0)), c.y),
+		"plane_u": Vector3.UP,
+		"blend": float(pad.get("ramp", 16.0)),
+	}]
 
 
 ## Keep the droid relay yards from inheriting dune slopes (the home planet only).
@@ -297,6 +336,12 @@ const OUTPOST_PAD_BLEND := 12.0
 ## stand on it too) and at least LAVA_PAD_LIFT over the lava.
 const LAVA_PAD_HALF := 26.0
 const LAVA_PAD_LIFT := 1.5
+## Issue #879: on a round sea (OceanSphere) an outpost's pad is a pontoon standing
+## SEA_PAD_LIFT over the water, at least SEA_PAD_HALF metres either side, with a
+## SEA_PAD_BLEND-metre ramp all round so a speeder rides straight up onto it.
+const SEA_PAD_HALF := 26.0
+const SEA_PAD_LIFT := 1.5
+const SEA_PAD_BLEND := 14.0
 
 static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 	var sites: Array = []                # the port's outposts and ranches, the racers' outpost, and the moons' (remnant_outpost_moon_*, _lava_*)
@@ -320,6 +365,10 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		var lava := sp is AsteroidSphere and (sp as AsteroidSphere).has_lava()
 		if lava:
 			half = maxf(half, LAVA_PAD_HALF)     # the lava moon's outposts: a raised basalt mound
+		var sea := sp is OceanSphere
+		if sea:
+			half = maxf(half, SEA_PAD_HALF)      # issue #879: the tide world's: a pontoon on the sea
+			blend = maxf(blend, SEA_PAD_BLEND)
 		var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
 		if sp.map_stretch(Vector2(at.x, at.z)) > RaceCourse.FAR_STRETCH:
 			# Far round the ball the map is stretched across: the yard's pad is a
@@ -334,6 +383,8 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 			var fy := fsum / 9.0
 			if lava:
 				fy = maxf(fy, (sp as AsteroidSphere).lava_level() + LAVA_PAD_LIFT)
+			if sea:
+				fy = (sp as OceanSphere).sea_level() + SEA_PAD_LIFT
 			var fmid := sp.center + (base - sp.center).normalized() * (sp.radius + fy)
 			sites.append(sp.framed_site(base, xf.basis.x, Vector2(half, half), blend,
 				{ "y": fy, "plane_c": fmid, "plane_u": sp.up_at(fmid) }))
@@ -345,6 +396,8 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 		var y := sum / 9.0
 		if lava:
 			y = maxf(y, (sp as AsteroidSphere).lava_level() + LAVA_PAD_LIFT)
+		if sea:
+			y = (sp as OceanSphere).sea_level() + SEA_PAD_LIFT
 		var mid := sp.center + sp.map_dir(at.x, at.z) * (sp.radius + y)
 		sites.append({
 			"rect": Rect2(at.x - half, at.z - half, half * 2.0, half * 2.0),
