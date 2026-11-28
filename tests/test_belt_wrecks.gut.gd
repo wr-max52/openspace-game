@@ -243,7 +243,8 @@ func test_a_crate_on_every_bridge_platform_the_deepest_the_best() -> void:
 	var g := _ground()
 	var content = CoreScript.new()
 	content.load_from()
-	var crates: Array = content.get_site_crates("ringed_giant_town")
+	# The wrecks' crates (the skimmer outposts' are on their gantries: "station", #885).
+	var crates: Array = content.get_site_crates("ringed_giant_town").filter(func(c): return c.has("site"))
 	assert_eq(crates.map(func(c): return str(c.site)), WRECKS)
 	var values := []
 	for c in crates:
@@ -272,7 +273,7 @@ func test_crates_open_once_and_pay_their_own_prize() -> void:
 	root.add_child(gear)
 	gear.set_physics_process(false)
 	gear._build_site_crates()
-	var crates: Array = gear.pickups.filter(func(n): return bool(n.pickup.get("crate", false)))
+	var crates: Array = gear.pickups.filter(func(n): return bool(n.pickup.get("crate", false)) and n.pickup.has("site"))
 	assert_eq(crates.size(), 3, "a crate on each belt wreck")
 	var loot: Array = gear.pickups.filter(func(n): return str(n.pickup.get("site", "")) in WRECKS and not bool(n.pickup.get("crate", false)))
 	assert_gt(loot.size(), 20, "stray loot on all three")

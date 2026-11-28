@@ -503,6 +503,8 @@ func _repaint(owner: String) -> void:
 	var fill = station.fill
 	if fill != null and fill.mats != null:
 		fill.mats.repaint(owner, group)
+	if station != null and station.has_method("repaint_ships"):
+		station.repaint_ships(owner)         # issue #885: the pads' ships too
 
 
 # ------------------------------------------------------------------ the holo map
