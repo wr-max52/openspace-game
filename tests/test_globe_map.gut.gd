@@ -192,6 +192,11 @@ func test_ringed_giant_pins_its_ring_station() -> void:
 	if stations.is_empty():
 		return
 	assert_eq(str(stations[0].view), "station:ringed_giant", "clicking it opens the station's side view")
+	assert_eq(str(stations[0].get("owner", "")), Territory.REMNANT, "the station's pin says who holds its deck")
+	Territory.take_station("station_orbital_station", "Test Station")
+	var taken: Array = GlobeMap.pins(giant.world, giant).filter(func(p): return str(p.kind) == "station")
+	assert_eq(str(taken[0].owner), Territory.LOCALS, "taken, the station's pin says the locals")
+	assert_ne(str(taken[0].status), "", "with the map's line under its name")
 	assert_ne(str(stations[0].label), "", "it has a name")
 	var st: Dictionary = {}
 	for s in GlobeMap.system_stations():

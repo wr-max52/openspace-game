@@ -182,10 +182,20 @@ func test_its_holo_pins_the_skimmer_outposts_on_the_giant() -> void:
 	var station: Label3D = h.places["station_orbital_station"].label
 	assert_string_contains(station.text, "Outposts: 3 Remnant, 0 Locals")
 	assert_string_contains(station.text, "Barracks: Remnant")
-	WorldState.control["station_skimmer_east"] = { "owner": Territory.LOCALS }
+	var east: Label3D = h.places["station_skimmer_east"].label
+	assert_not_null(east, "each outpost named")
+	assert_string_contains(east.text, "Remnant")
+	Territory.take("station_skimmer_east")
 	h.refresh_owners()
 	assert_string_contains(station.text, "Outposts: 2 Remnant, 1 Locals")
 	assert_eq(h.owner_color("station_skimmer_east"), Color(str(h.spec.owner_colors.locals)))
+	assert_eq(east.text.get_slice("\n", 1), str(GlobeMap.owner_status("station_skimmer_east").status),
+		"the F11 map's own line: held by the locals, and the time left")
+	assert_string_contains(east.text, "Held by the locals")
+	var before := east.text
+	Territory.tick(90.0)
+	h._process(float(h.spec.get("refresh_s", 0.5)) + 0.01)
+	assert_ne(east.text, before, "its clock runs down live")
 
 
 ## Issue #838: the Remnant decks' holo tables over the giant (CruiserHolo.setup)

@@ -104,6 +104,9 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 		var sp := _pin("station_" + str(lm.get("id", "")), "station", station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }),
 			Vector2(float(at[0]), float(at[2])))
 		sp["view"] = "station:" + str(planet.get("id", world.get("planet", "")))
+		# Issue #838: the station's pin says who holds its Remnant deck, as the
+		# outposts' pins do (the ringed giant's is the belt front's barracks).
+		_stamp_owner(sp, "station_" + str(lm.get("id", "")))
 		out.append(sp)
 	if station_town == "" or out.is_empty():
 		var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
@@ -1158,6 +1161,14 @@ static func cruiser_pins() -> Array:
 ## Who holds `place` (an outpost id, or a front's barracks for its port): owner,
 ## whether the locals' supplies there are short (shown only once you have taken
 ## Oda's supply run: Territory.supplier), and the hover line for it.
+## Issue #838: who holds `place` as its map pin says it: { owner, short, hold,
+## status } (_stamp_owner), for the holo tables to say the same.
+static func owner_status(place: String) -> Dictionary:
+	var out := {}
+	_stamp_owner(out, place)
+	return out
+
+
 static func _stamp_owner(pin: Dictionary, place: String) -> void:
 	var who := Territory.owner(place)
 	var is_short := Territory.short_shown(place)

@@ -33,7 +33,9 @@ extends Node3D
 ## ball where it really is, coloured by who holds it, like the moon's outposts, not
 ## drawn as a station of its own; the station that is that front's barracks says
 ## under its name how many of them each side holds. The table holo (setup) on such
-## a planet pins them too, and its town pin is that station's deck.
+## a planet pins them too, and its town pin is that station's deck. Each outpost is
+## named, with the F11 map's own line under it (GlobeMap.owner_status: "Held by the
+## Remnant, 72:10 left"), its clock running down live.
 
 const SHADER := preload("res://src/systems/look/shaders/holo.gdshader")
 
@@ -54,6 +56,8 @@ var _refresh := 0.0
 var cruiser_flag := ""
 ## Labels whose text says who holds something: { label, text: Callable }.
 var _texts: Array = []
+## Issue #838: labels with a hold clock in them, written again every refresh_s.
+var _clocks: Array = []
 
 
 ## `cruiser_frame` is the cruiser's frame in the world (the parent's), `anchor` the
@@ -98,7 +102,7 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 			town_id = sid
 		elif (Territory.outposts(f) as Array).has(sid):
 			var sat := WorldGround._v3(lm.get("at", [0, 0, 0]))
-			_place(sid, _pin(sphere.map_dir(sat.x, sat.z), owner_color(sid), float(spec.get("outpost_stalk", 0.12)), "", false))
+			_outpost_pin(sid, sphere.map_dir(sat.x, sat.z), GlobeMap.station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }))
 	_place(town_id, _pin(sphere.map_dir(0.0, 0.0), owner_color(town_id), 0.28, town_name, true))
 	for lm in world.get("landmarks", []):
 		var id := str(lm.get("id", ""))
@@ -350,7 +354,33 @@ static func barracks_front(id: String) -> String:
 func _system_outpost(st: Dictionary) -> void:
 	var frame: Transform3D = st.frame
 	var id := str(st.id)
-	_place(id, _pin(frame.origin - sphere.center, owner_color(id), float(spec.get("outpost_stalk", 0.12)), "", false))
+	var lm_id := id.trim_prefix(Territory.STATION)
+	var outpost_name := str(st.get("name", ""))
+	if outpost_name == "":
+		var hull: StationHull = st.get("hull")
+		outpost_name = GlobeMap.station_label({ "id": lm_id, "station": hull.id if hull != null else "" })
+	_outpost_pin(id, frame.origin - sphere.center, outpost_name)
+
+
+## Issue #838: an outpost station's pin on the ball at `dir`, coloured by who holds
+## it, named, and under the name the F11 map's line for it (outpost_line), kept
+## running live.
+func _outpost_pin(id: String, dir: Vector3, outpost_name: String) -> void:
+	var pin := _pin(dir, owner_color(id), float(spec.get("outpost_stalk", 0.12)), " ", false)
+	var label := pin.label as Label3D
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_place(id, pin)
+	var entry := { "label": label, "text": func() -> String: return outpost_line(outpost_name, id) }
+	_texts.append(entry)
+	_clocks.append(entry)
+
+
+## Issue #838: an outpost's name and, under it, what the F11 map says of it
+## (GlobeMap.owner_status: who holds it and how long it has left), or just who
+## holds it where the map says nothing (the Remnant's, on no clock).
+func outpost_line(what: String, id: String) -> String:
+	var status := str(GlobeMap.owner_status(id).get("status", ""))
+	return "%s\n%s" % [what, status if status != "" else owner_name(id)]
 
 
 ## A station as a few drums of light: each tower from its lowest floor to its top
@@ -506,6 +536,8 @@ func _process(dt: float) -> void:
 	if _refresh <= 0.0:
 		_refresh = float(spec.get("refresh_s", 0.5))
 		refresh_owners()
+		for c in _clocks:
+			(c.label as Label3D).text = (c.text as Callable).call()
 	for id in places:
 		var p: Dictionary = places[id]
 		if float(p.flash) > 0.0:
