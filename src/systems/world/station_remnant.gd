@@ -39,6 +39,13 @@ var _queue: Array = []
 var _folk                           ## Townsfolk running the locals' guards
 var _swap_t := -1.0                 ## seconds until the locals' guards move in (after a take)
 var _holo_tried := false
+## Issue #838: a front's outpost or barracks deck (the belt's skimmers and the station
+## city's deck) plays by that front's rules: see _tick_front_rules.
+var held_by := ""                   ## who the people standing here are ("" before they wake)
+var cleared_at := -1.0              ## WorldState.clock its last trooper died (an outpost: the swap waits)
+var restock := false                ## locked and cleared: the troopers come back once you are away
+var supplied := 0                   ## supply runs handed over here (tests, traces)
+var _rules_tick := 0
 
 
 func setup(space_station, town_demo, station_hull: StationHull) -> void:
@@ -175,6 +182,7 @@ func _process(dt: float) -> void:
 			_locals_move_in()
 	_sleep(at)
 	_tick_holo(at)
+	_tick_front_rules(at)
 
 
 ## Your ship is close: whoever holds the deck takes their posts, a body a frame.
@@ -182,10 +190,12 @@ func _wake() -> void:
 	woke = true
 	if demo == null or not demo.has_method("make_soldier"):
 		return
-	if Territory.owner(place) == Territory.LOCALS:
+	held_by = Territory.owner(place)
+	if held_by == Territory.LOCALS:
 		_repaint(Territory.LOCALS)
 		_locals_move_in()
 		return
+	_repaint(Territory.REMNANT)
 	for p in posts(hull):
 		_queue.append(_add_trooper.bind(p))
 
@@ -243,6 +253,17 @@ func _on_trooper_died() -> void:
 	for g in troopers:
 		if is_instance_valid(g) and not g.dead:
 			return
+	# Issue #838: the belt's barracks answer to the belt cruiser; its outposts swap
+	# on the outposts' rules (out of sight, a while later, you well away).
+	if Territory.station_locked(place):
+		restock = true
+		_toast(Territory.fline(Territory.front_of(place), "locked") % station.label(), 6.0)
+		return
+	if _front_outpost():
+		taken_here = true
+		cleared_at = WorldState.clock
+		_toast(Territory.line("cleared") % station.label(), 6.0)
+		return
 	taken_here = true
 	Territory.take_station(place, station.label())
 	_toast(Territory.line("station_taken") % station.label(), 6.0)
@@ -253,6 +274,7 @@ func _on_trooper_died() -> void:
 ## The locals' guards at the posts (fewer than the Remnant had: guard_share), run by
 ## a Townsfolk of the deck's own.
 func _locals_move_in() -> void:
+	held_by = Territory.LOCALS
 	if not guards.is_empty() or demo == null or not demo.has_method("make_soldier"):
 		return
 	if station != null and station.has_method("rebuild_skimmer"):
@@ -275,11 +297,106 @@ func _add_guard(p: Dictionary) -> void:
 	g.nav = null
 	g.free_walk = true
 	guards.append(g)
+	g.died.connect(_on_guard_died)
 	if not bool(demo.get("npc_brains")):
 		return
 	if _folk == null:
 		_folk = demo.make_townsfolk("StationGuards_" + str(station.id), [], TownAlarm.place_name("station_guards", str(station.vessel_name)))
 	_folk.add_member(g)
+
+
+# ------------------------------------------------------------------ a front's deck (issue #838)
+
+## One of a front's outposts (the belt's skimmers), not its barracks or a lone station.
+func _front_outpost() -> bool:
+	return Territory.outposts(Territory.front_of(place)).has(place)
+
+
+## A front's barracks deck (the station city's, the belt's barracks).
+func _front_barracks() -> bool:
+	return Territory.barracks_of(Territory.front_of(place)) == place and Territory.front_of(place) != Territory.HOME
+
+
+## The locals' guards here are all dead: an outpost goes back to the Remnant (now, or
+## when its clock is told: Territory.guards_lost), a front's barracks at once.
+func _on_guard_died() -> void:
+	if not _queue.is_empty() or Territory.owner(place) != Territory.LOCALS:
+		return
+	for g in guards:
+		if is_instance_valid(g) and not g.dead:
+			return
+	if _front_outpost():
+		Territory.guards_lost(place)
+	elif _front_barracks():
+		Territory.lose_station(place)
+
+
+## Each half second: a cleared outpost changes hands (move_in_s after its last
+## trooper, you swap_away_m off and it off your screen); a locked deck's troopers
+## come back once you are away; whoever holds it now takes the posts out of sight
+## when that is not who stands there (the clock ran out, the guards died, it was
+## taken); and supplies you carry for the locals here are handed over when you are
+## aboard (Territory.can_deliver).
+func _tick_front_rules(at: Vector3) -> void:
+	_rules_tick += 1
+	if _rules_tick % 30 != 0 or at == Vector3.INF or station == null:
+		return
+	var away: float = station.distance(at)
+	var unseen := away >= Territory.n("swap_away_m", 1000.0) and not _on_screen()
+	if cleared_at >= 0.0 and WorldState.clock - cleared_at >= Territory.n("move_in_s", 45.0) and unseen:
+		cleared_at = -1.0
+		Territory.take(place)
+	if restock and away > float(cfg.get("sleep_m", 120.0)) * 2.0 and not _on_screen():
+		restock = false
+		reset_people()
+	if woke and held_by != "" and held_by != Territory.owner(place) and cleared_at < 0.0 and (unseen or not _on_screen() and away > float(cfg.get("sleep_m", 120.0)) * 2.0):
+		reset_people()
+	var p = demo.get("_player") if demo != null else null
+	if p != null and is_instance_valid(p) and Territory.can_deliver(place) and station.aboard(p.global_position):
+		var pay := Territory.deliver(place)
+		if pay > 0:
+			supplied += 1
+			_toast(Territory.line("supplied") % [station.label(), pay], 5.0)
+
+
+## The deck is in view of the camera.
+func _on_screen() -> bool:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	return cam != null and cam.is_position_in_frustum(station.frame.origin)
+
+
+## Everyone off the posts, the deck repainted for whoever holds it now: the next
+## time you come near (wake_within) they take the posts.
+func reset_people() -> void:
+	for g in troopers:
+		if is_instance_valid(g):
+			if garrison != null and is_instance_valid(garrison):
+				garrison.remove_member(g)
+			_forget(g)
+	for g in guards:
+		if is_instance_valid(g):
+			if _folk != null and is_instance_valid(_folk):
+				_folk.remove_member(g)
+			_forget(g)
+	troopers = []
+	guards = []
+	_queue = []
+	_swap_t = -1.0
+	woke = false
+	held_by = ""
+	_repaint(Territory.owner(place))
+	if Territory.owner(place) == Territory.LOCALS and station != null and station.has_method("rebuild_skimmer"):
+		station.rebuild_skimmer()
+
+
+## Off the town scene's lists (make_soldier put it on one) and gone.
+func _forget(g: NpcBody) -> void:
+	if demo != null:
+		for list_name in ["npcs", "locals", "stage_performers"]:
+			var list = demo.get(list_name)
+			if list is Array:
+				(list as Array).erase(g)
+	g.queue_free()
 
 
 func _repaint(owner: String) -> void:

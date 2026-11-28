@@ -404,3 +404,97 @@ func test_you_drop_through_the_floor_hatch_onto_the_gantry() -> void:
 	var at: Vector3 = s.to_local_point(p.global_position)
 	assert_lt(at.y, -18.0, "down through the hatch: %s" % str(at))
 	assert_true(p.is_on_floor(), "standing on the gantry")
+
+
+# ------------------------------------------------------------------ the capture chain
+
+func _woke(s) -> void:
+	s.remnant._wake()
+	for i in 120:
+		await wait_physics_frames(1)
+		if s.remnant._queue.is_empty():
+			break
+
+
+func _kill_all(list: Array) -> void:
+	for g in list:
+		if is_instance_valid(g) and not g.dead:
+			g.apply_damage(100000.0)
+	await wait_physics_frames(3)
+
+
+## Tick the deck's front rules once with the player at `p` (30 calls: one real tick).
+func _rules(s, p: Vector3) -> void:
+	for i in 30:
+		s.remnant._tick_front_rules(p)
+
+
+func test_the_station_citys_deck_is_locked_while_the_belt_cruiser_stands() -> void:
+	var t = _host()
+	var s = await _outpost(t, CITY)
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	await _woke(s)
+	assert_gt(s.remnant.troopers.size(), 5)
+	await _kill_all(s.remnant.troopers)
+	assert_eq(Territory.owner("station_" + CITY), Territory.REMNANT, "every trooper dead and still the Remnant's")
+	assert_true(s.remnant.restock, "more will come")
+	s.remnant.reset_people()
+	assert_true(s.remnant.troopers.is_empty() and not s.remnant.woke, "they come back the next time you come near")
+	WorldState.set_flag("belt_cruiser_taken")
+	await _woke(s)
+	await _kill_all(s.remnant.troopers)
+	assert_eq(Territory.owner("station_" + CITY), Territory.LOCALS, "the cruiser fallen, the deck is the locals'")
+
+
+func test_a_cleared_skimmer_changes_hands_only_later_and_far_off() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	var place := "station_skimmer_east"
+	await _woke(s)
+	await _kill_all(s.remnant.troopers)
+	assert_eq(Territory.owner(place), Territory.REMNANT, "cleared, not yet taken")
+	assert_gte(s.remnant.cleared_at, 0.0)
+	WorldState.clock += Territory.n("move_in_s", 45.0) + 1.0
+	_rules(s, s.to_world(Vector3(25, 1, 0)))
+	assert_eq(Territory.owner(place), Territory.REMNANT, "not while you are aboard")
+	# Far off and out of sight it swaps: as the tick does once you have gone.
+	Territory.take(place)
+	s.remnant.cleared_at = -1.0
+	s.remnant.reset_people()
+	await _woke(s)
+	assert_eq(s.remnant.held_by, Territory.LOCALS)
+	for i in 600:
+		await wait_physics_frames(1)
+		if not s.remnant.guards.is_empty() and s.remnant._queue.is_empty():
+			break
+	assert_false(s.remnant.guards.is_empty(), "the locals' guards stand the posts")
+	var roof: float = s.hull.floor_h + s.hull.plate
+	assert_eq(s.remnant.guards.filter(func(g): return s.to_local_point(g.global_position).y > roof - 0.5).size(), 1, "one on the roof")
+	await _kill_all(s.remnant.guards)
+	Territory.tick(1.0)
+	assert_eq(Territory.owner(place), Territory.REMNANT, "their guards dead, the Remnant have it back")
+
+
+func test_supplies_are_handed_over_aboard_a_short_skimmer() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	var place := "station_skimmer_east"
+	Territory.take(place)
+	WorldState.control[place].hold = 60.0
+	assert_true(Territory.start_supply(), "carrying the load")
+	_rules(s, s.to_world(Vector3(0, 0, 400)))
+	assert_eq(s.remnant.supplied, 0, "nothing handed over from out in space")
+	var p = t._player
+	p.global_position = s.to_world(Vector3(25, 1.0, 0))
+	await wait_physics_frames(2)
+	_rules(s, p.global_position)
+	assert_eq(s.remnant.supplied, 1, "handed over aboard")
+	assert_almost_eq(Territory.hold_left(place), Territory.n("hold_s", 0.0), 0.01, "a full hold")
