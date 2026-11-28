@@ -55,7 +55,7 @@ func test_openai_delta_and_usage_parsing() -> void:
 	assert_eq(p.parse_usage({ "json": { "choices": [], "usage": { "prompt_tokens": 10, "completion_tokens": 3 } } }), { "in": 10, "out": 3 })
 
 
-func test_anthropic_request_forces_the_reply_tool() -> void:
+func test_anthropic_request_does_not_force_a_tool() -> void:
 	var p := AnthropicProvider.new("cloud", { "type": "anthropic", "model": "c" }, "key")
 	var r := p.build_request([{ "role": "system", "content": "S1" }, { "role": "system", "content": "S2" },
 		{ "role": "assistant", "content": "hello" }, { "role": "user", "content": "yo" }], { "schema": { "type": "object" } })
@@ -63,7 +63,11 @@ func test_anthropic_request_forces_the_reply_tool() -> void:
 	assert_eq(r.url, "https://api.anthropic.com/v1/messages")
 	assert_eq(b.system, "S1\n\nS2")
 	assert_eq(b.messages[0].role, "user", "first turn must be the user's")
-	assert_eq(b.tool_choice.name, "reply")
+	assert_eq(b.tools[0].name, "reply", "the reply tool is still offered")
+	# Issue #851: current Claude models 400 on a forced tool choice
+	# ("tool_choice: type \"tool\" and \"any\" are not supported for this model").
+	var choice: String = str((b.get("tool_choice", {}) as Dictionary).get("type", "auto"))
+	assert_false(choice == "tool" or choice == "any", "tool_choice must not force a tool")
 	assert_true(" ".join(r.headers).contains("x-api-key: key"))
 	# Current Claude models 400 on a temperature ("deprecated for this model").
 	var r2 := p.build_request([{ "role": "user", "content": "yo" }], { "temperature": 0.8 })
@@ -75,6 +79,30 @@ func test_anthropic_streams_tool_input_json() -> void:
 	var ev := { "json": { "type": "content_block_delta", "delta": { "type": "input_json_delta", "partial_json": "{\"say\": \"Hi" } } }
 	assert_eq(p.parse_stream_delta(ev), "{\"say\": \"Hi")
 	assert_eq(p.parse_usage({ "json": { "type": "message_delta", "usage": { "output_tokens": 9 } } }), { "out": 9 })
+
+
+func test_anthropic_text_reply_reads_as_a_reply() -> void:
+	# Issue #851: with the tool not forced the model may answer in text. The
+	# prompt asks for the reply JSON, so text is usually that JSON; plain prose is
+	# the line the character says, with no actions.
+	var p := AnthropicProvider.new()
+	var raw := ""
+	for frag in ["{\"say\": \"Wel", "come, stranger.\", \"then\": []}"]:
+		raw += p.parse_stream_delta({ "json": { "type": "content_block_delta", "delta": { "type": "text_delta", "text": frag } } })
+	var r := ReplyParser.parse(raw)
+	assert_true(r.ok)
+	assert_eq(r.say, "Welcome, stranger.")
+	var prose := ReplyParser.parse("Welcome, stranger.")
+	assert_true(prose.ok)
+	assert_eq(prose.say, "Welcome, stranger.")
+	assert_eq(prose.actions, [])
+	# A non-streamed answer with chatter before the tool call reads the tool.
+	var fin := JSON.stringify({ "type": "message", "content": [
+		{ "type": "text", "text": "Sure." },
+		{ "type": "tool_use", "name": "reply", "input": { "say": "Hi." } } ] })
+	var f := p.parse_final(fin)
+	assert_true(f.ok)
+	assert_eq(ReplyParser.parse(f.text).say, "Hi.")
 
 
 func test_config_merge_is_deep() -> void:
