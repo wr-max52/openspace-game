@@ -374,6 +374,17 @@ if [ ! -f test_results/red_world_trace.txt ]; then
 fi
 echo "CI: red world trace present ($(wc -l < test_results/red_world_trace.txt) lines)"
 
+# Issue #876: the red system's ring station over the port (its own name and darker
+# metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
+# its cruiser's general killed (only that cruiser's flag).
+echo "CI: generating dark station trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/dark_station_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/dark_station_trace.txt ]; then
+  echo "CI: ERROR -- dark station trace was not generated" >&2
+  exit 1
+fi
+echo "CI: dark station trace present ($(wc -l < test_results/dark_station_trace.txt) lines)"
+
 # Issue #96: the desert packs' first milestone: food for quartz with the friendly
 # pack, a sand pig hunt, the hostile pack's horn and attack, five minutes survived
 # into a trade, and a kill that locks a pack hostile. (About 5 game minutes.)

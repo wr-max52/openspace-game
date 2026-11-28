@@ -22,5 +22,5 @@
   "fauna": ["sand_pig"],
   "hazards": ["beast"],
   "barges": ["party_barge"],
-  "cruisers": ["remnant_cruiser", "belt_cruiser"]
+  "cruisers": ["remnant_cruiser", "belt_cruiser", "red_cruiser"]
 }

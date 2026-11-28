@@ -102,6 +102,23 @@ Room use `skimmer` on the Remnant deck: the engine deck's pumps, a hazard box ro
 the floor hatch (the floor covered round it), two troopers inside the tanks' blast.
 Who holds each deck is Territory's front `belt` (`content/core/story/territory.json`).
 
+## A sister station: its own look and fill (issue #876)
+
+`content/core/stations/dark_station.json`, the red system's ring station over the
+red desert port, is `orbital_station.json` built again: the same towers, floors,
+rooms, bay, pads, elevator, tunnels, owners and Remnant deck. It differs only in
+three blocks, so any planet's station can be a copy with its own look:
+
+| Key | Where | What it changes |
+|---|---|---|
+| `look` | the config | the metal shader's own colours (`hull_color`, `trim_color`, `deck_color`, `wall_color`, `accent`, `window_light`, `strip_light`, `paint`, `window_energy`, `screen_energy`) and the lit strips' `glow` and the mast's `beacon` (`SpaceStation._tone`); no new shader |
+| `fill.dressing` | the fill block | any colour or list of `content/look/dressing.json` "station_fill", name by name (`StationFill._dc`, `_dl`): paints, neons, fabrics, velvets, the brass, the marble, each room's floor (`top_floor_<use>`, `room_floor_<use>`)... a name it leaves out keeps the shared colour |
+| `fill.top_floors` | the fill block | a top-floor room's floor finish by use (`marble`, `tile`, `velvet`...: any of `SpaceStation.FINISHES`) |
+
+A floor's own `paints`, `neons` and `light` still win over these, as on the home
+station. Its name is the name engine's (`naming`, seeded by the landmark id), its
+Remnant deck its own Territory place (`station_<landmark id>`).
+
 ## The crowd (`StationCrowd`, `src/systems/world/station_crowd.gd`)
 
 About 80 people (the config's `"crowd"`), each with a home floor. They walk the

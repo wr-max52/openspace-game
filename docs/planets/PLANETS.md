@@ -88,6 +88,22 @@ world built from the home world's parts with its own changes laid over them:
 
 `scenes/red_world_trace.gd` and `tests/test_red_world.gut.gd` check it.
 
+
+### Its ring station and cruiser (issue #876)
+
+A ring station hangs 1000 m over the port city, 450 m east of the town's middle so
+a ship climbing out of the pit passes beside it (`dark_station` landmark,
+`content/core/stations/dark_station.json`): the home ring station built again in
+darker metal with its own room colours (`docs/station/STATION_FILL.md`). It is
+under the cloud deck, so you see it from the street and fly up to it in the air;
+over solid ground a fall out of its bay lands you. Its Remnant deck and top floor
+are one Territory place, `station_dark_station`, on no front: kill them all and the
+locals have it for good. A Remnant star cruiser (`red_cruiser`,
+`content/core/cruiser/red_cruiser.json`) holds 3000 m up, 2.6 km west, in view as
+you arrive on the warp; flying for it brings its escort instead of the planet's
+skirmish, and killing its general sets only `red_cruiser_taken` and pays its own
+reward.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the

@@ -863,9 +863,9 @@ func _mat(finish: String) -> Material:
 			g.roughness = 0.12
 			m = g
 		"glow":
-			m = _glow(Color("#9fdcff"), 3.0)
+			m = _glow(Color(str(cfg.get("look", {}).get("glow", "#9fdcff"))), 3.0)
 		"beacon":
-			m = _glow(Color("#ff5a3a"), 6.0)
+			m = _glow(Color(str(cfg.get("look", {}).get("beacon", "#ff5a3a"))), 6.0)
 		"lock":
 			m = _glow(Color("#ffb04a"), 2.5)
 		_:
@@ -875,9 +875,29 @@ func _mat(finish: String) -> Material:
 			var noise = demo._flat_mats().noise if demo != null and demo.has_method("_flat_mats") else null
 			if noise != null:
 				sm.set_shader_parameter("noise_tex", noise)
+			_tone(sm)
 			m = sm
 	_mats[finish] = m
 	return m
+
+
+## Issue #876: the station's own "look" block laid over the metal shader's colours
+## (hull_color, trim_color, deck_color, wall_color, accent, window_light,
+## strip_light, paint as "#rrggbb"; window_energy, screen_energy as numbers): the
+## same metal and the same finishes, a sister station's own shade of them. No new
+## shader; a station with no look block keeps the shader's own colours.
+const LOOK_COLORS := ["hull_color", "trim_color", "deck_color", "wall_color", "accent", "window_light", "strip_light", "paint"]
+const LOOK_NUMBERS := ["window_energy", "screen_energy"]
+
+
+func _tone(sm: ShaderMaterial) -> void:
+	var look: Dictionary = cfg.get("look", {})
+	for k in LOOK_COLORS:
+		if look.has(k):
+			sm.set_shader_parameter(k, Color(str(look[k])))
+	for k in LOOK_NUMBERS:
+		if look.has(k):
+			sm.set_shader_parameter(k, float(look[k]))
 
 
 static func _glow(c: Color, energy: float) -> StandardMaterial3D:

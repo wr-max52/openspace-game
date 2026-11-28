@@ -1,0 +1,53 @@
+{
+  "id": "red_cruiser",
+  "base": "remnant_cruiser",
+  "label": "Remnant star cruiser",
+  "note": "IP-neutral. Issue #876: the red system's Remnant star cruiser, the same ship as the home planet's and the belt's (everything not listed here is remnant_cruiser.json's: its pads and parked ships, how Z docks you, the crew, the droids, the general, the escort). It holds station in the red desert world's sky, past the ring station's bay mouth: where is port_red's 'red_cruiser' landmark (content/core/planets/port_red.json). As the belt cruiser it is not the story's: killing its general sets only its own flag (WorldState 'red_cruiser_taken', saved with the world) and pays its own reward; the home cruiser, the belt cruiser, Oda's story and the dark master are untouched. Once taken the locals crew it (remnant_cruiser.json's 'holders'), and it is still there to fly to and walk round. Its escort meets you when you climb out of the port's sky flying for it (nose within approach.cone_deg of it, or already within dock.radius of it); climbing out any other way meets the planet's own skirmish.",
+  "flag": "red_cruiser_taken",
+  "reward": {
+    "credits": 18000,
+    "locals": 5,
+    "remnant": -25,
+    "smuggler": 10
+  },
+  "holo": {
+    "kind": "system",
+    "note": "The bridge's holo table shows the red system's world under it (CruiserHolo.setup_system): the red desert ball (radius metres on the table, lines of latitude and longitude bands apart; it has no ring), the ring station on its orbit over the port (a small model station_width long, at least station_over metres off the ball, a bead station_bead over it), and this cruiser where it really is (heights squeezed by squeeze), each coloured by who holds it (owner_colors: the station's Remnant deck, Territory 'station_dark_station'; the cruiser the Remnant's until its general dies, then empty) and named under its label (lines.owners), recoloured live. It spins slowly (spin_deg_s) about the ball's up.",
+    "radius": 0.7,
+    "lift": 1.6,
+    "squeeze": 0.6,
+    "bands": 14.0,
+    "seed": 876,
+    "station_width": 0.3,
+    "station_over": 0.14,
+    "station_bead": 0.13,
+    "spin_deg_s": 4.0,
+    "color": "#ff9a5a",
+    "rock_color": "#e0a080",
+    "cruiser_color": "#ff3030",
+    "owner_colors": {
+      "remnant": "#ff3030",
+      "locals": "#5fe07a",
+      "short": "#e0e050",
+      "remnant_short": "#ffa030",
+      "empty": "#9aa6b2"
+    },
+    "lines": {
+      "station": "%s",
+      "here": "%s (here)",
+      "owners": {
+        "remnant": "Remnant",
+        "locals": "Locals",
+        "empty": "Empty"
+      },
+      "owned": "%s\n%s",
+      "barracks": "%s\nBarracks: %s"
+    }
+  },
+  "lines": {
+    "taken": "+%d cr  ·  The whole red reach will hear about this.",
+    "event_taken": "%s, the Remnant general aboard the star cruiser over the red port, was killed on the bridge. The locals are moving aboard.",
+    "objective_bay": "Land in the Remnant cruiser's bay, high over the red port",
+    "objective_general": "Kill %s on the cruiser's bridge"
+  }
+}
