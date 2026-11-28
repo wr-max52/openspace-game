@@ -152,3 +152,30 @@ func test_letting_go_or_stepping_away_resets() -> void:
 	assert_eq(ro.hack_step(0.1, true, at + Vector3(4, 0, 0)), "", "stepped away")
 	assert_eq(ro.hacking, 0.0)
 	assert_false(Heist.hacked())
+
+
+func test_rmb_starts_the_breach_with_nothing_held() -> void:
+	var ro := _room()
+	var at := ro.console_point(ro.outposts[0])
+	WorldState.heist = { "run": 1, "state": "out", "outpost": "remnant_outpost_mid" }
+	assert_eq(ro.hack_step(0.1, false, at, false, true), "no_welder", "no welder out: [RMB] does nothing")
+	assert_eq(ro.hack_step(0.1, false, at), "ready")
+	assert_eq(ro.hack_step(0.1, false, at, true, true), "hacking", "[RMB] in reach: the breach starts")
+	var state := ""
+	for i in 48:
+		state = ro.hack_step(0.1, false, at)
+	assert_eq(state, "hacking", "it goes on with nothing held")
+	assert_eq(ro.hack_step(0.11, false, at), "started", "5 s: the hack starts")
+	assert_false(ro.clicked_on)
+
+
+func test_rmb_breach_stops_when_you_step_away() -> void:
+	var ro := _room()
+	var at := ro.console_point(ro.outposts[0])
+	WorldState.heist = { "run": 1, "state": "out", "outpost": "remnant_outpost_mid" }
+	ro.hack_step(0.1, false, at, true, true)
+	for i in 20:
+		ro.hack_step(0.1, false, at)
+	assert_eq(ro.hack_step(0.1, false, at + Vector3(4, 0, 0)), "", "stepped away")
+	assert_eq(ro.hack_step(0.1, false, at), "ready", "back: it waits for [E] or [RMB] again")
+	assert_eq(ro.hacking, 0.0)

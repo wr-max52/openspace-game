@@ -394,12 +394,19 @@ static func remnant_friend() -> bool:
 
 # ------------------------------------------------------------------ changes
 
+## A heist is on at outpost `id`: it keeps its holder till the heist is over (a
+## clock that runs out meanwhile changes it the moment the heist ends; one cleared
+## during it changes hands after, once you are well away: Heist.hand_over).
+static func frozen(id: String) -> bool:
+	return Heist.target() == id
+
+
 ## Every trooper at the outpost is dead: the locals have it. `quiet` (issue #425):
 ## the Remnant there ran out of supplies and gave up (give_up), so nobody took
 ## it: no standing and no outposts_taken count.
 static func take(id: String, quiet := false) -> void:
 	var f := front_of(id)
-	if not outposts(f).has(id) or owner(id) == LOCALS:
+	if not outposts(f).has(id) or owner(id) == LOCALS or frozen(id):
 		return
 	WorldState.control[id] = { "owner": LOCALS, "hold": n("hold_s", 900.0) }
 	if f == HOME:
@@ -432,7 +439,7 @@ static func _drive_off(f: String = HOME) -> void:
 ## The Remnant have it again.
 static func retake(id: String) -> void:
 	var f := front_of(id)
-	if owner(id) != LOCALS or driven_off(f):
+	if owner(id) != LOCALS or driven_off(f) or frozen(id):
 		return
 	WorldState.control.erase(id)
 	if remnant_cut_off(f):                    # issue #425: cut off, they cannot hold it for ever

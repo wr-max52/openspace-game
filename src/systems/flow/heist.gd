@@ -2,7 +2,7 @@ class_name Heist
 extends RefCounted
 ## Heists (issue #306): rob an outpost's control room. Pure and static, like
 ## Territory; its state lives in WorldState.heist (saved with the world):
-##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved }
+##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved, handover }
 ##   ({} or state "" = no heist on; run counts every heist taken)
 ##
 ## Issue #550: the book carries all of a run, so every scene and every LAN game
@@ -25,8 +25,13 @@ extends RefCounted
 ## offer names its outpost (rolled when first shown, kept until taken or no
 ## longer the other side's). The crew's cut comes off the top. A heist ends when
 ## it is paid, when you are downed, when you call it off, or when the flasks are
-## gone (sold elsewhere, or taken at the gate). Who holds the outpost afterwards
-## is not the heist's business: Territory's rules stand (RemnantOutposts).
+## gone (sold elsewhere, or taken at the gate).
+##
+## While a heist is on, its outpost does not change hands (Territory.frozen): the
+## wave is the side that held it when you came, whoever you kill there. Clear it
+## during the heist and the book keeps it in `handover`, kept past the heist's
+## end: once the heist is over and you are well away and cannot see it,
+## RemnantOutposts hands it over (hand_over) by Territory's usual rules.
 ##
 ## The crew (a crew member and a borrowed assassin droid) are HeistCrew's.
 ## Numbers and lines: content/core/story/heist.json.
@@ -269,11 +274,14 @@ static func start(j: Dictionary) -> bool:
 	var where := offer_outpost(j)
 	if where == "":
 		return false
+	var was := handovers()
 	WorldState.heist = {
 		"run": int(WorldState.heist.get("run", 0)) + 1, "state": "out", "job": str(j.get("id", "")),
 		"side": job_side(j), "outpost": where, "hacked": false, "crew": "", "crew_down": false, "droid_down": false,
 		"by": _me(),
 	}
+	if not was.is_empty():
+		WorldState.heist["handover"] = was      # the last heist's cleared outposts still wait to change hands
 	_offers.erase(str(j.get("id", "")))
 	WorldState.bump("heists_taken")
 	WorldState.log_event(line("log_taken") % Story.outpost_label(where))
@@ -308,8 +316,62 @@ static func end(why: String) -> void:
 	if not on():
 		return
 	var run := int(WorldState.heist.get("run", 0))
+	var was := handovers()
 	WorldState.heist = { "run": run, "state": "", "ended": why }
+	if not was.is_empty():
+		WorldState.heist["handover"] = was      # cleared during it: changes hands once you are well away
 	_offers.clear()
+
+
+# ------------------------------------------------------------------ who holds it
+
+## The outposts cleared during a heist that have yet to change hands.
+static func handovers() -> Array:
+	var h = WorldState.heist.get("handover", [])
+	return (h as Array).duplicate() if h is Array else []
+
+
+## Outpost `id` keeps its holder for now: it is the heist's, or it was cleared
+## during one and waits to change hands.
+static func holds(id: String) -> bool:
+	return id != "" and (target() == id or handovers().has(id))
+
+
+## Every defender at the heist's outpost `id` is dead: it changes hands after the
+## heist (hand_over), not now. False when `id` is not the heist's.
+static func note_cleared(id: String) -> bool:
+	if id == "" or target() != id:
+		return false
+	var h := handovers()
+	if not h.has(id):
+		h.append(id)
+	WorldState.heist["handover"] = h
+	return true
+
+
+## Outpost `id` was cleared during a heist that is now over: it can change hands
+## (RemnantOutposts waits until you are well away and cannot see it).
+static func handover_due(id: String) -> bool:
+	return id != "" and target() != id and handovers().has(id)
+
+
+## Hand cleared outpost `id` over by Territory's rules: the Remnant's goes to the
+## locals (take), the locals' back to the Remnant (guards_lost). False when it
+## was not due.
+static func hand_over(id: String) -> bool:
+	if not handover_due(id):
+		return false
+	var h := handovers()
+	h.erase(id)
+	if h.is_empty():
+		WorldState.heist.erase("handover")
+	else:
+		WorldState.heist["handover"] = h
+	if Territory.owner(id) == Territory.REMNANT:
+		Territory.take(id)
+	else:
+		Territory.guards_lost(id)
+	return true
 
 
 ## Issue #550: this game's player in a LAN session (their peer id), 0 alone.
