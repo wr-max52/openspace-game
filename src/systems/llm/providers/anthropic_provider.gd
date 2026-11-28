@@ -1,9 +1,12 @@
 class_name AnthropicProvider
 extends LLMProvider
-## Native Messages API (M12). The reply is forced through a single tool whose
-## input schema is the reply schema, and streamed: the tool input arrives as
+## Native Messages API (M12). The reply is offered as a single tool whose input
+## schema is the reply schema, and streamed: the tool input arrives as
 ## input_json_delta fragments, which concatenate to exactly the same JSON the
-## other providers send, so everything downstream is shared.
+## other providers send, so everything downstream is shared. The tool is not
+## forced (issue #851: current models 400 on tool_choice "tool" or "any"); the
+## prompt asks for the reply JSON, so a text answer is that JSON or plain speech,
+## and ReplyParser reads both.
 
 const API_VERSION := "2023-06-01"
 
@@ -30,8 +33,7 @@ func build_request(messages: Array, opts: Dictionary) -> Dictionary:
 		"stream": true,
 	}
 	if opts.has("schema"):
-		body["tools"] = [{ "name": "reply", "description": "Your in-character reply and any actions.", "input_schema": opts.schema }]
-		body["tool_choice"] = { "type": "tool", "name": "reply" }
+		body["tools"] = [{ "name": "reply", "description": "Your in-character reply and any actions. Always answer by calling this.", "input_schema": opts.schema }]
 	return {
 		"url": str(profile.get("base_url", "https://api.anthropic.com/v1")).trim_suffix("/") + "/messages",
 		"method": "POST",
@@ -76,11 +78,15 @@ func parse_final(raw: String) -> Dictionary:
 		return { "ok": false, "text": "", "usage": {}, "error": "bad json" }
 	if str(j.get("type", "")) == "error":
 		return { "ok": false, "text": "", "usage": {}, "error": str(j.get("error", {})) }
+	# The tool call wins over any chatter before it; with no tool call, the text.
+	var said := ""
 	for block in j.get("content", []):
 		if str(block.get("type", "")) == "tool_use":
 			return { "ok": true, "text": JSON.stringify(block.get("input", {})), "usage": {}, "error": "" }
-		if str(block.get("type", "")) == "text":
-			return { "ok": true, "text": str(block.text), "usage": {}, "error": "" }
+		if str(block.get("type", "")) == "text" and said == "":
+			said = str(block.text)
+	if said != "":
+		return { "ok": true, "text": said, "usage": {}, "error": "" }
 	return { "ok": false, "text": "", "usage": {}, "error": "empty" }
 
 
