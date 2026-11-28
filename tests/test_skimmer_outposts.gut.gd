@@ -1,0 +1,211 @@
+extends GutTest
+## Issue #838: the Remnant skimmer outposts over the ringed giant
+## (content/core/stations/skimmer_outpost.json, three "station" landmarks in
+## content/core/planets/ringed_giant.json). The station kit at its smallest: one
+## deck, a small bay; hung just over the horizon from the station city, level with
+## the ball where each hangs; Z docks you in its bay; its deck is the Remnant's.
+
+const TownDemo := preload("res://scenes/town_demo.gd")
+const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
+const ID := "skimmer_outpost"
+const HOST := "ringed_giant"
+const CITY := "orbital_station"
+
+var _sphere_before: PlanetSphere
+
+
+func before_each() -> void:
+	WorldState.reset()
+	_sphere_before = PlanetSphere.current
+
+
+func after_each() -> void:
+	PlanetSphere.current = _sphere_before
+	GameFlow.reset()
+	WorldState.reset()
+
+
+func _hull() -> StationHull:
+	return StationHull.for_id(ID)
+
+
+func _landmarks() -> Array:
+	return StationHull.landmarks(PlanetGen.build(HOST).world).filter(func(lm): return str(lm.get("station", "")) == ID)
+
+
+func _city_landmark() -> Dictionary:
+	for lm in StationHull.landmarks(PlanetGen.build(HOST).world):
+		if str(lm.get("station", "")) == CITY:
+			return lm
+	return {}
+
+
+func _giant() -> GasSphere:
+	var g := PlanetGen.build(HOST)
+	return GasSphere.new(PlanetGen.ball_radius(g.cfg, null), g.type_cfg.surface)
+
+
+## The highest point of a hull (its mast's beacon), in its own frame.
+static func _top(h: StationHull) -> float:
+	var y := -INF
+	for p in h.parts:
+		y = maxf(y, (p.xf as Transform3D).origin.y + (p.size as Vector3).y * 0.5)
+	return y
+
+
+## The segment a-b passes under radius `r` round `c` (the cloud tops are in the way).
+static func _blocked(a: Vector3, b: Vector3, c: Vector3, r: float) -> bool:
+	var ab := b - a
+	var t := clampf((c - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+	return (a + ab * t).distance_to(c) < r
+
+
+# ------------------------------------------------------------------ shape
+
+func test_one_deck_and_a_bay_the_moon_pits_size() -> void:
+	var h := _hull()
+	assert_not_null(h)
+	assert_eq(h.towers.size(), 1, "one tower")
+	var fl: Array = h.towers[0].floors
+	assert_eq(fl.size(), 1, "of one floor")
+	assert_almost_eq(float(fl[0].r) * 2.0, 80.0, 0.01, "80 m across")
+	assert_almost_eq(float(h.bay.r) * 2.0, 56.0, 0.01, "the bay is the moon's landing pit's size")
+	assert_eq(h.pads().size(), 2, "two pads: yours and the Remnant's")
+	assert_false(h.dock_pad().is_empty())
+	assert_eq(h.tunnels.size(), 1, "one tunnel, deck to bay")
+	assert_almost_eq(float(h.tunnels[0].length), 22.0, 1.0, "about 22 m long (it runs into both walls)")
+	for p in h.pads():
+		var l: Vector2 = p.local
+		assert_lt(l.length() + float(p.radius), float(h.bay.r), "pad %s inside the bay's wall" % p.id)
+	assert_true(h.aboard(h.spawn_point() + Vector3(0, 0.5, 0)), "the spot beside the dock pad is aboard")
+	assert_true(h.elevators().is_empty(), "one floor: no elevator")
+
+
+func test_its_deck_is_the_remnants() -> void:
+	var h := _hull()
+	assert_false(StationRemnant.deck(h).is_empty(), "the whole floor is the Remnant's deck")
+	var uses: Array = StationRemnant.rooms(h).map(func(r): return str(r.use))
+	assert_true(uses.has("control") and uses.has("command") and uses.has("armoury") and uses.has("bunks"), str(uses))
+	var posts := StationRemnant.posts(h)
+	assert_gt(posts.size(), 6, "troopers to stand")
+	assert_eq(posts.filter(func(p): return str(p.soldier) == "commander").size(), 1, "a commander in command")
+	for lm in _landmarks():
+		assert_eq(Territory.owner("station_" + str(lm.id)), Territory.REMNANT, "%s starts the Remnant's" % lm.id)
+
+
+# ------------------------------------------------------------------ where
+
+func test_three_just_over_the_horizon_at_the_citys_height() -> void:
+	var lms := _landmarks()
+	assert_eq(lms.size(), 3, "three outposts")
+	var sp := _giant()
+	var city := StationHull.for_id(CITY).frame_for(sp, _city_landmark(), { "planet": HOST })
+	var city_up := (city.origin - sp.center).normalized()
+	var dirs: Array = []
+	for lm in lms:
+		var xf := _hull().frame_for(sp, lm, { "planet": HOST })
+		var up := (xf.origin - sp.center).normalized()
+		dirs.append(up)
+		assert_almost_eq(xf.origin.distance_to(sp.center), city.origin.distance_to(sp.center), 0.5, "%s at the city's height" % lm.id)
+		assert_almost_eq(rad_to_deg(up.angle_to(city_up)), 52.0, 0.5, "%s 52 degrees round the ball" % lm.id)
+		assert_almost_eq(xf.basis.y.angle_to(up), 0.0, 0.001, "%s level with the ball where it hangs" % lm.id)
+		var mouth: Vector3 = xf.basis * _hull().bay_out()
+		var to_city := city.origin - xf.origin
+		to_city -= up * to_city.dot(up)
+		assert_gt(mouth.dot(to_city.normalized()), 0.99, "%s's bay faces the city" % lm.id)
+	for i in dirs.size():
+		for j in range(i + 1, dirs.size()):
+			assert_gt(rad_to_deg((dirs[i] as Vector3).angle_to(dirs[j])), 80.0, "the outposts well apart")
+
+
+func test_the_clouds_hide_them_from_the_city_even_from_its_top_floor() -> void:
+	var sp := _giant()
+	var city_h := StationHull.for_id(CITY)
+	var city := city_h.frame_for(sp, _city_landmark(), { "planet": HOST })
+	var clouds := sp.radius - sp.depth
+	var eyes: Array = [city * Vector3(0, 1.7, 0), city * Vector3(0, city_h.top_y(), 0)]
+	for lm in _landmarks():
+		var xf := _hull().frame_for(sp, lm, { "planet": HOST })
+		var top: Vector3 = xf * Vector3(0, _top(_hull()), 0)
+		for eye in eyes:
+			assert_true(_blocked(eye, top, sp.center, clouds), "%s's mast top is under the horizon" % lm.id)
+		# ... and only just: from 200 m higher it shows.
+		assert_false(_blocked(city * Vector3(0, city_h.top_y() + 200.0, 0), top, sp.center, clouds), "%s just over it" % lm.id)
+
+
+func test_its_parts_stand_and_its_gravity_is_its_own_up() -> void:
+	var sp := _giant()
+	PlanetSphere.current = sp
+	var lm: Dictionary = _landmarks()[0]
+	var g := WorldGround.new()
+	g.setup({ "terrain": { "sphere_radius": sp.radius }, "landmarks": [lm], "planet": HOST })
+	var xf := StationHull.frame(g, str(lm.id))
+	assert_ne(xf, Transform3D.IDENTITY, "its boxes are in the ground")
+	var deck: Vector3 = xf * Vector3(25, 1.0, 0)
+	assert_almost_eq(g.sphere().up_at(deck).angle_to(xf.basis.y), 0.0, 0.001, "up aboard is the outpost's up")
+	assert_almost_eq(g.height_above(deck), 1.0, 0.1, "its floor holds you")
+
+
+# ------------------------------------------------------------------ in the scene
+
+func _host() -> Node:
+	GameFlow.reset()
+	GameFlow.resumed = true
+	GameFlow.planet_id = HOST
+	GameFlow.change_scene = func(_p: String) -> void: pass
+	var t = TownDemo.new()
+	t.use_look = false
+	t.npc_brains = false
+	add_child_autofree(t)
+	return t
+
+
+func _outpost(t, lm_id: String):
+	for i in 120:
+		for s in t.stations:
+			if str(s.id) == lm_id:
+				return s
+		await wait_physics_frames(1)
+	return null
+
+
+func test_the_scene_builds_all_three_with_names_of_their_own() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	var names := {}
+	for st in t.stations:
+		if str(st.cfg.get("id", "")) == ID:
+			names[st.label()] = true
+			assert_not_null(st.remnant, "%s has its Remnant deck" % st.id)
+	assert_eq(names.size(), 3, "three outposts, three names: %s" % str(names.keys()))
+
+
+func test_z_docks_you_in_an_outposts_bay_level_with_it() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s, "the giant's scene builds the outpost")
+	if s == null:
+		return
+	var pilot: ShipPilot = t.pilot
+	pilot._seat_arriving()
+	pilot.atmo.place_flying(s.frame * Vector3(-400, 40, 30), Vector3.FORWARD, 0.0, 0.5)
+	pilot._set_hull(true)
+	await wait_physics_frames(2)
+	assert_true(pilot.near_dock(), "in reach of its bay")
+	assert_eq(pilot.dock_target(), s, "the outpost, not the city")
+	assert_true(pilot.dock())
+	for i in 60 * 40:
+		if pilot.atmo.state == AtmoFlight.State.PARKED:
+			break
+		await wait_physics_frames(1)
+	assert_eq(pilot.atmo.state, AtmoFlight.State.PARKED, "down on the pad")
+	var at: Vector3 = s.to_local_point(pilot.atmo.position())
+	var pad: Vector3 = s.hull.dock_pad().at
+	assert_almost_eq(Vector2(at.x, at.z).distance_to(Vector2(pad.x, pad.z)), 0.0, 1.0, "on the dock pad")
+	assert_lt(pilot.atmo.flight.basis.y.angle_to(s.frame.basis.y), 0.05, "sat level on the tilted deck")
+	assert_true(pilot.exit_ship())
+	await wait_physics_frames(30)
+	var p = t._player
+	assert_true(s.aboard(p.global_position), "you step out aboard")
+	assert_true(p.is_on_floor())

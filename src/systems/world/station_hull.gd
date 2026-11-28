@@ -181,12 +181,32 @@ func frame_for(sp: PlanetSphere, lm: Dictionary, world: Dictionary = {}) -> Tran
 		var at := WorldGround._v3(lm.get("at", [0, 0, 0]))
 		dir = sp.map_dir(at.x, at.z)
 	var pos := sp.center + dir * (sp.radius + float(lm.get("altitude", 1400.0)))
+	var mouth := bay_out()
+	if str(lm.get("level", "")) == "ball":
+		return Transform3D(ball_basis(sp, dir, mouth, float(lm.get("yaw_deg", 0.0))), pos)
 	var to_port := Vector3(-pos.x, 0.0, -pos.z)
 	if to_port.length() < 0.01:
 		to_port = Vector3.LEFT
-	var mouth := bay_out()
 	var turn := atan2(to_port.x, to_port.z) - atan2(mouth.x, mouth.z) + deg_to_rad(float(lm.get("yaw_deg", 0.0)))
 	return Transform3D(Basis(UP, turn), pos)
+
+
+## Issue #838: a station stood level with the ball where it hangs ("level": "ball":
+## the skimmer outposts, far enough round that the port's up would tip them over):
+## its y the ball's up there (`dir`, from the centre), its bay's mouth (`mouth`, level
+## in its own frame) turned toward the port along the ball, then `yaw_deg` about its up.
+static func ball_basis(sp: PlanetSphere, dir: Vector3, mouth: Vector3, yaw_deg := 0.0) -> Basis:
+	var up := dir.normalized()
+	var port := sp.center + Vector3.UP * sp.radius
+	var to := port - (sp.center + up * sp.radius)
+	to -= up * to.dot(up)
+	if to.length() < 0.01:
+		to = Vector3.LEFT - up * Vector3.LEFT.dot(up)
+	to = to.normalized()
+	var onto := Basis(to, up, to.cross(up))                       # its +x toward the port
+	var m := Vector3(mouth.x, 0.0, mouth.z).normalized()
+	var mouth_to_x := Basis(UP, -atan2(-m.z, m.x))                # the mouth onto +x
+	return (onto * Basis(UP, deg_to_rad(yaw_deg)) * mouth_to_x).orthonormalized()
 
 
 ## A planet whose town is this station (its config's "station_town": the landmark

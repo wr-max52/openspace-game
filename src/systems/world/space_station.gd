@@ -151,9 +151,21 @@ func dock_path(p: Vector3) -> Array:
 	return hull.dock_path(inv * p).map(func(l): return frame * (l as Vector3))
 
 
-## The dock pad's heading (a yaw about world up: the station is level).
+## The dock pad's heading (a yaw about world up, for a station level with the port).
 func dock_yaw() -> float:
 	return (frame.basis * Basis(Vector3.UP, float(hull.dock_pad().get("yaw", 0.0)))).get_euler().y
+
+
+## Issue #838: the station's up (its frame's y). Not world up for one stood level
+## with the ball far round it (StationHull.ball_basis): ShipPilot then turns round
+## to dock_basis() and sinks along this.
+func dock_up() -> Vector3:
+	return frame.basis.y.normalized()
+
+
+## A ship set down on the dock pad, nose out to space: the whole turn, not only its yaw.
+func dock_basis() -> Basis:
+	return (frame.basis * Basis(Vector3.UP, float(hull.dock_pad().get("yaw", 0.0)))).orthonormalized()
 
 
 func dock_cfg() -> Dictionary:

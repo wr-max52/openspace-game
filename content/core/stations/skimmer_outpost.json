@@ -1,0 +1,78 @@
+{
+  "id": "skimmer_outpost",
+  "label": "skimmer outpost",
+  "note": "IP-neutral. Issue #838: a Remnant skimmer outpost over the ringed giant, the station city's version of a ranch outpost. The station kit at its smallest (src/systems/world/station_hull.gd draws every box from these numbers, as for orbital_station.json): one tower of one round floor 80 m across (the second tower's markets_2 radius), the Remnant deck's rooms and people on it (StationFill use 'remnant', StationRemnant), and a small covered bay 56 m across (the moon's landing pit) at the end of a short tunnel, with two pads. Its roof is walkable like every top floor's (the rail round its edge, the shield over the gap to jetpack up through, the mast and beacon). Three landmarks in content/core/planets/ringed_giant.json use this one file, each its own outpost (its own name, its own Territory place station_<landmark id>).",
+  "naming": { "vessel": "skimmer_post" },
+  "name_fmt": "%s",
+  "segments": 48,
+  "floor_height": 14.0,
+  "plate": 1.0,
+  "gap_radius": 12.0,
+  "walkway": 7.0,
+  "shaft_radius": 5.5,
+  "towers": [
+    { "id": "deck", "at": [0, 0], "floors": [
+      { "id": "outpost", "y": 0.0, "radius": 40.0, "rooms": true }
+    ] }
+  ],
+  "fill": {
+    "budget_ms": 2.0,
+    "merge_verts": 4000,
+    "mesh_verts": 24000,
+    "show_dy": 30.0,
+    "show_m": 60.0,
+    "floors": {
+      "outpost": { "use": "remnant" }
+    }
+  },
+  "remnant_note": "The whole floor is the Remnant's deck (StationRemnant, the same rooms, posts and repaint as the station city's): who holds it is Territory's place station_<landmark id>.",
+  "remnant": {
+    "tower": "deck",
+    "floor": "outpost",
+    "rooms": ["control", "bunks", "armoury", "command", "bunks", "mess", "armoury", "bunks"],
+    "trooper": "cruiser_trooper",
+    "commander": "cruiser_honour_guard",
+    "guard": "local_guard",
+    "guard_share": 0.5,
+    "wake_within": 700.0,
+    "sleep_m": 120.0,
+    "locals_after_s": 8.0
+  },
+  "map": {
+    "owners": { "control": "remnant", "bunks": "remnant", "armoury": "remnant", "command": "remnant", "mess": "remnant" },
+    "floors": {}
+  },
+  "rooms": { "count": 8, "door_width": 2.6, "door_height": 4.0 },
+  "tunnel": { "width": 6.0, "height": 5.0 },
+  "hatch": { "length": 4.0, "width": 4.0 },
+  "tunnels": [
+    { "id": "bay_tunnel", "from": "deck", "to": "bay", "y": 0.0 }
+  ],
+  "elevator": { "car_radius": 4.5, "speed": 4.0, "wait": 3.5, "door_width": 3.2, "door_height": 4.0 },
+  "bay": {
+    "from": "deck", "at": [-90, 0], "radius": 28.0, "mouth_deg": 80.0, "height": 16.0, "apron": 8.0,
+    "note": "The moon's landing pit's size: 56 m across, 16 m high, its mouth facing away from the deck. The tunnel to the deck's floor runs 22 m (90 - 28 - 40)."
+  },
+  "pads": [
+    { "id": "dock", "at": [6, -11], "radius": 8.5 },
+    { "id": "remnant", "at": [6, 11], "radius": 8.5 }
+  ],
+  "dock": {
+    "pad": "dock", "radius": 1500.0, "hold_y": 6.0, "approach": 160.0, "over_y": 50.0, "under_y": -50.0,
+    "speed": 380.0, "accel": 200.0, "brake": 150.0, "brake_in": 26.0, "spin_secs": 1.3, "settle": 3.0,
+    "note": "As the station city's (ShipPilot's docking autopilot), scaled to a bay half its size: in from approach metres off the mouth at hold_y over the deck, over or under the deck first when you start behind the mouth."
+  },
+  "outside": { "drop_below": 40.0, "warn_before": 15.0 },
+  "detail_altitude": 600.0,
+  "aboard_shadow_distance": 150.0,
+  "lights_within": 1500.0,
+  "lines": {
+    "label": "◇ %s",
+    "dock_hint": "%s  ·  %.1f km  ·  [Z] to land in its bay",
+    "docking": "Bringing her into %s. [Z] to take back control.",
+    "docked": "Down in the outpost's bay.",
+    "fell": "You were pulled back into the outpost.",
+    "fell_clouds": "You dropped toward the clouds and the outpost's tractor pulled you back in.",
+    "fell_clouds_warn": "Too far below the outpost. Climb back or be pulled in."
+  }
+}
