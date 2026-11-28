@@ -193,6 +193,7 @@ var calling := false              ## issue #368: the primary is flying itself to
 var call_to := Vector3.ZERO       ## the ground she sets down on
 var call_yaw := 0.0               ## her heading there (towards where you called from)
 var calls := 0                    ## times a call brought her down (traces, tests)
+var call_dock = null              ## the station whose bay a call brings her into (call_station), or null
 var _eject_hold := 0.0            ## seconds B has been held
 var _prefetch_speed := 45.0       ## issue #574: the walkable ground is built under her only slower than this (flow data)
 
@@ -983,9 +984,22 @@ func dock() -> bool:
 	if docking or not near_dock():
 		return false
 	var c = dock_target()
-	_dock_target = c
+	_dock_to = dock_place()
+	if not _start_dock(c):
+		return false
+	_throttle = 0.0
+	hud.toast(c.line("docking") % _dock_to, 3.0)
+	return true
+
+
+## The docking autopilot takes her from where she is into `c`'s bay (Z, or a call
+## to a station: _call_fly). False when `c` has no way in.
+func _start_dock(c) -> bool:
 	var f = atmo.flight
 	var pts: Array = c.dock_path(atmo.position())
+	if pts.is_empty():
+		return false
+	_dock_target = c
 	bay_landing = false
 	docking = true
 	_dock_curve = dock_curve(atmo.position(), f.forward(), pts)
@@ -995,9 +1009,6 @@ func dock() -> bool:
 	_dock_head = f.basis.get_euler().y
 	var mouth: Vector3 = pts[maxi(pts.size() - 3, 0)]
 	_dock_bay = _dock_curve.get_baked_length() - _dock_curve.get_closest_offset(mouth)
-	_throttle = 0.0
-	_dock_to = dock_place()
-	hud.toast(c.line("docking") % _dock_to, 3.0)
 	return true
 
 
@@ -1124,7 +1135,8 @@ func _dock_turn(dt: float, c, dc: Dictionary) -> void:
 	_dock_curve = null
 	if atmo.land():
 		dockings += 1
-		hud.toast(c.line("docked"), 3.0)
+		if piloting:
+			hud.toast(c.line("docked"), 3.0)   # a call's: "landed" once she is down (_call_done)
 
 
 ## A bot's command for this frame and on: { pitch, yaw, roll, throttle, boost }.
@@ -2499,6 +2511,9 @@ func woke_in_pit() -> void:
 	if piloting or berths.is_empty() or not Fleet.goes_to_pit():
 		return
 	calling = false
+	if call_dock != null:
+		docking = false                # a call's way into a station's bay, cut short
+		call_dock = null
 	bring_primary_to_pit()
 
 
@@ -2557,7 +2572,13 @@ func call_ship() -> String:
 	if WorldState.has_flag(Fleet.WRECKED):
 		return "call_wrecked"         # issue #722: T-89 or the welder first
 	var at := p.global_position
-	var foot := clear_spot(at, 0.0, -1.0, i)
+	# Aboard a station or out on its roof (a skimmer outpost's deck): she comes in
+	# through its bay to its dock pad, not down on the roof over it.
+	var st = call_station(at, i)
+	if st != null and i >= 0 and st.aboard(atmo.position() if i == berth else (berths[i].visual as Node3D).global_position) \
+			and (i != berth or atmo.state == AtmoFlight.State.PARKED):
+		return "call_here"            # already down in its bay
+	var foot: Vector3 = st.dock_point() if st != null else clear_spot(at, 0.0, -1.0, i)
 	if foot == Vector3.INF:
 		return "call_nowhere"
 	if i >= 0 and (bool(berths[i].get("destroyed", false)) or WorldState.has_flag(Fleet.WRECKED)):
@@ -2581,6 +2602,7 @@ func call_ship() -> String:
 	else:
 		atmo.place_flying(from, _flat(foot - from, u), 0.0, 0.0)
 	call_to = foot
+	call_dock = st
 	var to_you := PlanetSphere.tilt_to(u).inverse() * (at - foot)
 	call_yaw = atan2(-to_you.x, -to_you.z) if Vector2(to_you.x, to_you.z).length() > 0.5 else _yaw_of(atmo.transform())
 	calling = true
@@ -2588,6 +2610,29 @@ func call_ship() -> String:
 	visual.visible = true
 	_foot_toast(GameFlow.label("call_inbound") % vessel_name)
 	return ""
+
+
+## The station a call from `at` brings her into (its bay, by Z's autopilot): the one
+## you are aboard, out on the roof of, or within call_station_reach metres of, when
+## it has a bay and its dock pad is clear (another ship there, berth `skip` aside:
+## null, and she lands on clear ground by you as anywhere else).
+func call_station(at: Vector3, skip: int = -1):
+	var reach := GameFlow.setting("call_station_reach", 200.0)
+	for s in stations():
+		if s.hull == null or s.hull.dock_pad().is_empty():
+			continue
+		if not (s.aboard(at) or s.hull.on_roof(s.to_local_point(at)) or s.distance(at) <= reach):
+			continue
+		var pad: Vector3 = s.dock_point()
+		var room := float(s.hull.dock_pad().get("radius", 8.5))
+		for j in berths.size():
+			if j == skip or bool(berths[j].get("destroyed", false)) or not is_instance_valid(berths[j].visual):
+				continue
+			var v := atmo.position() if j == berth else (berths[j].visual as Node3D).global_position
+			if _flat(v - pad, s.dock_up()).length() < room:
+				return null
+		return s
+	return null
 
 
 ## What Call can do right now, for the ledger: { ok, text }.
@@ -2615,6 +2660,12 @@ func call_tick(dt: float) -> void:
 ## under her, then straight down over the spot with the normal landing. The same
 ## flight model's state, moved the way the bay landing moves it (_bay_step).
 func _call_step(dt: float) -> void:
+	if docking:
+		_dock_step(dt)                 # into a station's bay (call_dock): Z's autopilot
+		if not docking:
+			call_dock = null
+		_sync_visual()
+		return
 	match atmo.state:
 		AtmoFlight.State.LIFTOFF:
 			atmo.step(dt)              # its events (the seated toasts) are not for you
@@ -2636,6 +2687,17 @@ func _call_step(dt: float) -> void:
 
 func _call_fly(dt: float) -> void:
 	var f = atmo.flight
+	if call_dock != null:
+		if not is_instance_valid(call_dock):
+			call_dock = null
+		elif call_dock.can_dock(f.position):
+			if _start_dock(call_dock):
+				return
+			call_dock = null           # no way into its bay after all: clear ground by you
+			var p := player()
+			var foot := clear_spot(p.global_position if p != null else call_to, 0.0, -1.0, berth)
+			if foot != Vector3.INF:
+				call_to = foot
 	var u := ground.up_at(call_to)
 	var pos: Vector3 = f.position
 	var flat := _flat(call_to - pos, u)
