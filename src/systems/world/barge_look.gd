@@ -164,14 +164,25 @@ func _skin() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "HullSkin"
 	mi.mesh = st.commit()
-	var m := ClubTextures.local(ClubTextures.rust(Dressing.c("barge", "hull", "#5a5450"))).duplicate() as StandardMaterial3D
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = m
+	mi.material_override = _skin_mat()
 	barge.look.add_child(mi)
 	_prow_deck()
 	# A lamp on the railing's post at the tip of the prow.
 	var tip: Vector3 = barge.prow_edge()[PartyBarge.PROW_KS.size() - 1] + Vector3(0, 0, 0.22)
 	jazz._sphere(jazz, 0.22, tip + Vector3(0, PartyBarge.RAIL_H + 0.22, 0), ClubTextures.glow(Dressing.c("barge", "lamp", "#ffb860"), 4.0))
+
+
+## Issue #716: the skin's two-sided rust, one for the session (a new one each
+## build died with the scene, and its shader with it: ~40 ms to compile again
+## on every arrival).
+static var _skin_kept: StandardMaterial3D
+
+
+static func _skin_mat() -> StandardMaterial3D:
+	if _skin_kept == null:
+		_skin_kept = ClubTextures.local(ClubTextures.rust(Dressing.c("barge", "hull", "#5a5450"))).duplicate() as StandardMaterial3D
+		_skin_kept.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _skin_kept
 
 
 ## The prow's deck: planks like the top deck's (in its own space, so the grain

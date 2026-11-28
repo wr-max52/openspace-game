@@ -257,12 +257,14 @@ func upright_bass(at: Transform3D) -> Node3D:
 	axis.position = Vector3(ClubMoves.BASS_X, 0, ClubMoves.BASS_Z)
 	axis.rotation_degrees.x = -ClubMoves.BASS_TILT
 	root.add_child(axis)
-	var varnish := StandardMaterial3D.new()     # gloss black lacquer
-	varnish.albedo_color = Dressing.c("club", "bass_varnish", "#0c0c0e")
-	varnish.roughness = 0.18
-	varnish.metallic = 0.2
-	varnish.clearcoat_enabled = true
-	varnish.clearcoat = 1.0
+	var varnish := _kept_mat("varnish", func() -> StandardMaterial3D:     # gloss black lacquer
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Dressing.c("club", "bass_varnish", "#0c0c0e")
+		m.roughness = 0.18
+		m.metallic = 0.2
+		m.clearcoat_enabled = true
+		m.clearcoat = 1.0
+		return m)
 	var dark := _flat(Dressing.c("club", "bass_dark", "#120c08"), 0.4)
 	_cone(axis, 0.01, 0.01, 0.16, Vector3(0, 0.08, 0), ClubTextures.brushed(Dressing.c("club", "bass_endpin", "#a0a0a4")))
 	# The body: the bass's outline (wide lower bout, pinched waist, narrower
@@ -366,13 +368,15 @@ func cocktail_table(pos: Vector3, r := 0.42, h := 0.78, candle := true) -> Node3
 
 ## A candle in a red glass on `parent` at `at`, with a small flickering light.
 func candle(parent: Node3D, at: Vector3) -> void:
-	var cup := StandardMaterial3D.new()
-	cup.albedo_color = Color(0.7, 0.12, 0.1, 0.55)
-	cup.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cup.emission_enabled = true
-	cup.emission = Dressing.c("club", "candle_cup", "#ff6a2b")
-	cup.emission_energy_multiplier = 1.4
-	cup.roughness = 0.1
+	var cup := _kept_mat("candle_cup", func() -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.7, 0.12, 0.1, 0.55)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.emission_enabled = true
+		m.emission = Dressing.c("club", "candle_cup", "#ff6a2b")
+		m.emission_energy_multiplier = 1.4
+		m.roughness = 0.1
+		return m)
 	_cone(parent, 0.04, 0.04, 0.08, at + Vector3(0, 0.04, 0), cup)
 	var flame := ClubTextures.glow(Dressing.c("club", "candle_flame", "#ffb060"), 6.0)
 	_sphere(parent, 0.012, at + Vector3(0, 0.085, 0), flame).scale = Vector3(1, 1.8, 1)
@@ -587,15 +591,33 @@ func _rod(parent: Node3D, a: Vector3, b: Vector3, r: float, mat: Material) -> Me
 
 
 func _glass(parent: Node3D, at: Vector3, drink: Color) -> void:
-	var g := StandardMaterial3D.new()
-	g.albedo_color = Color(0.9, 0.95, 1.0, 0.25)
-	g.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	g.roughness = 0.05
+	var g := _kept_mat("glass", func() -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.9, 0.95, 1.0, 0.25)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.roughness = 0.05
+		return m)
 	_cone(parent, 0.035, 0.028, 0.1, at + Vector3(0, 0.05, 0), g)
-	var d := StandardMaterial3D.new()
-	d.albedo_color = Color(drink.r, drink.g, drink.b, 0.8)
-	d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	d.emission_enabled = true
-	d.emission = drink
-	d.emission_energy_multiplier = 0.4
+	var d := _kept_mat("drink_" + drink.to_html(), func() -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(drink.r, drink.g, drink.b, 0.8)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.emission_enabled = true
+		m.emission = drink
+		m.emission_energy_multiplier = 0.4
+		return m)
 	_cone(parent, 0.03, 0.026, 0.055, at + Vector3(0, 0.03, 0), d)
+
+
+## Issue #716: one of each of these for the session, shared. A material made
+## new for every candle and glass died with its scene, and Godot frees a
+## material kind's shader with its last material: every arrival compiled the
+## clear, glowing kinds again (~80 ms for the club's first table). None of
+## them is changed after it is made.
+static var _kept: Dictionary = {}
+
+
+static func _kept_mat(key: String, make: Callable) -> StandardMaterial3D:
+	if not _kept.has(key):
+		_kept[key] = make.call()
+	return _kept[key]
