@@ -1,0 +1,6 @@
+{
+  "id": "highfold_resident",
+  "base": "local_resident",
+  "archetype": "highfold_folk",
+  "note": "Issue #877: a rancher of Highfold (a mountain town on the red world, src/systems/world/settlements.gd) in its own look (content/look/characters.json 'highfold_folk'); the ledge hamlets of the same folk too. Everything else is local_resident's ('base')."
+}

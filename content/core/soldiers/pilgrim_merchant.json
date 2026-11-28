@@ -1,0 +1,6 @@
+{
+  "id": "pilgrim_merchant",
+  "base": "local_merchant",
+  "archetype": "pilgrim_folk",
+  "note": "Issue #877: a stall keeper of the Pilgrims' Rest, in the Pilgrims' Rest's look ('pilgrim_folk'). Everything else is local_merchant's."
+}

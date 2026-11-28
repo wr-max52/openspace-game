@@ -104,6 +104,34 @@ you arrive on the warp; flying for it brings its escort instead of the planet's
 skirmish, and killing its general sets only `red_cruiser_taken` and pays its own
 reward.
 
+### Its mountain towns (issue #877)
+
+Seven places stand on flat-topped peaks of their own in the mountain country
+(`settlements` in `port_red.json`). Each place is one entry: `kind`, `lat`/`lon`,
+`palette` and `folk`, and a `butte` for its peak's size.
+
+- **`town`** is the town generator with no landing bay (`bay: "none"`), the place's
+  `kit` laid over the shared one: the Pilgrims' Rest (a lift, a storyteller) and
+  Sootwell (the mining town: a big cantina with a dancer, a lit road up).
+- **`ring`** is a few ranch houses round a yard inside one round wall: Highfold.
+- **`ledge`** is a hamlet on a low shelf: a shrine, a watch tower, a stall and a
+  few homes. Tarn, Scree, Kiln and Wren Ledge.
+- **The way up** is `lift: true` (a glass tube from the sand to a bridge onto the
+  town's apron; the station elevator's car, `settlements.lift`) or `ramp: true` (a
+  lit road that curls once round the peak at a speeder's grade,
+  `settlements.ramp`). Ledges are low enough to land on.
+- **The people** are the place's own folk (`pilgrim_*`, `highfold_*`, `soot_*`
+  soldiers and archetypes in `content/look/characters.json`), walking their own
+  strolls; `trade` picks each kind's stall keeper, and every cantina has its
+  barkeep.
+- **Looks** are in `content/look/settlements.json`: the palettes (walls, roofs,
+  paving, cloth, fire), the glass, the lift and the lamps.
+
+A place builds when its peak comes in sight and its folk sleep past `wake_m`; each
+has its pin on the map (`GlobeMap.settlement_pins`). `scenes/mountain_towns_trace.gd`,
+`tests/test_mountain_towns_trace.gut.gd` and `tests/test_mountain_towns.gut.gd`
+check it.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the

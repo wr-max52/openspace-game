@@ -1,0 +1,6 @@
+{
+  "id": "pilgrim_patron",
+  "base": "local_patron",
+  "archetype": "pilgrim_folk",
+  "note": "Issue #877: a drinker in the Pilgrims' Rest's cantina, in the Pilgrims' Rest's look ('pilgrim_folk'). Everything else is local_patron's."
+}

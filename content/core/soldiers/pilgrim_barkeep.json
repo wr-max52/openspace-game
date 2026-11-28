@@ -1,0 +1,7 @@
+{
+  "id": "pilgrim_barkeep",
+  "base": "local_merchant",
+  "label": "Barkeep",
+  "archetype": "pilgrim_folk",
+  "note": "Issue #877: the Pilgrims' Rest's barkeep, behind the cantina's bar (the cantina owner's spot), selling food and drink there; ducks behind the bar when the town fights. In the Pilgrims' Rest's look ('pilgrim_folk')."
+}

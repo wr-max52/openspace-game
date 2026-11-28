@@ -77,8 +77,11 @@ static func load_for(planet: Dictionary) -> Dictionary:
 	for k in lf:
 		if k != "note":
 			d[k] = lf[k]
+	var avoid: Array = []               # the tunnel ranges' lines and the towns' peaks: no cluster peak on them
+	var towns := settlement_buttes(cfg, d)
+	for b in towns:
+		avoid.append([_dir_of(float(b.lat), float(b.lon)), float(b.reach)])
 	if lf.has("mountain_clusters"):
-		var avoid: Array = []           # the tunnel ranges' lines: no cluster peak on them
 		for e in d.get("course_mountains", []):
 			var ll: Array = e.get("path_ll", [])
 			var keep := float(e.get("avoid_m", 0.0))
@@ -93,8 +96,48 @@ static func load_for(planet: Dictionary) -> Dictionary:
 					avoid.append([a.slerp(b, float(t) / 8.0), keep])
 		d["planet_mountains"] = (d.get("planet_mountains", []) as Array) \
 			+ mountain_clusters(lf.mountain_clusters, d, float(cfg.get("sphere_radius", 4000.0)), avoid)
+	# Issue #877: each mountain town's own flat-topped peak, a version of its own.
+	if not towns.is_empty():
+		var vs: Array = (d.get("mountain_variants", []) as Array).duplicate()
+		var pm: Array = (d.get("planet_mountains", []) as Array).duplicate()
+		for b in towns:
+			pm.append([float(b.lat), float(b.lon), vs.size(), str(b.id)])
+			vs.append(b.variant)
+		d["mountain_variants"] = vs
+		d["planet_mountains"] = pm
 	_for_cache[id] = d
 	return d
+
+
+const SETTLEMENT_LOOK := "res://content/look/settlements.json"
+
+## Issue #877: the mountain towns' peaks, from the planet's `settlements` block
+## (content/core/planets/<planet>.json): each place's `butte` (radius, top_radius,
+## seed, tiers...) laid over the look file's `butte` (or `ledge_butte` for a
+## ledge hamlet): a flat top wide enough for the town, no columns, crags or caves.
+## [{ id ("butte_<place>"), place, lat, lon, variant, reach (its foot plus the room
+## its lift or ramp takes) }].
+static func settlement_buttes(cfg: Dictionary, d: Dictionary = {}) -> Array:
+	var st: Dictionary = cfg.get("settlements", {})
+	var out: Array = []
+	if st.is_empty():
+		return out
+	var look := load_data(SETTLEMENT_LOOK)
+	var mcfg: Dictionary = d.get("mountain", load_data().get("mountain", {}))
+	var ramp_out := float(st.get("ramp", {}).get("out_m", 16.0)) + float(st.get("ramp", {}).get("width_m", 10.0))
+	var lift_out := float(st.get("lift", {}).get("out_m", 6.0)) + 4.0
+	for pl in st.get("places", []):
+		var key := "ledge_butte" if str(pl.get("kind", "")) == "ledge" else "butte"
+		var v: Dictionary = (look.get(key, {}) as Dictionary).duplicate(true)
+		v.erase("note")
+		var over: Dictionary = pl.get("butte", {})
+		for k in over:
+			v[k] = over[k]
+		var foot := float(RockMountain.plan(v, mcfg).get("radius", float(v.get("radius", 60.0))))
+		var extra := ramp_out if pl.has("ramp") else (lift_out if pl.has("lift") else 0.0)
+		out.append({ "id": "butte_" + str(pl.id), "place": str(pl.id), "lat": float(pl.lat), "lon": float(pl.lon),
+			"variant": v, "reach": foot + extra })
+	return out
 
 
 ## Issue #875: mountain country. Each cluster { lat, lon (its middle, degrees),
@@ -572,7 +615,8 @@ static func mountain_spots(data: Dictionary, sp: PlanetSphere) -> Array:
 	var cfg: Dictionary = data.get("mountain", {})
 	for e in data.get("planet_mountains", []):
 		var k := int(e[2]) % variants.size()
-		out.append({ "id": "mesa_%d_%d" % [int(e[0]), int(e[1])], "map": sp.map_from_lat_lon(float(e[0]), float(e[1])),
+		var mid: String = str(e[3]) if e.size() > 3 else "mesa_%d_%d" % [int(e[0]), int(e[1])]
+		out.append({ "id": mid, "map": sp.map_from_lat_lon(float(e[0]), float(e[1])),
 			"variant": k, "plan": RockMountain.plan(variants[k], cfg) })
 	for e in data.get("course_mountains", []):
 		out.append(_course_range(e, variants, cfg, sp))
