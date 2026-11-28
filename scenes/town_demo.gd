@@ -22,6 +22,7 @@ const Hijack := preload("res://src/systems/vehicles/hijack.gd")
 const TownDecor := preload("res://src/systems/world/town_decor.gd")
 const NpcRingsT := preload("res://src/systems/npc/npc_rings.gd")   ## issue #541
 const PeopleByDistanceT := preload("res://src/systems/npc/people_by_distance.gd")   ## issue #715
+const PlayerClimberT := preload("res://src/systems/player/player_climber.gd")
 const StairTower := preload("res://src/systems/world/stair_tower.gd")
 const PitBowl := preload("res://src/systems/world/pit_bowl.gd")
 const RingWall := preload("res://src/systems/world/ring_wall.gd")
@@ -76,6 +77,7 @@ var cantina_owner: Node3D                 ## M12 (null in the CI greybox)
 var bar: Node
 var gear: GearController              ## M13
 var welder: PlayerWelder              ## issue #722
+var climber                           ## PlayerClimber: getting on ladders
 var community: CommunityStalls        ## issue #147: player-made stall keepers and the NPC builder
 var pilot: ShipPilot                  ## M14
 var interceptor: AtmoFighter          ## issue #76: the Remnant's dark interceptor on the barracks pad
@@ -1882,6 +1884,9 @@ func _build_gear() -> void:
 	welder = PlayerWelder.new()         # issue #722: hold E (or fire) by a WeldSpot to fix it
 	welder.setup(self)
 	add_child(welder)
+	climber = PlayerClimberT.new()      # ladders: walk into one holding W, [E] at its top
+	climber.setup(self)
+	add_child(climber)
 
 
 ## M14: the pit's ship becomes the one you fly, and the world opens up around the

@@ -36,6 +36,7 @@ static func attach(p: CharacterBody3D, rig: Node3D, bolts_into: Node3D, mats: Lo
 	if ground_tilt is Basis:
 		k.avatar.align_to_ground(ground_tilt)
 	p.set("can_slide", true)  # only the player slides; guards share the body but never do
+	p.set("can_climb", true)  # and climbs ladders
 	k.weapons = PlayerWeapons.new()
 	k.add_child(k.weapons)
 	k.weapons.setup(p, k.avatar, rig, bolts_into)
@@ -102,7 +103,7 @@ func _physics_process(dt: float) -> void:
 		return
 	var rig = rig_node.rig if rig_node != null else null
 	var ctl = player.controller
-	avatar.animate(dt, {
+	var inp := {
 		"velocity": player.velocity,
 		"grounded": player.is_on_floor(),
 		"crouch": ctl.crouching(),
@@ -112,7 +113,10 @@ func _physics_process(dt: float) -> void:
 		"cam_yaw": rig.yaw if rig != null else player.rotation.y,
 		"aim_pitch": rig.pitch if rig != null else 0.0,
 		"upper": weapons.upper_mode(),
-	})
+	}
+	if player.get("climbing") == true:
+		_climb_inputs(inp)
+	avatar.animate(dt, inp)
 	if ctl.slide_sound_hint:
 		Sound.play("slide_scuff")
 	var moving: bool = player.is_on_floor() and not ctl.is_sliding() and Vector2(player.velocity.x, player.velocity.z).length() > 0.6
@@ -124,6 +128,24 @@ func _physics_process(dt: float) -> void:
 		_steps.pitch_scale = clampf(Vector2(player.velocity.x, player.velocity.z).length() / 4.0, 0.8, 1.5)
 	_hurt_left = maxf(0.0, _hurt_left - dt)
 	_hurt_flash.color.a = _hurt_left * 1.2
+
+
+## On a ladder (LadderClimb): hands free, facing it, the climb's pose.
+func _climb_inputs(inp: Dictionary) -> void:
+	var cl = player.get("climb")
+	var a: Dictionary = cl.anim()
+	inp.grounded = not cl.on_rungs()      # stepping on and off is from a floor; off the rungs at the foot lands
+	inp.velocity = Vector3.ZERO
+	inp.crouch = false
+	inp.slide = false
+	inp.upper = BodyAnimator.UPPER_FREE
+	inp.climb = a.w
+	inp.climb_u = a.u
+	inp.climb_slide = a.slide
+	inp.climb_over = a.over
+	var t = player.get("tilt")
+	var f: Vector3 = (t as Basis).inverse() * cl.facing() if t is Basis else cl.facing()
+	inp.face_yaw = atan2(f.x, f.z)
 
 
 ## Downed: the avatar goes limp (away from the last hit) and the weapon in hand is

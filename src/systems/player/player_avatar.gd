@@ -546,7 +546,10 @@ func animate(dt: float, inp: Dictionary) -> void:
 	elif speed > 0.4:
 		want = atan2(flat.x, flat.z)
 	_facing_prev = facing_yaw             # includes anything that set it from outside (leaving a vehicle)
-	facing_yaw = _approach_angle(facing_yaw, want, (turn_rate * 2.0 if first_person else turn_rate) * dt)
+	if inp.has("face_yaw"):
+		facing_yaw = float(inp.face_yaw)  # on a ladder: facing it (the climb turns you itself)
+	else:
+		facing_yaw = _approach_angle(facing_yaw, want, (turn_rate * 2.0 if first_person else turn_rate) * dt)
 	_facing_curr = facing_yaw
 	# Always replace the full basis. On a ball, the ground frame can be tilted;
 	# after a teleport back to a flat surface, the same calculation removes any
@@ -572,6 +575,8 @@ func animate(dt: float, inp: Dictionary) -> void:
 		"slide": inp.get("slide", false),
 		"upper": upper, "aim_pitch": pitch * (1.6 if first_person else 1.0), "twist": twist,
 		"ready": ready_up,
+		"climb": inp.get("climb", 0.0), "climb_u": inp.get("climb_u", 0.0),
+		"climb_slide": inp.get("climb_slide", 0.0), "climb_over": inp.get("climb_over", 0.0),
 	})
 	last_frame = out
 	for jn in out.joints:

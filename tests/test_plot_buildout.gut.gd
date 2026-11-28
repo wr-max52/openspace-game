@@ -124,8 +124,8 @@ func test_the_pit_meeting_ends_in_a_search_and_a_hint_at_work() -> void:
 	g.talk_ended()
 	assert_eq(Story.chapter(), "t89")
 	assert_true(g.take_job())
-	g.hand_over(int(WorldState.droids.add("assassin", "").uid))
-	assert_eq(Quests.state("general_droids"), "done", "the first droid finishes it")
+	g.hand_over(int(WorldState.droids.add("floating", "").uid))
+	assert_eq(Quests.state("general_droids"), "done", "his first job, the floating droid, finishes it")
 
 
 func test_the_meeting_opens_the_moment_you_climb_out_wherever_you_stand() -> void:
@@ -209,18 +209,22 @@ func test_polite_is_neutral_and_insults_get_you_searched() -> void:
 
 func test_droid_jobs_pay_three_times_and_raise_standing() -> void:
 	var g := _general()
+	WorldState.set_flag("general_float_done")
+	WorldState.set_flag("general_contraband_done")      # his third job: the floating droid and the contraband done
+	assert_eq(g.next_job(), GeneralPost.job_id())
 	assert_true(g.take_job())
 	var d := WorldState.droids.add("assassin", "")
 	var c0 := WorldState.credits
 	assert_eq(g.hand_over(int(d.uid)), 3 * DroidRoster.resale("assassin"))
 	assert_eq(WorldState.credits, c0 + 3 * DroidRoster.resale("assassin"))
-	assert_eq(int(WorldState.standing.imperial_remnant), 5)
+	assert_eq(int(WorldState.standing.imperial_remnant), 15, "a lot of standing")
 	assert_false(g.job_active(), "open again for the next droid")
 	WorldState.standing.imperial_remnant = -39
 	assert_true(g.take_job(), "-39 still gets jobs")
-	WorldState.jobs_taken.erase(GeneralPost.job_id())
+	WorldState.jobs_taken.clear()
 	WorldState.standing.imperial_remnant = -40
 	assert_false(g.take_job(), "hostile: no work")
+	assert_eq(g.said, g._line("no_work"))
 
 
 func test_good_standing_tips_the_crash_site_and_the_saber_finishes_it() -> void:

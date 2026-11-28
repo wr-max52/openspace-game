@@ -147,13 +147,30 @@ func _on_died() -> void:
 	_drop_spot()
 
 
-## A point `back` metres behind you, on the sand.
+const BLOCK_PROBE_H := 0.5           ## the wall check runs this high off the ground (m), as the droids'
+
+
+## A point `back` metres behind you, on the sand. You face +Z (CharacterBody
+## walks along its basis.z), so behind is -Z: the old -basis.z put the crew
+## member in front of you, behind the bar where Oda stands. Pulled in short of
+## a wall between you and the point (a ray at knee height), so they never turn
+## up on the far side of a wall or a counter.
 func _behind(back: float) -> Vector3:
-	var fwd := -player.global_transform.basis.z
+	var fwd := player.global_transform.basis.z
 	fwd.y = 0.0
 	if fwd.length() < 0.01:
-		fwd = Vector3.FORWARD
-	var at: Vector3 = player.global_position - fwd.normalized() * back
+		fwd = Vector3.BACK
+	var from: Vector3 = player.global_position
+	var at: Vector3 = from - fwd.normalized() * back
+	if player.is_inside_tree():
+		var lift := Vector3(0, BLOCK_PROBE_H, 0)
+		var q := PhysicsRayQueryParameters3D.create(from + lift, at + lift, 1)
+		if player is CollisionObject3D:
+			q.exclude = [player.get_rid()]
+		var hit := player.get_world_3d().direct_space_state.intersect_ray(q)
+		if not hit.is_empty() and absf((hit.normal as Vector3).y) < 0.7:
+			var dir := (at - from).normalized()
+			at = (hit.position as Vector3) - lift - dir * 0.6
 	return at + Vector3(0, 0.3, 0)
 
 

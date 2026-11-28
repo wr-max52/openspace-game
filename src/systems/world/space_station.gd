@@ -39,6 +39,7 @@ const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const StationCrowd := preload("res://src/systems/world/station_crowd.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
 const CharBody := preload("res://src/systems/player/character_body.gd")
+const Ladders := preload("res://src/systems/world/ladders.gd")
 
 var demo                               ## town_demo.gd
 var ground: WorldGround
@@ -54,6 +55,7 @@ var falls := 0                         ## times you were pulled back aboard (tra
 var rides := 0                         ## elevator stops reached with you aboard the car (traces)
 var fill: StationFill                  ## issue #315: what is in the floors (with the look layer only)
 var fill_floors: Array = []            ## { tower, i, c, y, r, node, built }: one per dressed floor
+var _fill_ladders := 0                 ## fill.ladders already noted in the Ladders registry
 var fill_ms := 0.0                     ## the longest tick spent building the fill, ms (review)
 var crowd: StationCrowd                ## issue #315: the people aboard (the config's "crowd")
 var remnant: StationRemnant            ## issue #314: the Remnant's deck and who holds it (the config's "remnant")
@@ -103,6 +105,8 @@ func _ready() -> void:
 	if demo != null and demo.use_look:
 		_build_look()
 		_lights()
+	for l in hull.ladders:               # the roof's and the gantry's ladders: climbable (PlayerClimber)
+		Ladders.add(_root, l)
 	_plan_fill()                         # issue #543: the floors' colliders with the look off too (solids only)
 	_build_shield()
 	_build_hatches()
@@ -436,6 +440,9 @@ func _plan_fill() -> void:
 func _step_fill() -> void:
 	if fill_floors.is_empty():
 		return
+	while _fill_ladders < fill.ladders.size():   # the shacks', containers' and catwalks' ladders, as they are built
+		Ladders.add(_root, fill.ladders[_fill_ladders])
+		_fill_ladders += 1
 	for ff in fill_floors:
 		if bool(ff.built):
 			continue

@@ -139,6 +139,47 @@ func test_a_speeder_rides_up_the_boarding_plate_into_the_hold() -> void:
 	assert_lt(best, 4.0, "it rides up the plate onto the hold's deck")
 
 
+## The hold floor was 66 m wide and the side plating a metre or two further out,
+## so a speeder driven at the wall dropped into the gap, wedged, and the unwedge
+## hop put it on the bottom plating under the floor: shut in the dark under the
+## hold. The floor now meets the plating.
+func test_a_speeder_driven_at_the_hold_wall_stays_on_the_floor() -> void:
+	var inv := StarcruiserWreck.frame(g, ID, "hull").affine_inverse()
+	var under := []
+	# [side, hull z, degrees off the keel, steer]: glancing runs along the wall and
+	# head-on ones turning, each of which ended under the floor before.
+	for run: Array in [[-1.0, 150.0, 30.0, 0.0], [1.0, 150.0, 30.0, 0.0], [-1.0, 200.0, 90.0, 0.3], [1.0, 200.0, 90.0, -0.3]]:
+		var side: float = run[0]
+		var z: float = run[1]
+		var a := deg_to_rad(float(run[2]))
+		var m := _speeder(_hull(side * 20.0, StarcruiserWreck.DECK_Y + 0.9, z),
+			_hull(side * sin(a), 0, z + cos(a)) - _hull(0, 0, z))
+		for i in 60 * 6:
+			m.set_command(1.0, float(run[3]), true)
+			m.step(1.0 / 60.0)
+			var h := inv * m.position
+			var inside := absf(h.x) < StarcruiserWreck._plating_x(h.y, StarcruiserWreck._hull_rx(h.z))
+			if inside and h.y < StarcruiserWreck.DECK_Y - 2.0:
+				under.append("run %s: under the floor at %s" % [str(run), h.snapped(Vector3.ONE * 0.1)])
+				break
+	assert_eq(under, [], "it bumps the wall and stays on the hold floor")
+	# And the floor reaches the plating all along both walls (not across the
+	# breach), wherever the floor is above the sand.
+	var gaps := []
+	for z in range(-150, 296, 5):
+		for side in [-1.0, 1.0]:
+			if side > 0.0 and z >= -90 and z <= 90:
+				continue
+			var x := StarcruiserWreck._plating_x(StarcruiserWreck.DECK_Y, StarcruiserWreck._hull_rx(z)) - 1.4
+			var p := _hull(side * x, StarcruiserWreck.DECK_Y + 1.0, float(z))
+			if _sp.height_above_ground(p) < 0.0:
+				continue
+			var h := g.height_above(p)
+			if absf(h - 1.0) > 0.5:
+				gaps.append("side %d z %d: %.1f m to the ground" % [side, z, h])
+	assert_eq(gaps, [], "no gap between the hold floor and the plating")
+
+
 # ---- the interior -------------------------------------------------------------------
 
 const U := StarcruiserWreck.INTERIOR_V

@@ -16,9 +16,9 @@
     { "id": "deck", "at": [0, 0], "floors": [
       { "id": "outpost", "y": 0.0, "radius": 40.0, "rooms": true,
         "roof_ladder": true,
-        "roof_ladder_note": "Issue #838: a ladder up to the first of the floor's ceiling hatches (the station kit's floor_hatch block: four shields over the walkway, jetpack up through one onto the roof), from the walkway to a handhold over the roof (StationHull._roof_ladder).",
+        "roof_ladder_note": "Issue #838: a ladder up to the first of the floor's ceiling hatches (the station kit's floor_hatch block: four shields over the walkway, jetpack up through one onto the roof), from the walkway to a handhold over the roof (StationHull._roof_ladder). Climbable: walk into it holding W, [E] at its top to climb down (content/core/flow/ladders.json).",
         "gantry_hatch": { "a_deg": 292.5, "r": 25.0, "width": 3.0 },
-        "gantry_hatch_note": "Issue #838: a 3 m hatch in the skimmer control room's floor (the room at 292.5 degrees), closed by a shield you drop through and jetpack back up through, the ladder beside it down to the skimmer gantry (StationHull._gantry_hatch)." }
+        "gantry_hatch_note": "Issue #838: a 3 m hatch in the skimmer control room's floor (the room at 292.5 degrees), closed by a shield you drop through and jetpack back up through, the ladder beside it down to the skimmer gantry (StationHull._gantry_hatch), climbable as the roof's." }
     ],
       "antennas": [
         { "kind": "dish", "a_deg": 160, "r": 24.0, "size": 5.0 },

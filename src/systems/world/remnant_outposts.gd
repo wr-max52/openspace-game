@@ -59,7 +59,11 @@ extends Node3D
 ## Heist.hack_seconds() while a heist names the outpost and the hack starts: stay
 ## within Heist.stay_m() of the console for Heist.run_seconds() and it drops the
 ## stash. When it starts the outpost sends a wave (Heist.wave_cfg()) from out in
-## the sand, running in to kill you.
+## the sand, running in to kill you. [RMB] starts the breach as well as [E] held.
+## While the heist is on the outpost keeps its holder (Territory.frozen): the
+## wave is theirs, and killing everyone there changes nothing yet. It changes
+## hands after the heist, once you are well away and cannot see it
+## (Heist.hand_over, then the swap at once).
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 const TownDecor := preload("res://src/systems/world/town_decor.gd")
@@ -83,6 +87,7 @@ var target_run := -1               ## which contract it is
 var bounty_kills := 0              ## for tests and traces
 var hacking := 0.0                 ## issue #309: seconds [E] has been held at a console so far
 var hack_at := ""                  ## ... the outpost whose console is in reach ("" = none)
+var clicked_on := false            ## ... [RMB] started it: it goes on with nothing held
 var hacks := 0                     ## ... consoles hacked in this scene, for tests and traces
 var running := -1.0                ## the started hack's seconds left (-1 = none running)
 var running_at := ""               ## ... the outpost whose console it runs on ("" = none)
@@ -381,10 +386,15 @@ func _alive_at(o: Dictionary, side: String) -> int:
 func _tick_control(dt: float, p: Node3D) -> void:
 	for o in outposts:
 		var id := str(o.id)
+		var away: float = p.global_position.distance_to(o.origin) if p != null else INF
+		# Cleared during a heist that is over now: it changes hands once you are well
+		# away and cannot see it, the new side moving in at the same moment.
+		if Heist.handover_due(id) and away >= Territory.n("swap_away_m", 1000.0) and not _on_screen(o):
+			Heist.hand_over(id)
+			o.swap_now = true
 		var want := Territory.owner(id)
 		if o.get("told", false) and _alive_at(o, o.side) > 0:
 			o.told = false                      # they are back: say it again next time
-		var away: float = p.global_position.distance_to(o.origin) if p != null else INF
 		if want == o.side:
 			if not bool(o.get("restock", false)):
 				o.wait = 0.0
@@ -402,6 +412,13 @@ func _tick_control(dt: float, p: Node3D) -> void:
 						o.told = true
 						_toast(Territory.fline(Territory.front_of(id), "locals_locked") % o.label)
 					o.restock = true
+				elif Heist.holds(id):
+					# A heist on it: the side that held it when you came keeps it (its wave
+					# included) till the heist is over and you are well away (Heist.hand_over).
+					Heist.note_cleared(id)
+					if not bool(o.get("cleared", false)):
+						o.cleared = true
+						_toast(Heist.line("cleared") % o.label)
 				else:
 					if o.side == Territory.REMNANT:
 						Territory.take(id)          # every trooper dead: the locals have it
@@ -423,8 +440,10 @@ func _tick_control(dt: float, p: Node3D) -> void:
 					swap(o, o.side, true)       # the same side again: the dead go, fresh guards come
 			continue
 		o.wait = float(o.wait) + dt
-		# Change hands out of sight only: cleared a while, you well away, not on screen.
-		if ready_to_swap(float(o.wait), away) and not _on_screen(o):
+		# Change hands out of sight only: cleared a while (or just handed over after a
+		# heist), you well away, not on screen.
+		var now: bool = o.get("swap_now", false) and away >= Territory.n("swap_away_m", 1000.0)
+		if (now or ready_to_swap(float(o.wait), away)) and not _on_screen(o):
 			swap(o, want)
 
 
@@ -474,6 +493,7 @@ func swap(o: Dictionary, side: String, restock := false) -> void:
 	o.wait = 0.0
 	o.cleared = false
 	o.restock = false
+	o.swap_now = false
 	for ref in refineries(o):
 		ref.rebuild()                          # the outpost's respawn brings its refineries back
 	if not restock:
@@ -1211,7 +1231,9 @@ func vault_point(o: Dictionary) -> Vector3:
 ## Letting go or stepping away while starting starts that over. Being seen
 ## changes nothing. Issue #722: the console is the vault, breached with the plasma
 ## welder: without it drawn (`welder_out`) it says "no_welder" and nothing starts.
-func hack_step(dt: float, held: bool, p: Vector3, welder_out := true) -> String:
+## `clicked` ([RMB] down): in reach with the welder out, the breach starts and
+## goes on by itself, no [E] held, till it starts the hack or you step away.
+func hack_step(dt: float, held: bool, p: Vector3, welder_out := true, clicked := false) -> String:
 	if running_at != "":
 		var ro := outpost(running_at)
 		if not Heist.armed(running_at) or ro.is_empty():
@@ -1227,21 +1249,27 @@ func hack_step(dt: float, held: bool, p: Vector3, welder_out := true) -> String:
 	if o.is_empty():
 		hacking = 0.0
 		hack_at = ""
+		clicked_on = false
 		return ""
 	hack_at = str(o.id)
 	if not Heist.armed(hack_at):
 		hacking = 0.0
+		clicked_on = false
 		return "wiped" if Heist.target() == hack_at else "locked"
 	if not welder_out:
 		hacking = 0.0
+		clicked_on = false
 		return "no_welder"
-	if not held:
+	if clicked:
+		clicked_on = true
+	if not held and not clicked_on:
 		hacking = 0.0
 		return "ready"
 	hacking += dt
 	if hacking < Heist.hack_seconds():
 		return "hacking"
 	hacking = 0.0
+	clicked_on = false
 	if Heist.run_seconds() <= 0.0:
 		return _finish(o)
 	running_at = hack_at
@@ -1276,8 +1304,11 @@ func _tick_hack(dt: float, p: Node3D) -> void:
 	var kit = demo.get("player_kit")
 	var weapons: PlayerWeapons = kit.weapons if kit != null and is_instance_valid(kit) else null
 	var welder_out := weapons != null and weapons.holder.current == Welder.ITEM and weapons.holder.is_ready()
+	# [RMB] at the vault breaches it too (no holding needed once it starts).
+	var clicked := not busy and InputMap.has_action("alt_fire") and Input.is_action_pressed("alt_fire") \
+		and not (weapons != null and weapons.wheel.is_open)
 	# A started hack keeps running whatever you are doing, as long as you stay close.
-	var state := "" if busy and running_at == "" else hack_step(dt, held, p.global_position, welder_out)
+	var state := "" if busy and running_at == "" else hack_step(dt, held, p.global_position, welder_out, clicked)
 	if weapons != null and (state == "hacking" or _bar_up):
 		weapons.welding = state == "hacking"       # sparks off the tip while you burn it open...
 		var w = demo.get("welder")

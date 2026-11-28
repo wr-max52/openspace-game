@@ -1,6 +1,6 @@
 {
   "id": "general",
-  "note": "Issue #203: the Remnant general in a story save (src/systems/npc/general_post.gd). Where he stands: in the pit while the story is at the 'general' chapter ('pit'), else in the barracks yard ('barracks'): a town marker plus an offset; his guard and assassin droid stand at offsets from him, in the squad's own frame ('guard_offset', 'droid_offset': x across the row, z toward what they face), so the three stand in a row abreast whichever way they face. In the pit the row is between your ship's tail and the pit, facing the gate past you: you are boxed in against your ship. 'insult_standing': Remnant standing each insult costs; 'search_after': insults in one talk before his guards search you (the gate's rules). Issue #204: 'droid_kind' he buys for 'pay_mult' times the droid merchant's resale, each one raising Remnant standing by 'droid_standing'; 'tip_standing': at or above it he tells you about the crashed cruiser (issue #205). 'armour_outfit': his look once the Remnant has left (issue #214). Issue #251: his second job (j_general_repossess) is contraband stashed inside the town; handing it over on his [E] menu pays the job's 'pay_mult' times what the fence would (bar_board.json) and raises Remnant standing by 'contraband_standing'. Story fixes: 'face': the marker he, his guard and his droid face (the front gate). 'meeting': the pit meeting ends only on his verdict, let_go or search (the player cannot leave on Esc); each sets the Remnant standing you start with ('standing'); it opens the moment you climb out of your ship, wherever you stand; after 'turns' of his replies ('turns_offline' with AI characters off or no model answering, issue #328) with no verdict the game gives 'default' (search: newcomers are searched), at the standing of 'default' (a routine search costs nothing) unless they insulted him (then 'search'); 'end_delay' seconds after the verdict the talk closes; 'after' seconds later T-89 may greet you. 'leave': once the talk is over he, his guard and his droid walk out of the pit to the barracks on the town's navmesh at 'speed' m/s, 'gap_s' apart in single file (no cut: you stay where you stood, at the same time of day); after 'max_s' seconds, or with no path, they are simply there. Whatever his verdict, he closes with 'droid_hint' (the Work for the general quest, event heard_of_droid_job). Barracks fight: in the barracks yard (before the Remnant leave) he and his guard are garrison troopers ('squad': soldier profiles 'general' and 'guard') and his assassin droid a Remnant droid ('squad.droid', DroidController), so they can be killed and they fight on the town alarm. Killed there he is gone for good (flag general_dead): a bounty not yet taken on him goes to an officer instead, and the end card says he is dead.",
+  "note": "Issue #203: the Remnant general in a story save (src/systems/npc/general_post.gd). Where he stands: in the pit while the story is at the 'general' chapter ('pit'), else in the barracks yard ('barracks'): a town marker plus an offset; his guard and assassin droid stand at offsets from him, in the squad's own frame ('guard_offset', 'droid_offset': x across the row, z toward what they face), so the three stand in a row abreast whichever way they face. In the pit the row is between your ship's tail and the pit, facing the gate past you: you are boxed in against your ship. 'insult_standing': Remnant standing each insult costs; 'search_after': insults in one talk before his guards search you (the gate's rules). Issue #204: 'droid_kind' he buys for 'pay_mult' times the droid merchant's resale, each one raising Remnant standing by 'droid_standing'; 'tip_standing': at or above it he tells you about the crashed cruiser (issue #205). 'armour_outfit': his look once the Remnant has left (issue #214). Issue #251: his second job (j_general_repossess) is contraband stashed inside the town; handing it over on his [E] menu pays the job's 'pay_mult' times what the fence would (bar_board.json) and raises Remnant standing by 'contraband_standing'. Story fixes: 'face': the marker he, his guard and his droid face (the front gate). 'meeting': the pit meeting ends only on his verdict, let_go or search (the player cannot leave on Esc); each sets the Remnant standing you start with ('standing'); it opens the moment you climb out of your ship, wherever you stand; after 'turns' of his replies ('turns_offline' with AI characters off or no model answering, issue #328) with no verdict the game gives 'default' (search: newcomers are searched), at the standing of 'default' (a routine search costs nothing) unless they insulted him (then 'search'); 'end_delay' seconds after the verdict the talk closes; 'after' seconds later T-89 may greet you. 'leave': once the talk is over he, his guard and his droid walk out of the pit to the barracks on the town's navmesh at 'speed' m/s, 'gap_s' apart in single file (no cut: you stay where you stood, at the same time of day); after 'max_s' seconds, or with no path, they are simply there. Whatever his verdict, he closes with 'droid_hint' (the Work for the general quest, event heard_of_droid_job). Barracks fight: in the barracks yard (before the Remnant leave) he and his guard are garrison troopers ('squad': soldier profiles 'general' and 'guard') and his assassin droid a Remnant droid ('squad.droid', DroidController), so they can be killed and they fight on the town alarm. Killed there he is gone for good (flag general_dead): a bounty not yet taken on him goes to an officer instead, and the end card says he is dead. Job order (droid_jobs, work_order): his jobs come one after another, each open once the last is done (bar_board.json requires): first a floating droid (j_general_float, once), then repossessed contraband (j_general_repossess), then assassin droids (j_general_droids), then the local nuisance (j_general_nuisance, once). [E] Ask for work takes the next one in 'work_order' not yet done once, else the open one done least. 'droid_jobs': each droid job's droid 'kind', 'pay_mult' times the droid merchant's resale, the Remnant 'standing' it earns, the 'flag' its first hand-over sets (it opens the next job), the 'counter' it bumps, the story 'event' and his lines ('taken', 'paid', with the pay). 'contraband_standing': what each repossession earns; 'contraband_flag' the first sets. 'nuisance': the local in green his fourth job stands in the street (a 'soldier' profile at a town 'marker' plus 'offset', facing the 'face' marker: the main street outside the barracks yard, in sight of the barracks roof and both gate towers); killing him pays 'pay', earns 'standing' and sets 'flag'. Each job raises Remnant standing a lot.",
   "pit": {
     "marker": "player_spawn",
     "offset": [
@@ -57,11 +57,50 @@
   },
   "insult_standing": -5,
   "search_after": 2,
-  "droid_kind": "assassin",
-  "pay_mult": 3,
-  "droid_standing": 5,
-  "contraband_standing": 3,
-  "job": "j_general_droids",
+  "work_order": [
+    "j_general_float",
+    "j_general_repossess",
+    "j_general_droids",
+    "j_general_nuisance"
+  ],
+  "droid_jobs": {
+    "j_general_float": {
+      "kind": "floating",
+      "pay_mult": 3,
+      "standing": 15,
+      "flag": "general_float_done",
+      "counter": "general_floats",
+      "event": "general_float_sold",
+      "taken": "Bring me a floating droid. A little one, for the barracks. I pay %d for it.",
+      "paid": "A neat little machine. %d credits. The barracks will use it well."
+    },
+    "j_general_droids": {
+      "kind": "assassin",
+      "pay_mult": 3,
+      "standing": 15,
+      "flag": "general_droid_done",
+      "counter": "general_droids",
+      "event": "general_droid_sold",
+      "taken": "Bring me assassin droids from the desert. I pay %d a head.",
+      "paid": "A fine machine. %d credits. The Hegemony thanks you."
+    }
+  },
+  "contraband_standing": 15,
+  "contraband_flag": "general_contraband_done",
+  "nuisance": {
+    "job": "j_general_nuisance",
+    "soldier": "town_nuisance",
+    "marker": "trooper_yard_a",
+    "offset": [
+      6.0,
+      0.0,
+      -35.0
+    ],
+    "face": "trooper_yard_a",
+    "pay": 400,
+    "standing": 15,
+    "flag": "general_nuisance_done"
+  },
   "tip_standing": 15,
   "outfit": {
     "head": "guard:blood",
@@ -84,16 +123,14 @@
     "chat": "Talk",
     "work": "Ask for work",
     "hand_over": "Hand over your %s  (+%d cr)",
-  "hand_contraband": "Hand over the contraband  (+%d cr)",
+    "hand_contraband": "Hand over the contraband  (+%d cr)",
     "leave": "Leave"
   },
   "lines": {
     "searched": "Search this one! ... Took: %s.",
     "searched_clean": "Search this one! ... Clean. This time.",
     "no_work": "I have no work for enemies of the Remnant. Get out of my sight.",
-    "job_taken": "Bring me assassin droids from the desert. I pay %d a head.",
-    "paid": "A fine machine. %d credits. The Hegemony thanks you.",
-  "repossessed": "Confiscated, as the law requires. %d credits. The garrison will put it to better use.",
+    "repossessed": "Confiscated, as the law requires. %d credits. The garrison will put it to better use.",
     "tip": "Spacer... you have earned this. Go and see the cruiser that crashed out on the horizon. Even in the sand she is magnificent. There is something red still aboard. Be careful of the droids out there, they were never deactivated and the sand may have fried those circuits.",
     "meeting_search": "Search this one! ... %s",
     "meeting_clean": "Clean. This time.",
@@ -101,6 +138,9 @@
     "hold": "%s has not dismissed you. Answer him.",
     "droid_hint": "Outlanders like you will take any work. I have something in mind.",
     "brief": "THIS IS THE PIT MEETING: they have just climbed out of their wreck of a ship and they cannot walk away until you decide. Your standing order is that newcomers are searched. Question them and bully them; after your fourth reply your guards search them anyway. End it early with search if they are insolent, or with let_go only if they show real respect for the Hegemony. Never use end_conversation now.",
-    "killed": "%s is dead. The Remnant will not forget it."
+    "killed": "%s is dead. The Remnant will not forget it.",
+    "no_work_now": "Nothing for you right now. Finish what I gave you, then come back.",
+    "job_nuisance": "There is a local who shouts at my troopers outside the barracks all day. Green, head to toe. Buy a sniper rifle at the gear trader, get up on the barracks roof or a gate tower, and remove the nuisance.",
+    "nuisance_done": "The street is quiet. %d credits are yours, and the Remnant will remember who kept it so."
   }
 }
