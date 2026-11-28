@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The station's Remnant fight from cover and come hunting (2026-11-28)
+
+- **On the alarm, the Remnant aboard the ring station duck behind their room's
+  furniture**: the bunks and card tables in the barracks, the crew desks on
+  the bridge, the gear on their deck. They fight from there in bursts.
+- **After about 10 seconds without seeing you they leave the room and hunt**:
+  out of the door and round the walkway to where you were. If you're on
+  another floor they wait on the walkway on your side.
+- **No more troopers stuck in corners.** They used to run straight at you
+  through the walls (or at cover spots down in the bay) and pin themselves in
+  a room's corner. Now every move goes out of the door and round the
+  walkway, and steps round tables and bunks in the way.
+
 ## The Remnant on the ring station's top floor (2026-11-28)
 
 - **A Remnant general stands on the bridge's command dais** by the great window,

@@ -62,6 +62,10 @@ var profile: Dictionary = {}      ## the gate guards' profile (checkpoint rules)
 var lines: Dictionary = {}
 var gate_pos := Vector3.ZERO
 var spots: Array = []             ## cover spots in town (CoverPicker)
+## A station's garrison (StationTactics, set by StationRemnant): cover from the
+## furniture of the room each trooper is in, and every walk routed through the
+## rooms' doors and round the walkway, never at the town's spots far below.
+var tactics: StationTactics = null
 var claimed: Dictionary = {}      ## NpcBody -> Vector3 its cover spot
 var content: CoreContent
 var klaxon: AudioStreamPlayer3D
@@ -550,8 +554,15 @@ func _run_brain(g: NpcBody, dt: float, ppos: Vector3) -> void:
 	b.update(dt)
 	if b.want_cover:
 		b.want_cover = false
-		b.cover = _pick_cover(g, b)
-	g.carry_out(b, dt)
+		b.cover = _pick_cover(g, b) if tactics == null else _station_cover(g, b)
+	if tactics != null and b.go_to != Vector3.INF:
+		# The body walks to the route's next point; the brain keeps its own goal.
+		var goal := b.go_to
+		b.go_to = tactics.route(g, goal)
+		g.carry_out(b, dt)
+		b.go_to = goal
+	else:
+		g.carry_out(b, dt)
 	if b.bark != "":
 		_say(g, b.bark)
 
@@ -587,6 +598,30 @@ func _pick_cover(g: NpcBody, b: GuardBrain) -> Vector3:
 		claimed.erase(g)
 		return Vector3.INF
 	var p: Vector3 = mine[i].pos
+	if claimed.has(g) and (claimed[g] as Vector3).distance_to(p) < 1.2 and g.global_position.distance_to(p) < 1.5:
+		claimed.erase(g)
+		return Vector3.INF
+	claimed[g] = p
+	return p
+
+
+## A station's cover (StationTactics.cover) on _pick_cover's rules: against the
+## same threat, not a spot another holds; the spot it already holds (no better
+## one) means none, so the brain fights from where it is and moves on.
+func _station_cover(g: NpcBody, b: GuardBrain) -> Vector3:
+	var threat: Vector3 = b.target_pos if b.visible else b.last_seen
+	if threat == Vector3.INF:
+		threat = b.alarm_pos
+	if threat == Vector3.INF:
+		threat = _player_pos()
+	var taken: Array = []
+	for other in claimed:
+		if other != g and not other.dead:
+			taken.append(claimed[other])
+	var p := tactics.cover(g, threat, taken)
+	if p == Vector3.INF:
+		claimed.erase(g)
+		return Vector3.INF
 	if claimed.has(g) and (claimed[g] as Vector3).distance_to(p) < 1.2 and g.global_position.distance_to(p) < 1.5:
 		claimed.erase(g)
 		return Vector3.INF

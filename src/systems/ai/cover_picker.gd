@@ -15,8 +15,10 @@ const MIN_HEIGHT := 1.0      ## a box lower than this hides nothing (a crouched 
 ## `center`: one every `step` metres along each side, `standoff` metres out.
 ## Each spot: { pos: Vector3, box: String, rect: [minx, minz, maxx, maxz], height }.
 ## Spots that would put a body inside another box are dropped.
+## `min_height`: the lowest box that counts (the station's desks and card tables,
+## 0.8 m, hide a crouched body's chest: StationTactics passes 0.75).
 static func candidates(boxes: Array, center: Vector3, radius: float, standoff: float = 0.95,
-		step: float = 1.6, kinds: Array = ["cover", "solid", "wall"]) -> Array:
+		step: float = 1.6, kinds: Array = ["cover", "solid", "wall"], min_height: float = MIN_HEIGHT) -> Array:
 	var out: Array = []
 	var blockers: Array = []
 	for b in boxes:
@@ -31,7 +33,7 @@ static func candidates(boxes: Array, center: Vector3, radius: float, standoff: f
 		var mxz := float(b.max[2])
 		var floor_y := float(b.min[1])
 		var height := float(b.max[1]) - floor_y
-		if height < MIN_HEIGHT or floor_y > 0.2 or floor_y < -0.2:
+		if height < min_height or floor_y > 0.2 or floor_y < -0.2:
 			continue                       # too low, or not standing on the street
 		if _rect_dist(center.x, center.z, [mnx, mnz, mxx, mxz]) > radius:
 			continue

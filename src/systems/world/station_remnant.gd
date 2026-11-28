@@ -39,6 +39,7 @@ var troopers: Array = []            ## NpcBody, the Remnant's (the commander too
 var guards: Array = []              ## NpcBody, the locals' once they hold it
 var garrison: Garrison
 var top_garrison: Garrison           ## the top floor's (issue #314): its own, not the deck's
+var tactics: StationTactics          ## cover and routes aboard for both garrisons
 var woke := false
 var taken_here := false             ## the last trooper died in this scene
 var holo: Node3D
@@ -64,6 +65,7 @@ func setup(space_station, town_demo, station_hull: StationHull) -> void:
 	place = Territory.STATION + str(station.id)
 	group = "station:" + str(station.id)
 	name = "RemnantDeck"
+	tactics = StationTactics.new(station, hull)
 
 
 ## The floor it is on: [tower, floor index], or [] when the config has none.
@@ -260,12 +262,14 @@ func _add_trooper(p: Dictionary) -> void:
 	g.disable_mode = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
 	g.nav = null
 	g.free_walk = true                  # no navmesh aboard: straight across the deck
+	_station_combat(g)
 	troopers.append(g)
 	g.died.connect(_on_trooper_died)
 	if garrison == null:
 		if not bool(demo.get("npc_brains")):
 			return
 		garrison = demo._make_garrison("Garrison_" + place, [g], false, station.to_world(p.at), true)
+		garrison.tactics = tactics
 		garrison.place = TownAlarm.place_name("station_remnant", str(station.vessel_name))
 		if demo.get("outposts") != null:
 			demo.outposts.garrisons[place] = garrison
@@ -290,15 +294,32 @@ func _add_top_trooper(p: Dictionary) -> void:
 	g.disable_mode = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
 	g.nav = null
 	g.free_walk = true
+	_station_combat(g)
 	troopers.append(g)
 	g.died.connect(_on_trooper_died)
 	if not bool(demo.get("npc_brains")):
 		return
 	if top_garrison == null:
 		top_garrison = demo._make_garrison("Garrison_" + place + "_top", [g], false, station.to_world(p.at), true)
+		top_garrison.tactics = tactics
 		top_garrison.place = TownAlarm.place_name("station_remnant", str(station.vessel_name))
 	else:
 		top_garrison.add_member(g)
+
+
+## The station's own fighting numbers over the soldier's profile (the "tactics"
+## block's "combat": how long a trooper holds his cover before he leaves the room
+## to hunt, how wide he searches), before his garrison makes his brain from it.
+func _station_combat(g: NpcBody) -> void:
+	var over: Dictionary = cfg.get("tactics", {}).get("combat", {})
+	if over.is_empty():
+		return
+	var prof: Dictionary = g.profile.duplicate(true)
+	var combat: Dictionary = prof.get("combat", {})
+	for k in over:
+		combat[k] = over[k]
+	prof["combat"] = combat
+	g.profile = prof
 
 
 ## A facing in the station's frame as the soldiers' yaw. NpcBody.setup puts it in
