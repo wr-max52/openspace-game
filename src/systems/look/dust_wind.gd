@@ -8,7 +8,7 @@ extends Node3D
 ## ground (the wind blows along the surface wherever you are). The town's
 ## altitude detail tiers hide it ("weather") once you fly up.
 ##
-## Numbers: content/look/world.json "dust".
+## Numbers: content/look/world.json "dust" (and "storm" "dust" for a sandstorm, #175).
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
@@ -19,6 +19,13 @@ var wind := Vector2(0.8, 0.6)        ## the sand shader's wind_dir (map / ground
 var grains: GPUParticles3D
 var puffs: GPUParticles3D
 var gust := 1.0                      ## 0..1, how hard it is blowing right now (read by tests)
+## Issue #175: a sandstorm (Sandstorm.set_look): 0 clear, 1 full. Its own grains and
+## puffs (faster, thicker, bigger) are made the first time one blows and kept, off
+## (not emitting) between storms, so clear weather costs what it always did.
+var storm := 0.0
+var storm_cfg: Dictionary = {}
+var storm_grains: GPUParticles3D
+var storm_puffs: GPUParticles3D
 var _t := 0.0
 var _gusts := FastNoiseLite.new()
 
@@ -37,14 +44,32 @@ func set_wind(dir: Vector2) -> void:
 	wind = dir.normalized()
 
 
+## Issue #175: how hard a sandstorm blows (0..1), and its "dust" block (world.json
+## "storm"): the gusts are held up toward `gust` and the storm's layers fade in.
+func set_storm(amount: float, c: Dictionary) -> void:
+	storm = clampf(amount, 0.0, 1.0)
+	storm_cfg = c
+	if storm > 0.0 and storm_grains == null:
+		storm_grains = _layer("StormGrains", c.get("grains", {}), true)
+		storm_puffs = _layer("StormPuffs", c.get("puffs", {}), false)
+	if storm_grains != null:
+		var on := storm > 0.001
+		storm_grains.emitting = on
+		storm_puffs.emitting = on
+
+
 func _process(dt: float) -> void:
 	# Gusts: the dust comes in waves, a lull then a blow, never quite still.
 	_t += dt
-	gust = smoothstep(-0.35, 0.55, _gusts.get_noise_1d(_t))
+	var hold := storm * float(storm_cfg.get("gust", 0.0))
+	gust = lerpf(smoothstep(-0.35, 0.55, _gusts.get_noise_1d(_t)), 1.0, hold)
 	var lull := float(cfg.get("lull", 0.12))
 	var share := float(LookEnvironment.low_cfg().get("dust", 1.0)) if LookEnvironment.cut("dust") else 1.0
 	grains.amount_ratio = lerpf(lull, 1.0, gust) * share
-	puffs.amount_ratio = lerpf(lull, 1.0, smoothstep(-0.35, 0.55, _gusts.get_noise_1d(_t - 1.5))) * share
+	puffs.amount_ratio = lerpf(lull, 1.0, lerpf(smoothstep(-0.35, 0.55, _gusts.get_noise_1d(_t - 1.5)), 1.0, hold)) * share
+	if storm_grains != null:
+		storm_grains.amount_ratio = storm * lerpf(0.6, 1.0, gust) * share
+		storm_puffs.amount_ratio = storm * share
 	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if cam == null:
 		return

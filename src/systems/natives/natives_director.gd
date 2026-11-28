@@ -43,8 +43,9 @@ extends Node3D
 ## hits to the host's game and kills them when the host's die. Trading, chests and
 ## resting stay this game's own, by the host's pack's mood (net_friendly).
 ##
-## Not built yet: packs fighting each other and the Remnant, sandstorms (#175),
-## stealing vehicles (#176).
+## Not built yet: packs fighting each other and the Remnant, packs hiding from
+## sandstorms (the storms are in, #175: read Sandstorm.state_now() or its
+## state_changed signal), stealing vehicles (#176).
 
 signal traded(pack_id: String, quartz: int)
 signal pack_won(pack_id: String)

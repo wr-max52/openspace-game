@@ -372,6 +372,16 @@ if [ ! -f test_results/beast_trace.txt ]; then
 fi
 echo "CI: beast trace present ($(wc -l < test_results/beast_trace.txt) lines)"
 
+# Issue #175: planet-wide sandstorms: F11 starts one, it builds, holds a minute and
+# fades, the light, fog, dust and sand move with it, only on the sand types.
+echo "CI: generating sandstorm trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/sandstorm_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/sandstorm_trace.txt ]; then
+  echo "CI: ERROR -- sandstorm trace was not generated" >&2
+  exit 1
+fi
+echo "CI: sandstorm trace present ($(wc -l < test_results/sandstorm_trace.txt) lines)"
+
 # Issue #269: the party barge: built from the planet's block, bought, driven
 # slowly from the helm with the party going on, steerage partying too.
 echo "CI: generating barge trace..."

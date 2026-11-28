@@ -8,7 +8,7 @@ extends CanvasLayer
 ##   Ledger    what you own on the left, the story and your jobs on the right, each
 ##             with a waypoint button (InventoryPanel; I opens it)
 ##   Game      respawn (back where you started), the main story's chapter (issue
-##             #64), time of day, game speed, credits, the space fight switch, the
+##             #64), time of day, a sandstorm now (#175), game speed, credits, the space fight switch, the
 ##             home town's layout, new game
 ##   Player    the outfit from the kit pieces (CharacterBuilder, issue #48), then
 ##             god mode, heal, jetpack, teleport and guard debug
@@ -1215,6 +1215,34 @@ func _world_page(v: VBoxContainer) -> void:
 		for b in buttons:
 			b.disabled = locked
 		day_note.visible = locked)
+
+	# Issue #175: a sandstorm now, so it can be checked without waiting for one.
+	_section(v, "Weather")
+	var weather := HBoxContainer.new()
+	var storm_go := Button.new()
+	storm_go.text = "Start a sandstorm now"
+	storm_go.pressed.connect(func():
+		var st = demo.get("storm") if demo != null else null
+		if st != null:
+			st.start_now()
+		refresh())
+	weather.add_child(storm_go)
+	var storm_end := Button.new()
+	storm_end.text = "End it"
+	storm_end.pressed.connect(func():
+		var st = demo.get("storm") if demo != null else null
+		if st != null:
+			st.stop_now()
+		refresh())
+	weather.add_child(storm_end)
+	var storm_line := Label.new()
+	weather.add_child(storm_line)
+	_row(v, "Sandstorm", weather)
+	_refreshers.append(func():
+		var st = demo.get("storm") if demo != null else null
+		storm_go.disabled = st == null
+		storm_end.disabled = st == null or str(st.state) == "clear" or str(st.state) == "fading"
+		storm_line.text = "  no storms on this planet" if st == null else "  %s (%d%%)" % [str(st.state), roundi(float(st.level) * 100.0)])
 
 	_section(v, "Game")
 	_story_note(v, "credits are earned and the Remnant fleet always meets you in orbit.")

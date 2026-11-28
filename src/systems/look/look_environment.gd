@@ -187,6 +187,11 @@ var grade: Gradient
 var grade_lut: GradientTexture1D
 var vignette: ColorRect
 var vignette_strength := 0.0          ## the preset's, before Low graphics' "No vignette"
+## Issue #175: a sandstorm leaning on the time of day (Sandstorm.set_look): 0 clear,
+## 1 full strength, and what full strength looks like (world.json "storm" look).
+var storm := 0.0
+var storm_look: Dictionary = {}
+var _air := {}                        ## the sun, fog and grade the time of day (and AltitudeSky) set, before the storm
 
 
 static func load_presets(path: String = PRESETS_PATH) -> Dictionary:
@@ -388,7 +393,58 @@ func set_space_level(level: float) -> void:
 
 func ambient_now() -> float:
 	var low := float(low_cfg().get("ambient", 1.0)) if cut("fill") else 1.0
-	return lerpf(_ambient_energy_base * ambient_energy_scale, _ambient_space, space_level) * indirect_level() * low
+	var dim := lerpf(1.0, float(storm_look.get("ambient_energy", 1.0)), storm)
+	return lerpf(_ambient_energy_base * ambient_energy_scale, _ambient_space, space_level) * indirect_level() * low * dim
+
+
+## Issue #175: how hard a sandstorm is blowing here (0..1) and what it looks like at
+## full strength. Only the sun, ambient, fog and grade move (no sky radiance
+## rebuild, no new pass): cheap enough to call every frame it changes.
+func set_storm(amount: float, look: Dictionary) -> void:
+	storm = clampf(amount, 0.0, 1.0)
+	storm_look = look
+	_apply_air()
+
+
+## Issue #175: AltitudeSky thins the fog on the way to space; it says so here so a
+## storm still leans on the thinned values (it never writes over the storm).
+func set_air(fog_density: float, fog_sky_affect: float, volumetric_density: float) -> void:
+	if _air.is_empty():
+		return
+	_air.fog_density = fog_density
+	_air.fog_sky_affect = fog_sky_affect
+	_air.vol_density = volumetric_density
+	_apply_air()
+
+
+## The time of day's sun, fog and grade (_air), leaned toward the storm's look by `storm`.
+func _apply_air() -> void:
+	if env == null or _air.is_empty():
+		return
+	var k := storm
+	var l := storm_look
+	var b := _air
+	# A darker time of day dims the storm's own colours to match (they are for ref_sun_energy).
+	var dim := clampf(float(b.sun_energy) / maxf(0.01, float(l.get("ref_sun_energy", 2.9))), 0.15, 1.0)
+	sun.light_energy = float(b.sun_energy) * lerpf(1.0, float(l.get("sun_energy", 1.0)), k)
+	sun.light_color = (b.sun_color as Color).lerp(Color.html(str(l.get("sun_color", "#ffffff"))), k)
+	env.fog_density = lerpf(float(b.fog_density), maxf(float(b.fog_density), float(l.get("fog_density", 0.0))), k)
+	env.fog_light_color = (b.fog_color as Color).lerp(_dimmed(l.get("fog_color", ""), b.fog_color, dim), k)
+	env.fog_sky_affect = lerpf(float(b.fog_sky_affect), maxf(float(b.fog_sky_affect), float(l.get("fog_sky_affect", 0.0))), k)
+	env.fog_sun_scatter = lerpf(float(b.fog_sun_scatter), float(l.get("fog_sun_scatter", b.fog_sun_scatter)), k)
+	env.fog_aerial_perspective = lerpf(float(b.fog_aerial), float(l.get("fog_aerial", b.fog_aerial)), k)
+	env.volumetric_fog_density = float(b.vol_density) * lerpf(1.0, float(l.get("volumetric_density", 1.0)), k)
+	env.volumetric_fog_albedo = (b.vol_albedo as Color).lerp(Color.html(str(l.get("volumetric_albedo", (b.vol_albedo as Color).to_html(false)))), k)
+	env.tonemap_exposure = float(b.exposure) * lerpf(1.0, float(l.get("exposure", 1.0)), k)
+	env.adjustment_saturation = float(b.saturation) * lerpf(1.0, float(l.get("saturation", 1.0)), k)
+	env.ambient_light_color = _dimmed(l.get("ambient_color", ""), Color.BLACK, dim)
+	env.ambient_light_sky_contribution = lerpf(1.0, float(l.get("ambient_sky", 1.0)), k)
+	env.ambient_light_energy = ambient_now()
+
+
+static func _dimmed(html: Variant, fallback: Color, dim: float) -> Color:
+	var c := Color.html(str(html)) if str(html).begins_with("#") else fallback
+	return Color(c.r * dim, c.g * dim, c.b * dim)
 
 
 ## Set (and save) the Indirect light setting, and show it at once.
@@ -611,6 +667,14 @@ func _apply_values(p: Dictionary) -> void:
 	env.adjustment_contrast = float(post["contrast"])
 	env.adjustment_saturation = float(post["saturation"])
 	env.adjustment_brightness = float(post["brightness"])
+	# Issue #175: what the time of day set, for a storm to lean on (_apply_air).
+	_air = { "sun_color": sun.light_color, "sun_energy": sun.light_energy,
+		"fog_density": env.fog_density, "fog_color": env.fog_light_color, "fog_sky_affect": env.fog_sky_affect,
+		"fog_sun_scatter": env.fog_sun_scatter, "fog_aerial": env.fog_aerial_perspective,
+		"vol_density": env.volumetric_fog_density, "vol_albedo": env.volumetric_fog_albedo,
+		"exposure": env.tonemap_exposure, "saturation": env.adjustment_saturation }
+	if storm > 0.0:
+		_apply_air()
 	# Issue #537: warm highlights, cool shadows, a slight lift in the blacks.
 	var g: Dictionary = post.get("grade", {})
 	grade.colors = PackedColorArray([Color.html(str(g.get("blacks", "#000000"))),

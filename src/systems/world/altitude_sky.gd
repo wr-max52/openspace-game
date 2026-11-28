@@ -78,6 +78,9 @@ func update_for(altitude: float, viewer: Vector3) -> void:
 	var vol: Dictionary = pr.get("volumetric", {})
 	if env.env != null and not vol.is_empty():
 		env.env.volumetric_fog_density = float(vol.get("density", 0.003)) * (1.0 - level)
+	if env.env != null:
+		# Issue #175: a sandstorm leans on these thinned values, not the preset's.
+		env.set_air(env.env.fog_density, env.env.fog_sky_affect, env.env.volumetric_fog_density)
 
 
 func _mix(k: Dictionary, key: String, space_key: String) -> Color:

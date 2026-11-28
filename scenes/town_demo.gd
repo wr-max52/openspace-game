@@ -85,6 +85,7 @@ var hijack: Node                      ## E by a ship or speeder someone else sit
 var characters: Dictionary = {}       ## marker id -> built character
 var terrain: DesertTerrain            ## null when with_desert is off
 var dust: DustWind                    ## issue #93: blowing sand round the camera (look only)
+var storm: Sandstorm                  ## issue #175: planet-wide sandstorms (sand types; its state runs without the look too)
 var landforms: DesertLandforms
 var built_boxes := 0          # read by the trace and tests
 var built_markers := 0
@@ -409,6 +410,7 @@ func build_plan(staged_build: bool) -> Array:
 		if use_look and with_droids and gear != null:
 			await _build_droids(st)
 	add.call("droids", LATER, droids_step, "sliced")     # issue #574: a droid or two a frame
+	add.call("storm", LATER, func(): _add_storm(); return true)     # issue #175: after the dust, which it drives
 	add.call("cruiser", LATER, func(st: StagedBuild) -> void: await _build_cruiser(st), "sliced")   # issue #574: over frames
 	add.call("stations", LATER, func(): _build_stations(); return true)
 	add.call("salesman", LATER, func():
@@ -2142,6 +2144,24 @@ func _add_dust() -> void:
 
 
 var _desert_dressed := false
+
+
+## Issue #175: planet-wide sandstorms, on the planet types world.json "storm" names.
+## The clock and its state run with or without the look (the packs will read it);
+## with the look it drives the light, the dust and the sand's blowing sheets.
+func _add_storm() -> void:
+	if storm != null or open_space():
+		return
+	var c := Sandstorm.config_for(str(planet.get("type", "sand")), planet.get("type_cfg", {}))
+	if c.is_empty():
+		return
+	storm = Sandstorm.new()
+	storm.setup(c)
+	add_child(storm)
+	var sand: ShaderMaterial = terrain.material if _desert_dressed and terrain != null and terrain.material is ShaderMaterial else null
+	storm.attach(look if use_look else null, dust, sand)
+	storm.shelter = func() -> bool:
+		return _player != null and is_instance_valid(_player) and _player is Node3D and indoors((_player as Node3D).global_position)
 
 
 ## The town's floors outside its walls: the sand shows there, not their greybox.

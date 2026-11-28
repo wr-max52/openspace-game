@@ -27,6 +27,9 @@ uniform vec3 sun_dir = vec3(0.0, 0.15, -1.0);
 uniform float ripple_strength = 0.22;
 uniform float glitter = 0.25;              // was 1.0: from a distance it read as sparks
 uniform float wind_strength = 1.0;         // blowing sand sheets; 0 = still air
+// Issue #175: a sandstorm turns the sheets up (brighter, wider) without touching
+// wind_strength, whose change would jump the sheets' scroll (t = TIME * strength).
+uniform float drift_boost = 1.0;
 uniform vec4 drift_color : source_color = vec4(0.97, 0.86, 0.68, 1.0);
 uniform vec3 planet_center = vec3(0.0);
 uniform float planet_radius = 0.0;          // 0 = flat ground
@@ -233,6 +236,7 @@ void fragment() {
 	// open flats than in the lee of steep faces.
 	float drift_flat = smoothstep(0.35, 0.05, slope);
 	float dk = dr * wind_strength * (1.0 - smoothstep(60.0, 250.0, dist)) * (0.4 + 0.6 * drift_flat);
+	dk = min(1.0, dk * drift_boost + dr * 0.25 * (drift_boost - 1.0));
 	alb = mix(alb, drift_color.rgb, dk * 0.35);
 	ALBEDO = alb;
 	// A little sheen at grazing angles (fine sand is not chalk).
