@@ -27,6 +27,13 @@ extends Node3D
 ## model of it), the cruiser and the moon, with the moon's outposts and barracks
 ## pinned on it. The station's barracks (its Remnant deck), the cruiser, and the
 ## moon's outposts and barracks each say who holds them, by colour and by name.
+##
+## Issue #838: a station that is an outpost of a front (the belt's three skimmer
+## outposts over the giant, Territory "station_<landmark id>") is pinned on the
+## ball where it really is, coloured by who holds it, like the moon's outposts, not
+## drawn as a station of its own; the station that is that front's barracks says
+## under its name how many of them each side holds. The table holo (setup) on such
+## a planet pins them too, and its town pin is that station's deck.
 
 const SHADER := preload("res://src/systems/look/shaders/holo.gdshader")
 
@@ -78,7 +85,21 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 	var town_name := str(names.get("town", ""))
 	if here_town and town_name != "":
 		town_name = here_line % town_name
-	_place(Territory.BARRACKS, _pin(sphere.map_dir(0.0, 0.0), owner_color(Territory.BARRACKS), 0.28, town_name, true))
+	# Issue #838: on a planet whose station is a front's barracks (the ringed
+	# giant's), the town pin is that deck, and the front's station outposts are
+	# pinned where they really are.
+	var town_id := Territory.BARRACKS
+	for lm in StationHull.landmarks(world):
+		var sid := Territory.STATION + str(lm.get("id", ""))
+		var f := Territory.front_of(sid)
+		if f == Territory.HOME:
+			continue
+		if Territory.barracks_of(f) == sid:
+			town_id = sid
+		elif (Territory.outposts(f) as Array).has(sid):
+			var sat := WorldGround._v3(lm.get("at", [0, 0, 0]))
+			_place(sid, _pin(sphere.map_dir(sat.x, sat.z), owner_color(sid), float(spec.get("outpost_stalk", 0.12)), "", false))
+	_place(town_id, _pin(sphere.map_dir(0.0, 0.0), owner_color(town_id), 0.28, town_name, true))
 	for lm in world.get("landmarks", []):
 		var id := str(lm.get("id", ""))
 		if Story.OUTPOSTS.has(id):
@@ -201,7 +222,10 @@ func setup_system(cfg: Dictionary, sp: PlanetSphere, body: Dictionary, cruiser_f
 	if not ring.is_empty():
 		_planet_ring(ring)
 	for st in stations:
-		_system_station(st)
+		if station_front(str(st.id)) != "":
+			_system_outpost(st)
+		else:
+			_system_station(st)
 	if not bool(spec.get("no_cruiser", false)):
 		var ship_name := str(spec.get("lines", {}).get("here", "%s")) % str(names.get("cruiser", ""))
 		var label := _orbiting_cruiser(cruiser_frame, "")
@@ -299,7 +323,34 @@ func _system_station(st: Dictionary) -> void:
 	_turn.add_child(label)
 	var station_name := str(spec.get("lines", {}).get("station", "%s")) % str(st.get("name", ""))
 	_place(id, { "mats": [bead.material_override], "label": label })
-	_texts.append({ "label": label, "text": func() -> String: return _barracks_line(station_name, id) })
+	var f := barracks_front(id)
+	if f != "":
+		_texts.append({ "label": label, "text": func() -> String: return _moon_line(station_name, f) })
+	else:
+		_texts.append({ "label": label, "text": func() -> String: return _barracks_line(station_name, id) })
+
+
+## Issue #838: the front whose outpost station `id` ("station_<landmark id>") is,
+## or "" (the station city, or a station of no front).
+static func station_front(id: String) -> String:
+	var f := Territory.front_of(id)
+	return f if f != Territory.HOME and (Territory.outposts(f) as Array).has(id) else ""
+
+
+## Issue #838: the front whose barracks station `id` is, if that front has
+## outposts to count, or "".
+static func barracks_front(id: String) -> String:
+	var f := Territory.front_of(id)
+	return f if f != Territory.HOME and Territory.barracks_of(f) == id and not (Territory.outposts(f) as Array).is_empty() else ""
+
+
+## Issue #838: an outpost station on the system's map: a pin on the ball under
+## where it really is, coloured by who holds it (no name: the station's label
+## counts them), like the moon's outposts.
+func _system_outpost(st: Dictionary) -> void:
+	var frame: Transform3D = st.frame
+	var id := str(st.id)
+	_place(id, _pin(frame.origin - sphere.center, owner_color(id), float(spec.get("outpost_stalk", 0.12)), "", false))
 
 
 ## A station as a few drums of light: each tower from its lowest floor to its top
