@@ -361,7 +361,12 @@ static func system_port(id: String, cc = null) -> Vector3:
 		var sun := system_sun(cc)
 		return sun if sun.is_finite() else Vector3.ZERO
 	if cc == null:
-		cc = _content()
+		# Asked on every switch (SpaceTravel): a full content read is ~13 ms, and
+		# where a planet sits never changes in a run.
+		var key := "_port/" + id
+		if not _cache.has(key):
+			_cache[key] = system_port(id, _content())
+		return _cache[key]
 	var c = system_centre(id, cc)
 	if c == null:
 		return Vector3.INF
