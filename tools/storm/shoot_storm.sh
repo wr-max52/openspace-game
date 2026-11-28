@@ -19,10 +19,11 @@ ARGS=(--path . --resolution "$SIZE" --fixed-fps 30 -s res://tools/storm/shoot_st
 if [[ "$(uname)" == "Linux" && -z "${DISPLAY:-}" ]]; then
   # Mesa's lavapipe, when the machine has it (a cloud container): software Vulkan.
   if [[ -f /opt/lavapipe/lvp_icd.json ]]; then export VK_ICD_FILENAMES=/opt/lavapipe/lvp_icd.json; fi
-  xvfb-run -a -s "-screen 0 ${SIZE}x24" "$GODOT_BIN" --rendering-driver vulkan "${ARGS[@]}"
+  xvfb-run -a -s "-screen 0 ${SIZE}x24" "$GODOT_BIN" --rendering-driver vulkan "${ARGS[@]}" || true
 else
-  "$GODOT_BIN" "${ARGS[@]}"
+  "$GODOT_BIN" "${ARGS[@]}" || true
 fi
+# (|| true: Godot can abort while tearing the town down on Linux, after the last frame is saved.)
 
 if ls "$OUT"/clip/f*.png >/dev/null 2>&1; then
   ffmpeg -y -loglevel error -framerate 30 -i "$OUT/clip/f%05d.png" \

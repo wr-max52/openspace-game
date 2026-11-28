@@ -10,6 +10,7 @@ builds/
 rec/
 *.mp4
 !docs/promo/openspace_promo.mp4
+!docs/storm/sandstorm.mp4
 
 # Local LLM model downloads (downloaded, not committed)
 /models/
