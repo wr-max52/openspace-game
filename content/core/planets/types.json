@@ -5,6 +5,24 @@
   "space": {
     "open_space": "open_space",
     "sun": "sun",
+    "systems": {
+      "note": "Issue #874: the star systems. Each has its own sun (a planet file of the sun type), its main planet (where a warp drops you, pointed at it) and its own frame: systems never share a scene, so every system but home puts its sun at sun_at (metres, default the origin) and hangs its planets off it with near/at as ever. A planet's system is its file's 'system', else the system of the sun or planet it hangs near, else home. arrive_m: how far outside the main planet's bubble a warp drops you, on the side facing the sun. star: the picker's dot. A third system is planet files and a line here.",
+      "home": { "sun": "sun", "main": "port_desert", "label": "Home system", "star": { "color": "#fff1c8" }, "arrive_m": 6000.0 },
+      "red_reach": { "sun": "red_reach_sun", "main": "port_red", "sun_at": [0, 0, 0], "label": "Red system", "star": { "color": "#ffb08a" }, "arrive_m": 6000.0 }
+    },
+    "warp": {
+      "note": "Issue #874: the warp drive (src/systems/flight/warp_drive.gd). hold_s: how long the warp key is held before the picker opens. min_s: the shortest warp (the loop covers loading the next system, and runs on while it loads). fov_kick: degrees added to the flight camera's 72 at full warp. star_stretch: how far the stars rush out from dead ahead (the sky's own stars, scaled). flame_stretch: the boosters' own flames, lengthened. rush_s: seconds per wave of stars streaming past. star_swell: how much bigger each star draws at the height of a wave. fade_s: the last flash before you drop out (and its fade on the far side). settle_s: how long the stars and the camera take to settle after. speed_after: m/s on arrival.",
+      "hold_s": 1.0,
+      "min_s": 5.0,
+      "fov_kick": 38.0,
+      "star_stretch": 5.0,
+      "flame_stretch": 2.6,
+      "fade_s": 0.35,
+      "settle_s": 1.2,
+      "rush_s": 0.45,
+      "star_swell": 14.0,
+      "speed_after": 300.0
+    },
     "trips": {
       "ship": "courier",
       "note": "Issue #576: how long the open-space leg of each trip takes (seconds), from leaving one planet's bubble to crossing the next one's, in this ship at full throttle with cruise and no boost, flown straight by tests/test_star_system.gut.gd. A moon to its planet is a short hop, a planet to a planet a real trip. Move a planet (its near and at) to change one.",
@@ -87,6 +105,7 @@
       "atmosphere": { "upper_start": 300.0, "cloud_deck": 1250.0, "sky_black_at": 3500.0, "space_altitude": 4000.0 },
       "body": { "radius": 6500.0, "color": "#b85a36", "dark": "#5e2a1e" },
       "arrival": { "altitude": 2600.0, "distance": 3250.0 },
+      "space": { "handoff": 8000.0, "note": "Issue #874: as the sand world's, the red world's bubble (its planet file makes it a ball with sphere_radius)." },
       "fall_text": ""
     },
     "water": {

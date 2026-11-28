@@ -137,7 +137,10 @@ func test_trip_lengths_are_in_their_bands() -> void:
 func test_every_planet_shows_in_every_sky() -> void:
 	for id in PlanetGen.ids(cc).filter(func(i): return PlanetGen.is_planet(str(i), cc)):
 		var near: Array = PlanetGen.build(str(id), cc).neighbours
-		assert_eq(near.size(), 3, str(id) + " sees the other three")
+		# Issue #874: every other planet of its own star system, none of another's.
+		var sys := PlanetGen.system_of(str(id), cc)
+		var mates := PlanetGen.ids(cc).filter(func(i): return str(i) != str(id) and PlanetGen.is_planet(str(i), cc) and PlanetGen.system_of(str(i), cc) == sys)
+		assert_eq(near.size(), mates.size(), str(id) + " sees every other planet of its system")
 		var demo = TownDemo.new()
 		demo.planet = PlanetGen.build(str(id), cc)
 		for n in near:

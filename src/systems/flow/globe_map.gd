@@ -854,7 +854,7 @@ static func terrain_look(planet: Dictionary) -> Dictionary:
 
 # ------------------------------------------------------------------ the system
 
-static var _system: Array = []
+static var _system: Dictionary = {}     ## issue #874: system id -> its bodies
 
 
 ## Every planet you can get to, where it hangs in one frame for them all: the
@@ -863,13 +863,17 @@ static var _system: Array = []
 ## Map page's system view (SystemView): [{ id, label, kind, centre, port, radius,
 ## cloud_radius, color, dark, bands, ring, near }], centre and port in metres;
 ## the home planet first, the rest by how far out they hang. Once a session.
-static func system() -> Array:
-	if not _system.is_empty():
-		return _system
+static func system(sys := "") -> Array:
+	if sys == "":
+		sys = PlanetGen.current_system()     # issue #874: one star system at a time
+	if _system.has(sys):
+		return _system[sys]
 	var cc = PlanetGen._content()
 	var cfgs: Dictionary = cc.planets
 	var out: Array = []
 	for id in cfgs:
+		if PlanetGen.system_of(str(id), cc) != sys:
+			continue
 		var c = PlanetGen.system_centre(str(id), cc)     # issue #573: null for open space too
 		if c == null:
 			continue
@@ -881,13 +885,13 @@ static func system() -> Array:
 			"centre": c, "port": c + Vector3(0, float(n.radius), 0), "radius": float(n.radius),
 			"cloud_radius": float(n.cloud_radius), "color": n.color, "dark": n.dark,
 			"bands": float(n.bands), "ring": n.ring, "near": str(cfg.get("near", "")) })
-	var home := PlanetGen.home_id()
+	var home := PlanetGen.main_planet(sys)
 	out.sort_custom(func(a, b):
 		if str(a.id) == home or str(b.id) == home:
 			return str(a.id) == home
 		return (a.centre as Vector3).length() < (b.centre as Vector3).length())
-	_system = out
-	return _system
+	_system[sys] = out
+	return out
 
 
 ## One planet of system(), or {}.
@@ -931,7 +935,7 @@ static func system_cruiser() -> Vector3:
 	return all[0].pos if not all.is_empty() else Vector3.INF
 
 
-static var _cruisers: Array = []
+static var _cruisers: Dictionary = {}    ## issue #874: system id -> its cruisers
 
 
 ## Every Remnant cruiser in the system (each planet's "cruiser" landmarks: the home
@@ -940,10 +944,14 @@ static var _cruisers: Array = []
 ## planet, pos (system frame) }]. Once a session; its name and who holds it change
 ## with the save: cruiser_label, cruiser_owner. A planet has at most one, so the
 ## Map page names a cruiser by the planet it hangs over ("cruiser:<planet>").
-static func system_cruisers() -> Array:
-	if not _cruisers.is_empty():
-		return _cruisers
-	for b in system():
+static func system_cruisers(sys := "") -> Array:
+	if sys == "":
+		sys = PlanetGen.current_system()
+	if _cruisers.has(sys):
+		return _cruisers[sys]
+	var list: Array = []
+	_cruisers[sys] = list
+	for b in system(sys):
 		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
 		for lm in CruiserHull.landmarks(world):
 			if not lm.has("at"):
@@ -951,14 +959,14 @@ static func system_cruisers() -> Array:
 			var at: Array = lm.at
 			var r := float(b.radius)
 			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
-			_cruisers.append({ "id": str(lm.get("id", "")), "cfg": CruiserHull.config_id(lm), "planet": str(b.id), "pos": pos })
+			list.append({ "id": str(lm.get("id", "")), "cfg": CruiserHull.config_id(lm), "planet": str(b.id), "pos": pos })
 			break                                # one a planet
-	return _cruisers
+	return list
 
 
 ## The cruiser over planet `planet` (system_cruisers), or {}.
 static func cruiser_on(planet: String) -> Dictionary:
-	for c in system_cruisers():
+	for c in system_cruisers(PlanetGen.system_of(planet)):
 		if str(c.planet) == planet:
 			return c
 	return {}
@@ -1007,7 +1015,7 @@ static func cruiser_color(c: Dictionary) -> Color:
 	return Color(str(ow.get("empty", "#a89a80")))
 
 
-static var _stations: Array = []
+static var _stations: Dictionary = {}    ## issue #874: system id -> its stations
 
 
 ## Every space station in the system (each planet's "station" landmarks:
@@ -1015,10 +1023,14 @@ static var _stations: Array = []
 ## station (content/core/stations/<station>.json), planet, pos (system frame) }].
 ## Once a session. Like the cruisers, one a planet: the Map page names a station by
 ## the planet it hangs over ("station:<planet>").
-static func system_stations() -> Array:
-	if not _stations.is_empty():
-		return _stations
-	for b in system():
+static func system_stations(sys := "") -> Array:
+	if sys == "":
+		sys = PlanetGen.current_system()
+	if _stations.has(sys):
+		return _stations[sys]
+	var list: Array = []
+	_stations[sys] = list
+	for b in system(sys):
 		var world: Dictionary = PlanetGen.build(str(b.id)).get("world", {})
 		for lm in StationHull.landmarks(world):
 			if not lm.has("at"):
@@ -1026,14 +1038,14 @@ static func system_stations() -> Array:
 			var at: Array = lm.at
 			var r := float(b.radius)
 			var pos := (b.centre as Vector3) + dir(Vector2(float(at[0]), float(at[2])), r) * (r + float(lm.get("altitude", 0.0)))
-			_stations.append({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")), "planet": str(b.id), "pos": pos })
+			list.append({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")), "planet": str(b.id), "pos": pos })
 			break                                # one a planet
-	return _stations
+	return list
 
 
 ## The station over planet `planet` (system_stations), or {}.
 static func station_on(planet: String) -> Dictionary:
-	for s in system_stations():
+	for s in system_stations(PlanetGen.system_of(planet)):
 		if str(s.planet) == planet:
 			return s
 	return {}

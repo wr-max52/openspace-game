@@ -351,6 +351,18 @@ if [ ! -f test_results/planets_trace.txt ]; then
 fi
 echo "CI: planets trace present ($(wc -l < test_results/planets_trace.txt) lines)"
 
+# Issue #874: the warp drive. In the home system's open space without it the key
+# only says why; fitted, hold, pick the red system, warp at least 5 s, and fly on
+# in the red system's open space (only its planets); a save there loads there;
+# then warp home.
+echo "CI: generating warp trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/warp_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/warp_trace.txt ]; then
+  echo "CI: ERROR -- warp trace was not generated" >&2
+  exit 1
+fi
+echo "CI: warp trace present ($(wc -l < test_results/warp_trace.txt) lines)"
+
 # Issue #96: the desert packs' first milestone: food for quartz with the friendly
 # pack, a sand pig hunt, the hostile pack's horn and attack, five minutes survived
 # into a trade, and a kill that locks a pack hostile. (About 5 game minutes.)

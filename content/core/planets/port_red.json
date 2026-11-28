@@ -1,0 +1,13 @@
+{
+  "id": "port_red",
+  "note": "Issue #874: the red system's main world, the planet a warp points you at. For now a small generated town on a red desert ball (sphere_radius makes the generated terrain a whole ball, as the home world's own world file does); issue #875 grows it into the mountain world with the tall port city. In the red system (near its sun), so it hangs in no sky of the home system and the home planets hang in none of its own. See docs/planets/PLANETS.md.",
+  "name": "",
+  "type": "red_desert",
+  "system": "red_reach",
+  "town_size": 24,
+  "seed": 874,
+  "sphere_radius": 4000.0,
+  "near": "red_reach_sun",
+  "at": [0, 0, 30000],
+  "encounter": ""
+}

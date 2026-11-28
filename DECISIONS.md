@@ -2320,3 +2320,27 @@ jetpack, back up in your ship.
 - **Crates keep the desert's rule:** opened once, they stay open. A crate may
   carry its own `prizes`, so the deeper ones pay better.
 
+## Star systems never share a scene; the warp is a cheap loop over the load (2026-11-28)
+
+Issue #874 (epic #873): a second star system, reached by T-89's warp drive.
+
+- **Each system is its own frame.** The home system keeps the frame it had (its
+  sun where the home planet's `at` puts it); every other system puts its sun at
+  its `sun_at`. No planet of one system is ever a neighbour of another's
+  (`PlanetGen.neighbours` skips them), so nothing is drawn across systems and
+  the frames never have to agree.
+- **Open space is one place, built per system.** `open_space.json` stays one
+  file (rule 2); `PlanetGen.build` caches it per system, and which system you
+  are in is `WorldState.system` (saved) when you are not on a planet. Landing
+  anywhere sets it to that planet's system.
+- **An upgrade can unlock, not only multiply.** `t89.json` upgrades take
+  `"unlock": "<flag>"` beside `"mult"`; `ShipUpgrades.unlocked` reads it. A
+  cloak or a tractor beam fits the same slot.
+- **The warp is the existing look, pushed.** Render rule 13: no particles,
+  trails or materials. The flight camera's FOV (72 plus `fov_kick`), the
+  boosters' own flames (`ShipKit.stretch_flames`) and the sky's own star shell
+  (`AltitudeSky.warp_stretch`, the MultiMesh's basis squashed along the nose)
+  carry it. It lasts at least `min_s` and until the next main planet is built.
+- **The warp key is K, not J.** J was already the radio (`flight_radio`).
+- **A save in open space loads at the system's main planet,** as open space is
+  never where you load (issue #573); in the home system nothing changes.

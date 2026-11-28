@@ -577,6 +577,17 @@ static func throttle_flames(ship: Node3D, throttle: float, boost := false, dt :=
 		i += 1
 
 
+## Issue #874: the lit flames made `k` times as long (the warp drive spinning up),
+## after throttle_flames set them this frame.
+static func stretch_flames(ship: Node3D, k: float) -> void:
+	var f := ship.get_node_or_null("Flames") as Node3D
+	if f == null or not f.visible:
+		return
+	for fl in f.get_children():
+		var s := (fl as Node3D).scale
+		(fl as Node3D).scale = Vector3(s.x, s.y * k, s.z)
+
+
 const ALONG_Z := Vector3(PI * 0.5, 0.0, 0.0)      # cylinder axis -> +/-Z
 const TIP_FORWARD := Vector3(-PI * 0.5, 0.0, 0.0)  # cylinder top -> -Z
 const FIN := Vector3(0.0, PI * 0.5, 0.0)            # prism profile in the side plane
