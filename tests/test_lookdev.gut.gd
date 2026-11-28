@@ -258,6 +258,27 @@ func test_height_fog_follows_the_ground_on_a_ball() -> void:
 	PlanetSphere.current = was
 
 
+## Open space has no ground and no ball: the presets' height fog stays off, or
+## below its world-y band it drowned the cockpit in flat fog colour (dusk).
+func test_no_height_fog_in_open_space() -> void:
+	var was := PlanetSphere.current
+	PlanetSphere.current = null
+	var look := LookEnvironment.new()
+	look.open_space = true
+	add_child_autofree(look)
+	var fog: Dictionary = LookEnvironment.load_presets()["presets"]["dusk"]["fog"]
+	assert_gt(float(fog.height_density), 0.0, "dusk has height fog on the ground")
+	look.apply("dusk")
+	assert_almost_eq(look.env.fog_height_density, 0.0, 0.00001, "none in open space")
+	look.apply_hour(18.5)
+	assert_almost_eq(look.env.fog_height_density, 0.0, 0.00001, "nor at an hour between two presets")
+	var flat := LookEnvironment.new()
+	add_child_autofree(flat)
+	flat.apply("dusk")
+	assert_almost_eq(flat.env.fog_height_density, float(fog.height_density), 0.00001, "a flat town keeps it")
+	PlanetSphere.current = was
+
+
 ## Issue #537: the grade LUT and the vignette follow the preset's post.grade and
 ## post.vignette, and Low graphics' "No vignette" piece takes the vignette away.
 func test_grade_and_vignette_follow_the_preset() -> void:
