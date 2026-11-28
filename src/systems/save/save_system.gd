@@ -42,7 +42,14 @@ func new_game() -> void:
 ## planet's spawn, as before).
 func set_where(planet_id: String, p: Vector3, has_pos: bool) -> void:
 	if PlanetGen.is_open_space(planet_id):
-		return            # issue #573: never saved as where you are: the last planet stands
+		# Issue #573: never saved as where you are: the last planet stands. Issue
+		# #874: unless the warp drive has taken you to another system since, when
+		# its main planet's port is where you load.
+		var last := str(get_where().get("planet", PlanetGen.home_id()))
+		var sys := PlanetGen.current_system()
+		if PlanetGen.system_of(last) != sys and PlanetGen.main_planet(sys) != "":
+			data["where"] = { "planet": PlanetGen.main_planet(sys) }
+		return
 	var w := { "planet": planet_id }
 	if has_pos:
 		w["pos"] = [p.x, p.y, p.z]

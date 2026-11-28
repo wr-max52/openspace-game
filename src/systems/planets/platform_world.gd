@@ -15,6 +15,13 @@ extends Node3D
 ##     edge and into the lava."), and you wake by the landing bay, as when the
 ##     garrison drags you to the pit
 ##
+## Issue #879: on a round sea (sea_ball: the water_ball type, OceanSphere) the town
+## sits low on the water with no glass (its type's enclosure_height is 0) and no
+## gate shield, the sea is the ball's own ground (PlanetTerrain, sea.gdshader), and
+## going over the edge means the water: a person on foot in the sea (OceanSphere.
+## in_sea, anywhere round the ball, a speeder ride out included) drowns with the
+## same fade, line and wake-up. Riding a speeder or flying, you are never in it.
+##
 ## Colliders are built in the greybox too (the traces walk and fall with real
 ## physics); dress() adds the looks.
 
@@ -37,6 +44,8 @@ var falls := 0                         ## times the player went over (traces, te
 var fall_text := ""
 var shield: MeshInstance3D
 var _falling := false
+var sea_ball := false                  ## issue #879: the town is on a round sea (OceanSphere)
+var drowned := 0                       ## of falls, the times it was the sea (traces, tests)
 var _fade: ColorRect
 var _fade_t := 0.0
 
@@ -49,6 +58,7 @@ func setup(town_scene, p: Dictionary) -> void:
 	depth = float(surface.get("depth", 160.0))
 	enclosure_height = float(tcfg.get("enclosure_height", ENCLOSURE_HEIGHT))
 	fall_text = str(tcfg.get("fall_text", ""))
+	sea_ball = str(p.get("ground", "")) == "ball" and str(surface.get("kind", "")) == "water"
 	_measure(demo.town)
 
 
@@ -143,12 +153,28 @@ func _physics_process(dt: float) -> void:
 	if _falling:
 		_fade_t += dt
 		_set_fade(clampf(_fade_t / 0.8, 0.0, 1.0))
-		if y < FALL_DEAD_Y or _fade_t > 2.5:
+		if (not sea_ball and y < FALL_DEAD_Y) or _fade_t > 2.5:
 			_respawn(p)
+		return
+	if sea_ball:
+		# The water, wherever on the ball: on foot and in it, you are going under.
+		var sp := _ocean()
+		if sp != null and p.get("vehicle") == null and not bool(p.get("is_downed")) and sp.in_sea(p.global_position):
+			_falling = true
+			_fade_t = 0.0
+			drowned += 1
 		return
 	if y < FALL_FADE_Y:
 		_falling = true
 		_fade_t = 0.0
+
+
+## The sea's ball (null before the terrain is up).
+func _ocean() -> OceanSphere:
+	var t = demo.get("terrain") if demo != null else null
+	if t is PlanetTerrain and (t as PlanetTerrain).sphere is OceanSphere:
+		return (t as PlanetTerrain).sphere as OceanSphere
+	return null
 
 
 ## Back by the landing bay, on your feet. Nothing is taken: the edge did this.
@@ -202,7 +228,8 @@ func dress(env: LookEnvironment, mats: LookMaterials) -> void:
 	_dress_shield(env)
 	match str(surface.get("kind", "")):
 		"water":
-			_sea(false)
+			if not sea_ball:
+				_sea(false)             # issue #879: a round sea's water is the ball itself (PlanetTerrain)
 		"lava":
 			_sea(true, env)
 		"gas":
@@ -300,8 +327,8 @@ func _dress_glass(mats: LookMaterials) -> void:
 
 ## The gate's shield: glowing glass you walk straight through.
 func _dress_shield(env: LookEnvironment) -> void:
-	if not gate.has("x0"):
-		return
+	if not gate.has("x0") or enclosure_height <= 0.0:
+		return                      # issue #879: no glass, no shield (the tide town's open gate)
 	shield = MeshInstance3D.new()
 	shield.name = "GateShield"
 	var bm := BoxMesh.new()

@@ -57,6 +57,7 @@ static var race_rides: Dictionary = {}     ## issue #617: crew id -> the fit the
 static var bounty: Dictionary = {}         ## issue #64: { run, key, name, crime, outpost, pay, state: "rolled"|"out"|"dead" }
 static var mode := FREEPLAY                ## issue #200: STORY or FREEPLAY, picked on New Game, kept in the save
 static var ship_fits: Dictionary = {}      ## issue #207: ship id -> [upgrade id] T-89 fitted (ShipUpgrades)
+static var system := "home"                ## issue #874: the star system you are in (PlanetGen.current_system; open space reads it)
 static var gear_fits: Array = []           ## issues #208, #209: fence offers bought (GearUpgrades)
 static var wreck_ship := ""                ## issue #207: the ship id of the wreck T-89 rebuilt ("" = none)
 static var kept_ships: Array = []          ## issue #368: stolen ships Skrugs cleaned up for you: [{ key, ship }] (Fleet)
@@ -121,6 +122,7 @@ static func reset() -> void:
 	QuestNews.clear()
 	StandingNews.clear()
 	ship_fits = {}
+	system = "home"
 	wreck_ship = ""
 	kept_ships = []
 	ship_spots = {}
@@ -1139,6 +1141,7 @@ static func to_save() -> Dictionary:
 		"mode": mode,
 		"quests": quests.duplicate(true),
 		"ship_fits": ship_fits.duplicate(true),
+		"system": system,
 		"wreck_ship": wreck_ship,
 		"kept_ships": kept_ships.duplicate(true),
 		"ship_spots": ship_spots.duplicate(true),
@@ -1190,6 +1193,7 @@ static func from_save(d: Dictionary) -> void:
 	quests = d.get("quests", {}).duplicate(true)
 	RaceCrew.tidy_quests()     # one race line per crew; older saves could hold three
 	ship_fits = d.get("ship_fits", {}).duplicate(true)
+	system = str(d.get("system", "home"))     # issue #874: older saves are home
 	wreck_ship = str(d.get("wreck_ship", ""))
 	kept_ships = d.get("kept_ships", []).duplicate(true)
 	ship_spots = d.get("ship_spots", {}).duplicate(true)

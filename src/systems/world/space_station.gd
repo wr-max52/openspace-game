@@ -39,6 +39,7 @@ const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const StationCrowd := preload("res://src/systems/world/station_crowd.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
 const CharBody := preload("res://src/systems/player/character_body.gd")
+const TownDecor := preload("res://src/systems/world/town_decor.gd")
 const Ladders := preload("res://src/systems/world/ladders.gd")
 
 var demo                               ## town_demo.gd
@@ -123,6 +124,7 @@ func _ready() -> void:
 		remnant.setup(self, demo, hull)
 		add_child(remnant)
 	_build_skimmer()
+	_park_ships()
 
 
 # ------------------------------------------------------------------ queries
@@ -258,6 +260,59 @@ func _tick_skimmer(p: Node3D) -> void:
 	for ref in refineries:
 		if is_instance_valid(ref) and ref.due():
 			ref.rebuild()
+
+
+## Issue #885: the ship on each pad that names one ("ship"), but the dock pad's and
+## not for the station whose bay is the planet's town (the station city: it parks its
+## pads' ships through its town, StationHull.town_for): a skimmer outpost's Remnant
+## interceptor. As a desert outpost's (RemnantOutposts._park_ship): its model on the
+## pad, nose out of the bay, in whoever holds the deck's paint, a berth you can fly,
+## and taking it raises the deck's alarm (ShipPilot.add_outpost_berth). Not saved.
+var parked: Array = []                 ## { node, look, pad }: the pads' parked ships
+
+
+func _park_ships() -> void:
+	if demo == null or demo.get("pilot") == null:
+		return
+	var pl = demo.get("planet")
+	if pl is Dictionary and str((pl as Dictionary).get("town", {}).get("station_town", "")) == id:
+		return
+	var place := Territory.STATION + id
+	var dock := str(hull.dock_pad().get("id", ""))
+	for p in hull.pads():
+		var ship_id := str(p.ship)
+		if ship_id == "" or str(p.id) == dock:
+			continue
+		var look := str(demo.pilot.content.get_ship(ship_id).get("look", "")) if demo.pilot.content != null else ""
+		if look == "":
+			continue
+		var kit := ShipKit.new()
+		var b: Basis = frame.basis * Basis(Vector3.UP, float(p.yaw))
+		var at: Vector3 = frame * (p.at as Vector3)
+		var ship: Node3D
+		if demo.use_look:
+			ship = kit.build(kit.look_for(look, Territory.owner(place)))
+			add_child(ship)
+			var a := TownDecor.visual_aabb(ship)
+			ship.global_transform = Transform3D(b, at + b * Vector3(-a.get_center().x, -a.position.y, -a.get_center().z))
+		else:
+			ship = Node3D.new()
+			add_child(ship)
+			ship.global_transform = Transform3D(b, at + b * Vector3(0, 1.0, 0))
+		ship.name = "Ship_%s_%s" % [id, str(p.id)]
+		ship.set_meta("ship_id", ship_id)
+		ship.set_meta("outpost", place)
+		parked.append({ "node": ship, "look": look, "pad": str(p.id) })
+		demo.pilot.add_outpost_berth(ship, ship_id, place)
+
+
+## The pads' ships in `owner`'s paint (the deck changed hands; StationRemnant._repaint).
+func repaint_ships(owner: String) -> void:
+	for s in parked:
+		var n = s.node
+		if n != null and is_instance_valid(n) and demo != null and demo.use_look:
+			var kit := ShipKit.new()
+			kit.repaint(n, kit.look_for(str(s.look), owner))
 
 
 ## The deck changed hands: the tanks are built again for the new holders.
@@ -863,9 +918,9 @@ func _mat(finish: String) -> Material:
 			g.roughness = 0.12
 			m = g
 		"glow":
-			m = _glow(Color("#9fdcff"), 3.0)
+			m = _glow(Color(str(cfg.get("look", {}).get("glow", "#9fdcff"))), 3.0)
 		"beacon":
-			m = _glow(Color("#ff5a3a"), 6.0)
+			m = _glow(Color(str(cfg.get("look", {}).get("beacon", "#ff5a3a"))), 6.0)
 		"lock":
 			m = _glow(Color("#ffb04a"), 2.5)
 		_:
@@ -875,9 +930,29 @@ func _mat(finish: String) -> Material:
 			var noise = demo._flat_mats().noise if demo != null and demo.has_method("_flat_mats") else null
 			if noise != null:
 				sm.set_shader_parameter("noise_tex", noise)
+			_tone(sm)
 			m = sm
 	_mats[finish] = m
 	return m
+
+
+## Issue #876: the station's own "look" block laid over the metal shader's colours
+## (hull_color, trim_color, deck_color, wall_color, accent, window_light,
+## strip_light, paint as "#rrggbb"; window_energy, screen_energy as numbers): the
+## same metal and the same finishes, a sister station's own shade of them. No new
+## shader; a station with no look block keeps the shader's own colours.
+const LOOK_COLORS := ["hull_color", "trim_color", "deck_color", "wall_color", "accent", "window_light", "strip_light", "paint"]
+const LOOK_NUMBERS := ["window_energy", "screen_energy"]
+
+
+func _tone(sm: ShaderMaterial) -> void:
+	var look: Dictionary = cfg.get("look", {})
+	for k in LOOK_COLORS:
+		if look.has(k):
+			sm.set_shader_parameter(k, Color(str(look[k])))
+	for k in LOOK_NUMBERS:
+		if look.has(k):
+			sm.set_shader_parameter(k, float(look[k]))
 
 
 static func _glow(c: Color, energy: float) -> StandardMaterial3D:

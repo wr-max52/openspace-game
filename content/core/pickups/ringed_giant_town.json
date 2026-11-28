@@ -321,8 +321,18 @@
     { "id": "belt_crate_2", "site": "belt_wreck_2", "site_point": [-11, 146, 147],
       "prizes": [ { "item": "space_whale_teeth", "count": 8, "weight": 1 } ] },
     { "id": "belt_crate_3", "site": "belt_wreck_3", "site_point": [11.5, 146, 131],
-      "prizes": [ { "item": "seeker_launcher", "count": 1, "weight": 1 } ] }
+      "prizes": [ { "item": "seeker_launcher", "count": 1, "weight": 1 } ] },
+    { "id": "skimmer_crate_east", "station": "skimmer_east",
+      "prizes": [ { "item": "refined_quantonium", "count": 6, "weight": 3 }, { "credits": 250, "weight": 2 },
+         { "item": "grenade", "count": 3, "weight": 2 }, { "item": "seeker_launcher", "count": 1, "weight": 1 } ] },
+    { "id": "skimmer_crate_northwest", "station": "skimmer_northwest",
+      "prizes": [ { "item": "refined_quantonium", "count": 6, "weight": 3 }, { "credits": 250, "weight": 2 },
+         { "item": "grenade", "count": 3, "weight": 2 }, { "item": "seeker_launcher", "count": 1, "weight": 1 } ] },
+    { "id": "skimmer_crate_southwest", "station": "skimmer_southwest",
+      "prizes": [ { "item": "refined_quantonium", "count": 6, "weight": 3 }, { "credits": 250, "weight": 2 },
+         { "item": "grenade", "count": 3, "weight": 2 }, { "item": "seeker_launcher", "count": 1, "weight": 1 } ] }
   ],
+  "skimmer_crates_note": "Issue #885: the skimmer outposts' supply crates, one on each gantry beside the tanks ('station': the outpost's landmark; the spot is its config's skimmer 'crate', GearController._build_station_crate): refined quantonium, credits, grenades, now and then a seeker launcher. Opened once, like the wrecks' crates.",
   "crate_prizes": [
     { "item": "refined_quantonium", "count": 10, "weight": 1 }
   ],

@@ -9,6 +9,8 @@ extends RefCounted
 ## ("hull", "shield.max", "atmosphere.boost_speed"). apply() puts them on a copy of
 ## a ship's data wherever the player's ship is set up (ShipPilot in the air,
 ## Dogfight in space); every other ship of that model stays as it is.
+## Issue #874: an upgrade can instead unlock an action ("unlock": a flag, as the
+## warp drive's "warp"): see unlocked().
 ## An upgrade can also repaint a ship: see look().
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
@@ -54,6 +56,15 @@ static func fit(ship_id: String, id: String) -> bool:
 		return false
 	WorldState.ship_fits[ship_id] = fitted(ship_id) + [id]
 	return true
+
+
+## Issue #874: true when ship `ship_id` has an upgrade fitted that unlocks `flag`
+## (an upgrade's "unlock" in t89.json, next to "mult": the warp drive's "warp").
+static func unlocked(ship_id: String, flag: String) -> bool:
+	for id in fitted(ship_id):
+		if str(all().get(id, {}).get("unlock", "")) == flag:
+			return true
+	return false
 
 
 ## The ships the player owns, by id (each kind once): the wreck T-89 rebuilt, the

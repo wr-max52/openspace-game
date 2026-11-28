@@ -351,6 +351,85 @@ if [ ! -f test_results/planets_trace.txt ]; then
 fi
 echo "CI: planets trace present ($(wc -l < test_results/planets_trace.txt) lines)"
 
+# Issue #874: the warp drive. In the home system's open space without it the key
+# only says why; fitted, hold, pick the red system, warp at least 5 s, and fly on
+# in the red system's open space (only its planets); a save there loads there;
+# then warp home.
+echo "CI: generating warp trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/warp_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/warp_trace.txt ]; then
+  echo "CI: ERROR -- warp trace was not generated" >&2
+  exit 1
+fi
+echo "CI: warp trace present ($(wc -l < test_results/warp_trace.txt) lines)"
+
+# Issue #875: the red desert world: it loads in the red system, its tall town
+# validates with red locals in it, five outposts and its own people stand, and
+# the thickest mountain pocket costs no more frame than the street.
+echo "CI: generating red world trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/red_world_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/red_world_trace.txt ]; then
+  echo "CI: ERROR -- red world trace was not generated" >&2
+  exit 1
+fi
+echo "CI: red world trace present ($(wc -l < test_results/red_world_trace.txt) lines)"
+
+# Issue #877: the mountain towns: every place stands on its peak with its folk,
+# the lift carries you from the sand to the top, the road up Sootwell's peak is
+# ground the whole way, and the town costs no more frame than the street.
+echo "CI: generating mountain towns trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/mountain_towns_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/mountain_towns_trace.txt ]; then
+  echo "CI: ERROR -- mountain towns trace was not generated" >&2
+  exit 1
+fi
+echo "CI: mountain towns trace present ($(wc -l < test_results/mountain_towns_trace.txt) lines)"
+
+# Issue #882: the red world's roads and races: every town on a lit road to the
+# port, the lamps batched glow, a speeder drives every road and stays on it, and
+# the first red crew's race runs to the finish with its NPC racers.
+echo "CI: generating roads and races trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/roads_races_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/roads_races_trace.txt ]; then
+  echo "CI: ERROR -- roads and races trace was not generated" >&2
+  exit 1
+fi
+echo "CI: roads and races trace present ($(wc -l < test_results/roads_races_trace.txt) lines)"
+
+# Issue #878: the red world's folklore: Dool'rey Kah, a worm out on the open
+# dunes (no legs, rings of teeth, twice the segments) that kills on touch; the
+# Pilgrims' Rest's storyteller names it even with no model; each town's locals
+# mutter their own lines.
+echo "CI: generating folklore trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/folklore_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/folklore_trace.txt ]; then
+  echo "CI: ERROR -- folklore trace was not generated" >&2
+  exit 1
+fi
+echo "CI: folklore trace present ($(wc -l < test_results/folklore_trace.txt) lines)"
+
+# Issue #879: the tide world's round sea: a speeder crosses a kilometre of it to
+# a pontoon outpost and back without sinking; on foot in the water you drown and
+# wake by the landing bay.
+echo "CI: generating sea trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/sea_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/sea_trace.txt ]; then
+  echo "CI: ERROR -- sea trace was not generated" >&2
+  exit 1
+fi
+echo "CI: sea trace present ($(wc -l < test_results/sea_trace.txt) lines)"
+
+# Issue #876: the red system's ring station over the port (its own name and darker
+# metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
+# its cruiser's general killed (only that cruiser's flag).
+echo "CI: generating dark station trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/dark_station_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/dark_station_trace.txt ]; then
+  echo "CI: ERROR -- dark station trace was not generated" >&2
+  exit 1
+fi
+echo "CI: dark station trace present ($(wc -l < test_results/dark_station_trace.txt) lines)"
+
 # Issue #96: the desert packs' first milestone: food for quartz with the friendly
 # pack, a sand pig hunt, the hostile pack's horn and attack, five minutes survived
 # into a trade, and a kill that locks a pack hostile. (About 5 game minutes.)

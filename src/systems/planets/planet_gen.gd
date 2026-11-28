@@ -81,15 +81,17 @@ static func ids(content = null) -> Array:
 
 ## A planet, built (cached: the same planet is the same dictionary all run).
 static func build(planet_id: String, content = null) -> Dictionary:
-	if _cache.has(planet_id):
-		return _cache[planet_id]
+	# Issue #874: open space is a different place in each system (its planets).
+	var key := planet_id + "@" + current_system() if is_open_space(planet_id) else planet_id
+	if _cache.has(key):
+		return _cache[key]
 	var cc = content if content != null else _content()
 	var cfg: Dictionary = cc.planets.get(planet_id, {})
 	if cfg.is_empty():
 		push_warning("PlanetGen: unknown planet " + planet_id)
 		return {}
 	var p := make(cfg, cc)
-	_cache[planet_id] = p
+	_cache[key] = p
 	return p
 
 
@@ -168,12 +170,15 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 			opts["club_dome"] = cfg.club_dome      # issue #261: the whole dome is the club
 		if cfg.has("domes"):
 			opts["domes"] = cfg.domes              # a sealed station's other domes, off its landing pit
-		town = TownGen.generate(town_id, size, int(cfg.get("seed", NameEngine.fnv(id) % 100000)), opts)
+		town = TownGen.generate(town_id, size, int(cfg.get("seed", NameEngine.fnv(id) % 100000)), opts, _town_kit(cfg))
+		_swap_locals(town, cfg.get("locals", {}))
+		if cfg.has("speeder_pad"):
+			add_speeder_pad(town, cfg.speeder_pad)    # issue #879: the tide world's pad out front
 	var world: Dictionary = {}
 	if cfg.has("world"):
 		world = CoreContent.resolve_layout(cc.get_world(str(cfg.world)), layout)    # issue #295: landmarks per layout
 	else:
-		world = _world_for(id, town_id, tcfg)
+		world = _world_for(id, town_id, tcfg, cfg)
 	if cfg.has("landmarks"):
 		# A planet config's own landmarks join its world's (a space station over the
 		# moon: content/core/stations/). Moving one to another planet is moving the block.
@@ -216,6 +221,77 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 		"barge": cfg.get("barge", {}),
 		"harmful_surface": cfg.get("harmful_surface", tcfg.get("harmful_surface", {})),
 	}
+
+
+## Issue #875: the town kit a planet's town is built from: the shared kit
+## (content/core/planets/town_kit.json) with the planet file's own `town_kit`
+## laid over it key by key (taller towers, more of them). Empty: the shared kit.
+static func _town_kit(cfg: Dictionary) -> Dictionary:
+	var own: Dictionary = cfg.get("town_kit", {})
+	if own.is_empty():
+		return {}
+	var kit: Dictionary = TownGen.new().kit.duplicate(true)
+	for k in own:
+		if k != "note":
+			kit[k] = own[k]
+	return kit
+
+
+## Issue #875: a planet's own people in its town: `locals` maps a soldier
+## profile the town generator places to the one this planet uses instead (its
+## locals' look: "local_resident": "red_local_resident").
+## Issue #879: a speeder pad out front of a deck town (a planet's "speeder_pad"):
+## a level pad `length` metres out past the deck's front edge (the gate's side,
+## +x) and `width` across, centred on the gate. Writes town.speeder_pad
+## ({ rect: Rect2 on the map, y, ramp }: PlanetTerrain.speeder_pad_site stands it
+## up out of the sea), five speeder_spot markers in a row across it (where the
+## speeders you own wait: SpeederPost.line_spot) and, with "loaner", a
+## sea_loaner marker further out, the town's own speeder anyone may take.
+static func add_speeder_pad(town: Dictionary, pad: Dictionary) -> void:
+	var front := -INF
+	for b in town.get("boxes", []):
+		if str(b.get("kind", "")) == "floor":
+			front = maxf(front, float(b.max[0]))
+	if not is_finite(front):
+		return
+	var gz := 0.0
+	for b in town.get("boxes", []):
+		if str(b.get("id", "")) == "gate_lintel":
+			gz = (float(b.min[2]) + float(b.max[2])) * 0.5
+	var length := float(pad.get("length", 34.0))
+	var width := float(pad.get("width", 40.0))
+	var x0 := front - 1.0                     # tucked a metre under the deck's edge: no gap
+	town["speeder_pad"] = { "rect": Rect2(x0, gz - width * 0.5, length + 1.0, width), "y": 0.0,
+		"ramp": float(pad.get("ramp_m", 16.0)) }
+	# A painted plate under it, data only (hidden, nothing to trip on: the pontoon
+	# itself is the sea ball's ground), so the markers on it stand on something.
+	var zone := "outside"
+	for b in town.get("boxes", []):
+		if str(b.get("id", "")) == "gate_lintel":
+			zone = str(b.get("zone", zone))
+	var boxes: Array = town.get("boxes", [])
+	boxes.append({ "id": "speeder_pad_plate", "zone": zone, "kind": "pad", "standable": true, "hidden": true,
+		"min": [front, -0.2, gz - width * 0.5], "max": [front + length, 0.0, gz + width * 0.5] })
+	town["boxes"] = boxes
+	var markers: Array = town.get("markers", [])
+	var n := 5
+	for i in n:
+		var z := gz + (float(i) - (n - 1) * 0.5) * minf(8.0, (width - 6.0) / n)
+		markers.append({ "id": "speeder_spot_%d" % (i + 1), "role": "speeder_spot", "yaw_deg": -90,
+			"pos": [snappedf(front + length * 0.3, 0.1), 0, snappedf(z, 0.1)] })
+	if bool(pad.get("loaner", false)):
+		markers.append({ "id": "sea_loaner", "role": "sea_loaner", "yaw_deg": -90,
+			"pos": [snappedf(front + length * 0.72, 0.1), 0, snappedf(gz, 0.1)] })
+	town["markers"] = markers
+
+
+static func _swap_locals(town: Dictionary, locals: Dictionary) -> void:
+	if locals.is_empty():
+		return
+	for m in town.get("markers", []):
+		var s := str(m.get("soldier", ""))
+		if locals.has(s):
+			m["soldier"] = str(locals[s])
 
 
 ## Issue #573: open space, a place with no planet (ground "none"). Its town is
@@ -323,8 +399,9 @@ static func system_centre(id: String, cc = null, depth := 0):
 	var near := str(cfg.get("near", ""))
 	if not cfg.has("at"):
 		return null
-	if near == sun_id():
-		var sun := system_sun(cc)
+	var sun_sys := system_of_sun(near)
+	if sun_sys != "":
+		var sun := system_sun(cc, sun_sys)
 		return sun + GameFlow.vec(cfg.at) if sun.is_finite() else null
 	if depth >= 8 or not cfgs.has(near):
 		return null
@@ -335,21 +412,120 @@ static func system_centre(id: String, cc = null, depth := 0):
 
 
 ## Issue #576: the sun's id, a name planets can be "near" (not a place).
-static func sun_id() -> String:
-	return str(space_cfg().get("sun", "sun"))
+## Issue #874: each system has its own sun (types.json space.systems); with no
+## system named, the current one's.
+static func sun_id(system := "") -> String:
+	var sys := system if system != "" else current_system()
+	return str(systems().get(sys, {}).get("sun", space_cfg().get("sun", "sun") if sys == HOME_SYSTEM else sys + "_sun"))
+
+
+## Issue #874: the system whose sun is called `sun`, or "" when no sun has that name.
+static func system_of_sun(sun: String) -> String:
+	for sys in system_ids():
+		if sun_id(sys) == sun:
+			return sys
+	return ""
 
 
 ## Issue #576: the sun's centre in the system frame (the home planet's centre less
 ## its "at"), INF when the home planet is not near the sun.
-static func system_sun(cc = null) -> Vector3:
+## Issue #874: another system's frame is its own (systems never share a scene):
+## its sun is at that system's "sun_at" (the origin unless it says).
+static func system_sun(cc = null, system := "") -> Vector3:
+	var sys := system if system != "" else current_system()
 	if cc == null:
-		if not _cache.has("_sun"):
-			_cache["_sun"] = system_sun(_content())
-		return _cache["_sun"]
+		var key := "_sun/" + sys
+		if not _cache.has(key):
+			_cache[key] = system_sun(_content(), sys)
+		return _cache[key]
+	if sys != HOME_SYSTEM:
+		return GameFlow.vec(systems().get(sys, {}).get("sun_at", [0.0, 0.0, 0.0]))
 	var home: Dictionary = cc.planets.get(home_id(), {})
-	if str(home.get("near", "")) != sun_id() or not home.has("at"):
+	if str(home.get("near", "")) != sun_id(HOME_SYSTEM) or not home.has("at"):
 		return Vector3.INF
 	return Vector3(0, -ball_radius(home, cc), 0) - GameFlow.vec(home.at)
+
+
+# ------------------------------------------------------------------ star systems (issue #874)
+
+const HOME_SYSTEM := "home"
+
+
+## Issue #874: the star systems (types.json space.systems): id -> { label, sun,
+## main, sun_at?, star? }. One "home" system when the data names none.
+static func systems() -> Dictionary:
+	if _cache.has("_systems"):
+		return _cache["_systems"]
+	var out := {}
+	var s = space_cfg().get("systems", {})
+	if s is Dictionary:
+		for k in s:
+			if s[k] is Dictionary:          # not its "note"
+				out[str(k)] = s[k]
+	if out.is_empty():
+		out = { HOME_SYSTEM: { "sun": str(space_cfg().get("sun", "sun")), "main": home_id() } }
+	_cache["_systems"] = out
+	return out
+
+
+static func system_ids() -> Array:
+	return systems().keys()
+
+
+## Issue #874: the system planet `id` is in: its file's "system", else the system
+## of the sun it is near, else the system of the planet it is near, else home.
+## Open space is in the current system.
+static func system_of(id: String, cc = null, depth := 0) -> String:
+	if is_open_space(id):
+		return current_system()
+	if cc == null:
+		var key := "_sys/" + id
+		if not _cache.has(key):
+			_cache[key] = system_of(id, _content())
+		return _cache[key]
+	var cfg: Dictionary = cc.planets.get(id, {})
+	if cfg.has("system"):
+		return str(cfg.system)
+	var near := str(cfg.get("near", ""))
+	var by_sun := system_of_sun(near) if near != "" else ""
+	if by_sun != "":
+		return by_sun
+	if near != "" and cc.planets.has(near) and depth < 8:
+		return system_of(near, cc, depth + 1)
+	return HOME_SYSTEM
+
+
+## Issue #874: the system you are in: the current planet's, or in open space the
+## one the warp drive last took you to (WorldState.system).
+static func current_system() -> String:
+	var here := GameFlow.current_planet_id()
+	if here != "" and not is_open_space(here):
+		var cfg_sys := _planet_system_quick(here)
+		if cfg_sys != "":
+			return cfg_sys
+	var ws := str(WorldState.system)
+	return ws if systems().has(ws) else HOME_SYSTEM
+
+
+## The system of a planet without building content when it is cached.
+static func _planet_system_quick(id: String) -> String:
+	var key := "_sys/" + id
+	if _cache.has(key):
+		return _cache[key]
+	return system_of(id)
+
+
+## Issue #874: the system's main planet (where a warp points you, and whose ball
+## frames the sky out there): its "main", the home planet for home.
+static func main_planet(system := "") -> String:
+	var sys := system if system != "" else current_system()
+	var m := str(systems().get(sys, {}).get("main", ""))
+	return m if m != "" else (home_id() if sys == HOME_SYSTEM else "")
+
+
+## Issue #874: the system's name for the picker and the chart.
+static func system_label(system: String) -> String:
+	return str(systems().get(system, {}).get("label", system))
 
 
 ## Where a place's own origin (a planet's port, on top of its ball) is in the
@@ -358,7 +534,7 @@ static func system_sun(cc = null) -> Vector3:
 ## origin. INF when the place is not in the system.
 static func system_port(id: String, cc = null) -> Vector3:
 	if is_open_space(id):
-		var sun := system_sun(cc)
+		var sun := system_sun(cc)        # issue #874: the current system's sun
 		return sun if sun.is_finite() else Vector3.ZERO
 	if cc == null:
 		# Asked on every switch (SpaceTravel): a full content read is ~13 ms, and
@@ -399,9 +575,23 @@ static func with_sight(detail: Dictionary, tcfg: Dictionary, cfg: Dictionary) ->
 
 
 ## A world dict for a generated planet: the same shape as content/core/worlds.
-static func _world_for(id: String, town_id: String, tcfg: Dictionary) -> Dictionary:
+static func _world_for(id: String, town_id: String, tcfg: Dictionary, cfg: Dictionary = {}) -> Dictionary:
 	var platform := str(tcfg.get("ground", "terrain")) in ["platform", "sphere"]
 	var surface: Dictionary = tcfg.get("surface", {})
+	if str(tcfg.get("ground", "terrain")) == "terrain" and float(cfg.get("sphere_radius", 0.0)) > 0.0:
+		# Issue #874: a generated dune world that is a whole ball, as the home world's
+		# own world file makes it (terrain.sphere_radius, src/systems/planets/planet_sphere.gd).
+		var r := float(cfg.sphere_radius)
+		return {
+			"id": id,
+			"label": str(tcfg.get("label", id)),
+			"town": town_id,
+			"naming": { "town": str(tcfg.get("town_naming", "town")), "planet": "planet" },
+			"terrain": { "sphere_radius": r, "extent": 6000.0, "skirt_height": 4.0, "planet_radius": r, "curve_from": 6000.0 },
+			"landmarks": [],
+			"atmosphere": tcfg.get("atmosphere", {}),
+			"detail": types().get("detail", {}),
+		}
 	if str(tcfg.get("ground", "")) == "ball":
 		# Issue #99: a real ball like the home planet (WorldTerrain asks the sphere).
 		var w := {
@@ -457,9 +647,12 @@ static func neighbours(id: String, cc = null, own_cfg: Dictionary = {}) -> Array
 	var here := system_port(id, cc) if all.has(id) or is_open_space(id) else _cfg_port(mine, cc)
 	if here == Vector3.INF:
 		return out
+	var sys := system_of(id, cc) if all.has(id) or is_open_space(id) else str(mine.get("system", HOME_SYSTEM))
 	for other in all:
 		if other == id:
 			continue
+		if system_of(str(other), cc) != sys:
+			continue        # issue #874: another star system is never in this sky
 		var c = system_centre(str(other), cc)
 		if c == null:
 			continue
@@ -476,6 +669,8 @@ static func neighbours(id: String, cc = null, own_cfg: Dictionary = {}) -> Array
 ## surface radius), else how big it looks from a neighbour's sky (body.radius).
 static func ball_radius(o: Dictionary, cc = null) -> float:
 	var t: Dictionary = types().get("types", {}).get(str(o.get("type", "sand")), {})
+	if float(o.get("sphere_radius", 0.0)) > 0.0:
+		return float(o.sphere_radius)       # issue #874: a generated ball world
 	if o.has("world") and cc != null:
 		var r := float(cc.get_world(str(o.world)).get("terrain", {}).get("sphere_radius", 0.0))
 		if r > 0.0:
@@ -499,7 +694,7 @@ static func _neighbour(o: Dictionary, at: Vector3, cc) -> Dictionary:
 	# Issue #77: a planet that is a real ball (its world's terrain.sphere_radius)
 	# looks its true size from a neighbour's sky. Issue #99: so does a ball type.
 	var r := ball_radius(o, cc)
-	var ball := str(t.get("ground", "")) == "ball"
+	var ball := str(t.get("ground", "")) == "ball" or float(o.get("sphere_radius", 0.0)) > 0.0
 	if o.has("world") and cc != null:
 		ball = ball or float(cc.get_world(str(o.world)).get("terrain", {}).get("sphere_radius", 0.0)) > 0.0
 	return {

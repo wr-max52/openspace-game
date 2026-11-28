@@ -43,7 +43,186 @@ where `at` puts it. Fly into it to land there.
 | `encounter` | Optional. The space fight when you climb out of this planet's atmosphere (`"orbital_skirmish"`), or `""` for a quiet sky. Default: the landing pad's. |
 | `features` | The port only: `training_range`, `speeders`, `landforms`, `pickups`. |
 | `town` / `world` | The port only: use a hand-built town and world instead of generated ones. |
+| `system` | Optional (issue #874). The star system it is in (`types.json` `space.systems`). Default: the system of the sun or planet it is `near`, so a moon needs none. Another system never hangs in this one's sky. |
+| `sphere_radius` | Optional (issue #874), a `terrain` type only: the generated dune world is a whole ball of this many metres, like the home world's own world file. |
 | `town_layout` | With `town`: the saved layout the town is built to (`content/core/towns/<id>.json`, issue #237), e.g. `port_square` (size 50). The town keeps its id (`port_town`) whatever layout it has; `town_size` should match the layout's `size`. F11 > World > Town builds the home town to another layout for the rest of the run. |
+
+## Star systems and the warp drive (issue #874)
+
+Planets belong to star systems (`types.json` `space.systems`): each has its own
+sun (a name planets can be `near`, placed at `sun_at` in its own frame), its main
+planet (`main`: where a warp drops you, and whose ball frames open space's sky),
+a `label` and a star colour for the picker. Systems never share a scene: open
+space is the current system's (`PlanetGen.current_system`: the planet you are on,
+or in open space `WorldState.system`, saved), and only its planets hang there.
+
+The warp drive is T-89's 10,000 cr upgrade (`t89.json` `"warp"`, an `unlock`
+upgrade: `ShipUpgrades.unlocked`). In open space only, seated and flying, hold
+`K` (`flight_warp`) for `space.warp.hold_s` and pick a system; the warp runs on
+its own for at least `min_s` while the next system's main planet is built (the
+flames lengthen, the sky's stars rush out from dead ahead and the field of view
+kicks: nothing new is drawn), then you are in that system's open space, outside
+its main planet's bubble by `arrive_m` on its sunward side, nose on it
+(`WarpDrive.arrival`). A save made out there loads at that main planet. A third
+system is planet files with `"system"` (or a `near` on its sun) and a line in
+`space.systems`.
+
+## The red desert world (issue #875)
+
+`port_red.json` is the red system's main world, and the planet to copy for a
+world built from the home world's parts with its own changes laid over them:
+
+- `town_kit`: keys laid over `town_kit.json` for this planet's town only (more
+  towers with `tower_share`, taller ones in `towers`).
+- `locals`: `{ "local_resident": "red_local_resident", ... }` swaps the town's
+  people for other soldier profiles (`red_local_*`: the `red_local` look).
+- `landforms`: keys laid over `content/look/desert_landforms.json`
+  (`DesertLandforms.load_for`). `planet_mountains: []` clears the home world's
+  mountains; `mountain_clusters` packs `count` peaks within `spread_deg` of each
+  `[lat, lon]` middle, `gap_m` of open ground between two feet (a speeder's
+  valley); `course_mountains` entries with `path_ll` are tunnel ranges along a
+  `[lat, lon]` line, three variant-3 peaks 140 m apart so their roofs meet.
+  Cluster peaks keep off the tunnel lines.
+- Outposts are a `territory.json` front (`"red"`) with `remnant_outpost_red_*`
+  location files and a landmark each in `world.landmarks` (a level pad).
+
+`scenes/red_world_trace.gd` and `tests/test_red_world.gut.gd` check it.
+
+
+### Its ring station and cruiser (issue #876)
+
+A ring station hangs 1000 m over the port city, 450 m east of the town's middle so
+a ship climbing out of the pit passes beside it (`dark_station` landmark,
+`content/core/stations/dark_station.json`): the home ring station built again in
+darker metal with its own room colours (`docs/station/STATION_FILL.md`). It is
+under the cloud deck, so you see it from the street and fly up to it in the air;
+over solid ground a fall out of its bay lands you. Its Remnant deck and top floor
+are one Territory place, `station_dark_station`, on no front: kill them all and the
+locals have it for good. A Remnant star cruiser (`red_cruiser`,
+`content/core/cruiser/red_cruiser.json`) holds 3000 m up, 2.6 km west, in view as
+you arrive on the warp; flying for it brings its escort instead of the planet's
+skirmish, and killing its general sets only `red_cruiser_taken` and pays its own
+reward.
+
+### Its mountain towns (issue #877)
+
+Seven places stand on flat-topped peaks of their own in the mountain country
+(`settlements` in `port_red.json`). Each place is one entry: `kind`, `lat`/`lon`,
+`palette` and `folk`, and a `butte` for its peak's size.
+
+- **`town`** is the town generator with no landing bay (`bay: "none"`), the place's
+  `kit` laid over the shared one: the Pilgrims' Rest (a lift, the storyteller of #878) and
+  Sootwell (the mining town: a big cantina with a dancer, a lit road up).
+- **`ring`** is a few ranch houses round a yard inside one round wall: Highfold.
+- **`ledge`** is a hamlet on a low shelf: a shrine, a watch tower, a stall and a
+  few homes. Tarn, Scree, Kiln and Wren Ledge.
+- **The way up** is `lift: true` (a glass tube from the sand to a bridge onto the
+  town's apron; the station elevator's car, `settlements.lift`) or `ramp: true` (a
+  lit road that curls once round the peak at a speeder's grade,
+  `settlements.ramp`). Ledges are low enough to land on.
+- **The people** are the place's own folk (`pilgrim_*`, `highfold_*`, `soot_*`
+  soldiers and archetypes in `content/look/characters.json`), walking their own
+  strolls; `trade` picks each kind's stall keeper, and every cantina has its
+  barkeep.
+- **Looks** are in `content/look/settlements.json`: the palettes (walls, roofs,
+  paving, cloth, fire), the glass, the lift and the lamps.
+
+A place builds when its peak comes in sight and its folk sleep past `wake_m`; each
+has its pin on the map (`GlobeMap.settlement_pins`). `scenes/mountain_towns_trace.gd`,
+`tests/test_mountain_towns_trace.gut.gd` and `tests/test_mountain_towns.gut.gd`
+check it.
+
+### Its roads and races (issue #882)
+
+Seven lit roads join every town to the port (`roads` in `port_red.json`). A road
+is `{ id, from, to, via }`: `from` and `to` are `"port"` or a place id, and `via`
+is `"tunnel:<id>"` (a `course_mountains` range: the road runs its whole centre
+line, carried `lead_m` past both portals) or `[lat, lon]` corners. Between those
+the road runs straight along the ground.
+
+- **Where it meets a town:** the place's way in (the lift door, the foot of the
+  road up, a ledge's foot), with `approach_m` of straight road in front of it. At
+  the port it starts `port_out_m` past the town's walls, pointing at its far end.
+- **The three ranges in the way** (`red_tunnel_port`, `_west`, `_east`) carry the
+  roads through them, as the home world's speeder tunnels do.
+- **Nothing on it:** a road's clear circles keep the small rocks off it (never a
+  peak), the mountain clusters keep `peak_keep_m` off its legs, and the landforms
+  keep a town's reach `approach_m` wider.
+- **The look** is in `content/look/roads.json`: a packed-dirt strip a little over
+  the sand (it changes no ground), and a lamp every `lamp_m`, sides taking turns,
+  none inside a tunnel. The lamps are two MultiMeshes a road, posts and glowing
+  heads with one shared glow and no real light, each drawn out to its own range.
+
+Three race crews have their camps near the outer edges of the mountain country,
+each by its own course (`content/core/racing/courses/{scorch_loop,ember_run,
+dust_mile}.json`, gates placed by `ll`), and each course runs one of the three
+other tunnels. They are a ladder of their own: Scorch races anyone, then Ember,
+then Dust. A camp is a `location` landmark dressed like the home world's racers'
+outpost. `scenes/roads_races_trace.gd`, `tests/test_roads_races_trace.gut.gd` and
+`tests/test_roads.gut.gd` check it.
+
+### Its folklore and its worm (issue #878)
+
+The red world is haunted. Its beast is Dool'rey Kah, a worm (the `beast` block in
+`port_red.json`), and every town tells its own tales of it.
+
+- **The worm** is the beast with `kind: "worm"`: the beetle's segments and eyes
+  with no legs, mandibles or antennae, about twice the segments (28), each a ball
+  with a band, a round head and a maw of turning cone teeth in two rings
+  (`maw.rings`, lip knobs round them). `undulate` rolls its body in and out of the
+  sand, and it rears its head when it chases (`rear_chase`). Touching it kills,
+  shooting it makes it follow, as with the beetle. It lives on the open dunes
+  (`home`, past 90 degrees of longitude from the mountain country, its `leash_m`
+  well clear of every town and road).
+- **What people say** is the block's `what`, `lore` and `lore_slain` (every AI
+  character is briefed with them, `PlanetBeast.brief`) and `locals_say`, keyed by
+  each place's `folk`: the pilgrims, Sootwell's miners, Highfold's ranchers and
+  the port each mutter their own ghosts and curses (`PlanetBeast.lore`).
+- **The storyteller**, Grandfather Ossel, sits in the far corner of the Pilgrims'
+  Rest cantina, clear of the bar's trade reach (the place's `storyteller` block:
+  a soldier, a card and a reach). He is an AI character on the town's talk host,
+  `content/core/npcs/storyteller_card.json`, and with AI characters off his card's
+  `lore_topics` (the worm, ghosts, curses) are his menu and his answers.
+
+`scenes/folklore_trace.gd` and `tests/test_folklore_trace.gut.gd` check it.
+
+## The tide world: a round sea (issue #879)
+
+`port_tide.json` is the red system's second world, a sea all the way round with no
+land. Copy it for any water world you can ride.
+
+- **The type is `water_ball`:** the water type made a real ball (`ground: "ball"`,
+  `deck: true`, `surface.kind: "water"`). `PlanetTerrain.for_planet` gives it an
+  `OceanSphere` (`src/systems/planets/ocean_sphere.gd`): the deck sits on the
+  ball's radius and the still sea lies `depth` (2.5 m) under it all the way round.
+  It is drawn by `sea.gdshader` (rollers, chop, crest foam, foam where the water
+  laps a pad).
+- **The sea holds things up.** The terrain collider is the still sea, so a ship
+  can set down on it. A speeder's hover model rides it through `height_above`,
+  with the swell (`swell_m`, `swell_s`) lifting and settling it on open water.
+  Nothing built on it moves with the swell.
+- **On foot it drowns you.** `PlatformWorld` checks `OceanSphere.in_sea` (open
+  water, within `drown_m` of the surface) instead of the platform's fall height,
+  so it works anywhere on the ball. You fade out with the type's `fall_text` and
+  wake by the landing bay.
+- **The town** is a generated deck town in the `favela_rust` style (rusted
+  palette) with a `town_kit` of stepped huts and tall blocks packed close. It has
+  no glass wall (`enclosure_height` 0).
+- **The speeder pad** (`speeder_pad`): a pontoon out front of the gate at the
+  deck's level, `length` by `width` metres, its ramp down to the sea all round
+  (`PlanetGen.add_speeder_pad`, `PlanetTerrain.speeder_pad_site`). Five
+  `speeder_spot` markers on it are where your own speeders wait, and with
+  `loaner` the town's own speeder waits further out, free to ride.
+- **The outposts:** five Remnant outposts (`remnant_outpost_tide_*`) stand on
+  pontoons 1.5 m out of the sea, 1.2 to 4.2 km out. Any `location` landmark on a
+  sea ball gets one (`PlanetTerrain.outpost_flat_sites`). They are the Territory
+  front `tide` in `content/core/story/territory.json`.
+- **The trip:** 30 to 50 seconds from the red world in the courier
+  (`space.trips.bands`).
+
+`scenes/sea_trace.gd` and `tests/test_sea_trace.gut.gd` check it: a speeder
+crosses a kilometre of sea to the nearest outpost and back, and a person in the
+water drowns and wakes at the bay.
 
 ## Planet types
 
@@ -151,6 +330,9 @@ A planet's native packs and wild animals come from the planet generator too. A
 type's `natives` block gives every generated planet of that type a people of its
 own, plus its animals; a planet's own `natives` block (the home planet's dune
 people) replaces it, and `false` means none. See `docs/natives/NATIVES.md`.
+Issue #875: a planet's `natives` holding `"generate": {...}` keeps the type's
+generated people and lays those keys over the type's block; `"arc_deg": [a, b]`
+keeps the packs on that side of the town (map angle `atan2(z, x)`).
 
 ## What every generated planet has (issue #75)
 

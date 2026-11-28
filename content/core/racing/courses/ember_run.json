@@ -1,0 +1,55 @@
+{
+  "id": "ember_run",
+  "label": "Ember Run",
+  "note": "Issue #882: the red world's second race, the same shape on the middle pocket's north-east edge, through red_tunnel_mid_east. Read scorch_loop.json's note.",
+  "world": "port_red",
+  "near": "racers_camp_red_ember",
+  "laps": 2,
+  "gate_width": 26.0,
+  "antenna_height": 7.0,
+  "draw_m": 1500.0,
+  "clear_m": 14.0,
+  "grid": {
+    "slots": 4,
+    "back_m": 10.0,
+    "row_m": 9.0,
+    "side_m": 4.5
+  },
+  "gates": [
+    {
+      "id": "start",
+      "ll": [
+        9.2733,
+        29.8362
+      ]
+    },
+    {
+      "id": "c1",
+      "ll": [
+        15.1366,
+        35.9574
+      ]
+    },
+    {
+      "id": "c2",
+      "ll": [
+        18.9037,
+        30.9692
+      ]
+    },
+    {
+      "id": "c3",
+      "ll": [
+        8.0597,
+        20.1083
+      ]
+    },
+    {
+      "id": "c4",
+      "ll": [
+        3.3095,
+        23.9182
+      ]
+    }
+  ]
+}

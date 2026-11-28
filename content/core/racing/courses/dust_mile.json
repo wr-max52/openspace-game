@@ -1,0 +1,55 @@
+{
+  "id": "dust_mile",
+  "label": "Dust Mile",
+  "note": "Issue #882: the red world's top race, the same shape out between the middle and south-west pockets, through red_tunnel_south. Read scorch_loop.json's note.",
+  "world": "port_red",
+  "near": "racers_camp_red_dust",
+  "laps": 2,
+  "gate_width": 26.0,
+  "antenna_height": 7.0,
+  "draw_m": 1500.0,
+  "clear_m": 14.0,
+  "grid": {
+    "slots": 4,
+    "back_m": 10.0,
+    "row_m": 9.0,
+    "side_m": 4.5
+  },
+  "gates": [
+    {
+      "id": "start",
+      "ll": [
+        -18.7647,
+        -20.5986
+      ]
+    },
+    {
+      "id": "c1",
+      "ll": [
+        -13.9015,
+        -12.83
+      ]
+    },
+    {
+      "id": "c2",
+      "ll": [
+        -9.3101,
+        -16.8953
+      ]
+    },
+    {
+      "id": "c3",
+      "ll": [
+        -17.6303,
+        -31.178
+      ]
+    },
+    {
+      "id": "c4",
+      "ll": [
+        -23.2888,
+        -28.8116
+      ]
+    }
+  ]
+}

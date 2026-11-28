@@ -1,0 +1,6 @@
+{
+  "id": "red_local_patron",
+  "base": "local_patron",
+  "archetype": "red_local",
+  "note": "Issue #875: local_patron on the red world (port_red), in the red locals' look (content/look/characters.json 'red_local'). Everything else is local_patron's ('base')."
+}

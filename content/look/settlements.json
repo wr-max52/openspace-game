@@ -1,0 +1,128 @@
+{
+  "note": "Issue #877: how the mountain towns look. butte / ledge_butte: their peaks (RockMountain versions; each place lays its own radius, top_radius and seed over these: content/core/planets/port_red.json settlements). palettes: each town's colours. glass, lift and lamp: the lift's tube and car and the lit road's lamps.",
+  "butte": {
+    "tiers": 5,
+    "first_rise": 9,
+    "rise": [
+      9,
+      12
+    ],
+    "shelf": [
+      3,
+      5
+    ],
+    "jag": 1,
+    "points": 40,
+    "lobes": [
+      0.05,
+      0.04,
+      0.02
+    ],
+    "lean": [
+      0.01,
+      0.02
+    ],
+    "columns": 0,
+    "blocks": 0,
+    "crags": 0,
+    "caves": 0,
+    "asym": 0.6,
+    "radius": 80,
+    "top_radius": 50,
+    "seed": 21
+  },
+  "ledge_butte": {
+    "tiers": 2,
+    "first_rise": 6,
+    "rise": [
+      6,
+      8
+    ],
+    "shelf": [
+      3,
+      5
+    ],
+    "jag": 1,
+    "points": 36,
+    "lobes": [
+      0.06,
+      0.05,
+      0.02
+    ],
+    "lean": [
+      0.01,
+      0.02
+    ],
+    "columns": 0,
+    "blocks": 0,
+    "crags": 0,
+    "caves": 0,
+    "asym": 0.6,
+    "radius": 36,
+    "top_radius": 21,
+    "seed": 24
+  },
+  "palettes": {
+    "pilgrim": {
+      "note": "Pale ochre plaster, faded cloth, sun-bleached stone.",
+      "walls": "#d8c08e",
+      "band": "#b9925a",
+      "tint": 0.25,
+      "roof": "#c9ae7e",
+      "paving": "#bfa77c",
+      "cloth": [
+        "#c46a4a",
+        "#d9c7a0",
+        "#7d8a8f"
+      ],
+      "trim": "#8a6a44",
+      "fire": "#ffb35c"
+    },
+    "highfold": {
+      "note": "Grey stone and weathered timber, ranchers' green.",
+      "walls": "#a69a88",
+      "band": "#6f6656",
+      "tint": 0.2,
+      "roof": "#5d6b4f",
+      "paving": "#8f8473",
+      "cloth": [
+        "#4f6b52",
+        "#b9a37a"
+      ],
+      "trim": "#5b4a37",
+      "fire": "#ff9a4a"
+    },
+    "soot": {
+      "note": "Rust-stained plaster, soot-black bands, oxidised iron.",
+      "walls": "#8c5a40",
+      "band": "#2e2622",
+      "tint": 0.35,
+      "roof": "#3a302b",
+      "paving": "#5a4438",
+      "cloth": [
+        "#b4552e",
+        "#2f2a28"
+      ],
+      "trim": "#6b3a22",
+      "fire": "#ff7a33"
+    }
+  },
+  "glass": {
+    "colour": "#9fd6e8",
+    "alpha": 0.28,
+    "rough": 0.05
+  },
+  "lift": {
+    "frame": "#3b3f44",
+    "car": "#c9c2b4",
+    "glow": "#9fe3ff",
+    "tube_height_extra_m": 3.0,
+    "panels": 10
+  },
+  "lamp": {
+    "post": "#3b3631",
+    "glow": "#ffc46a",
+    "height_m": 4.5,
+    "energy": 3.0
+  }
+}

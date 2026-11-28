@@ -2,6 +2,53 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — A hunt delay rolled per guard, and a hunter who finds you chases
+
+- **Staggered, in the brain, for everyone.** `GuardBrain.engage()` rolls each
+  guard's hunt delay once per fight: `hunt_after_s` plus a random share of
+  `hunt_stagger_s`. It lives in the two base profiles (`gate_guard` for the
+  Remnant, `local_resident` for the locals: 6 s plus up to 6 s), so every
+  garrison gets it, and the station sets its own (8 s plus up to 14 s). The
+  alternative, a garrison handing out turns, would need every garrison
+  (town, outposts, cruiser, station) to know about it; one random roll per
+  brain gives the same trickle with nothing shared.
+- **The chase is a hunter's only.** A guard fighting from cover when you show
+  up still goes back to cover after his opening burst. A guard who was hunting
+  (or is shot while hunting) has already left cover to find you, so he fights
+  in the open, closes in past `chase_close_m`, and runs at the newest sighting
+  once you break sight for `chase_lost_s`, never back into cover. A guard who
+  holds his ground (sentries, the bridge) never chases.
+
+## 2026-11-28 — The station's soldiers route by its layout, not a navmesh
+
+- **Why they got stuck.** Aboard the station soldiers walk straight at a point
+  (`NpcBody.free_walk`, no navmesh). Their garrison handed them the town's
+  cover spots, and `CoverPicker` only compares x and z, so a trooper on the
+  top floor could be sent to a crate in the bay 50 m below, straight through
+  the walls. The fight's fallbacks (run at where you were, hunt round it) were
+  straight lines too. Either way he ended up pinned in a room's corner.
+- **A route from the station's own shape, not a navmesh.** Every floor is the
+  same plan: wedge-shaped rooms, each opening onto a walkway ring on its middle
+  line. `StationTactics.route_local` is pure geometry: to the door, round the
+  ring in short chords, in at the target's door. A navmesh baked per floor
+  would cost build time on every visit, and the floors already know their
+  rooms (`StationHull.floor_rooms`). Furniture is stepped round by its
+  colliders' nearest clear corner, rechecked every 0.25 s per body.
+- **Cover from the room's own furniture.** The fill's colliders in the
+  soldier's room become `CoverPicker` boxes in the room's frame, so the
+  existing picker (does the box really sit between you and the threat?) does
+  the rest. `CoverPicker.candidates` takes a lower `min_height` for the
+  station (0.75 m), so the 0.8 m desks and tables count, and the standoff is
+  0.5 m because the bunk rows leave only 1 m between their ends.
+- **The brain is unchanged.** The garrison asks the tactics for cover and
+  hands the body the route's next point, while the brain keeps its own goal
+  (so its arrival checks and cover logic work as on the ground). The station
+  sets its own `hunt_after_s` (10 s) over every profile aboard, without
+  touching the cruiser's troopers who share those profiles.
+- **The general and his honour guard still hold the bridge** (`hold_ground`);
+  the off-duty troopers no longer do, since routing has fixed the reason they
+  held (no wandering across the towers).
+
 ## 2026-11-28 — The station's top floor joins the Remnant deck's place (issue #314)
 
 - **One place, not two.** #314 asked for the bridge to be the station's barracks
@@ -2273,3 +2320,161 @@ jetpack, back up in your ship.
 - **Crates keep the desert's rule:** opened once, they stay open. A crate may
   carry its own `prizes`, so the deeper ones pay better.
 
+## Star systems never share a scene; the warp is a cheap loop over the load (2026-11-28)
+
+Issue #874 (epic #873): a second star system, reached by T-89's warp drive.
+
+- **Each system is its own frame.** The home system keeps the frame it had (its
+  sun where the home planet's `at` puts it); every other system puts its sun at
+  its `sun_at`. No planet of one system is ever a neighbour of another's
+  (`PlanetGen.neighbours` skips them), so nothing is drawn across systems and
+  the frames never have to agree.
+- **Open space is one place, built per system.** `open_space.json` stays one
+  file (rule 2); `PlanetGen.build` caches it per system, and which system you
+  are in is `WorldState.system` (saved) when you are not on a planet. Landing
+  anywhere sets it to that planet's system.
+- **An upgrade can unlock, not only multiply.** `t89.json` upgrades take
+  `"unlock": "<flag>"` beside `"mult"`; `ShipUpgrades.unlocked` reads it. A
+  cloak or a tractor beam fits the same slot.
+- **The warp is the existing look, pushed.** Render rule 13: no particles,
+  trails or materials. The flight camera's FOV (72 plus `fov_kick`), the
+  boosters' own flames (`ShipKit.stretch_flames`) and the sky's own star shell
+  (`AltitudeSky.warp_stretch`, the MultiMesh's basis squashed along the nose)
+  carry it. It lasts at least `min_s` and until the next main planet is built.
+- **The warp key is K, not J.** J was already the radio (`flight_radio`).
+- **A save in open space loads at the system's main planet,** as open space is
+  never where you load (issue #573); in the home system nothing changes.
+
+## A new world is the home world's parts with its own data laid over (2026-11-28)
+
+Issue #875 (epic #873): the red desert world.
+
+- **Lay over, never fork.** The town kit, the landforms and the natives each take
+  a planet's own block laid over the shared one (`town_kit`, `landforms`,
+  `natives.generate`), so a fix to the shared kit reaches every world and a new
+  world is one JSON file.
+- **Mountains are placed by pockets, not by hand.** Fifty-odd peaks by hand is a
+  file nobody can read; `mountain_clusters` packs them from a seed with a valley
+  (`gap_m`) between every two feet, measured from each version's real plan
+  radius. The data test fails if two feet ever touch.
+- **A tunnel range is three peaks 140 m apart.** Two peaks further apart leave
+  open sky in the middle of the tunnel; three at 140 m roof 300 to 470 m of road.
+- **The town's people are a soldier swap.** `locals` rewrites the generated
+  markers' soldier ids, so a new look is a profile and an archetype, not code.
+
+
+## A sister station is a copy with its look and its dressing laid over (2026-11-28)
+
+Issue #876 (epic #873): the red system's ring station and cruiser.
+
+- **Copy the numbers, override the colours.** The station file copies the home
+  ring station's towers, rooms, bay and owners, so the hull, the dock path and
+  the Remnant deck are the same code paths, already tested. What makes it its own
+  is three blocks: `look` (the metal shader's colours), `fill.dressing` (the
+  shared station palette, name by name) and `fill.top_floors` (room finishes).
+  A data test fails if a copied block drifts from the home station's.
+- **Colours lay over the shared palette, they do not replace it.** A name the
+  station leaves out keeps `dressing.json`'s colour, so a new palette entry for
+  the home station reaches the sister station too.
+- **Its own place, on no front.** The deck is `station_dark_station`, taken for
+  good like the home station's was before the belt front, and the cruiser does
+  not lock the red front's outposts: the red world's outposts stay takeable from
+  the first day, and the station and the cruiser are the next two fights up.
+- **Placed beside the climb, not on it.** 450 m off the town's middle at 1000 m,
+  so a ship lifting straight out of the pit never meets its engine deck, and
+  4.8 km from the cruiser, so Z never has two dock targets at once.
+
+
+## A mountain town is a town on a peak, built by sight (2026-11-28)
+
+Issue #877 (epic #873): the red world's mountain towns.
+
+- **The town generator, without its bay.** A mountain town is `TownGen` with
+  `bay: "none"` and the place's `kit` laid over the shared one, so the streets,
+  the cantina, the stalls and the markers are the port's own, already tested.
+  The mining town keeps `TownGen`'s square proportions rather than the port
+  square's; it is a smaller town and reads better that way.
+- **The peak is a mountain, the town sits on its top.** `settlement_buttes` adds
+  each place's peak to the landforms' mountains, so the rock, its collider and the
+  ships' ground are the mountain code paths. A data test fails if a town would
+  overhang its top.
+- **A lift for the tall towns, a road for the mining town, nothing for a ledge.**
+  The lift is the station elevator's car in a glass tube, standing off the rock so
+  it never clips it. The road curls once round its peak at a 10% grade (a speeder
+  climbs it without a boost) and never runs over itself; its pieces are sloped
+  ground boxes, so ships and feet both read it.
+- **Built by sight, asleep by distance.** Seven places at once would cost the
+  town's frame, so each is built in steps when its peak comes in sight, and its
+  folk only walk inside `wake_m`. The trace checks the town costs no more frame
+  than the port's street.
+- **Their own folk, not the port's.** The residents, keepers and guards are three
+  folk of their own (profiles that copy the port's locals), and they carry the
+  place's id so the port's townsfolk never take them over.
+
+
+## Roads are data laid on the ground, not ground (2026-11-28)
+
+Issue #882 (epic #873): the red world's roads and races.
+
+- **A strip, not a cut.** A road is a thin packed-dirt ribbon a little over the
+  sand, in chunks drawn by distance, so the ground, its colliders and the ships'
+  height reads are unchanged. Keeping the road clear is the landforms' job: the
+  road's clear circles keep the small rocks off, and the mountain clusters keep
+  off its legs.
+- **The tunnels are the roads' passes.** A road that meets a range runs its
+  tunnel end to end rather than climbing, so every road is drivable at speed and
+  the tunnels are on the way somewhere.
+- **Lamps are glow.** Two MultiMeshes a road (posts, and heads with one cached
+  unshaded glow) and no real light, per the render rules; 365 lamps are 14 draws.
+- **The red crews are their own ladder.** They reuse the race crew, course and
+  camp code; only the data is new. Their courses are placed by latitude and
+  longitude so they sit right on the ball, and each runs one tunnel.
+- **The drive test rides like a rider.** The trace drives every road in track
+  mode at a rider's pace with the road's half width as its room, so it checks
+  the roads and not a racer's corner cutting.
+
+## The worm is the beast with its legs taken off (2026-11-28)
+
+Issue #878 (epic #873): the red world's folklore and its worm, Dool'rey Kah.
+
+- **One beast, two kinds.** The worm is `PlanetBeast` with `kind: "worm"`: the
+  same walk, leash, chase, touch and shot code, the same eyes, and only its look
+  and pose differ (no legs, more segments, a maw of teeth). A new beast for a new
+  world is a block of data, not a new script.
+- **Simple shapes on purpose.** Balls, bands, cones and the beetle's eyes, about
+  as many meshes as the beetle. Will asked for creepy teeth and a long body, not
+  a fine model.
+- **The dunes are its own.** Its home is on the half with no mountains, so the
+  towns and roads stay safe and the open desert is where the fear is.
+- **Lore is keyed by folk, not by town id.** A place's `folk` already says who
+  lives there, so a new pilgrim village mutters the pilgrims' lines with no new
+  data.
+- **The storyteller sits away from the bar.** The host's talk prompt loses to a
+  stall's trade prompt in reach, so he gets his own marker in the cantina's far
+  corner rather than a patron's stool by the counter.
+
+## The sea is solid and the drowning is a check (2026-11-28)
+
+Issue #879 (epic #873): the tide world, a round sea you ride.
+
+- **Solid water, separate drowning.** The sea ball's collider stands at sea level
+  like any ground, so ships land, speeders hover and nothing new is needed in the
+  physics. Drowning is `OceanSphere.in_sea`, checked by the platform world. The
+  old platform fall (below y -25) would kill you a few hundred metres out on a
+  ball, so a sea ball skips it.
+- **The swell only moves what floats.** The hover model feels the swell; the
+  collider, the mesh and the pads keep the still sea, so towns and outposts never
+  bob and the shader's rollers are only a look.
+- **Pads are ground, not boxes.** The pontoons and the speeder pad are flat sites
+  on the ball (the same raise the moon's pads use), with ramps a speeder can ride
+  up. A hidden plate box under the speeder pad only lets its markers pass the town
+  check.
+- **A new ground shader.** The issue said no new shader, but the ball's ground
+  takes a ShaderMaterial and the stock water is not a ball's ground, so
+  `sea.gdshader` is new. It follows the other ground shaders (layers, hole sink,
+  dusk).
+- **Favela by style and kit.** The rusted favela look is a town style
+  (`favela_rust`) and a town kit of packed stepped huts and towers, not the
+  station's ring packer, which only fills a ring.
+- **Outposts copy the red world's.** The five pontoon outposts are the red flats
+  outpost with new ids, not the gas giant's skimmer decks, which float 200 m up.

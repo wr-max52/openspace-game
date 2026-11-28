@@ -68,6 +68,10 @@ func test_script_fallbacks_match_the_file() -> void:
 	var pals: Dictionary = DressingScript.data().get("palettes", {})
 	var re := RegEx.new()
 	re.compile('Dressing\\.c\\("(\\w+)", "(\\w+)", "(#[0-9a-fA-F]{6})"\\)')
+	# Issue #876: StationFill reads "station_fill" through _dc (a station's own
+	# dressing first), so its fallbacks are that palette's.
+	var fill_re := RegEx.new()
+	fill_re.compile('_dc\\("(\\w+)", "(#[0-9a-fA-F]{6})"\\)')
 	var n := 0
 	for s in SCRIPTS:
 		var text := FileAccess.get_file_as_string("res://src/systems/world/%s.gd" % s)
@@ -76,6 +80,10 @@ func test_script_fallbacks_match_the_file() -> void:
 			n += 1
 			var got = (pals.get(m.get_string(1), {}) as Dictionary).get(m.get_string(2), null)
 			assert_eq(got, m.get_string(3), "%s.gd: %s.%s is the same colour in the file and the code" % [s, m.get_string(1), m.get_string(2)])
+		for m in fill_re.search_all(text):
+			n += 1
+			var got = (pals.get("station_fill", {}) as Dictionary).get(m.get_string(1), null)
+			assert_eq(got, m.get_string(2), "%s.gd: station_fill.%s is the same colour in the file and the code" % [s, m.get_string(1)])
 		assert_false(text.contains("const CLOTHS") or text.contains("const FABRICS") or text.contains("const NEON"),
 			"%s.gd keeps no palette consts" % s)
 	assert_gt(n, 300, "the dressings read their colours from the palette")

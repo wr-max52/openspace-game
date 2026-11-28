@@ -48,6 +48,7 @@ const FAR_STRETCH := 1.2              ## the map stretched more than this: pads 
 const LINE_STEP := 25.0               ## m of ground between racing-line points
 const START_LEAD := 15.0              ## m past the start line racers first aim at (they cross it square)
 const WORLDS := "res://content/core/worlds/"
+const PLANETS := "res://content/core/planets/"
 
 var demo                              ## town_demo.gd (the player), may be null (tests)
 var ground: WorldGround
@@ -96,8 +97,22 @@ static func load_course(course_id: String) -> Dictionary:
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
 	if not d is Dictionary:
 		return {}
+	# Issue #882: a gate may be placed by [latitude, longitude] (`ll`) on a
+	# generated ball, like its mountains; its `at` is worked out here.
+	var r := sphere_radius(str(d.get("world", "")))
+	for g in d.get("gates", []):
+		if g.has("ll") and not g.has("at") and r > 0.0:
+			var q: Vector2 = _ball_map(ll_dir(float(g.ll[0]), float(g.ll[1])), r)
+			g["at"] = [q.x, q.y]
 	d["line"] = gate_line(d)
 	return d
+
+
+## PlanetSphere.map_from_lat_lon's direction for latitude and longitude (degrees).
+static func ll_dir(lat: float, lon: float) -> Vector3:
+	var la := deg_to_rad(lat)
+	var lo := deg_to_rad(lon)
+	return Vector3(cos(la) * sin(lo), sin(la), -cos(la) * cos(lo))
 
 
 ## The racing line of course `c`: straight legs from gate to gate round the loop
@@ -160,6 +175,13 @@ static func sphere_radius(world_id: String) -> float:
 		var d = JSON.parse_string(f.get_as_text()) if f != null else null
 		if d is Dictionary:
 			r = float(d.get("terrain", {}).get("sphere_radius", 0.0))
+		elif world_id != "":
+			# Issue #882: a generated planet's world has no world file; its id is
+			# the planet's, and the planet file has the ball's radius.
+			var pf := FileAccess.open(PLANETS + world_id + ".json", FileAccess.READ)
+			var pd = JSON.parse_string(pf.get_as_text()) if pf != null else null
+			if pd is Dictionary:
+				r = float(pd.get("sphere_radius", 0.0))
 		_radius[world_id] = r
 	return float(_radius[world_id])
 

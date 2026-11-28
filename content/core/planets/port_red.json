@@ -1,0 +1,884 @@
+{
+  "id": "port_red",
+  "note": "Issues #874 and #875: the red system's main world, the planet a warp points you at. A generated ball 80% the home world's size (sphere_radius) on the red_desert type, in the red system (near its sun), so it hangs in no sky of the home system. About half of it (the side the map calls south, longitude -90 to 90) is mountain country: close-packed pockets of the home world's climbable mountains in the planet's red rock, with valleys between them wide enough for a speeder road and six tunnel ranges; the other half is open red dunes, where the native packs camp and the party barge is moored. The port city sits at the north pole, on the edge of the mountain half: a big generated town built tall (town_kit) in the planet's own dark red stone (style), its people in the red locals' look (locals). Five Remnant outposts are a Territory front ('red'); climbing out of the air starts the orbital skirmish. Issue #876 hangs a ring station over the port and a Remnant cruiser in its sky; #877 adds the mountain towns, #882 the roads and races, #878 the worm. See docs/planets/PLANETS.md.",
+  "name": "",
+  "type": "red_desert",
+  "system": "red_reach",
+  "town_size": 70,
+  "seed": 874,
+  "sphere_radius": 4000.0,
+  "near": "red_reach_sun",
+  "at": [
+    0,
+    0,
+    30000
+  ],
+  "style": "red_rock",
+  "features": [
+    "speeders",
+    "landforms",
+    "pickups"
+  ],
+  "encounter": "orbital_skirmish",
+  "replaces_sky_painting": true,
+  "town_kit": {
+    "note": "Issue #875: the port city built tall: the shared kit (content/core/planets/town_kit.json) with taller towers, more of them (tower_share) and from a smaller size. Only this planet's town.",
+    "tower_share": 0.75,
+    "towers": [
+      {
+        "look": "tower_block",
+        "w": [
+          6,
+          8
+        ],
+        "d": [
+          6,
+          8
+        ],
+        "h": [
+          16.0,
+          24.0
+        ],
+        "weight": 3
+      },
+      {
+        "look": "tower_round",
+        "w": [
+          7,
+          8
+        ],
+        "round": true,
+        "h": [
+          20.0,
+          30.0
+        ],
+        "weight": 2
+      },
+      {
+        "look": "tower_wide",
+        "w": [
+          8,
+          9
+        ],
+        "d": [
+          7,
+          7
+        ],
+        "h": [
+          14.0,
+          18.0
+        ],
+        "weight": 2
+      }
+    ]
+  },
+  "locals": {
+    "note": "Issue #875: the town's people in the red locals' look (content/look/characters.json 'red_local').",
+    "local_resident": "red_local_resident",
+    "local_merchant": "red_local_merchant",
+    "local_patron": "red_local_patron"
+  },
+  "landforms": {
+    "note": "Issue #875: this planet's rocks, laid over content/look/desert_landforms.json (DesertLandforms.load_for): no home mountains, race towers or course tunnels; mountain_clusters are the mountain pockets ([lat, lon] middles, how far they reach, how many peaks and the open ground between two peaks' feet, a speeder's valley), course_mountains the six tunnel ranges (path_ll: their centre lines by [lat, lon], three tunnel peaks each, 140 m apart so their roofs meet, the cluster peaks kept off their lines), all in the planet type's red rock. Spires and short hoodoos are the home world's spots, scaled to this ball by latitude and longitude. Boulders keep off the home race courses (none here).",
+    "planet_mountains": [],
+    "mountain_clusters": [
+      {
+        "id": "north_pocket",
+        "lat": 62,
+        "lon": 5,
+        "spread_deg": 10,
+        "count": 8,
+        "gap_m": 55,
+        "versions": [
+          0,
+          1,
+          2
+        ],
+        "seed": 1
+      },
+      {
+        "id": "west_pocket",
+        "lat": 36,
+        "lon": -52,
+        "spread_deg": 12,
+        "count": 10,
+        "gap_m": 55,
+        "versions": [
+          2,
+          0,
+          1
+        ],
+        "seed": 2
+      },
+      {
+        "id": "east_pocket",
+        "lat": 32,
+        "lon": 52,
+        "spread_deg": 12,
+        "count": 10,
+        "gap_m": 55,
+        "versions": [
+          1,
+          2,
+          0
+        ],
+        "seed": 3
+      },
+      {
+        "id": "mid_pocket",
+        "lat": 2,
+        "lon": -5,
+        "spread_deg": 13,
+        "count": 10,
+        "gap_m": 60,
+        "versions": [
+          0,
+          2,
+          1
+        ],
+        "seed": 4
+      },
+      {
+        "id": "south_east_pocket",
+        "lat": -24,
+        "lon": 55,
+        "spread_deg": 10,
+        "count": 7,
+        "gap_m": 55,
+        "versions": [
+          2,
+          1,
+          0
+        ],
+        "seed": 5
+      },
+      {
+        "id": "south_west_pocket",
+        "lat": -20,
+        "lon": -60,
+        "spread_deg": 10,
+        "count": 7,
+        "gap_m": 55,
+        "versions": [
+          1,
+          0,
+          2
+        ],
+        "seed": 6
+      }
+    ],
+    "course_mountains": [
+      {
+        "id": "red_tunnel_port",
+        "path_ll": [
+          [
+            72,
+            10
+          ],
+          [
+            63,
+            15
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 181.3,
+            "variant": 3,
+            "seed": 41,
+            "portal": "start"
+          },
+          {
+            "along": 321.3,
+            "variant": 3,
+            "seed": 47
+          },
+          {
+            "along": 461.3,
+            "variant": 3,
+            "seed": 47,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_west",
+        "path_ll": [
+          [
+            50,
+            -28
+          ],
+          [
+            43,
+            -38
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 219.6,
+            "variant": 3,
+            "seed": 53,
+            "portal": "start"
+          },
+          {
+            "along": 359.6,
+            "variant": 3,
+            "seed": 59
+          },
+          {
+            "along": 499.6,
+            "variant": 3,
+            "seed": 59,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_east",
+        "path_ll": [
+          [
+            47,
+            28
+          ],
+          [
+            41,
+            40
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 255.1,
+            "variant": 3,
+            "seed": 67,
+            "portal": "start"
+          },
+          {
+            "along": 395.1,
+            "variant": 3,
+            "seed": 73
+          },
+          {
+            "along": 535.1,
+            "variant": 3,
+            "seed": 73,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_mid_west",
+        "path_ll": [
+          [
+            20,
+            -22
+          ],
+          [
+            13,
+            -10
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 448.8,
+            "variant": 3,
+            "seed": 71,
+            "portal": "start"
+          },
+          {
+            "along": 588.8,
+            "variant": 3,
+            "seed": 77
+          },
+          {
+            "along": 728.8,
+            "variant": 3,
+            "seed": 77,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_mid_east",
+        "path_ll": [
+          [
+            18,
+            30
+          ],
+          [
+            9,
+            21
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 383.1,
+            "variant": 3,
+            "seed": 83,
+            "portal": "start"
+          },
+          {
+            "along": 523.1,
+            "variant": 3,
+            "seed": 89
+          },
+          {
+            "along": 663.1,
+            "variant": 3,
+            "seed": 89,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_south",
+        "path_ll": [
+          [
+            -10,
+            -18
+          ],
+          [
+            -17,
+            -30
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 653.4,
+            "variant": 3,
+            "seed": 97,
+            "portal": "start"
+          },
+          {
+            "along": 793.4,
+            "variant": 3,
+            "seed": 103
+          },
+          {
+            "along": 933.4,
+            "variant": 3,
+            "seed": 103,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      }
+    ],
+    "hoodoos": [],
+    "boulders": {
+      "count": 300,
+      "min_dist": 150.0,
+      "spread": 1500.0,
+      "planet_wide": true,
+      "near_rocks": 0.6,
+      "near_reach": 2.5,
+      "courses": []
+    }
+  },
+  "settlements": {
+    "note": "Issue #877: the mountain country's towns, each on a flat-topped peak of its own (DesertLandforms.settlement_buttes adds the peak; SettlementGen lays the town out; Settlements builds, dresses and peoples it by sight). kind: town (TownGen with no landing bay, the place's kit laid over the shared one), ring (ranch houses round a yard in one round wall) or ledge (a hamlet on a low shelf). palette: its colours (content/look/settlements.json). folk: its people, <folk>_resident and so on in content/core/soldiers/. lift: a glass lift from the sand by its foot to the top. ramp: a lit road curling up round its peak, speeder wide. butte: its peak's numbers laid over the look file's (radius, top_radius, seed).",
+    "cantinas": {
+      "note": "The three cantina sizes, inside: length, width, height and the stage's width (m).",
+      "small": {
+        "length": 14,
+        "width": 12,
+        "height": 5,
+        "stage": 3.5
+      },
+      "medium": {
+        "length": 22,
+        "width": 18,
+        "height": 6.5,
+        "stage": 5
+      },
+      "large": {
+        "length": 28,
+        "width": 22,
+        "height": 8,
+        "stage": 6
+      }
+    },
+    "lift": {
+      "note": "The glass lift: its shaft out_m past the peak's foot at the gate's side, its car (the station elevator's, content/core/stations/orbital_station.json), speed and wait.",
+      "out_m": 6.0,
+      "car_radius": 2.6,
+      "speed": 5.0,
+      "wait": 3.0
+    },
+    "ramp": {
+      "note": "The lit road: out_m past the peak's foot, width_m wide (kerbs inside that), climbing grade (rise over run) round the peak, a lamp every lamp_m on its outer kerb.",
+      "out_m": 16.0,
+      "width_m": 10.0,
+      "grade": 0.1,
+      "segment_m": 9.0,
+      "lamp_m": 18.0,
+      "kerb_h": 0.8
+    },
+    "trade": {
+      "note": "What a place's stall sells (the port's vendors, content/core/vendors: same stock and prices), by kind, unless the place names its own (\"stall\"). bar: what its barkeep sells at the counter.",
+      "town": "gear_trader",
+      "ring": "food_stall",
+      "ledge": "fence",
+      "bar": "food_stall"
+    },
+    "wake_m": 360.0,
+    "draw_m": 1600.0,
+    "places": [
+      {
+        "id": "pilgrims_rest",
+        "name": "the Pilgrims' Rest",
+        "kind": "town",
+        "lat": 52.0,
+        "lon": -8.0,
+        "palette": "pilgrim",
+        "folk": "pilgrim",
+        "cantina": "medium",
+        "size": 18,
+        "seed": 3,
+        "residents": 8,
+        "lift": true,
+        "storyteller": { "soldier": "pilgrim_storyteller", "card": "res://content/core/npcs/storyteller_card.json", "reach": 2.6 },
+        "kit": {
+          "aspect": 1.5,
+          "apron": 6,
+          "lane": 2.5,
+          "lot": 8,
+          "street_half": 5,
+          "tower_share": 0.15,
+          "counts": {
+            "guards": {
+              "per": 5,
+              "min": 3,
+              "max": 4
+            },
+            "residents": {
+              "per": 5,
+              "min": 2,
+              "max": 12
+            },
+            "roamers": {
+              "per": 2,
+              "min": 2,
+              "max": 3
+            }
+          }
+        },
+        "butte": {
+          "radius": 80,
+          "top_radius": 50,
+          "seed": 21
+        },
+        "note": "A pilgrims' stop on a high peak in the middle pocket, pale ochre and faded cloth. Its cantina is where the storyteller sits (#878). Up by the lift."
+      },
+      {
+        "id": "highfold",
+        "name": "Highfold",
+        "kind": "ring",
+        "lat": 50.0,
+        "lon": 40.0,
+        "palette": "highfold",
+        "folk": "highfold",
+        "cantina": "small",
+        "houses": 4,
+        "seed": 2,
+        "lift": true,
+        "ring_r": 24,
+        "apron": 6,
+        "butte": {
+          "radius": 74,
+          "top_radius": 45,
+          "seed": 23
+        },
+        "note": "Four ranch houses round one yard inside a shared round wall, a small cantina and a fire, on a peak in the east pocket. Up by the lift."
+      },
+      {
+        "id": "sootwell",
+        "name": "Sootwell",
+        "kind": "town",
+        "lat": 55.0,
+        "lon": -24.0,
+        "palette": "soot",
+        "folk": "soot",
+        "cantina": "large",
+        "dancer": true,
+        "size": 18,
+        "seed": 5,
+        "residents": 8,
+        "ramp": true,
+        "kit": {
+          "aspect": 1.1,
+          "apron": 6,
+          "lane": 2.5,
+          "lot": 8,
+          "street_half": 5,
+          "tower_share": 0.6,
+          "counts": {
+            "guards": {
+              "per": 5,
+              "min": 3,
+              "max": 4
+            },
+            "residents": {
+              "per": 5,
+              "min": 2,
+              "max": 12
+            },
+            "roamers": {
+              "per": 2,
+              "min": 2,
+              "max": 3
+            }
+          }
+        },
+        "butte": {
+          "radius": 84,
+          "top_radius": 50,
+          "seed": 22
+        },
+        "note": "The mining town by the mid-west tunnel's mouth: rust and soot, square streets, a rough bar with a dancer on its stage (the only club up here). Up by the lit road."
+      },
+      {
+        "id": "ledge_north",
+        "name": "Tarn Ledge",
+        "kind": "ledge",
+        "lat": 67.0,
+        "lon": -4.0,
+        "palette": "pilgrim",
+        "folk": "pilgrim",
+        "seed": 4,
+        "butte": {
+          "radius": 36,
+          "top_radius": 21,
+          "seed": 24
+        }
+      },
+      {
+        "id": "ledge_west",
+        "name": "Scree Ledge",
+        "kind": "ledge",
+        "lat": 40.0,
+        "lon": -50.0,
+        "palette": "highfold",
+        "folk": "highfold",
+        "seed": 6,
+        "butte": {
+          "radius": 38,
+          "top_radius": 21,
+          "seed": 25
+        }
+      },
+      {
+        "id": "ledge_south_east",
+        "name": "Kiln Ledge",
+        "kind": "ledge",
+        "lat": -8.0,
+        "lon": 60.0,
+        "palette": "soot",
+        "folk": "soot",
+        "seed": 7,
+        "butte": {
+          "radius": 36,
+          "top_radius": 21,
+          "seed": 26
+        }
+      },
+      {
+        "id": "ledge_south_west",
+        "name": "Wren Ledge",
+        "kind": "ledge",
+        "lat": 28.0,
+        "lon": -68.0,
+        "palette": "pilgrim",
+        "folk": "pilgrim",
+        "seed": 8,
+        "butte": {
+          "radius": 38,
+          "top_radius": 21,
+          "seed": 27
+        }
+      }
+    ]
+  },
+  "roads": {
+    "note": "Issue #882: the red world's speeder roads (src/systems/world/road_network.gd). Each road runs from `from` to `to` (\"port\" or a place id from `settlements`) through its `via`: [latitude, longitude] corners and \"tunnel:<id>\" (a course_mountains range: the road takes its whole centre line, lead_m on straight past both portals, in whichever direction it meets it first). Straight along the ground between corners. The road changes no ground: a packed-dirt strip a hand over the sand and a lamp every lamp_m, sides taking turns (looks in content/look/roads.json). The mountain clusters keep peak_keep_m off every road and each place's peak keeps approach_m more room; boulders keep clear_m off. A road meets the port port_out_m past the town's walls, a lift town at its tube's door, a road town at the foot of its road up, a ledge at its foot.",
+    "width_m": 8.0,
+    "lamp_m": 40.0,
+    "tunnel_keep_m": 25.0,
+    "lead_m": 120.0,
+    "approach_m": 60.0,
+    "port_out_m": 60.0,
+    "clear_m": 12.0,
+    "peak_keep_m": 30.0,
+    "roads": [
+      { "id": "tarn_road", "label": "the Tarn road", "from": "port", "to": "ledge_north", "via": [] },
+      { "id": "pilgrim_road", "label": "the Pilgrim road", "from": "port", "to": "pilgrims_rest", "via": ["tunnel:red_tunnel_port"] },
+      { "id": "soot_road", "label": "the Soot road", "from": "pilgrims_rest", "to": "sootwell", "via": [] },
+      { "id": "scree_road", "label": "the Scree road", "from": "sootwell", "to": "ledge_west", "via": ["tunnel:red_tunnel_west"] },
+      { "id": "wren_road", "label": "the Wren road", "from": "ledge_west", "to": "ledge_south_west", "via": [] },
+      { "id": "highfold_road", "label": "the Highfold road", "from": "port", "to": "highfold", "via": [] },
+      { "id": "kiln_road", "label": "the Kiln road", "from": "highfold", "to": "ledge_south_east", "via": ["tunnel:red_tunnel_east"] }
+    ]
+  },
+  "natives": {
+    "note": "Issue #875: generated from the red_desert type (its own people, named by the name engine), but kept to the open desert half: arc_deg is the side of the port their loops keep to (map angle).",
+    "generate": {
+      "arc_deg": [
+        25,
+        155
+      ],
+      "route_radius": [
+        700.0,
+        1700.0
+      ]
+    }
+  },
+  "landmarks": [
+    {
+      "id": "racers_camp_red_scorch",
+      "kind": "location",
+      "location": "racers_camp_red_scorch",
+      "at": [-885.6, 0, -4536.1],
+      "yaw_deg": 141.1,
+      "clear": 60, "note": "Issue #882: the red world's three racers' camps (content/core/locations/racers_camp_red_*.json, an old outpost each, like the home world's racers' outpost), 170 m outside the start line of each crew's course, their gates (+x) toward it. Each crew hangs out at its own (content/core/racing/crews/)."
+    },
+    {
+      "id": "racers_camp_red_ember",
+      "kind": "location",
+      "location": "racers_camp_red_ember",
+      "at": [3013.9, 0, -4904.1],
+      "yaw_deg": -175.8,
+      "clear": 60
+    },
+    {
+      "id": "racers_camp_red_dust",
+      "kind": "location",
+      "location": "racers_camp_red_dust",
+      "at": [-2546.9, 0, -7305.8],
+      "yaw_deg": -122.2,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_spur",
+      "kind": "location",
+      "location": "remnant_outpost_red_spur",
+      "at": [
+        -2158,
+        0,
+        -578
+      ],
+      "yaw_deg": 345,
+      "clear": 60,
+      "note": "Issue #875: the red world's five Remnant outposts (Territory's 'red' front), two in the mountain half, two on the open dunes and one on the far side, 2.2 to 7 km out along the ground, each on a level pad, its door (+x) toward the port. 'clear' keeps the mountains and spires off them."
+    },
+    {
+      "id": "remnant_outpost_red_gorge",
+      "kind": "location",
+      "location": "remnant_outpost_red_gorge",
+      "at": [
+        4931,
+        0,
+        -2622
+      ],
+      "yaw_deg": 208,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_dunes",
+      "kind": "location",
+      "location": "remnant_outpost_red_dunes",
+      "at": [
+        1466,
+        0,
+        2539
+      ],
+      "yaw_deg": 120,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_flats",
+      "kind": "location",
+      "location": "remnant_outpost_red_flats",
+      "at": [
+        -3411,
+        0,
+        4064
+      ],
+      "yaw_deg": 50,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_far",
+      "kind": "location",
+      "location": "remnant_outpost_red_far",
+      "at": [
+        6955,
+        0,
+        608
+      ],
+      "yaw_deg": 175,
+      "clear": 60
+    },
+    {
+      "id": "dark_station",
+      "kind": "station",
+      "station": "dark_station",
+      "at": [
+        450,
+        0,
+        0
+      ],
+      "altitude": 1000,
+      "yaw_deg": 0,
+      "note": "Issue #876: the red system's ring station (content/core/stations/dark_station.json), hung over the port city: 'at' is 450 m east along the ball from the town's middle, so a ship climbing straight out of the pit passes beside it, not into its engine deck, and from the street it stands high overhead; 'altitude' is metres over the ball's radius, under this sky's cloud deck (1250 m), so you see it from town on a clear day and fly up to it without leaving the air. Its bay's mouth turns toward the port (StationHull.frame_for). Its Remnant deck is the Territory place 'station_dark_station'."
+    },
+    {
+      "id": "red_cruiser",
+      "kind": "cruiser",
+      "cruiser": "red_cruiser",
+      "at": [
+        -2600,
+        0,
+        0
+      ],
+      "altitude": 3000,
+      "yaw_deg": 0,
+      "note": "Issue #876: the red system's Remnant star cruiser (content/core/cruiser/red_cruiser.json, the home one's ship), holding about 3 km out from the station on the far side of the port, past the bay's mouth: 'at' is 2.6 km west along the ball from the town's middle, 'altitude' metres over the ball's radius, over the cloud deck (1250 m) and under the black of space (3500 m), so it hangs in this sky as you climb, its escort meets you when you fly for it, and its bay is this scene. Arriving on the warp you come in at 2600 m, 3.25 km out (the red_desert type's arrival), so it is in view as you drop toward the port."
+    }
+  ],
+  "barge": {
+    "note": "Issue #875: the red world's party barge (content/core/barges/party_barge.json has the numbers every barge shares), moored out on the open dunes 4.3 km from the port, well past its draw_m.",
+    "name": "the Cinder Lounge",
+    "boss": {
+      "name": "Maroosh Vell"
+    },
+    "home": [
+      1120,
+      4181
+    ]
+  },
+  "beast": {
+    "note": "Issue #878: the red world's beast, a giant sand worm (content/core/hazards/beast.json has the numbers every beast shares; kind worm is the body: a round head with two rings of cone teeth, the beetle's eyes, 28 round segments and no legs, rolling in and out of the sand as it goes). It lives out on the open red dunes, the half of the planet with no mountains: home is a map point 6.6 km from the port on the dunes' side, past the party barge and the native camps, and leash_m keeps it there, away from the mountain country and every road. lore is what everyone says of it; locals_say is each town's own (by its folk, 'port' for the port's), ghosts and curses as much as the worm; the Pilgrims' Rest's storyteller (content/core/npcs/storyteller_card.json) tells the rest.",
+    "name": "Dool'rey Kah",
+    "kind": "worm",
+    "what": "a giant sand worm, long as a town, that rolls through the open red dunes like a swimmer, with a round head, a maw ringed with turning teeth and four glowing purple eyes. It never comes into the mountains. Anyone it touches dies; hurt it and it follows you a long way. Every local fears it and tells tales of it, of the ghosts it leaves on the dunes and the curses on its name",
+    "what_slain": "a giant sand worm that rolled through the open red dunes and killed anyone it touched",
+    "home": [-3600, 5500],
+    "leash_m": 1200.0,
+    "segments": 28,
+    "radius": 3.4,
+    "segment_gap": 2.7,
+    "tail_scale": 0.38,
+    "speed": [1.6, 3.8],
+    "chase_speed": 6.0,
+    "turn_radius_m": 45.0,
+    "min_turn_radius_m": 18.0,
+    "rear_chase": 0.3,
+    "undulate": { "amp_r": 0.55, "wave_m": 26.0, "phase_per_seg": 0.5 },
+    "maw": { "lip_knobs": 16, "turn": 0.35 },
+    "glow": "#b46cff",
+    "look": {
+      "carapace": "#6e3a26", "shell": "#9a5a3c", "teeth": "#e8dcc0", "throat": "#120404"
+    },
+    "lines": {
+      "killed": "{name} swallowed you whole.",
+      "woke": "You wake up in the pit, sand in your teeth. {name} spat you out.",
+      "provoked": "{name} rears up and turns its teeth toward you.",
+      "gave_up": "{name} sinks back into the dunes.",
+      "slain": "{name} shudders and goes still in the sand. Nobody up in the mountains will believe it."
+    },
+    "lore": [
+      "Don't walk the red dunes after dark. Dool'rey Kah hears your feet.",
+      "The sand hums before Dool'rey Kah comes up, low, like a drum under the floor.",
+      "My grandmother saw its eyes once, out past the last dune. Purple, she said, and so many teeth, all turning.",
+      "Never say its name three times in one breath. That's how you call Dool'rey Kah.",
+      "Shoot at Dool'rey Kah and it follows your scent all the way home.",
+      "Dool'rey Kah never comes into the mountains. That's why we live up here."
+    ],
+    "lore_slain": [
+      "Someone killed Dool'rey Kah, they say. The ghosts on the dunes have gone quiet. I don't like it.",
+      "Dool'rey Kah dead? Then whose teeth do I still hear at night?"
+    ],
+    "locals_say": {
+      "port": [
+        "Ships that set down on the red dunes come back with sand in the engines and nobody aboard. That's the curse.",
+        "Old Ossel up at the Pilgrims' Rest knows all the tales. Buy him a cup and he'll never stop."
+      ],
+      "pilgrim": [
+        "We leave a cup of water at the shrine every night for the dead of the dunes. By morning it's gone.",
+        "Pilgrims walk backwards the last mile over the dunes. Dool'rey Kah only follows faces.",
+        "Grandfather Ossel saw it the night the caravan drowned. Ask him in the cantina."
+      ],
+      "soot": [
+        "Number nine shaft is cursed. Men heard chewing in the rock, so we sealed it.",
+        "Kah's got a little cousin in the deep seams, the old miners say. Smaller. Hungrier."
+      ],
+      "highfold": [
+        "Lost three head of cattle to the dunes last season. Not a bone left.",
+        "The ring wall's not for raiders. It's for what comes up out of the sand."
+      ]
+    }
+  }
+}

@@ -116,6 +116,7 @@ var barge: PartyBarge                 ## issue #269: the planet's party barge, i
 var beast: PlanetBeast                ## issue #220: the planet's beast (a deadly purple blob), if it has one
 var natives: NativesDirector          ## issue #96: the planet's native packs and wild animals
 var gate_speeders: Array = []         ## issue #82: the Remnant's Sand-boxers parked outside the front gate
+var sea_loaner: SpeederNode = null   ## issue #879: the tide town's loaner speeder on its pad (sea_loaner marker)
 var planet: Dictionary = {}           ## issue #45: the planet this scene is (PlanetGen.build), from GameFlow
 var world: Dictionary = {}            ## its world (terrain, atmosphere, detail): authored or generated
 var style: TownStyle                  ## its town style (metallic, snowy, pastel, words...)
@@ -137,6 +138,7 @@ var barracks_locals: Dictionary = {}  ## issue #303: barracks post id -> the loc
 @export var with_outposts := true     ## issue #64: the Remnant's three desert outposts (needs with_ship: they share the ship's ground)
 var outposts: RemnantOutposts
 var ranches: Ranches                  ## the ranch villages round three far outposts (their houses, stands and locals)
+var settlements: Settlements          ## issue #877: the mountain towns on their peaks (a planet's "settlements")
 @export var with_cruiser := true      ## issue #193: the Remnant's star cruiser in orbit (needs with_ship and the home ball)
 var cruiser: RemnantCruiser
 @export var with_stations := true     ## space stations in this planet's sky (its "station" landmarks: content/core/stations/)
@@ -234,6 +236,8 @@ func _build_by_sight() -> void:
 		return outposts != null and is_instance_valid(outposts) and outposts.late_step())
 	staged.add_trickle("ranches_late", func() -> bool:       # issue #717
 		return ranches != null and is_instance_valid(ranches) and ranches.late_step())
+	staged.add_trickle("settlements_late", func() -> bool:   # issue #877
+		return settlements != null and is_instance_valid(settlements) and settlements.late_step())
 
 
 ## Issue #693: everything a handoff is still holding back, built now (tests).
@@ -396,7 +400,8 @@ func build_plan(staged_build: bool) -> Array:
 		if staged_build:
 			# One piece of an outpost a frame: its ground, nav, look, ship or a trooper.
 			add.call("outpost_sites", LATER, func(_left): return (outposts == null or outposts.build_step()) \
-				and (ranches == null or ranches.build_step()), true)
+				and (ranches == null or ranches.build_step()) \
+				and (settlements == null or settlements.build_step()), true)
 		add.call("npc_brains", LATER, func(st: StagedBuild) -> void: await _npc_brains(st), "sliced")
 		add.call("interceptor", LATER, func(): _build_interceptor(); return true)
 	var speeders_step := func(st: StagedBuild) -> void:     # issue #693: the post, then a speeder a piece
@@ -912,6 +917,7 @@ func _on_first_run_ai(on: bool) -> void:
 	SavePrefs.write_saves()     # every save file's preferences carry the answer
 
 
+var roads: RoadNetwork                 ## issue #882: the planet's speeder roads (its `roads` block), or null
 var _mats: LookMaterials
 func _flat_mats() -> LookMaterials:
 	if _mats == null:
@@ -1106,6 +1112,17 @@ func _build_outposts(now: bool = true) -> void:
 	# The Remnant's outposts are the port's desert's (issue #75: not on other planets),
 	# and the moon's own (Territory's "moon" front).
 	var pid := str(planet.get("id", ""))
+	if pilot != null and pilot.ground != null and not (planet.get("cfg", {}).get("settlements", {}) as Dictionary).is_empty():
+		settlements = Settlements.new()       # issue #877: the mountain towns
+		settlements.setup(self, pilot.ground, planet)
+		add_child(settlements)
+		if now:
+			settlements.build()
+	if pilot != null and pilot.ground != null and pilot.ground.sphere() != null and not RoadNetwork.cfg_of(planet).is_empty():
+		roads = RoadNetwork.new()             # issue #882: the speeder roads between them
+		roads.setup(self, pilot.ground.sphere(), planet)
+		add_child(roads)
+		roads.build()
 	var front := Territory.front_for_planet(pid)
 	var has_outposts := pid == PlanetGen.home_id() or (front != Territory.HOME and not Territory.outposts(front).is_empty())
 	if with_outposts and pilot != null and has_outposts:
@@ -1114,8 +1131,8 @@ func _build_outposts(now: bool = true) -> void:
 		add_child(outposts)
 		if now:
 			outposts.build()
-		if pid != PlanetGen.home_id():
-			return                    # the ranch villages are the port's desert's
+		if pid != PlanetGen.home_id() and not Ranches.on_world(world):
+			return                    # the ranch villages are the port's desert's (and a planet's racers' camps, #882)
 		ranches = Ranches.new()
 		ranches.setup(self, pilot.ground)
 		add_child(ranches)
@@ -1172,6 +1189,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 			_locals_garrison_join(n)
 	if npc_brains and ranches != null:
 		ranches.start_brains()           # each ranch's locals, their own alarm; its stands' open rule
+	if npc_brains and settlements != null:
+		settlements.start_brains()       # issue #877: each mountain town's folk, likewise
 	if npc_brains and outposts != null:
 		# Issue #187: the locals at each outpost they hold have their own alarm.
 		for o in outposts.outposts:
@@ -1182,6 +1201,8 @@ func _npc_brains(st: StagedBuild = null) -> void:
 		outposts.late = true             # issue #693: an outpost that comes into sight from now on starts its own
 	if ranches != null:
 		ranches.late = true              # issue #717: a ranch likewise
+	if settlements != null:
+		settlements.late = true          # issue #877: a mountain town likewise
 	if npc_brains:
 		# Issue #541: the town's own people think less far off and sleep past the
 		# draw distance (content/core/npcs/wake_rings.json).
@@ -1546,6 +1567,20 @@ func _build_speeder_post(st: StagedBuild = null) -> void:
 ## markers), parked outside the front gate while the garrison holds it. Not
 ## rideable: they are the Remnant's.
 func _park_gate_speeders(st: StagedBuild = null) -> void:
+	# Issue #879: the tide town's loaner on its speeder pad, anyone's to take (no
+	# holder, no alarm): on the sea a speeder is the only way about.
+	for m in town.markers_with_role("sea_loaner"):
+		if sea_loaner != null and is_instance_valid(sea_loaner):
+			break
+		sea_loaner = SpeederNode.new()
+		sea_loaner.setup(self, pilot.ground, {}, true, "")
+		add_child(sea_loaner)
+		sea_loaner.name = "SeaLoaner"
+		var at: Vector3 = town.marker_pos(str(m.id))
+		if terrain != null:
+			at.y = terrain.height_at(at.x, at.z)
+		sea_loaner.place(at, deg_to_rad(float(m.get("yaw_deg", 0.0))))
+		sea_loaner.set_meta("loaner", true)
 	# Issue #613: whoever holds the town parks it (the locals in their paint), and
 	# it can be ridden: stealing it is GateChase's business.
 	var holder := GateChase.holder()
@@ -2122,6 +2157,8 @@ func _dress_desert() -> void:
 		return          # issue #99: the asteroid's rock: no sand, dust or desert landforms
 	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).gas_look.is_empty():
 		return          # a gas ball's cloud tops: no sand either
+	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).sea_look.is_empty():
+		return          # issue #879: a round sea: no sand, dust or landforms
 	_desert_dressed = true
 	_hide_desert_floors()
 	_tint_sand(terrain.material, planet.get("type_cfg", {}).get("sand", {}))
@@ -2160,11 +2197,13 @@ func _hide_desert_floors() -> void:
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
 func _build_landforms(st: StagedBuild = null) -> void:
-	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty()):
+	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty() \
+			and (terrain as PlanetTerrain).sea_look.is_empty()):
 		return
 	if with_landforms:
 		landforms = DesertLandforms.new()
 		landforms.clear_circles = _landmark_clearings()
+		landforms.planet = planet
 		add_child(landforms)
 		await landforms.build(terrain, _flat_mats(), desert_site().floor, st)
 		if terrain is PlanetTerrain:
@@ -2202,10 +2241,14 @@ func _landmark_clearings() -> Array:
 	var cc: CoreContent = CoreContent.shared()
 	var out: Array = []
 	var w: Dictionary = cc.world_for_town(str(town.data.get("id", "")), str(town.data.get("layout", "")))
+	if w.is_empty():
+		w = planet.get("world", {})        # issue #875: a generated planet's world (its landmarks joined in)
 	for lm in w.get("landmarks", []):
 		if lm.has("clear"):
 			out.append([Vector2(float(lm.at[0]), float(lm.at[2])), float(lm.clear)])
 	out.append_array(RaceCourse.clear_circles(str(w.get("id", ""))))   # issue #610: no boulders on a racing line
+	if not RoadNetwork.cfg_of(planet).is_empty():
+		out.append_array(RoadNetwork.clear_circles(planet, PlanetTerrain.for_planet(planet).sphere))   # issue #882: nor on a road
 	return out
 
 

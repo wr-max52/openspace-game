@@ -1,0 +1,910 @@
+{
+  "id": "dark_station",
+  "label": "ring station",
+  "note": "IP-neutral. Issue #876: the red system's ring station, hung straight over the red desert port city (the 'dark_station' landmark in content/core/planets/port_red.json). The home system's ring station (orbital_station.json) built again by the same maker: the same towers, floors, rooms, bay, pads, elevators, tunnels, room owners, Remnant deck and dock, so everything that works there works here (src/systems/world/station_hull.gd draws every box from these numbers, as for that file). What differs is its look and its fill: 'look' darkens the metal (SpaceStation._tone lays it over the same metal shader), the fill's 'dressing' recolours the rooms and stalls name by name over content/look/dressing.json 'station_fill' (StationFill._dc, _dl), 'top_floors' lays its top floor's rooms in other finishes, and each floor's own paints, neons and light are its own. Its name comes from the name engine (naming.vessel, seeded by the landmark id), so it is not the home station's. It has no wreck belt under it: under it is the desert and the city, and over solid ground a fall out of the bay lands you (SpaceStation._fall_guard). Its Remnant deck is a Territory place of its own ('station_dark_station'): the Remnant's until every trooper there and on the top floor is dead, then the locals' for good.",
+  "look_note": "Issue #876: the station's metal, darker than the home ring station's: the metal shader's own colours (src/systems/look/shaders/cruiser_metal.gdshader uniforms) laid over its finishes by SpaceStation._tone, as '#rrggbb' (hull_color, trim_color, deck_color, wall_color, accent, window_light, strip_light, paint) or numbers (window_energy, screen_energy). 'glow' and 'beacon' are its lit strips and its mast beacon. A gunmetal hull with oxblood trim, warm amber windows and copper-red strip lights: a station that has hung over a red desert a long time.",
+  "look": {
+    "hull_color": "#33363b",
+    "trim_color": "#151417",
+    "deck_color": "#0f1012",
+    "wall_color": "#26282c",
+    "accent": "#7a2a18",
+    "window_light": "#ffb066",
+    "strip_light": "#ff7a3a",
+    "paint": "#c7612a",
+    "window_energy": 2.6,
+    "glow": "#ffa25a",
+    "beacon": "#ff3a1a"
+  },
+  "naming": {
+    "vessel": "town_station"
+  },
+  "name_fmt": "%s",
+  "segments": 48,
+  "floor_height": 14.0,
+  "plate": 1.0,
+  "gap_radius": 12.0,
+  "walkway": 7.0,
+  "shaft_radius": 5.5,
+  "floors_note": "Each tower is a stack of round floors (y: the top of its floor plate, radius: its outer glass wall). The space between one floor's ceiling and the next floor's plate is open to space, crossed only by the glass tube round the elevator. 'rooms': rooms round the outside behind an inner wall with doors, cut by corridors where tunnels leave; false: open from the walkway to the glass (markets). The gap in the middle of each floor (gap_radius) is floored by a shield, not glass (issue #603): you look down the tube through every floor below, and jump the railing to drop through it floor after floor (out under the station from the lowest; over the top floor's gap another shield you jetpack up through onto the roof); the elevator shaft (shaft_radius) runs up its middle, and two bridges join it to the walkway, north-south on one floor, east-west on the next.",
+  "towers": [
+    {
+      "id": "main",
+      "at": [
+        0,
+        0
+      ],
+      "floors": [
+        {
+          "id": "engines",
+          "y": -26.0,
+          "radius": 42.0,
+          "rooms": true
+        },
+        {
+          "id": "markets",
+          "y": 0.0,
+          "radius": 50.0,
+          "rooms": false
+        },
+        {
+          "id": "homes",
+          "y": 26.0,
+          "radius": 60.0,
+          "rooms": false
+        },
+        {
+          "id": "top",
+          "y": 52.0,
+          "radius": 70.0,
+          "rooms": true
+        }
+      ]
+    },
+    {
+      "id": "second",
+      "at": [
+        160,
+        0
+      ],
+      "floors": [
+        {
+          "id": "markets_2",
+          "y": 0.0,
+          "radius": 40.0,
+          "rooms": false
+        },
+        {
+          "id": "outpost",
+          "y": 26.0,
+          "radius": 46.0,
+          "rooms": true
+        },
+        {
+          "id": "homes_2",
+          "y": 52.0,
+          "radius": 54.0,
+          "rooms": 10
+        }
+      ]
+    }
+  ],
+  "fill_note": "Issue #315: what is in the floors (src/systems/world/station_fill.gd, the render rules in docs/station/STATION_FILL.md). Each floor id with a 'use' is dressed: favela (the lower homes: rings of shacks, booths and the town's huts packed back to back at r metres, doors facing in or out, depth and h ranges in metres, booth_share/hut_share/stack_share of the pieces, alleys radial alleys alley_half wide and lane_half to the tunnel doors kept clear, lines_per_ring cables and washing lines over each alley), suites (the upper homes: every room a big suite dressed like the cantina's club and the barge), homes (the floor's open_rooms are furnished studios, the rest locked: lounge_at and kitchen_at are fractions of the way from the door to the window, partition_from_window and bed_from_window metres), market (rings of stalls at r metres from the tower's middle, every_m apart round the ring, facing in or out, huts in every other spot of a ring with huts: true (hut_h: the heights they take, a few so they share materials), or a packed ring of shacks and booths like the favela's with pack: true; nothing within lane_half metres of a tunnel door's line; paved in stone flags with tiles round the walkway, stock piled every stock_every_m metres in the gap behind back-to-back rings, lamps lamp posts round the walkway's edge, banners hung from the ceiling), engines (its rooms by turn), top (the main tower's top floor: its open rooms by turn, bridge (the cruiser's control room with crew desks and a command dais past it), cantina, barracks, lounge (an observation lounge) or garden; issue #314's people stand in the bridge and barracks: the 'remnant' block's 'top'). Every room's floor, walls and furniture are textured with the station shader's room finishes (carpet, tile, tread plate, marble, velvet, veneer...: StationFill._t), laid out in the room's own frame. A floor's fill is built budget_ms a physics tick (merging merge_verts vertices at a time, a material cut into meshes of at most mesh_verts), and drawn only while the camera is within show_dy metres of its height and show_m of its glass. A floor's 'rooms' may be a count: the suites' floor has 10, of which the two either side of its tunnel's corridor have no door, so 8 suites; the favela's floor has none (it is open from the walkway to the glass). Issue #876 (this file): 'dressing' lays this station's own colours over content/look/dressing.json 'station_fill' name by name (a colour, or a list where that file has a list: paints, neons, fabrics, velvets, containers, skins, foils, drums...), and 'top_floors' gives a top-floor room's floor its own finish by use (the station shader's room finishes: carpet, rug, tile, plate, rubber, marble, velvet, veneer, woodfloor, pavers).",
+  "fill": {
+    "budget_ms": 2.0,
+    "merge_verts": 4000,
+    "mesh_verts": 24000,
+    "show_dy": 30.0,
+    "show_m": 60.0,
+    "dressing": {
+      "paints": [
+        "#5a2a20",
+        "#3a2e2a",
+        "#6e3a22",
+        "#2e3034",
+        "#4a2228",
+        "#7a5226"
+      ],
+      "neons": [
+        "#ff6a2a",
+        "#ffb03a",
+        "#ff3a5a",
+        "#c85aff"
+      ],
+      "fabrics": [
+        "#5a1e1a",
+        "#6e4a22",
+        "#2e2a3a",
+        "#7a3a22",
+        "#3a2e2a",
+        "#4a3a2a"
+      ],
+      "velvets": [
+        "#4a1214",
+        "#2a1418",
+        "#3a1e12",
+        "#1e1418"
+      ],
+      "containers": [
+        "#6a2a1a",
+        "#3a3a3e",
+        "#5a4a2a"
+      ],
+      "skins": [
+        "#5a5e62",
+        "#4a4e52"
+      ],
+      "foils": [
+        "#a0602e",
+        "#6e4022"
+      ],
+      "drums": [
+        "#6a2a1a",
+        "#3b3f45",
+        "#9a6a2a"
+      ],
+      "drums_market": [
+        "#6a2a1a",
+        "#3b3f45",
+        "#9a6a2a",
+        "#4a2228"
+      ],
+      "art_tints": [
+        "#c0603a",
+        "#8a2a2a",
+        "#d09a4a",
+        "#4a3a5a"
+      ],
+      "gold": "#b87333",
+      "marble_pale": "#3a3236",
+      "marble_black": "#0e0d10",
+      "marble_dusk": "#2a1a1e",
+      "carpet_red": "#3a1012",
+      "carpet_plum": "#2a1418",
+      "veneer": "#2a1810",
+      "suite_wood": "#3a2214",
+      "suite_floor": "#3a2418",
+      "rug_navy": "#2a1e22",
+      "rug_sand": "#a0784a",
+      "rug_slate": "#2a2628",
+      "rug_rust": "#7a3a22",
+      "candle": "#ff9a4a",
+      "ceiling_glow": "#ffd8b0",
+      "screen": "#ff9a4a",
+      "plate_floor": "#2a2c30",
+      "plate_dark": "#3a3c40",
+      "plate_light": "#6a6e74",
+      "tile_floor": "#2e2c2e",
+      "counter_top": "#4a4446",
+      "leather": "#2a140e",
+      "office_wood": "#2a1810",
+      "foliage": "#6a6a2e",
+      "foliage_light": "#7a7a3a",
+      "plant": "#5a5a28",
+      "grow_lamp": "#ff8a4a",
+      "pond": "#5a2a22",
+      "pool": "#7a3a2a",
+      "garden_path": "#a0785a",
+      "pavers": "#6e5242",
+      "top_floor_bridge": "#1e2024",
+      "top_floor_cantina": "#3a2216",
+      "top_floor_barracks": "#2e2e2c",
+      "top_floor_lounge": "#2a1418",
+      "top_floor_garden": "#6e5242",
+      "room_floor_control": "#26282c",
+      "room_floor_bunks": "#2e2e2c",
+      "room_floor_armoury": "#26282c",
+      "room_floor_command": "#3a1e1a",
+      "room_floor_mess": "#6e665e"
+    },
+    "top_floors": {
+      "bridge": "marble",
+      "cantina": "tile",
+      "barracks": "plate",
+      "lounge": "velvet",
+      "garden": "pavers"
+    },
+    "floors": {
+      "homes": {
+        "use": "favela",
+        "favela_note": "Issue #643: built from the junk of space. 'junk': shares of the packed homes (not booths or huts) built as a cargo container (stacked when the ring's stack_share says), an escape pod, a hull-plate home with a crashed ship's nose or an engine nacelle on its roof, an old satellite, or a dead droid's head; the rest are shacks. 'walls': how the shacks' and booths' walls are picked (painted metal, the station shader's hull plate, corrugated sheet, rubber, bare hull). 'paints' and 'neons' are the floor's own palette (darker, grimier metals; the neon of its signs and string lights). 'roof_junk': the share of roofs with a dish, a solar wing, an antenna or a vent stack; 'neon_share': fronts with a neon sign; 'holo_ads': screens on poles round the walkway. 'curios': booths whose keeper sells odd things (a crowd puppet stands at each; no trade). 'vendors': the gear trader, the fence and the droid merchant's booths, a_deg round the tower on ring 'ring' (their markers in the station's town: StationHull.favela_vendors; their files in content/core/vendors, the droid merchant droids.json's vendor_4). 'light': the floor's ceiling lamps' colour and energy (the same lamps, dimmer and cooler: noir).",
+        "junk": {
+          "container": 0.16,
+          "pod": 0.07,
+          "hull": 0.16,
+          "satellite": 0.08,
+          "droid": 0.05
+        },
+        "walls": {
+          "paint": 0.5,
+          "plate": 0.2,
+          "sheet": 0.15,
+          "rubber": 0.05,
+          "hull": 0.1
+        },
+        "paints": [
+          "#3a2620",
+          "#2a2a2e",
+          "#4a2a1e",
+          "#26282e",
+          "#3a1e22",
+          "#5a3e1e",
+          "#2e2430"
+        ],
+        "neons": [
+          "#ff6a2a",
+          "#ffb03a",
+          "#ff3a5a",
+          "#c85aff",
+          "#ff3b3b",
+          "#ffd23f"
+        ],
+        "roof_junk": 0.55,
+        "neon_share": 0.3,
+        "holo_ads": 14,
+        "curios": 10,
+        "vendors": [
+          {
+            "marker": "vendor_2",
+            "kind": "gear",
+            "a_deg": 34,
+            "ring": 0
+          },
+          {
+            "marker": "vendor_3",
+            "kind": "fence",
+            "a_deg": 79,
+            "ring": 0
+          },
+          {
+            "marker": "vendor_4",
+            "kind": "droids",
+            "a_deg": 124,
+            "ring": 0
+          }
+        ],
+        "light": {
+          "color": "#ff9a5a",
+          "energy": 2.0
+        },
+        "lane_half": 4.0,
+        "alleys": 8,
+        "alley_start": 0.2,
+        "alley_half": 1.3,
+        "lines_per_ring": 22,
+        "rings": [
+          {
+            "r": 22.5,
+            "face": "in",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.35,
+            "hut_share": 0.05,
+            "stack_share": 0.2
+          },
+          {
+            "r": 26.0,
+            "face": "out",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.2,
+            "hut_share": 0.1,
+            "stack_share": 0.3
+          },
+          {
+            "r": 31.5,
+            "face": "in",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.2,
+            "hut_share": 0.1,
+            "stack_share": 0.35
+          },
+          {
+            "r": 35.0,
+            "face": "out",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.15,
+            "hut_share": 0.1,
+            "stack_share": 0.35
+          },
+          {
+            "r": 40.5,
+            "face": "in",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.15,
+            "hut_share": 0.1,
+            "stack_share": 0.4
+          },
+          {
+            "r": 44.0,
+            "face": "out",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.15,
+            "hut_share": 0.1,
+            "stack_share": 0.4
+          },
+          {
+            "r": 49.5,
+            "face": "in",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.15,
+            "hut_share": 0.1,
+            "stack_share": 0.35
+          },
+          {
+            "r": 53.0,
+            "face": "out",
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.2,
+            "hut_share": 0.05,
+            "stack_share": 0.3
+          },
+          {
+            "r": 57.8,
+            "face": "in",
+            "depth": [
+              2.2,
+              2.6
+            ],
+            "booth_share": 0.3,
+            "hut_share": 0.0,
+            "stack_share": 0.0
+          }
+        ]
+      },
+      "homes_2": {
+        "use": "suites"
+      },
+      "markets": {
+        "use": "market",
+        "lane_half": 4.0,
+        "alleys": 6,
+        "alley_start": 0.5,
+        "alley_half": 1.4,
+        "stock_every_m": 4.5,
+        "lamps": 16,
+        "banners": 24,
+        "rings": [
+          {
+            "r": 24.0,
+            "face": "in",
+            "every_m": 6.5
+          },
+          {
+            "r": 32.0,
+            "face": "out",
+            "every_m": 6.5
+          },
+          {
+            "r": 40.0,
+            "face": "in",
+            "every_m": 7.0
+          },
+          {
+            "r": 46.5,
+            "face": "in",
+            "pack": true,
+            "depth": [
+              2.8,
+              3.4
+            ],
+            "booth_share": 0.4,
+            "hut_share": 0.15,
+            "stack_share": 0.25
+          }
+        ],
+        "paints": [
+          "#6e3a22",
+          "#5a2a20",
+          "#7a5226",
+          "#3a3034",
+          "#8a4a2a"
+        ],
+        "neons": [
+          "#ffb03a",
+          "#ff6a2a",
+          "#ff3a5a"
+        ],
+        "light": {
+          "color": "#ffc89a",
+          "energy": 2.4
+        }
+      },
+      "markets_2": {
+        "use": "market",
+        "lane_half": 4.0,
+        "alleys": 5,
+        "alley_start": 0.9,
+        "alley_half": 1.4,
+        "stock_every_m": 4.5,
+        "lamps": 14,
+        "banners": 20,
+        "rings": [
+          {
+            "r": 24.0,
+            "face": "in",
+            "every_m": 6.5
+          },
+          {
+            "r": 31.0,
+            "face": "out",
+            "every_m": 7.0
+          },
+          {
+            "r": 36.8,
+            "face": "in",
+            "pack": true,
+            "depth": [
+              2.6,
+              3.0
+            ],
+            "booth_share": 0.4,
+            "hut_share": 0.15,
+            "stack_share": 0.2
+          }
+        ],
+        "paints": [
+          "#5a2a20",
+          "#6e4a2a",
+          "#3a3034",
+          "#7a3a22"
+        ],
+        "neons": [
+          "#ff6a2a",
+          "#ffd23f",
+          "#c85aff"
+        ],
+        "light": {
+          "color": "#ffb07a",
+          "energy": 2.3
+        }
+      },
+      "outpost": {
+        "use": "remnant"
+      },
+      "engines": {
+        "use": "engines",
+        "rooms": [
+          "engine",
+          "cargo",
+          "pumps",
+          "workshop",
+          "engine",
+          "cargo",
+          "pumps",
+          "workshop"
+        ],
+        "light": {
+          "color": "#ff7a4a",
+          "energy": 2.2
+        }
+      },
+      "top": {
+        "use": "top",
+        "rooms": [
+          "bridge",
+          "cantina",
+          "barracks",
+          "lounge",
+          "garden",
+          "cantina",
+          "barracks",
+          "lounge"
+        ],
+        "light": {
+          "color": "#ffd2a8",
+          "energy": 2.4
+        }
+      }
+    }
+  },
+  "crowd_note": "Issue #315: the people aboard (src/systems/world/station_crowd.gd). floors: how many live on each floor (their home: where they start and come back after respawn_s). They walk the walkway at speed m/s, and by turn (stop_share, elevator_share, tunnel_share, else a stroll) go down an alley to stand stop_s seconds at a stall, booth or shack door (the fill's walking net) or into an open room (room_deep metres in), ride an elevator to another floor that has people (by how many live there, and home_pull of the time home), or cross a tunnel to the other tower's floor. Puppets, like the barge's crowd: built one a frame once the camera is within build_within metres, drawn within people_m and show_dy of the camera, posed from one sampled walk cycle at most anim_budget a frame (every frame within anim_near_m, every fourth out to anim_far_m), shadows within shadow_m. Hurt one and the nearest of the armed_share on your floor within rouse_m (no more than rouse_max at once) become the fighter profile where they stand, rouse_per_tick a tick, back to walking calm_back_s after the alarm is down. One person a stall stop at a time (stop_tries random picks, else a stroll; the scared take the nearest free one), and those waiting for an elevator spread over its bridge (lift_queue: from and to metres past the shaft, half_w either side), at least spot_gap metres apart: two people on one spot facing one way read as one body in two outfits. looks: content/look/characters.json. floor_crowd: a floor's own people, instead of the crowd's: the looks they wear and their armed_share, and private (they stay home, never riding the elevators or crossing the tunnels, and nobody from another floor goes there). The suites (homes_2, the rich floor) are the barge bosses' kind: five variations of the barge duke (suite_boss_*), unarmed, who only hide when shooting starts.",
+  "crowd": {
+    "floors": {
+      "markets": 20,
+      "markets_2": 12,
+      "homes": 24,
+      "homes_2": 10,
+      "engines": 6,
+      "top": 8
+    },
+    "looks": [
+      "station_local"
+    ],
+    "floor_crowd": {
+      "homes_2": {
+        "looks": [
+          "suite_boss_gilt",
+          "suite_boss_ruby",
+          "suite_boss_jade",
+          "suite_boss_violet",
+          "suite_boss_frost"
+        ],
+        "armed_share": 0.0,
+        "private": true
+      }
+    },
+    "speed": [
+      1.1,
+      1.6
+    ],
+    "stop_share": 0.45,
+    "elevator_share": 0.2,
+    "tunnel_share": 0.15,
+    "stop_s": [
+      4.0,
+      12.0
+    ],
+    "stop_tries": 8,
+    "spot_gap": 0.8,
+    "lift_queue": {
+      "from": 0.8,
+      "to": 3.2,
+      "half_w": 1.0
+    },
+    "room_deep": {
+      "homes_2": 14.0,
+      "engines": 2.5,
+      "top": 6.0
+    },
+    "build_within": 900.0,
+    "people_m": 70.0,
+    "show_dy": 30.0,
+    "anim_near_m": 25.0,
+    "anim_far_m": 60.0,
+    "anim_budget": 12,
+    "shadow_m": 20.0,
+    "person_hp": 60,
+    "respawn_s": 180.0,
+    "armed_share": 0.5,
+    "fighter": "local_resident",
+    "rouse_m": 60.0,
+    "rouse_per_tick": 1,
+    "rouse_max": 10,
+    "home_pull": 0.5,
+    "calm_back_s": 20.0
+  },
+  "cantina_note": "The cantina owner (a new Oda of the planet the station hangs over: PlanetOwner, content/core/npcs/planet_owner.json 'station') behind the bar of the top floor's first cantina (StationHull.cantina_bar; the bar is StationFill._cantina's): 'owner' and 'front' are metres into the room from the bar's wall, she between the back bar (0.3) and the counter (1.85 to 2.55), the bar front where you stand to talk, past the stools (3.0). 'look': hers. She offers this station's smuggling run (content/core/board/bar_board.json j_orbital_smuggle_run). 'drop_rooms': the open rooms a drop can lie in, by floor and use (StationHull.drop_rooms: a marker room_<floor>_<k> in_m metres in from each one's door; content/core/pickups/<town>.json names them): the Remnant's levels, their deck in the second tower and the top floor's barracks and bridge.",
+  "cantina": {
+    "floor": "top",
+    "owner": 1.25,
+    "front": 3.4,
+    "look": "cantina_owner_station"
+  },
+  "drop_rooms": {
+    "in_m": 3.0,
+    "outpost": [
+      "armoury",
+      "bunks",
+      "mess",
+      "control",
+      "command"
+    ],
+    "top": [
+      "barracks",
+      "bridge"
+    ]
+  },
+  "remnant_note": "Issue #314: the Remnant's deck (src/systems/world/station_remnant.gd; its look is the fill's use 'remnant'). One whole floor ('tower', 'floor') whose rooms are by turn 'rooms': control (the cruiser's control room with the planet map over its holo table), bunks, armoury, command, mess; its walkway in their colours with a barricade and a checkpoint at its tunnel. Their troopers ('trooper', the commander 'commander') take their posts once the camera is within wake_within metres and sleep past sleep_m. Kill every one and the locals hold the deck for good (Territory place 'station_<landmark id>', saved with the world): the red is painted over in the locals' colours and, locals_after_s seconds later, guard_share of the posts get the locals' guards ('guard').",
+  "remnant": {
+    "tower": "second",
+    "floor": "outpost",
+    "rooms": [
+      "control",
+      "bunks",
+      "armoury",
+      "command",
+      "bunks",
+      "mess",
+      "armoury",
+      "bunks"
+    ],
+    "trooper": "cruiser_trooper",
+    "commander": "cruiser_honour_guard",
+    "guard": "local_guard",
+    "guard_share": 0.5,
+    "wake_within": 700.0,
+    "sleep_m": 120.0,
+    "locals_after_s": 8.0,
+    "top_note": "Issue #314: the Remnant on the main tower's top floor, part of the deck's place (one Territory place, 'station_<landmark id>'): the station is taken only once these are dead too, and whoever holds the deck holds them (the locals' guards take every other post, guard_share). 'tower' and 'floor': the floor. 'spots': who stands where in each room of that use (the fill's top 'rooms'): 'x' metres in from the room's door ('from': 'door') or out from its window ('from': 'window'), 'z' across it (+z its side +1), 'y' up (the general on the bridge's dais), 'face' [x, z] in the room's frame (x out toward the window; default facing the door), 'who' the profile key below. Bridge: all three up on the command dais by the glass (its top 0.4 m up, StationFill._bridge: centre 8 m in from the window, 3 m to its rail, the chair 8.3 m in, its back 8.75 m), the general at its front edge 1.25 m clear of the chair's back, an honour guard either side a step behind him, clear of the side consoles. Barracks: troopers off duty round the card tables (StationFill._bunks: 2.4 m long down the room's middle at 10 and 17 m from the door, the chairs either side at 0.85 m), standing behind the chairs and at a table's end, never in the aisle down the middle. They have their own garrison (StationRemnant._top_garrison), not the deck's, so a fight on the deck does not send them across the towers; they hold their ground.",
+    "top": {
+      "tower": "main",
+      "floor": "top",
+      "general": "cruiser_general",
+      "honour": "cruiser_honour_guard",
+      "off_duty": "station_off_duty",
+      "spots": {
+        "bridge": [
+          {
+            "who": "general",
+            "from": "window",
+            "x": 10.0,
+            "z": 0.0,
+            "y": 0.45
+          },
+          {
+            "who": "honour",
+            "from": "window",
+            "x": 9.1,
+            "z": 1.8,
+            "y": 0.45
+          },
+          {
+            "who": "honour",
+            "from": "window",
+            "x": 9.1,
+            "z": -1.8,
+            "y": 0.45
+          }
+        ],
+        "barracks": [
+          {
+            "who": "off_duty",
+            "x": 9.4,
+            "z": 1.55,
+            "face": [
+              0,
+              -1
+            ]
+          },
+          {
+            "who": "off_duty",
+            "x": 10.7,
+            "z": -1.55,
+            "face": [
+              0,
+              1
+            ]
+          },
+          {
+            "who": "off_duty",
+            "x": 11.95,
+            "z": 0.3,
+            "face": [
+              -1,
+              0
+            ]
+          },
+          {
+            "who": "off_duty",
+            "x": 17.5,
+            "z": -1.55,
+            "face": [
+              0.3,
+              1
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "map_note": "The F11 Map page's side view of the station and its floor plans (src/ui/station_map_view.gd, GlobeMap.orbital_pins). 'owners': who holds each room, by its use (StationHull.floor_rooms: the top deck's and the engine deck's fill 'rooms', the Remnant deck's 'remnant' rooms, a 'suite', a locked 'home'). 'remnant' rooms follow the Remnant deck: once you take it (Territory 'station_<landmark id>') they are the locals' too. The owners' names and colours: content/core/flow/map.json 'station_owners', content/look/map.json 'station_view'. 'floors': what an open floor is (the markets, the favela), named on the map in place of its rooms.",
+  "map": {
+    "owners": {
+      "bridge": "remnant",
+      "barracks": "remnant",
+      "cantina": "smugglers",
+      "lounge": "locals",
+      "garden": "locals",
+      "engine": "locals",
+      "cargo": "smugglers",
+      "pumps": "locals",
+      "workshop": "locals",
+      "control": "remnant",
+      "bunks": "remnant",
+      "armoury": "remnant",
+      "command": "remnant",
+      "mess": "remnant",
+      "suite": "locals",
+      "home": "locals"
+    },
+    "floors": {
+      "markets": {
+        "owner": "locals",
+        "what": "stalls"
+      },
+      "markets_2": {
+        "owner": "locals",
+        "what": "stalls"
+      },
+      "homes": {
+        "owner": "locals",
+        "what": "favela"
+      }
+    }
+  },
+  "droids_note": "Issue #607: the town's patrol droids (droids.json's 'remnant' or 'locals' units, whoever holds the town) walk rounds of the walkway on these floors, one floor each in turn, two on a floor half a round apart: 'points' corners round the middle of the walkway (the gap's railing out to 'walkway' metres), clear on every floor. No floors: no droids aboard. Not the home port's street points, which ran through the station's walls.",
+  "droids": {
+    "floors": [
+      "markets",
+      "markets_2"
+    ],
+    "points": 16
+  },
+  "rooms": {
+    "count": 8,
+    "door_width": 2.6,
+    "door_height": 4.0
+  },
+  "tunnel": {
+    "width": 6.0,
+    "height": 5.0
+  },
+  "hatch": {
+    "length": 4.0,
+    "width": 4.0,
+    "note": "A hatch in the middle of every tunnel's roof, closed by a shield the air cannot pass and you can: jump up through it (the jetpack) and walk the roof between its railings, out in space, like a bridge; drop back through it to get in."
+  },
+  "floor_hatch": {
+    "count": 4,
+    "length": 4.0,
+    "width": 4.0,
+    "from_rail": 1.5,
+    "note": "The tunnels' hatches in every floor's ceiling: 'count' square holes over the walkway ('from_rail' metres out from the gap's railing, 'length' out by 'width' across), spread evenly round the tower between the bridges, each closed by a shield the air cannot pass and you can. Jetpack up through one onto the floor's roof (the open space under the next floor, or the tower's roof over the top floor) and drop back in through it. A floor's own 'hatches' (a count, 0 for none) overrides 'count'."
+  },
+  "tunnels_note": "Enclosed glass-walled tunnels between two towers ('to': a tower id) at a level both have, or from a tower to the bay ('to': 'bay') at the bay's deck.",
+  "tunnels": [
+    {
+      "id": "tunnel_markets",
+      "from": "main",
+      "to": "second",
+      "y": 0.0
+    },
+    {
+      "id": "tunnel_homes",
+      "from": "main",
+      "to": "second",
+      "y": 26.0
+    },
+    {
+      "id": "tunnel_top",
+      "from": "main",
+      "to": "second",
+      "y": 52.0
+    },
+    {
+      "id": "bay_tunnel",
+      "from": "main",
+      "to": "bay",
+      "y": 0.0
+    }
+  ],
+  "elevator": {
+    "car_radius": 4.5,
+    "speed": 4.0,
+    "wait": 3.5,
+    "door_width": 3.2,
+    "door_height": 4.0,
+    "note": "A platform rides each tower's shaft, stopping at every floor for wait seconds, at speed m/s between. Stand on it and it carries you on to the next floor the way it is going (turning at the ends); walk onto a floor's bridges while it is elsewhere and it comes to you. The shaft's doors open only on the floor where it has stopped."
+  },
+  "bay": {
+    "from": "main",
+    "at": [
+      -126,
+      0
+    ],
+    "radius": 52.0,
+    "mouth_deg": 80.0,
+    "height": 30.0,
+    "apron": 12.0,
+    "note": "The covered landing bay: round and 104 m across (bigger than the port pit, for its six pads), its deck level with y = 0, on the far side of 'from' tower's bay tunnel. Its curved wall is open at the back (the tunnel's door) and across mouth_deg of its far side (the mouth, facing away from the tower), closed by a curved energy shield along the wall's line that ships fly through and you cannot walk through. Pads: 'at' is [out toward the mouth, across] in metres from the bay's middle; every ship sits nose out to space. 'ship' parks that ship on the pad (a town 'ship' box, StationHull.town_for: a berth you board like the port's bay ships; 'free': anyone's to fly, story save or not); 'spare' is where a ship bought from T-99 lands (his 'pad'). A parked ship model is 30 to 80 draw calls (the frigate 28, the gunship 60), so only the frigate is parked; the rest are for ships that fly in."
+  },
+  "pads": [
+    {
+      "id": "dock",
+      "at": [
+        18,
+        25
+      ],
+      "radius": 10.0
+    },
+    {
+      "id": "frigate",
+      "at": [
+        18,
+        0
+      ],
+      "radius": 13.0,
+      "ship": "frigate",
+      "free": true
+    },
+    {
+      "id": "bay_b",
+      "at": [
+        18,
+        -25
+      ],
+      "radius": 10.0
+    },
+    {
+      "id": "bay_c",
+      "at": [
+        -14,
+        25
+      ],
+      "radius": 10.0
+    },
+    {
+      "id": "bay_d",
+      "at": [
+        -14,
+        0
+      ],
+      "radius": 10.0
+    },
+    {
+      "id": "spare",
+      "at": [
+        -14,
+        -25
+      ],
+      "radius": 10.0
+    }
+  ],
+  "salesman": {
+    "npc": "t99",
+    "at": [
+      -36,
+      -12
+    ],
+    "face": [
+      -14,
+      -25
+    ],
+    "note": "T-99, the station's ship salesman (content/core/npcs/t99.json): his marker on the bay's deck ('at', [out, across] from the bay's middle like a pad), facing 'face'. A ship bought from him lands on the 'spare' pad."
+  },
+  "dock": {
+    "pad": "dock",
+    "radius": 2500.0,
+    "hold_y": 9.0,
+    "approach": 220.0,
+    "over_y": 150.0,
+    "under_y": -110.0,
+    "speed": 420.0,
+    "accel": 200.0,
+    "brake": 150.0,
+    "brake_in": 26.0,
+    "spin_secs": 1.3,
+    "settle": 3.0,
+    "note": "Z within radius metres flies you in: round the towers (over_y above or under_y below them, in the station's frame; with wrecks in the belt under the station it always goes over, issue #317) when you start behind the bay's mouth, out to approach metres off the mouth at hold_y over the deck, in through the shield and to a stop over the dock pad, then turned nose out and set down (ShipPilot's docking autopilot, the same flight as the cruiser's)."
+  },
+  "outside": {
+    "drop_below": 40.0,
+    "warn_before": 15.0,
+    "note": "Issue #702: warn_before metres short of drop_below you are warned once (lines.fell_clouds_warn). Where the planet's air is breathable (no harmful_surface, the ringed giant) the station is open to it (SpaceStation.open_air): the bay's shield lets you walk out of the mouth onto the apron, and you can roam outside on the jetpack. Over a gas ball's clouds, drop more than drop_below metres under the lowest floor and you are pulled back into the bay (lines.fell_clouds). Where you cannot breathe it is sealed as before: the shield holds you in and falling out pulls you straight back (lines.fell)."
+  },
+  "detail_altitude": 600.0,
+  "aboard_shadow_distance": 150.0,
+  "lights_within": 3000.0,
+  "lines": {
+    "label": "◇ %s",
+    "dock_hint": "%s  ·  %.1f km  ·  [Z] to land in its bay",
+    "docking": "Bringing her into %s. [Z] to take back control.",
+    "docked": "Down in the station's bay.",
+    "fell": "You were pulled back into the station.",
+    "fell_clouds": "You dropped toward the clouds and the station's tractor pulled you back in.",
+    "fell_clouds_warn": "Too far below the station. Climb back or be pulled in."
+  }
+}

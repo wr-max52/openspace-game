@@ -92,7 +92,7 @@ func build_step() -> bool:
 	if not _started:
 		_started = true
 		_cc = CoreContent.shared()
-		for lm in _cc.world_for_town("port_town").get("landmarks", []):
+		for lm in _landmarks():
 			var loc := _cc.get_location(str(lm.get("location", "")))
 			if str(loc.get("kind", "")) in KINDS:
 				_pending.append({ "lm": lm, "loc": loc, "at": _origin(lm) })
@@ -101,6 +101,24 @@ func build_step() -> bool:
 		return true                  # what can be seen is built; late_step() does the rest
 	(_queue.pop_front() as Callable).call()
 	return _queue.is_empty()
+
+
+## Whether a generated planet's world has an outpost or ranch of its own to dress
+## (issue #882: the red world's racers' camps).
+static func on_world(w: Dictionary) -> bool:
+	for lm in w.get("landmarks", []):
+		if str(lm.get("location", "")).begins_with("racers_camp_"):
+			return true
+	return false
+
+
+## The world's landmarks: the home world's, or a generated planet's own (issue
+## #882: the red world's racers' camps are outposts like the home world's).
+func _landmarks() -> Array:
+	var w: Dictionary = demo.world if demo != null and "world" in demo and demo.world is Dictionary else {}
+	if w.has("landmarks") and str(w.get("planet", "")) != "" and str(w.get("planet", "")) != PlanetGen.home_id():
+		return w.landmarks
+	return _cc.world_for_town("port_town").get("landmarks", [])
 
 
 ## Issue #717: the ranches the viewer could see now join the queue (all of them

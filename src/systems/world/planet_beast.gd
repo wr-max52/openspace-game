@@ -94,6 +94,8 @@ var segments: Array = []              ## { node, r, shape }: the body, head to t
 var _legs: Array = []                 ## every leg's hip
 var _mandibles: Array = []
 var _antennae: Array = []
+var _teeth: Array = []                ## issue #878: the worm's tooth pivots
+var _maw: Node3D                      ## issue #878: the worm's ring of teeth
 var _trail: Array[Vector3] = []       ## ground points the head has walked, newest first
 var _pose_tick := 0                   ## speeder race lag: far off, the body is posed every 2nd or 4th tick
 var _head_ground := Vector3.ZERO
@@ -149,13 +151,17 @@ static func lives_on(planet: Dictionary) -> bool:
 
 
 ## What the locals say of the planet's beast (its "lore", or "lore_slain" once it
-## is dead), [] if it has none.
-static func lore(planet: Dictionary) -> Array:
+## is dead), [] if it has none. Issue #878: `town` (a place's folk, "port" for the
+## port town's own locals) puts that town's own lines first ("locals_say": town ->
+## lines, ghosts and curses as much as the beast), while the beast lives.
+static func lore(planet: Dictionary, town := "") -> Array:
 	var c := config(planet)
 	if c.is_empty():
 		return []
-	var key := "lore_slain" if is_slain(str(planet.get("id", ""))) else "lore"
-	return c.get(key, c.get("lore", []))
+	if is_slain(str(planet.get("id", ""))):
+		return c.get("lore_slain", c.get("lore", []))
+	var own: Array = c.get("locals_say", {}).get(town, []) if town != "" else []
+	return own + c.get("lore", [])
 
 
 ## One line for an AI character's briefing: the beast, by name, and what is said of it.
@@ -166,8 +172,8 @@ static func brief(planet: Dictionary) -> String:
 	var nm := str(c.get("name", "the beast"))
 	var said := " ".join(PackedStringArray(lore(planet)))
 	if is_slain(str(planet.get("id", ""))):
-		return "THIS PLANET'S BEAST: %s, a giant armoured beetle-centipede that crawled about the desert and killed anyone it touched. Word is someone killed it. What people say: %s" % [nm, said]
-	return "THIS PLANET'S BEAST: %s, a giant armoured beetle-centipede, long as a street, that crawls about the desert on dozens of legs. Anyone it touches dies; hurt it and it chases you a long way. Everyone here knows of it. What people say: %s" % [nm, said]
+		return "THIS PLANET'S BEAST: %s, %s. Word is someone killed it. What people say: %s" % [nm, str(c.get("what_slain", c.get("what", "a giant beast"))), said]
+	return "THIS PLANET'S BEAST: %s, %s. What people say: %s" % [nm, str(c.get("what", "a giant beast")), said]
 
 
 func setup(town_demo, world_ground: WorldGround, planet: Dictionary) -> void:
@@ -257,6 +263,9 @@ func _ground_at(at: Vector3) -> Vector3:
 ## mandibles, antennae, glowing eyes) and a long body of armoured segments, each
 ## with a pair of walking legs, that follows the head's own path over the dunes.
 func _build_look() -> void:
+	if is_worm():
+		_build_worm()
+		return
 	var lk: Dictionary = cfg.get("look", {})
 	_mat = _stone("carapace", Color(str(lk.get("carapace", cfg.get("color", "#5a4632")))), 0.3, 0.35)
 	_shell_mat = _stone("shell", Color(str(lk.get("shell", "#a07f55"))), 0.0, 0.7)
@@ -264,11 +273,7 @@ func _build_look() -> void:
 	var bone := _stone("mandibles", Color(str(lk.get("mandibles", "#d8c7a0"))), 0.0, 0.3)
 	var eyes: Dictionary = lk.get("eyes", {})
 	var glow := Color(str(cfg.get("glow", "#c07aff")))
-	_eye_mat = _glow_mat(glow, float(eyes.get("energy", 4.0)))
-	_eye_core_mat = _glow_mat(glow.lerp(Color.WHITE, float(eyes.get("core_white", 0.6))), float(eyes.get("core_energy", 9.0)))
-	var pupil := StandardMaterial3D.new()
-	pupil.albedo_color = Color(str(eyes.get("pupil", "#120a06")))
-	pupil.roughness = 0.2
+	var pupil := _eye_mats(glow, eyes)
 	var r := radius
 	# ---- the head (forward is -Z)
 	_ball = Node3D.new()
@@ -283,10 +288,7 @@ func _build_look() -> void:
 			var er: float = r * float(e[0])
 			var at: Vector3 = e[1]
 			var out := Vector3(sx * 0.45, 0.15, -1.0).normalized()
-			_sphere(_ball, er, Vector3.ONE, at, _eye_mat)
-			_sphere(_ball, er * 0.54, Vector3.ONE, at + out * er * 0.5, _eye_core_mat)
-			var slit := _sphere(_ball, er * 0.5, Vector3.ONE, at + out * er * 0.98, pupil)
-			slit.basis = Basis.looking_at(out, Vector3.UP) * Basis.from_scale(Vector3(0.16, 1.5, 0.3))
+			_eye(_ball, er, at, out, pupil)
 		# Mandibles: curved pincers that open and close.
 		var m := Node3D.new()
 		m.name = "Mandible"
@@ -309,16 +311,7 @@ func _build_look() -> void:
 		for i in 3:
 			_limb(a, ap[i], ap[i + 1], r * (0.06 - 0.015 * i), r * (0.045 - 0.015 * i), _leg_mat)
 	_limb(_ball, Vector3(0, 0.45 * r, -0.5 * r), Vector3(0, 1.3 * r, -1.5 * r), r * 0.2, 0.0, bone)   # the horn
-	if _looks():
-		# The eyes light what is in front of them (the jaws, the sand) at dusk and night.
-		_eye_light = OmniLight3D.new()
-		_eye_light.name = "EyeGlow"
-		_eye_light.light_color = glow
-		_eye_light.light_energy = float(eyes.get("light", 1.6))
-		_eye_light.omni_range = r * float(eyes.get("light_range_r", 3.5))
-		_eye_light.shadow_enabled = false
-		_eye_light.position = Vector3(0, 0.15 * r, -1.2 * r)
-		_ball.add_child(_eye_light)
+	_add_eye_light(glow, eyes, Vector3(0, 0.15 * r, -1.2 * r))
 	# ---- the body: segments, each with a pair of legs
 	var n := int(cfg.get("segments", 14))
 	for i in n:
@@ -353,6 +346,136 @@ func _build_look() -> void:
 		add_child(cs)
 		segments.append({ "node": seg, "r": sr, "shape": cs })
 	_seed_trail()
+
+## Issue #878: the eye materials (glow and white-hot core, kept for the pose's
+## pulse) and the pupil's, for any kind of beast.
+func _eye_mats(glow: Color, eyes: Dictionary) -> StandardMaterial3D:
+	_eye_mat = _glow_mat(glow, float(eyes.get("energy", 4.0)))
+	_eye_core_mat = _glow_mat(glow.lerp(Color.WHITE, float(eyes.get("core_white", 0.6))), float(eyes.get("core_energy", 9.0)))
+	var pupil := StandardMaterial3D.new()
+	pupil.albedo_color = Color(str(eyes.get("pupil", "#120a06")))
+	pupil.roughness = 0.2
+	return pupil
+
+
+## One eye (issue #266, shared by the worm, issue #878): a glowing orb of radius
+## `er` at `at`, a white-hot core toward `out`, and a slit pupil on top.
+func _eye(parent: Node3D, er: float, at: Vector3, out: Vector3, pupil: Material) -> void:
+	_sphere(parent, er, Vector3.ONE, at, _eye_mat)
+	_sphere(parent, er * 0.54, Vector3.ONE, at + out * er * 0.5, _eye_core_mat)
+	var slit := _sphere(parent, er * 0.5, Vector3.ONE, at + out * er * 0.98, pupil)
+	slit.basis = Basis.looking_at(out, Vector3.UP) * Basis.from_scale(Vector3(0.16, 1.5, 0.3))
+
+
+## The eyes light what is in front of them (the jaws, the sand) at dusk and night.
+func _add_eye_light(glow: Color, eyes: Dictionary, at: Vector3) -> void:
+	if not _looks():
+		return
+	_eye_light = OmniLight3D.new()
+	_eye_light.name = "EyeGlow"
+	_eye_light.light_color = glow
+	_eye_light.light_energy = float(eyes.get("light", 1.6))
+	_eye_light.omni_range = radius * float(eyes.get("light_range_r", 3.5))
+	_eye_light.shadow_enabled = false
+	_eye_light.position = at
+	_ball.add_child(_eye_light)
+
+
+## Issue #878: what kind of beast the data asks for ("beetle", the default, or
+## "worm").
+func is_worm() -> bool:
+	return str(cfg.get("kind", "beetle")) == "worm"
+
+
+## Issue #878: a giant sand worm, made of simple shapes in the beast's rock
+## shell. A round head with a maw ringed by two rows of cone teeth (they splay
+## open and shut, and the ring slowly turns), the beetle's glowing eyes in two
+## pairs above it, and a long body of round segments, each a ball and a ridged
+## band (about twice the beetle's segments, no legs), tapering to the tail.
+func _build_worm() -> void:
+	var lk: Dictionary = cfg.get("look", {})
+	_mat = _stone("carapace", Color(str(lk.get("carapace", cfg.get("color", "#5a4632")))), 0.3, 0.35)
+	_shell_mat = _stone("shell", Color(str(lk.get("shell", "#a07f55"))), 0.0, 0.7)
+	_leg_mat = _mat
+	var bone := _stone("mandibles", Color(str(lk.get("teeth", lk.get("mandibles", "#d8c7a0")))), 0.0, 0.3)
+	var throat := StandardMaterial3D.new()
+	throat.albedo_color = Color(str(lk.get("throat", "#0e0303")))
+	throat.roughness = 0.9
+	var eyes: Dictionary = lk.get("eyes", {})
+	var glow := Color(str(cfg.get("glow", "#c07aff")))
+	var pupil := _eye_mats(glow, eyes)
+	var r := radius
+	var mw: Dictionary = cfg.get("maw", {})
+	# ---- the head (forward is -Z): one round ball, the throat a dark disc in front
+	_ball = Node3D.new()
+	_ball.name = "Head"
+	add_child(_ball)
+	_ball.top_level = true
+	_sphere(_ball, r, Vector3(1.0, 1.0, 1.1), Vector3.ZERO, _shell_mat)
+	_sphere(_ball, r * 0.7, Vector3(1.0, 1.0, 0.3), Vector3(0, 0, -0.95 * r), throat)
+	var maw := Node3D.new()
+	maw.name = "Maw"
+	maw.position = Vector3(0, 0, -0.9 * r)
+	_ball.add_child(maw)
+	_maw = maw
+	# The lip: a ring of knobs round the throat.
+	var knobs := int(mw.get("lip_knobs", 16))
+	for i in knobs:
+		var a := TAU * i / knobs
+		_sphere(maw, r * 0.13, Vector3.ONE, Vector3(cos(a), sin(a), 0) * r * 0.8, _mat)
+	# The teeth: rings of cones from the lip, leaning in toward the throat.
+	for ring in mw.get("rings", [{ "teeth": 14, "base_r": 0.72, "tip_r": 0.3, "len": 0.55, "thick": 0.09, "back": 0.0 },
+			{ "teeth": 9, "base_r": 0.5, "tip_r": 0.1, "len": 0.55, "thick": 0.1, "back": 0.1 }]):
+		var nt := int(ring.get("teeth", 12))
+		var off := 0.5 if float(ring.get("back", 0.0)) > 0.0 else 0.0     # an inner row sits between the outer row's teeth
+		for i in nt:
+			var a := TAU * (i + off) / nt
+			var rd := Vector3(cos(a), sin(a), 0)
+			var tg := Vector3(-sin(a), cos(a), 0)
+			var piv := Node3D.new()
+			piv.name = "Tooth"
+			piv.basis = Basis(tg, rd, tg.cross(rd))   # +Z is forward out of the maw
+			piv.position = rd * r * float(ring.get("base_r", 0.7)) + Vector3(0, 0, float(ring.get("back", 0.0)) * r)
+			maw.add_child(piv)
+			piv.set_meta("rest", piv.basis)
+			var tip := Vector3(0, (float(ring.get("tip_r", 0.3)) - float(ring.get("base_r", 0.7))) * r, float(ring.get("len", 0.5)) * r)
+			_limb(piv, Vector3.ZERO, tip, r * float(ring.get("thick", 0.08)), 0.0, bone)
+			_teeth.append(piv)
+	# The eyes: the beetle's, two pairs high on the head over the lip.
+	for sx in [-1.0, 1.0]:
+		for e in [[0.18, Vector3(sx * 0.45 * r, 0.72 * r, -0.56 * r)], [0.11, Vector3(sx * 0.24 * r, 0.9 * r, -0.36 * r)]]:
+			_eye(_ball, r * float(e[0]), e[1], Vector3(sx * 0.45, 0.6, -1.0).normalized(), pupil)
+	_add_eye_light(glow, eyes, Vector3(0, 0.3 * r, -1.4 * r))
+	# ---- the body: round segments, a ball and a ridged band each, no legs
+	var n := int(cfg.get("segments", 28))
+	for i in n:
+		var f := float(i) / maxf(1.0, n - 1.0)
+		var sr := r * lerpf(0.9, float(cfg.get("tail_scale", 0.4)), f)
+		var seg := Node3D.new()
+		seg.name = "Seg%d" % i
+		add_child(seg)
+		seg.top_level = true
+		_sphere(seg, sr, Vector3(1.0, 0.95, 1.2), Vector3.ZERO, _shell_mat)
+		_sphere(seg, sr * 1.06, Vector3(1.06, 1.0, 0.42), Vector3(0, 0.02 * sr, 0.45 * sr), _mat)
+		if i == n - 1:
+			_limb(seg, Vector3(0, 0, 0.8 * sr), Vector3(0, 0.2 * sr, 2.6 * sr), sr * 0.5, 0.0, _mat)    # the tail's point
+		var cs := CollisionShape3D.new()
+		var sph := SphereShape3D.new()
+		sph.radius = sr * 1.1
+		cs.shape = sph
+		add_child(cs)
+		segments.append({ "node": seg, "r": sr, "shape": cs })
+	_seed_trail()
+
+
+## Issue #878: how many legs it has (the worm has none).
+func leg_count() -> int:
+	return _legs.size()
+
+
+## Issue #878: how many teeth ring its maw (the beetle has none).
+func tooth_count() -> int:
+	return _teeth.size()
 
 
 func _looks() -> bool:
@@ -465,11 +588,17 @@ func _pose() -> void:
 		return
 	var up := _up(global_position)
 	var pitch := 0.08 * sin(_t * 1.7) - 0.5 * _sink
+	if is_worm() and chasing and not dead:
+		pitch += float(cfg.get("rear_chase", 0.3))       # issue #878: it rears its maw at you
 	var fwd := (heading * cos(pitch) + up * sin(pitch)).normalized()
 	_ball.global_transform = Transform3D(Basis.looking_at(fwd, up), global_position)
 	var open := 1.0 if dead else 0.5 + 0.5 * sin(_t * (3.0 if chasing else 1.3))
 	for m in _mandibles:
 		(m as Node3D).rotation = Vector3(0, signf((m as Node3D).position.x) * (-0.15 + 0.55 * open), 0)
+	for tooth in _teeth:          # issue #878: the worm's teeth splay open and shut
+		(tooth as Node3D).basis = (tooth.get_meta("rest") as Basis) * Basis(Vector3.RIGHT, -0.5 * open)
+	if _maw != null:
+		_maw.rotation.z = _t * float(cfg.get("maw", {}).get("turn", 0.35)) * (1.0 - _sink)
 	for i in _antennae.size():
 		(_antennae[i] as Node3D).rotation = Vector3(0.2 * sin(_t * 1.1 + i), 0.15 * sin(_t * 0.7 + i * 2.0), 0) * (1.0 - _sink)
 	# The eyes smoulder, flare when it chases, and go out as it dies.
@@ -499,7 +628,7 @@ func _pose() -> void:
 			prev = q
 			p = q
 			ti += 1
-		pts.append(p + _up(p) * float(s.r) * (1.0 - 0.65 * _sink))
+		pts.append(p + _up(p) * (float(s.r) * (1.0 - 0.65 * _sink) + _roll(pts.size(), float(s.r))))
 		want += gap
 	var stride := float(cfg.get("stride_m", 4.0))
 	for i in segments.size():
@@ -524,6 +653,17 @@ func _pose() -> void:
 				var ph := travelled / stride * TAU + i * 0.9 + (PI if side < 0 else 0.0)
 				var lift := side * (0.18 * maxf(0.0, cos(ph)) + 0.9 * _sink)
 				(leg as Node3D).rotation = Vector3(0, 0.4 * sin(ph) * (1.0 - _sink), lift)
+
+
+## Issue #878: the worm's body rolls in and out of the sand: a wave down its
+## length (undulate.amp_r of each segment's radius, a wavelength of wave_m of
+## travel, phase_per_seg along the body). 0 for the beetle, and once dead.
+func _roll(i: int, r: float) -> float:
+	var u: Dictionary = cfg.get("undulate", {})
+	if not is_worm() or u.is_empty() or dead:
+		return 0.0
+	var ph := travelled / maxf(1.0, float(u.get("wave_m", 24.0))) * TAU - i * float(u.get("phase_per_seg", 0.5))
+	return r * float(u.get("amp_r", 0.5)) * sin(ph)
 
 
 # ------------------------------------------------------------------ frame
