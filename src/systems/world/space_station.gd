@@ -39,6 +39,7 @@ const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const StationCrowd := preload("res://src/systems/world/station_crowd.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
 const CharBody := preload("res://src/systems/player/character_body.gd")
+const TownDecor := preload("res://src/systems/world/town_decor.gd")
 const Ladders := preload("res://src/systems/world/ladders.gd")
 
 var demo                               ## town_demo.gd
@@ -123,6 +124,7 @@ func _ready() -> void:
 		remnant.setup(self, demo, hull)
 		add_child(remnant)
 	_build_skimmer()
+	_park_ships()
 
 
 # ------------------------------------------------------------------ queries
@@ -258,6 +260,59 @@ func _tick_skimmer(p: Node3D) -> void:
 	for ref in refineries:
 		if is_instance_valid(ref) and ref.due():
 			ref.rebuild()
+
+
+## Issue #885: the ship on each pad that names one ("ship"), but the dock pad's and
+## not for the station whose bay is the planet's town (the station city: it parks its
+## pads' ships through its town, StationHull.town_for): a skimmer outpost's Remnant
+## interceptor. As a desert outpost's (RemnantOutposts._park_ship): its model on the
+## pad, nose out of the bay, in whoever holds the deck's paint, a berth you can fly,
+## and taking it raises the deck's alarm (ShipPilot.add_outpost_berth). Not saved.
+var parked: Array = []                 ## { node, look, pad }: the pads' parked ships
+
+
+func _park_ships() -> void:
+	if demo == null or demo.get("pilot") == null:
+		return
+	var pl = demo.get("planet")
+	if pl is Dictionary and str((pl as Dictionary).get("town", {}).get("station_town", "")) == id:
+		return
+	var place := Territory.STATION + id
+	var dock := str(hull.dock_pad().get("id", ""))
+	for p in hull.pads():
+		var ship_id := str(p.ship)
+		if ship_id == "" or str(p.id) == dock:
+			continue
+		var look := str(demo.pilot.content.get_ship(ship_id).get("look", "")) if demo.pilot.content != null else ""
+		if look == "":
+			continue
+		var kit := ShipKit.new()
+		var b: Basis = frame.basis * Basis(Vector3.UP, float(p.yaw))
+		var at: Vector3 = frame * (p.at as Vector3)
+		var ship: Node3D
+		if demo.use_look:
+			ship = kit.build(kit.look_for(look, Territory.owner(place)))
+			add_child(ship)
+			var a := TownDecor.visual_aabb(ship)
+			ship.global_transform = Transform3D(b, at + b * Vector3(-a.get_center().x, -a.position.y, -a.get_center().z))
+		else:
+			ship = Node3D.new()
+			add_child(ship)
+			ship.global_transform = Transform3D(b, at + b * Vector3(0, 1.0, 0))
+		ship.name = "Ship_%s_%s" % [id, str(p.id)]
+		ship.set_meta("ship_id", ship_id)
+		ship.set_meta("outpost", place)
+		parked.append({ "node": ship, "look": look, "pad": str(p.id) })
+		demo.pilot.add_outpost_berth(ship, ship_id, place)
+
+
+## The pads' ships in `owner`'s paint (the deck changed hands; StationRemnant._repaint).
+func repaint_ships(owner: String) -> void:
+	for s in parked:
+		var n = s.node
+		if n != null and is_instance_valid(n) and demo != null and demo.use_look:
+			var kit := ShipKit.new()
+			kit.repaint(n, kit.look_for(str(s.look), owner))
 
 
 ## The deck changed hands: the tanks are built again for the new holders.

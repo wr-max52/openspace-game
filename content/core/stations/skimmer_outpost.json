@@ -30,6 +30,8 @@
       "skimmer": {
         "a_deg": 292.5, "r": 29.0, "depth": 21.0, "size": [16.0, 26.0], "pipe": 70.0,
         "units": [ { "style": "globe", "at": [2.0, -6.0] }, { "style": "core", "at": [2.0, 6.0] } ],
+        "crate": [-5.5, -3.0],
+        "crate_note": "Issue #885: a supply crate on the gantry beside the tanks ([along, across], clear of the ladder, the trusses and the tanks), placed by the gear (pickups ringed_giant_town.json site_crates with a 'station'), opened once.",
         "note": "Issue #838: the skimmer refinery, hung under the skimmer control room: a gantry deck 21 m under the floor's plate (the globe tank's top 2.4 m short of the plate; its blast, 22 m round, reaches the room above), on two pairs of trusses, railed, the intake pipe 70 m down toward the cloud tops (320 m under the deck) from its middle. 'units': the two quantonium tanks on it (QuantoniumRefinery, territory.json outposts.refinery's numbers), [along, across] on the gantry."
       },
       "antennas_note": "Issue #838: past the tower's own mast and beacon, two dishes and three whip antennas on the roof, on the side away from the hatch (StationHull._antennas). Their posts and bases are solid: cover up there." }
@@ -78,7 +80,8 @@
   },
   "pads": [
     { "id": "dock", "at": [6, -11], "radius": 8.5 },
-    { "id": "remnant", "at": [6, 11], "radius": 8.5 }
+    { "id": "remnant", "at": [6, 11], "radius": 8.5, "ship": "remnant_interceptor",
+      "note": "Issue #885: the Remnant interceptor parked here, nose out of the mouth, in the holder's paint (SpaceStation._park_ships); flyable, and taking it raises the deck's alarm (ShipPilot.add_outpost_berth). Like a desert outpost's ship it is not saved: lost, it is back the next time you come to the giant." }
   ],
   "dock": {
     "pad": "dock", "radius": 1500.0, "hold_y": 6.0, "approach": 160.0, "over_y": 50.0, "under_y": -50.0,

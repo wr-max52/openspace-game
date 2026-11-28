@@ -211,6 +211,9 @@ func _build_site_crates() -> void:
 		return
 	_crates_built = true
 	for entry in content.get_site_crates(location_id):
+		if entry.has("station"):
+			_build_station_crate(entry)          # issue #885: on a station's skimmer gantry
+			continue
 		var site := str(entry.get("site", ""))
 		if not StarcruiserWreck.has_wreck(ground, site):
 			continue
@@ -229,6 +232,35 @@ func _build_site_crates() -> void:
 		node.transform = Transform3D(PlanetSphere.tilt_to(ground.up_at(at)), at)
 		add_child(node)
 		pickups.append(node)
+
+
+## Issue #885: a supply crate at a station's spot (the entry's "station": its landmark
+## id; its config's skimmer "crate": the gantry beside the tanks), lying on that deck
+## (the station's up), opened once like the wrecks' crates.
+func _build_station_crate(entry: Dictionary) -> void:
+	if inv().is_taken(str(entry.get("id", ""))):
+		return
+	var lm_id := str(entry.get("station", ""))
+	var xf := StationHull.frame(ground, lm_id)
+	if xf == Transform3D.IDENTITY:
+		return
+	var hull: StationHull = null
+	for lm in StationHull.landmarks(ground.world):
+		if str(lm.get("id", "")) == lm_id:
+			hull = StationHull.for_id(str(lm.get("station", "")))
+	if hull == null or hull.skimmer_crate_point() == Vector3.INF:
+		return
+	var at: Vector3 = xf * hull.skimmer_crate_point()
+	var e: Dictionary = entry.duplicate()
+	e["crate"] = true
+	e["still"] = true
+	e["marked"] = true
+	e["reach"] = float(entry.get("reach", 2.4))
+	var node = PickupNode.new()
+	node.setup(items, e, { "look": "prize_crate" }, at)
+	node.transform = Transform3D(xf.basis.orthonormalized(), at)
+	add_child(node)
+	pickups.append(node)
 
 
 ## Wreck field: the stray loot on one wreck's floors, each spot at its point in

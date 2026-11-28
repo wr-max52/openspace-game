@@ -535,3 +535,134 @@ func test_a_dead_troopers_gun_lies_on_the_deck_where_he_fell() -> void:
 	assert_between(at.y, 0.0, 0.6, "on the deck (%s)" % at)
 	assert_lt(Vector2(at.x - fell.x, at.z - fell.z).length(), 2.5, "by him, not slid off across the deck (%s, he fell at %s)" % [at, fell])
 	assert_lt(w.linear_velocity.length(), 0.1, "and still")
+
+
+
+# ------------------------------------------------------------------ the parked interceptor and the gantry crate (issue #885)
+
+func test_the_remnant_interceptor_is_parked_on_each_bays_pad() -> void:
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	for st in t.stations:
+		if str(st.cfg.get("id", "")) != ID:
+			continue
+		assert_eq(st.parked.size(), 1, "%s: one ship parked" % st.id)
+		if st.parked.is_empty():
+			continue
+		var n: Node3D = st.parked[0].node
+		var pad: Dictionary = st.hull.pad("remnant")
+		var at: Vector3 = st.to_local_point(n.global_position)
+		assert_lt(Vector2(at.x - (pad.at as Vector3).x, at.z - (pad.at as Vector3).z).length(), 1.0, "%s: on the Remnant's pad" % st.id)
+		assert_true(st.hull.aboard(at), "%s: inside the bay" % st.id)
+		assert_lt(n.global_basis.y.angle_to(st.frame.basis.y), 0.01, "%s: level on the turned deck" % st.id)
+		assert_eq(str(n.get_meta("ship_id")), "remnant_interceptor")
+	for st in t.stations:
+		if str(st.cfg.get("id", "")) == "orbital_station":
+			assert_true(st.parked.is_empty(), "the station city parks its pads' ships through its town, not here")
+	var place := "station_skimmer_east"
+	var berths: Array = t.pilot.berths.filter(func(b): return str(b.get("outpost", "")) == place)
+	assert_eq(berths.size(), 1, "a berth you can fly")
+	if berths.is_empty():
+		return
+	assert_eq(ShipPilot.berth_label(berths[0]), "Kaldor VX-88 Kestrel (Remnant)", "the Remnant's ship")
+	Territory.take(place)
+	assert_eq(ShipPilot.berth_label(berths[0]), "Kaldor VX-88 Kestrel (Local)", "the locals' once they hold the deck")
+
+
+func test_the_parked_interceptor_is_repainted_with_the_deck() -> void:
+	GameFlow.reset()
+	GameFlow.resumed = true
+	GameFlow.planet_id = HOST
+	GameFlow.change_scene = func(_p: String) -> void: pass
+	var t = TownDemo.new()
+	t.use_look = true
+	t.npc_brains = false
+	add_child_autofree(t)
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.parked.is_empty():
+		return
+	var n: Node3D = s.parked[0].node
+	var before := ShipKit.shown(n)
+	assert_ne(before, "", "it has a look")
+	Territory.take("station_skimmer_east")
+	s.remnant._repaint(Territory.LOCALS)
+	assert_ne(ShipKit.shown(n), before, "the locals' paint")
+	assert_eq(ShipKit.shown(n).get_slice("|", 0), ShipKit.new().look_for(str(s.parked[0].look), Territory.LOCALS), "the outposts' locals paint")
+
+
+func test_a_supply_crate_on_the_gantry_beside_the_tanks() -> void:
+	var h := _hull()
+	var spot := h.skimmer_crate_point()
+	assert_ne(spot, Vector3.INF, "the gantry has a crate spot")
+	assert_true(_inside_part(h, spot + Vector3(0, -0.3, 0)), "on the gantry's deck")
+	for u in h.skimmer_units():
+		var o: Vector3 = (u.xf as Transform3D).origin
+		assert_gt(Vector2(spot.x - o.x, spot.z - o.z).length(), QuantoniumRefinery.footprint() + 0.6, "clear of the %s tank" % u.style)
+	for leg in h.parts.filter(func(p): return str(p.id).contains("_skimmer_leg_")):
+		var lo: Vector3 = (leg.xf as Transform3D).origin
+		assert_gt(Vector2(spot.x - lo.x, spot.z - lo.z).length(), 1.5, "clear of the trusses")
+	var t = _host()
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null:
+		return
+	var crate = null
+	for i in 120:
+		for n in t.gear.pickups:
+			if is_instance_valid(n) and str(n.pickup.get("id", "")) == "skimmer_crate_east":
+				crate = n
+		if crate != null:
+			break
+		await wait_physics_frames(1)
+	assert_not_null(crate, "the east skimmer's crate is out")
+	if crate == null:
+		return
+	assert_lt(crate.global_position.distance_to(s.to_world(spot)), 0.1, "at its spot on the gantry")
+	assert_lt(crate.global_basis.y.angle_to(s.frame.basis.y), 0.01, "lying on the turned deck")
+	var credits_before := WorldState.credits
+	var entry: Dictionary = crate.pickup
+	entry["prize"] = t.gear.roll_crate_prize(entry)
+	var prize: Dictionary = entry.prize
+	var had: int = t.gear.inv().count(str(prize.get("item", ""))) if prize.has("item") else 0
+	assert_eq(t.gear._open_crate(crate), "opened")
+	if prize.has("item"):
+		assert_eq(t.gear.inv().count(str(prize.item)), had + int(prize.get("count", 1)), "it paid out %s" % str(prize))
+	else:
+		assert_eq(WorldState.credits, credits_before + int(prize.get("credits", 0)), "it paid out %s" % str(prize))
+	assert_true(t.gear.inv().is_taken("skimmer_crate_east"), "and stays open")
+
+
+func test_taking_the_interceptor_raises_the_decks_alarm() -> void:
+	GameFlow.reset()
+	GameFlow.resumed = true
+	GameFlow.planet_id = HOST
+	GameFlow.change_scene = func(_p: String) -> void: pass
+	var t = TownDemo.new()
+	t.use_look = false
+	t.npc_brains = true                  # the deck's garrison (its alarm) is the brains'
+	add_child_autofree(t)
+	var s = await _outpost(t, "skimmer_east")
+	assert_not_null(s)
+	if s == null or s.remnant == null:
+		return
+	await _woke(s)
+	var g = s.remnant.garrison
+	assert_not_null(g, "the deck has its garrison")
+	if g == null:
+		return
+	assert_false(g.alarm.active(), "calm")
+	var place := "station_skimmer_east"
+	var i := -1
+	for k in t.pilot.berths.size():
+		if str(t.pilot.berths[k].get("outpost", "")) == place:
+			i = k
+	assert_ne(i, -1)
+	if i == -1:
+		return
+	t.pilot._steal(i)
+	assert_true(g.alarm.active(), "taking its ship sets off the deck's alarm")
+	assert_true(bool(t.pilot.berths[i].stolen), "stolen")

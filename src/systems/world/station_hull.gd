@@ -1262,6 +1262,17 @@ func skimmer_frame(t: Dictionary) -> Transform3D:
 	return Transform3D(Basis(dir, UP, dir.cross(UP)), Vector3(c.x, y, c.y) + dir * float(sk.get("r", 29.0)))
 
 
+## Issue #885: the supply crate's spot on the first skimmer gantry (its "crate":
+## [along, across]), on the gantry's deck in the station's frame, or INF for none.
+func skimmer_crate_point() -> Vector3:
+	for t in towers:
+		var sk: Dictionary = t.get("skimmer", {})
+		var c = sk.get("crate", null)
+		if c is Array and (c as Array).size() >= 2:
+			return skimmer_frame(t) * Vector3(float(c[0]), 0.0, float(c[1]))
+	return Vector3.INF
+
+
 ## The tanks on every skimmer gantry: [{ tower, style, xf (the station's frame, on the
 ## gantry's deck, upright) }].
 func skimmer_units() -> Array:
