@@ -208,10 +208,7 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 		if bool(p.get("shard", false)):
 			ground.boxes[-1]["wreck_shard"] = true
 	if adrift:
-		_tag_frames(ground, prefix, xf, level, pose)
-		for b in ground.boxes:
-			if str(b.id).begins_with(prefix):
-				b["wreck_adrift"] = true
+		_tag_frames(ground, n0, prefix, xf, level, pose, true)
 		return
 
 	# A fallen ten-metre-wide plate joins actual sand to the breach's deck.
@@ -238,19 +235,23 @@ static func _add_to_ground(ground: WorldGround, landmark: Dictionary) -> void:
 			Transform3D(PlanetSphere.tilt_to(box_up), pos + box_up * 0.7), "scorch", base.y)
 	if not _skipped("speeder_kicker", variant):
 		_add_kicker(ground, prefix, level, base.y)
-	_tag_frames(ground, prefix, xf, level, pose)
+	_tag_frames(ground, n0, prefix, xf, level, pose)
 
 
-## Every box of one wreck carries its two frames (site_point, the plates' shader).
-## The "level" frame is the interior's: its design coordinates, wherever the pose
-## put them (the original's own level frame).
-static func _tag_frames(ground: WorldGround, prefix: String, xf: Transform3D, level: Transform3D, pose: Pose) -> void:
+## Every box of one wreck (from box `n0`: all added just now) carries its two
+## frames (site_point, the plates' shader), and issue #317's "wreck_adrift" when it
+## hangs in a station's belt. The "level" frame is the interior's: its design
+## coordinates, wherever the pose put them (the original's own level frame).
+static func _tag_frames(ground: WorldGround, n0: int, prefix: String, xf: Transform3D, level: Transform3D, pose: Pose,
+		adrift := false) -> void:
 	var interior := level * Transform3D(Basis.IDENTITY, Vector3(0, pose.shift.x, pose.shift.y))
 	for i in range(n0, ground.boxes.size()):           # this wreck's, all added just now
 		var b: Dictionary = ground.boxes[i]
 		if str(b.id).begins_with(prefix):
 			b["wreck_frame"] = xf
 			b["wreck_level"] = interior
+			if adrift:
+				b["wreck_adrift"] = true
 
 
 ## Issue #148: a torn hull plate bent up off the sand, its lip held KICKER_LIP
