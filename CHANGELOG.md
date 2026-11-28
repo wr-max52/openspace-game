@@ -2,6 +2,24 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The general's jobs, in order (2026-11-28)
+
+- **General Vask gives his work one job at a time.** Each one opens once the
+  last is done: first a **floating droid** for the barracks, then
+  **repossessing contraband** from the townspeople's stashes, then **assassin
+  droids** from the desert, then **a local nuisance**.
+- **The nuisance is a local in green, head to toe.** He stands in the main
+  street outside the barracks yard shouting at the troopers. The general tells
+  you to buy a sniper rifle at the gear trader, get up on the barracks roof or
+  a gate tower (a jetpack gets you there), and remove him. Shoot him where the
+  locals can see and they fight back like for any local.
+- **Every job raises Remnant standing a lot** (+15 each, the nuisance pays
+  400 cr). The contraband and assassin droid jobs repeat; the floating droid
+  and the nuisance are once only.
+- The contraband job no longer waits for the story's first smuggling run.
+  Old saves keep their place: anyone who already sold him droids or
+  contraband is not sent back for a floating droid.
+
 ## The locals thank you for Oda's jobs and the fence's drops (2026-11-28)
 
 - **A drop sold to the fence raises locals standing +3**, once per drop, at
