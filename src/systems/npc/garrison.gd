@@ -1005,9 +1005,15 @@ func _on_player_downed() -> void:
 	# Issue #684: on foot, the fall is filmed (DefeatedShot): a flash, the shot from
 	# above, "Defeated", black; you wake in the pit when it is done. The knockout
 	# timer just waits for it (it runs in real time, through the slow motion).
-	if player.get("piloting") != true and player.get("vehicle") == null:
-		var rig = demo.get("_rig") if demo != null else null
+	# Your ship destroyed with you aboard: the same, round the wreck.
+	var rig = demo.get("_rig") if demo != null else null
+	var pl = demo.get("pilot") if demo != null else null
+	var wreck: Dictionary = pl.wreck_shot() if pl != null and is_instance_valid(pl) and pl.has_method("wreck_shot") else {}
+	if not wreck.is_empty():
+		defeated = DefeatedShot.start_wreck(demo, player, rig, wreck.at, wreck.up, float(wreck.size))
+	elif player.get("piloting") != true and player.get("vehicle") == null:
 		defeated = DefeatedShot.start(demo if demo != null else self, player, rig)
+	if defeated != null:
 		defeated.done.connect(_on_defeated_done)
 		_ko_left = defeated.total() + 60.0
 
@@ -1018,6 +1024,9 @@ func _on_defeated_done() -> void:
 		return
 	_ko_done = true
 	_ko_left = 0.0
+	var pl = demo.get("pilot") if demo != null else null
+	if pl != null and is_instance_valid(pl) and pl.has_method("wreck_respawn"):
+		pl.wreck_respawn()               # her wreck towed to her pad, you out of the seat
 	_wake_in_pit()
 	if defeated != null and is_instance_valid(defeated):
 		defeated.clear()

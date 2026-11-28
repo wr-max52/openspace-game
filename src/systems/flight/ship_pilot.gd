@@ -23,7 +23,10 @@ extends Node
 ##     sortie.
 ##   - (an arrival "reentry" from the stand-alone flight scene still starts you in
 ##     the sky above the port, still flying),
-##   - a crash tows the ship back to its pad and puts you beside it,
+##   - a crash tows the ship back to its pad and puts you beside it. With you aboard
+##     (shot down, flown into the ground, a lost orbital fight) she is destroyed
+##     and you go down with her: the wreck is filmed ("Defeated", DefeatedShot)
+##     and you wake in the pit as on foot (_defeat_aboard, wreck_respawn),
 ##   - issue #55: the ship's guns fire from the moment you sit down (LMB / Space),
 ##     in the air as in space; the hull (and shield) from its data takes bolts
 ##     wherever it is, and the garrison shoots it once it lifts off inside town.
@@ -127,6 +130,9 @@ var chase = ChaseCamera.new()
 var piloting := false
 var ascending := false
 var crash_left := -1.0
+var wrecked_aboard := false        ## she was destroyed with you in her: the garrison films it and wakes you (wreck_respawn)
+var wreck_at := Vector3.ZERO       ## where she blew up
+var wreck_up := Vector3.UP
 var log_events: Array = []      ## every AtmoFlight event, for traces and tests
 var flight_time := 0.0          ## seconds since liftoff (for "how long to space")
 var space_time := -1.0
@@ -1510,7 +1516,7 @@ func _seated(dt: float) -> void:
 		var in_flight := atmo.state in [AtmoFlight.State.LIFTOFF, AtmoFlight.State.FLYING, AtmoFlight.State.LANDING]
 		demo.detail.update_motion(dt, atmo.altitude(), atmo.speed(), turn_rate, in_flight)
 		_set_flight_terrain_quality(demo.detail.motion_active or demo.detail.fast_ground)
-	if demo._rig != null:
+	if demo._rig != null and not wrecked_aboard:    # the Defeated shot has the camera
 		chase.up = atmo.up()
 		demo._rig.set_override(chase.update(dt, atmo.transform()), 72.0)
 	_update_hud(agl_now)
@@ -1591,6 +1597,8 @@ func _on_event(e: Dictionary) -> void:
 				Sound.play("vehicle_boom", e.at)
 			if visual != null:
 				visual.visible = false
+			if piloting and not opening:
+				_defeat_aboard(e.at)
 		"reached_space":
 			if space_time < 0.0:
 				space_time = flight_time
@@ -1892,7 +1900,55 @@ func _rearm_space() -> void:
 		Sound.set_space(false)     # a fight's music carried over a handoff ends coming down
 
 
-func _tow_home() -> void:
+## She is destroyed with you aboard: you go down with her. Whoever counts you out
+## (a garrison that handles the player) films the wreck and, at the black, has
+## wreck_respawn tow her home before you wake in the pit. With nobody to count you
+## out (a trace with no brains) or in god mode she is just towed home with you
+## beside her, as before. True when you went down.
+func _defeat_aboard(at: Vector3) -> bool:
+	var p := player()
+	if p == null or not p.has_method("down_now") or not _has_respawner(p):
+		return false
+	wrecked_aboard = true
+	wreck_at = at
+	wreck_up = atmo.up()
+	if not p.call("down_now"):
+		wrecked_aboard = false
+		return false
+	crash_left = -1.0
+	hud.visible = false
+	return true
+
+
+## Someone listens for the player going down and wakes them in the pit.
+static func _has_respawner(p: Node) -> bool:
+	if not p.has_signal("downed"):
+		return false
+	for c in p.get_signal_connection_list("downed"):
+		var o = (c.callable as Callable).get_object()
+		if o != null and is_instance_valid(o) and o.get("handles_player") == true:
+			return true
+	return false
+
+
+## What the Defeated shot films while she is a wreck with you aboard: { at, up,
+## size (her length over 9 m) }, {} otherwise.
+func wreck_shot() -> Dictionary:
+	if not wrecked_aboard:
+		return {}
+	return { "at": wreck_at, "up": wreck_up, "size": _look_length() / 9.0 }
+
+
+## The Defeated shot has gone to black: she is towed to her pad and you are out of
+## the seat, for the garrison to wake you in the pit.
+func wreck_respawn() -> void:
+	if not wrecked_aboard:
+		return
+	wrecked_aboard = false
+	_tow_home(false)
+
+
+func _tow_home(wake := true) -> void:
 	if berths[berth].has("hijacked_from"):
 		# Taken from another player and crashed: wrecked in their game too (borrowed: lost here).
 		hijack_let_go.emit(int(berths[berth].hijacked_from), atmo.transform(), true)
@@ -1909,7 +1965,7 @@ func _tow_home() -> void:
 	if piloting:
 		exit_ship()
 	if bool(berths[berth].get("stolen", false)) or bool(berths[berth].get("borrowed", false)):
-		_lose_stolen(seated)
+		_lose_stolen(seated and wake)     # downed aboard: the garrison wakes you
 		return
 	_remember(berth)
 	hud.toast(GameFlow.label("towed"), 4.0)
