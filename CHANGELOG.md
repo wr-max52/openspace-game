@@ -2,6 +2,19 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The race crews stop getting stuck on the rocks (2026-11-28)
+
+- **Every race crew drives one of three good tracks round their course**, a
+  left, a middle and a right lane worked out from the rocks that are really
+  there, and each racer picks one at random every race, so they spread out.
+- **The crag crew get round the Crooked Mile.** They used to wedge on the
+  boulders on the first leg and in the switchbacks; in a test of the course
+  with its real boulders all three now finish both laps without getting stuck.
+- They brake for a turn before they reach it (no more boosting into the
+  switchback corners), cut corners only where there is room, and after a mine
+  or a bump head for their track ahead instead of turning back.
+- On the Far Leaps their three lanes run over the three rows of ramps.
+
 ## Climbing ladders (2026-11-28)
 
 - **Walk into a ladder holding W and you climb it.** You step onto the

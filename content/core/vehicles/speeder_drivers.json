@@ -1,5 +1,5 @@
 {
-  "note": "Issue #609: NPCs who drive a speeder. Read by src/systems/ai/speeder_brain.gd (SpeederBrain: how they drive) and src/systems/vehicles/speeder_node.gd (getting on and off). A driver drives the same speeder and HoverModel as the player (content/core/vehicles/speeder.json); only how well is set here. `skills` are blocks over `default` (pro: the far side's race crews, the best on the planet, a little sharper than ace and looking further ahead for rocks): steer_gain (how hard it steers for an angle), point_reach (m: a point counts as passed this close), brake_time (s of speed ahead it starts slowing for the next turn), corner_slow (0..1: how much a sharp turn slows it), min_corner (the least share of top speed it keeps for any turn), boost (0..1: the chance each half second it is willing to boost), boost_angle_deg and boost_dist (m: only nearly straight on and this far out), wander_m (m it wanders off the line), look_min and look_ahead_s (how far ahead it looks for walls: m plus s of speed), avoid_margin (m kept round things to avoid), hold_range (m a pursuer holds behind its target), lead_s (s it leads a moving target), fire_cone_deg (it fires when the target is this close to its nose), park_reach (m) and park_face_deg. valet: a speeder you called driving itself to you, nobody aboard (SpeederPost.call_speeder): on the line, no wandering. `rules` apply to every driver: stuck_s and backoff_s (pressing on without moving this long: back off this long), board_timeout_s (gives up walking to a speeder), thrown_damage (hp a rider loses when the speeder bursts under them; never lethal).",
+  "note": "Issue #609: NPCs who drive a speeder. Read by src/systems/ai/speeder_brain.gd (SpeederBrain: how they drive) and src/systems/vehicles/speeder_node.gd (getting on and off). A driver drives the same speeder and HoverModel as the player (content/core/vehicles/speeder.json); only how well is set here. `skills` are blocks over `default` (pro: the far side's race crews, the best on the planet, a little sharper than ace and looking further ahead for rocks): steer_gain (how hard it steers for an angle), point_reach (m: a point counts as passed this close), brake_time (s of speed ahead it starts slowing for the next turn), corner_slow (0..1: how much a sharp turn slows it), min_corner (the least share of top speed it keeps for any turn), boost (0..1: the chance each half second it is willing to boost), boost_angle_deg and boost_dist (m: only nearly straight on and this far out), wander_m (m it wanders off the line), look_min and look_ahead_s (how far ahead it looks for walls: m plus s of speed), avoid_margin (m kept round things to avoid), hold_range (m a pursuer holds behind its target), lead_s (s it leads a moving target), fire_cone_deg (it fires when the target is this close to its nose), park_reach (m) and park_face_deg. Issue #853, on a race track (SpeederBrain.follow_track): track_look_s (s of speed it aims ahead along the track, at least point_reach m), track_turn_pts (points either side a turn is measured over), track_brake_use (the share of the speeder's brake it plans to use for the turns ahead: less than all of it, since in the air off a crest it can not brake), track_corner_m and track_corner_max_m (m it lets a turn bend out from the corner, by rock and on open sand: the track's room from just before the corner to track_corner_pts points after it picks between them; with the speeder's own turn rate this sets how fast it takes each turn, and it never boosts into one it can not brake for) and track_min_speed (m/s: the slowest it takes any turn), track_chord_m (it aims nearer where its straight line to the aim point would leave the track by more than the track's room there, RaceCourse.track_room, and never by more than this where there is none), track_room_ahead_s (it counts as off its track once it is further from it than the track's room over this many seconds of driving ahead: slowed, no boost, rock swerve back on), track_off_m (within this of that it trusts it and makes no rock swerve), track_avoid (how hard it steers round other speeders on a track, a share of off it), track_rejoin (how many points ahead it looks for a nearer stretch after being knocked off). valet: a speeder you called driving itself to you, nobody aboard (SpeederPost.call_speeder): on the line, no wandering. `rules` apply to every driver: stuck_s and backoff_s (pressing on without moving this long: back off this long), board_timeout_s (gives up walking to a speeder), thrown_damage (hp a rider loses when the speeder bursts under them; never lethal).",
   "rules": {
     "stuck_s": 1.6,
     "backoff_s": 1.2,
@@ -24,12 +24,24 @@
       "lead_s": 1.0,
       "fire_cone_deg": 7.0,
       "park_reach": 2.5,
-      "park_face_deg": 8.0
+      "park_face_deg": 8.0,
+      "track_look_s": 0.45,
+      "track_turn_pts": 2,
+      "track_brake_use": 0.5,
+      "track_corner_m": 4.0,
+      "track_corner_max_m": 14.0,
+      "track_corner_pts": 10,
+      "track_min_speed": 6.0,
+      "track_chord_m": 1.0,
+      "track_off_m": 4.0,
+      "track_room_ahead_s": 1.5,
+      "track_avoid": 0.5,
+      "track_rejoin": 8
     },
-    "rookie": { "steer_gain": 1.8, "brake_time": 1.6, "corner_slow": 0.95, "boost": 0.25, "wander_m": 4.0, "fire_cone_deg": 4.0 },
+    "rookie": { "steer_gain": 1.8, "brake_time": 1.6, "corner_slow": 0.95, "boost": 0.25, "wander_m": 4.0, "fire_cone_deg": 4.0, "track_corner_m": 3.0 },
     "racer": { "steer_gain": 2.8, "brake_time": 1.0, "corner_slow": 0.7, "boost": 0.8, "wander_m": 1.0 },
     "ace": { "steer_gain": 3.2, "brake_time": 0.85, "corner_slow": 0.6, "min_corner": 0.45, "boost": 0.95, "wander_m": 0.4, "fire_cone_deg": 9.0 },
-    "pro": { "steer_gain": 3.5, "brake_time": 0.8, "corner_slow": 0.55, "min_corner": 0.5, "boost": 1.0, "wander_m": 0.25, "fire_cone_deg": 10.0, "look_ahead_s": 0.75, "avoid_margin": 2.5 },
+    "pro": { "steer_gain": 3.5, "brake_time": 0.8, "corner_slow": 0.55, "min_corner": 0.5, "boost": 1.0, "wander_m": 0.25, "fire_cone_deg": 10.0, "look_ahead_s": 0.75, "avoid_margin": 2.5, "track_corner_m": 5.0 },
     "chaser": { "boost": 0.85, "hold_range": 22.0, "lead_s": 1.2, "fire_cone_deg": 8.0 },
     "runner": { "boost": 0.9, "wander_m": 3.0 },
     "valet": { "wander_m": 0.0, "boost": 0.8 }

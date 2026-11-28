@@ -1,7 +1,7 @@
 {
   "id": "far_leaps",
   "label": "Far Leaps",
-  "note": "Races 4 and 5: the leap crew's course (the top rung), the furthest race from the port, on the far side of the planet out of Farleap village. A box with a tunnel on each long side (course_mountains far_leaps_north and far_leaps_south in content/look/desert_landforms.json, two pairs of peaks moved there from round the planet, each tunnel cut along this course's legs: c2-c4 through the north one, c8-c10 through the south one, portal, halfway, portal). Each corner before a tunnel (c1, c7) is on the tunnel's line so you go in straight; c5 and c11 are the corners after them and c6 the middle of the west straight. Rows of jump ramps stand on the straights between: `ramps`, each Skrugs's own sand ramp (the skrugs_ramp location, RaceCourse ramps), three abreast across the leg, so a change to his ramp changes these. The straights the ramps stand on and the start are level ground (`floors`, RaceCourse.floor_sites), so you land on flat sand. Same shape as hoodoo_run.json (read its note: the course is straight legs between the gates); everything is plateau x,z (the far side's map is stretched across several times over, so these numbers were laid out in metres on the ground and converted, and the legs are straight on the ground); no track beast.",
+  "note": "Races 4 and 5: the leap crew's course (the top rung), the furthest race from the port, on the far side of the planet out of Farleap village. A box with a tunnel on each long side (course_mountains far_leaps_north and far_leaps_south in content/look/desert_landforms.json, two pairs of peaks moved there from round the planet, each tunnel cut along this course's legs: c2-c4 through the north one, c8-c10 through the south one, portal, halfway, portal). Each corner before a tunnel (c1, c7) is on the tunnel's line so you go in straight; c5 and c11 are the corners after them and c6 the middle of the west straight. Rows of jump ramps stand on the straights between: `ramps`, each Skrugs's own sand ramp (the skrugs_ramp location, RaceCourse ramps), three abreast across the leg, so a change to his ramp changes these. The straights the ramps stand on and the start are level ground (`floors`, RaceCourse.floor_sites), so you land on flat sand. Same shape as hoodoo_run.json (read its note: the course is straight legs between the gates); everything is plateau x,z (the far side's map is stretched across several times over, so these numbers were laid out in metres on the ground and converted, and the legs are straight on the ground); no track beast. `tracks`: the NPC racers' three lanes run over the three rows of ramps (each row's `across`), not between them (issue #853, RaceCourse.race_tracks).",
   "world": "port_desert",
   "near": "ranch_farleap",
   "laps": 2,
@@ -24,6 +24,7 @@
     { "at": [639.9, -13444.4], "toward": [1243.0, -13384.2], "half": [45.0, 110.0], "blend_m": 40.0 },
     { "at": [-5840.4, -13043.2], "toward": [-6658.0, -12601.9], "half": [45.0, 105.0], "blend_m": 40.0 }
   ],
+  "tracks": { "lanes_m": [-9.0, 0.0, 9.0] },
   "gates": [
     { "id": "start", "at": [-6925.9, -12187.0] },
     { "id": "c1", "at": [-5400.4, -12460.2] },
