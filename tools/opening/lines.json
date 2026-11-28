@@ -1,0 +1,20 @@
+{
+  "note": "The opening cutscene's spoken lines. Oda narrates (her own voice, woman_relaxed); the rest are the speakers' game voices. voice.py renders each into test_results/cine2/vo/<id>.mp3; shoot_opening.gd shows them as subtitles and mix.py places them, both from this file. at = seconds into the shot (negative: it starts over the end of the shot before). skip = seconds cut off the front of the recording (voice.py keeps the full take as <id>.raw.mp3).",
+  "lines": [
+    { "id": "v1", "shot": 1, "at": 1.4, "voice": "woman_relaxed", "tag": "[wry, unhurried narration]", "text": "For fifty years, the Hegemony ruled this world." },
+    { "id": "v2", "shot": 1, "at": 6.2, "voice": "woman_relaxed", "tag": "[wry, unhurried narration]", "text": "Then its heart gave out, and the whole thing came apart." },
+    { "id": "v3", "shot": 2, "at": 0.5, "voice": "woman_relaxed", "tag": "[wry, unhurried narration]", "text": "Their great ships came down like rain. Nobody ever cleaned them up." },
+    { "id": "v10", "shot": 3, "at": 0.4, "voice": "woman_relaxed", "tag": "[wry, unhurried narration]", "text": "Some people were here long before there was any war." },
+    { "id": "v4", "shot": 5, "at": -2.2, "voice": "woman_relaxed", "tag": "[solemn, quiet narration]", "text": "The rich still throw parties like nothing has changed." },
+    { "id": "v5", "shot": 6, "at": 0.2, "voice": "woman_relaxed", "tag": "[low, wary narration]", "text": "What's left of their army still holds the desert." },
+    { "id": "d1", "shot": 6, "at": 3.2, "voice": "man_gruff", "tag": "[shouts]", "text": "Halt! Back in the dirt, sand rat." },
+    { "id": "v6", "shot": 7, "at": 0.1, "voice": "woman_relaxed", "tag": "[wry narration]", "text": "Out in the basin, folk race for coin. Not all of them make it home." },
+    { "id": "v7", "shot": 8, "at": 0.3, "voice": "woman_relaxed", "tag": "[dry, knowing narration]", "text": "They are hardly even a remnant of what they once were. But they still have a hold." },
+    { "id": "d2", "shot": 10, "at": 0.4, "skip": 0.85, "voice": "man_serious", "tag": "[crisp, formal report]", "text": "Sir, a ship has just entered orbit. They are landing at the port." },
+    { "id": "d3", "shot": 10, "at": 5.6, "voice": "man_shady", "tag": "[quiet, menacing curiosity]", "text": "And who do we have here?" },
+    { "id": "d4", "shot": 12, "at": 0.4, "voice": "woman_relaxed", "tag": "[warm, friendly delivery]", "text": "Dust ale. That'll be four credits." },
+    { "id": "v8", "shot": 13, "at": 0.4, "voice": "woman_relaxed", "tag": "[wry narration]", "text": "And now somebody new just fell out of our sky." },
+    { "id": "v9", "shot": 15, "at": 0.3, "voice": "woman_relaxed", "tag": "[worried, quiet, uneasy]", "text": "Wonder whose side they'll pick." },
+    { "id": "d5", "shot": 16, "at": 3.6, "voice": "robot_retro", "tag": "", "text": "Oh my. That one is going to need a lot of work." }
+  ]
+}
