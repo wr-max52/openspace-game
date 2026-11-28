@@ -355,7 +355,7 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 	var turn := deg_to_rad(float(variant.get("shard_turn", 0.0)))
 	for section in 20:
 		var z := -285.0 + section * 30.0
-		var width := lerpf(28.0, 48.0, clampf((z + 285.0) / 120.0, 0.0, 1.0))
+		var width := _hull_rx(z)
 		for facet in 8:
 			if z >= -90.0 and z <= 90.0 and facet in [0, 7]:
 				continue
@@ -389,6 +389,23 @@ static func parts(pitch_deg: float = PITCH_DEG, variant: Dictionary = {}) -> Arr
 	# Wreck cleanup: the floor runs on to the stern bulkhead, no pit at the top of the ramp.
 	_part_box(out, "lower_deck_stern", Vector3(66, 2, 12.6), Vector3(0, DECK_Y - 1.0, 291.2), "rib")
 	out[-1]["floor"] = true
+	# The hold floor meets the side plating: a strip from each edge out under the
+	# plates, a section at a time, so nothing (a speeder's middle, a foot) drops
+	# into the gap between the floor and the hull and on into the space under the
+	# floor. Not across the breach, which is open to the sand.
+	for section in 20:
+		var z := -285.0 + section * 30.0
+		var reach := _plating_x(DECK_Y, _hull_rx(z))
+		if reach <= 33.05:
+			continue                   # the bow's taper: the floor already runs into the plates
+		var zs := Vector2(maxf(z - 15.0, -285.0), minf(z + 15.0, 297.5))
+		for side in [-1.0, 1.0]:
+			if side > 0.0 and z >= -90.0 and z <= 90.0:
+				continue
+			_part_box(out, "lower_deck_edge_%d_%s" % [section, "s" if side > 0.0 else "p"],
+				Vector3(reach - 33.0, 2, zs.y - zs.x),
+				Vector3(side * (33.0 + reach) * 0.5, DECK_Y - 1.0, (zs.x + zs.y) * 0.5), "rib")
+			out[-1]["floor"] = true
 	# An upper gallery only on the intact flank leaves the breach a tall atrium.
 	_part_box(out, "upper_gallery", Vector3(17, 1.4, 270), Vector3(-22, -4, 100), "rib")
 	out[-1]["floor"] = true
@@ -847,6 +864,22 @@ static func _railing(out: Array, id: String, from: Vector3, to: Vector3, gaps: A
 			"marking", pose, sag * rail_basis)
 		_level(out, "%s_post_%d" % [id, i], Vector3(0.16, 1.1, 0.16), a + Vector3(0, 0.55, 0),
 			"rib", pose)
+
+
+## The hull's half-width (the plates' mid-line at the widest) for the section at
+## hull z: it tapers only toward the bow.
+static func _hull_rx(z: float) -> float:
+	return lerpf(28.0, 48.0, clampf((z + 285.0) / 120.0, 0.0, 1.0))
+
+
+## Where the side plating's mid-line is (|x|) at hull height y, for a section
+## `rx` wide: the octagon _facet lays the plates on.
+static func _plating_x(y: float, rx: float, ry: float = HULL_RY) -> float:
+	var corner := Vector2(cos(PI / 4.0) * rx, sin(PI / 4.0) * ry)
+	var ay := absf(y)
+	if ay <= corner.y:
+		return rx - (rx - corner.x) * ay / corner.y
+	return corner.x * maxf(0.0, ry - ay) / (ry - corner.y)
 
 
 static func _facet(out: Array, id: String, rx: float, ry: float, facet: int,

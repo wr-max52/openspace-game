@@ -1,6 +1,6 @@
 extends GutTest
 ## Issue #64: the main story line. T-89 sends you to Oda, Oda sends you to the
-## range, two smuggling runs (her jetpack with the first if she is amused or
+## sparring droid, two smuggling runs (her jetpack with the first if she is amused or
 ## warm), Skrugs and a bounty at one of the three Remnant outposts, the fleet in
 ## orbit (the ships unlock; winning pays 5000), then smuggling runs and bounty
 ## contracts on repeat. Also: the three outposts, the town's Remnant coming back
@@ -189,7 +189,8 @@ func test_skipping_ahead_unlocks_what_playing_would() -> void:
 	WorldState.new_game(WorldState.STORY)
 	var c0 := WorldState.credits
 	Story.skip_to("heist")
-	assert_eq(WorldState.credits, c0, "nothing paid before the heist")
+	c0 += int(Story.chapter_cfg("droid_merchant").skipped.credits)    # what the droid merchant pays
+	assert_eq(WorldState.credits, c0, "the droid merchant's pay and nothing else")
 	assert_eq(Quests.state("tower_blade"), "", "Oda has not told the heist chapter yet")
 	Story.skip_to("bounty")
 	c0 += int(Story.chapter_cfg("heist").skipped.credits)     # issue #413: the heist's pay

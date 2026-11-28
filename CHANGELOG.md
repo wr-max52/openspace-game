@@ -2,6 +2,54 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Climbing ladders (2026-11-28)
+
+- **Walk into a ladder holding W and you climb it.** You step onto the
+  bottom rung, then go up hand over hand and foot over foot. Let go of W and
+  you hang where you are. At the top you pull yourself over the edge, put a
+  knee on the floor and stand up on it.
+- **At the top of a ladder, [E] climbs down.** You turn round, swing back over
+  the edge and hang a few rungs down, facing the ladder.
+- **S slides you down.** Hands and boots on the rails, legs out round them,
+  faster and faster. Let go of S and you grip and stop. At the bottom you
+  land. **Space lets go** and you fall (the jetpack works from there).
+- Your weapon goes back in its holster while you climb and comes back out when
+  you get off.
+- Climbable: the skimmer outposts' ladder up to the roof hatch and the ladder
+  down to the skimmer gantry, the favela's stacked shacks and containers, and
+  the engine rooms' ladders up to their catwalks. If there is no room to stand
+  at the top, you stop with your hands on the top rungs.
+## The general's jobs, in order (2026-11-28)
+
+- **General Vask gives his work one job at a time.** Each one opens once the
+  last is done: first a **floating droid** for the barracks, then
+  **repossessing contraband** from the townspeople's stashes, then **assassin
+  droids** from the desert, then **a local nuisance**.
+- **The nuisance is a local in green, head to toe.** He stands in the main
+  street outside the barracks yard shouting at the troopers. The general tells
+  you to buy a sniper rifle at the gear trader, get up on the barracks roof or
+  a gate tower (a jetpack gets you there), and remove him. Shoot him where the
+  locals can see and they fight back like for any local.
+- **Every job raises Remnant standing a lot** (+15 each, the nuisance pays
+  400 cr). The contraband and assassin droid jobs repeat; the floating droid
+  and the nuisance are once only.
+- The contraband job no longer waits for the story's first smuggling run.
+  Old saves keep their place: anyone who already sold him droids or
+  contraband is not sent back for a floating droid.
+
+## The garrison fights back when you shoot it from your ship (2026-11-28)
+
+- **Shoot a trooper from your ship and the garrison fights the ship**, wherever
+  you fly from. Before, they only counted your ship as a threat while it was
+  over the town itself (and never in a story save), so shooting from just
+  outside the walls got no answer and the alarm died down in seconds.
+- **The roof's seeker launcher troopers lock on and fire** at a ship that shot
+  at them, in range (320 m) and in sight.
+- **Troopers see a ship from 200 m**, not the 30 to 60 m they see a person on
+  foot from. The alarm also knows where the shots came from, so they turn to
+  face the ship.
+- Flying over town is still an offence on its own (free roam), as before.
+
 ## The locals thank you for Oda's jobs and the fence's drops (2026-11-28)
 
 - **A drop sold to the fence raises locals standing +3**, once per drop, at

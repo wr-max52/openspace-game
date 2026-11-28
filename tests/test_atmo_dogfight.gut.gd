@@ -355,6 +355,12 @@ func test_it_shoots_you_down_and_you_both_start_again_in_town() -> void:
 	assert_true(f.flying())
 	t.pilot._on_hull_hit(9999.0, f.hull, i)
 	assert_eq(t.pilot.atmo.state, AtmoFlight.State.CRASHED, "shot down")
+	assert_true(t.pilot.wrecked_aboard, "you went down with her")
+	var shot: DefeatedShot = t.garrison.defeated if t.garrison != null else null
+	assert_not_null(shot, "Defeated")
+	_fly(t, 0.5)                         # it sees you go down while the shot runs
+	if shot != null:
+		shot.step(shot.total() + 0.1)    # the shot's black: you wake in the pit
 	_fly(t, 4.0)
 	assert_false(t.pilot.piloting, "towed: out of the ship")
 	assert_true(bool(t.pilot.berths[i].destroyed), "the stolen ship is gone")

@@ -27,6 +27,7 @@ extends RefCounted
 ## middle at x = z = 0, y = 0 the market floor and the bay's deck.
 
 const CoreContent := preload("res://src/systems/dataload/core_content.gd")
+const Ladders := preload("res://src/systems/world/ladders.gd")
 
 const DATA_DIR := "res://content/core/stations/"
 const LANDMARK_KIND := "station"
@@ -76,6 +77,9 @@ var tubes: Array = []              ## { tower, floor (index), c, r, y0, y1 }: th
 ## shaft on every floor (and over the top floor's gap), a flat ring you fall or jetpack
 ## through: no collider, only the look (SpaceStation draws it).
 var gap_shields: Array = []
+## The ladders you climb (Ladders.spec, in the station's frame): the roof's and the
+## gantry's. SpaceStation notes them in the Ladders registry.
+var ladders: Array = []
 var _built := false
 
 
@@ -830,6 +834,7 @@ func _build() -> void:
 	rooms = {}
 	tubes = []
 	gap_shields = []
+	ladders = []
 	for t in towers:
 		var fl: Array = t.floors
 		for i in fl.size():
@@ -1127,7 +1132,7 @@ func over_hatch(local: Vector3, grow: float = 0.0) -> bool:
 
 ## Issue #838: a ladder up to the top floor's first ceiling hatch (the floor's
 ## "roof_ladder": floor_hatch_angles' first), from the walkway to a handhold over the
-## roof, up the hole's outer side (the look: you climb with the jetpack, as everywhere).
+## roof, up the hole's outer side. You climb it (Ladders, LadderClimb).
 func _roof_ladder(t: Dictionary, i: int, pre: String, ceil_y: float) -> void:
 	var f: Dictionary = t.floors[i]
 	var at := floor_hatch_angles(f)
@@ -1151,6 +1156,8 @@ func _roof_ladder(t: Dictionary, i: int, pre: String, ceil_y: float) -> void:
 	for k in rungs:
 		_add("%s_roof_ladder_rung_%d" % [pre, k], Transform3D(b, lx + Vector3(0, y_floor + 0.3 + k * 0.35, 0)),
 			Vector3(0.06, 0.06, 0.7), "decor", "rail")
+	# Climbed from the walkway inside the hole, facing out, onto the roof past it.
+	ladders.append(Ladders.spec(lx + Vector3(0, y_floor, 0), dir, ceil_y + plate - y_floor))
 
 
 ## Issue #838: a hatch in a floor's plate (the floor's "gantry_hatch": { a_deg, r,
@@ -1168,7 +1175,7 @@ func gantry_hatch(t: Dictionary, i: int) -> Dictionary:
 
 ## The plate with the hatch cut in it, its shield (drop through it; jetpack back up),
 ## a rim round it, and a ladder from the gantry below up the hole's outer side to a
-## handhold over the floor (the look: the jetpack climbs it, as the roof's).
+## handhold over the floor, climbed as the roof's.
 func _gantry_hatch(t: Dictionary, pre: String, c: Vector2, r: float, y: float, fh: Dictionary) -> void:
 	var a := float(fh.a)
 	var hr := float(fh.r)
@@ -1197,6 +1204,8 @@ func _gantry_hatch(t: Dictionary, pre: String, c: Vector2, r: float, y: float, f
 	for k in rungs:
 		_add("%s_floor_ladder_rung_%d" % [pre, k], Transform3D(b, lx + Vector3(0, bottom + 0.3 + k * 0.35, 0)),
 			Vector3(0.06, 0.06, 0.7), "decor", "rail")
+	# Climbed from the gantry's deck up through the hole, facing out, onto the floor past it.
+	ladders.append(Ladders.spec(lx + Vector3(0, bottom, 0), dir, y - bottom))
 
 
 ## Issue #838: the tower's skimmer ("skimmer": { a_deg, r (the gantry's middle round

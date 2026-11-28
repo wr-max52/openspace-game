@@ -29,6 +29,10 @@ var forget_s := 8.0
 var notice_at := 1.0
 var lose_at := 0.3
 var crouch_sight_mult := 0.6  ## a crouched target is seen at this share of the range
+## A ship or speeder the guard is fighting is seen this far (it is a lot bigger and
+## louder than someone on foot); 0 = no further than sight_range.
+var vehicle_sight_range := 0.0
+var on_vehicle := false       ## the target is in a vehicle the guard counts hostile (NpcBody._sense)
 var armed_rise_mult := 1.6
 var hearing_range := 45.0
 var heard_awareness := 0.6
@@ -60,7 +64,7 @@ func _init(cfg: Dictionary = {}) -> void:
 	for k in ["sight_range", "fov_deg", "close_range", "reaction_s", "decay_per_s",
 			"forget_s", "notice_at", "lose_at", "crouch_sight_mult", "armed_rise_mult",
 			"hearing_range", "heard_awareness", "ray_hz", "eye_height", "target_chest",
-			"footstep_range", "footstep_awareness"]:
+			"footstep_range", "footstep_awareness", "vehicle_sight_range"]:
 		if cfg.has(k):
 			set(k, float(cfg[k]))
 	_last_noise_id = NoiseEvents.last_id()   # do not hear what happened before we existed
@@ -68,6 +72,8 @@ func _init(cfg: Dictionary = {}) -> void:
 
 ## Range a target is seen at, given its stance.
 func effective_range(crouched: bool) -> float:
+	if on_vehicle:
+		return maxf(sight_range, vehicle_sight_range)
 	return sight_range * (crouch_sight_mult if crouched else 1.0)
 
 

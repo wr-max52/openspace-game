@@ -111,6 +111,7 @@ var confiscated: Array = []       ## item ids taken by searches
 var _rng := RandomNumberGenerator.new()
 var _had_gate := false
 var _attacked := false
+var _shot_from := Vector3.INF     ## where the player's ship or speeder was when it last hit a trooper
 var unfound: Array = []         ## issue #307: bodies of silent sword kills nobody has found yet
 var silent_kills := 0           ## (traces)
 var _lock_left := 0.0
@@ -384,8 +385,9 @@ func _physics_process(dt: float) -> void:
 	if not alarm.active():
 		_find_bodies(alive)
 	if _attacked:
-		_raise("attacked")
+		_raise("attacked", _shot_from)
 	_attacked = false
+	_shot_from = Vector3.INF
 
 	_alarm_in["seen"] = seen and _ko_left <= 0.0       # issue #540: one dictionary, filled each tick
 	_alarm_in["player_pos"] = seen_at if seen_at != Vector3.INF else ppos
@@ -396,6 +398,9 @@ func _physics_process(dt: float) -> void:
 	if alarm.active():
 		for post in _posts():
 			post.checkpoint.set_alarm(true)
+	var at_war := alarm.active()
+	for g in alive:
+		g.vehicle_fight = at_war       # the alarm is up: your ship is a target wherever it is
 
 	_order_brains()
 	for g in alive:
@@ -891,6 +896,8 @@ func _on_guard_hit(shooter: Node, _amount: float, g: NpcBody) -> void:
 			_check_cut.call_deferred(g)        # issue #307: silent if the cut killed him unseen
 			return
 		_attacked = true
+		if _is_player(shooter) and shooter != player and shooter is Node3D:
+			_shot_from = shooter.global_position     # from the ship or speeder: the alarm knows where
 		brains[g].notify_hit()
 	elif shooter != null:
 		brains[g].notify_hit()
@@ -998,9 +1005,15 @@ func _on_player_downed() -> void:
 	# Issue #684: on foot, the fall is filmed (DefeatedShot): a flash, the shot from
 	# above, "Defeated", black; you wake in the pit when it is done. The knockout
 	# timer just waits for it (it runs in real time, through the slow motion).
-	if player.get("piloting") != true and player.get("vehicle") == null:
-		var rig = demo.get("_rig") if demo != null else null
+	# Your ship destroyed with you aboard: the same, round the wreck.
+	var rig = demo.get("_rig") if demo != null else null
+	var pl = demo.get("pilot") if demo != null else null
+	var wreck: Dictionary = pl.wreck_shot() if pl != null and is_instance_valid(pl) and pl.has_method("wreck_shot") else {}
+	if not wreck.is_empty():
+		defeated = DefeatedShot.start_wreck(demo, player, rig, wreck.at, wreck.up, float(wreck.size))
+	elif player.get("piloting") != true and player.get("vehicle") == null:
 		defeated = DefeatedShot.start(demo if demo != null else self, player, rig)
+	if defeated != null:
 		defeated.done.connect(_on_defeated_done)
 		_ko_left = defeated.total() + 60.0
 
@@ -1011,6 +1024,9 @@ func _on_defeated_done() -> void:
 		return
 	_ko_done = true
 	_ko_left = 0.0
+	var pl = demo.get("pilot") if demo != null else null
+	if pl != null and is_instance_valid(pl) and pl.has_method("wreck_respawn"):
+		pl.wreck_respawn()               # her wreck towed to her pad, you out of the seat
 	_wake_in_pit()
 	if defeated != null and is_instance_valid(defeated):
 		defeated.clear()
@@ -1128,14 +1144,22 @@ func _hostile_vehicle() -> Node:
 
 
 ## The speeder or ship the troopers see and shoot at: the one hostile in town, or
-## (an outpost's garrison) whatever the player is in. null when on foot or none.
+## whatever the player is in at an outpost, or anywhere once the alarm is up (you
+## shot at them from outside the town's footprint, or in a story save, where flying
+## in town is no offence by itself). null when on foot or none.
 func target_vehicle() -> Node:
 	var v := _hostile_vehicle()
-	if v != null or not vehicles_anywhere or player == null or not is_instance_valid(player) \
+	if v != null or not fights_vehicles() or player == null or not is_instance_valid(player) \
 			or player.get("piloting") != true:
 		return v
 	v = player.get("vehicle")
 	return v if v != null and is_instance_valid(v) and v.targetable() else null
+
+
+## Whatever the player rides is a target, not only one hostile in town: an
+## outpost's garrison always, the town's while its alarm is up.
+func fights_vehicles() -> bool:
+	return vehicles_anywhere or (alarm != null and alarm.active())
 
 
 ## The player, or a bolt from the speeder or ship they are in.

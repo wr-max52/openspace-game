@@ -1936,6 +1936,7 @@ const KEYS := [
 		["[C]", "Crouch"],
 		["[V]", "First / third person (mouse middle button too)"],
 		["[E]", "Interact: talk, board, ride, pick up"],
+		["[W] into a ladder", "Climb it ([S] slides down, [Space] lets go; [E] at its top climbs down)"],
 		["[G]", "Put on / take off your gear"],
 		["[Z]", "Rest, at a tent"],
 		["[I]", "What you carry, the job log, and Call (your ship flies to you)"],
