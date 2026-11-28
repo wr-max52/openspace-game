@@ -46,20 +46,33 @@ func test_every_chapter_has_an_objective_and_a_target() -> void:
 		assert_ne(str(o.get("target", "")), "", "chapter %s points somewhere" % id)
 
 
+## The opening landing's shots: no quest line and no waypoint until you get out,
+## in a story save and in a new free roam game.
+func test_nothing_to_point_at_while_the_ship_comes_in_to_land() -> void:
+	WorldState.new_game(WorldState.FREEPLAY)
+	assert_true(WorldState.opening_due())
+	assert_true(Objective.current().is_empty(), "free roam: no 'Ask Oda for work' while landing")
+	WorldState.set_flag(WorldState.FREE_OPENING, false)      # out of the ship
+	assert_false(Objective.current().is_empty(), "then the pointer is back")
+	WorldState.new_game(WorldState.STORY)
+	assert_eq(Story.chapter(), "land")
+	assert_true(Objective.current().is_empty(), "story: nothing while landing")
+	Story.event("landed")
+	assert_false(Objective.current().is_empty(), "then the general")
+
+
 func test_a_new_game_points_at_oda() -> void:
 	assert_eq(_target(), "npc:cantina_owner")
 	assert_string_contains(_text(), "Oda")
 
 
 func test_the_pointer_follows_the_story() -> void:
-	Story.beat("cantina_owner")                # meets Oda, she tells the range
-	assert_eq(Story.chapter(), "range")
-	assert_eq(_target(), "range", "off to the range")
+	Story.beat("cantina_owner")                # meets Oda, she tells the sparring droid
+	assert_eq(Story.chapter(), "remote", "no target practice first")
+	assert_eq(_target(), "remote", "off to the sparring droid")
 	WorldState.on_range_visited()
-	assert_eq(Story.chapter(), "remote")
+	assert_eq(Story.chapter(), "smuggle_1")
 	assert_eq(_target(), "npc:cantina_owner", "a chapter Oda has not told yet: go and see her")
-	Story.beat("cantina_owner")
-	assert_eq(_target(), "remote", "then the sparring droid")
 	Story.skip_to("fleet")
 	WorldState.story.told = true
 	assert_eq(_target(), "cruiser:bay", "the fleet: first land in the cruiser's bay")

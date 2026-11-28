@@ -83,12 +83,12 @@ func test_oda_telling_the_fleet_is_news() -> void:
 
 ## Any chapter Oda tells that sends you somewhere is news, and a "talk to Oda"
 ## banner still waiting from the chapter before is not shown: it was answered.
-func test_oda_telling_the_range_is_news_and_not_talk_to_oda() -> void:
+func test_oda_telling_the_sparring_droid_is_news_and_not_talk_to_oda() -> void:
 	QuestNews.clear()
-	Story.beat("cantina_owner")           # meets Oda, told the range
+	Story.beat("cantina_owner")           # meets Oda, told the sparring droid
 	var n := QuestNews.take()
 	assert_eq(n.key, "objective")
-	assert_string_contains(n.sub, "range")
+	assert_string_contains(n.sub, "sparring droid")
 	assert_eq(QuestNews.take(), {})
 
 

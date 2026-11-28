@@ -81,6 +81,7 @@ static var _items: Dictionary = {}         ## item id -> its content/core/items 
 
 const MAX_EVENTS := 12
 const DROP_NEAR := 15.0                    ## issue #251: the pointer lands at most this far from a drop (m)
+const DROPS_SOLD := "drops_sold:"            ## + a drop job id: how many of its drops reached the fence
 
 
 static func reset() -> void:
@@ -673,6 +674,13 @@ static func _roll_smuggle(j: Dictionary) -> Dictionary:
 	var last := str(smuggle.get("area", ""))
 	var choices := areas.filter(func(a): return str(a.get("id", "")) != last and not (a.get("spots", []) as Array).is_empty() \
 			and (mine.is_empty() or mine.has(str(a.get("id", "")))))
+	# The job's "first_area" (the fence's run: out the front gate) until one of its
+	# drops has been delivered; after that, any of its areas.
+	var first := str(j.get("first_area", ""))
+	if first != "" and count(DROPS_SOLD + str(j.get("id", ""))) == 0:
+		var only := areas.filter(func(a): return str(a.get("id", "")) == first and not (a.get("spots", []) as Array).is_empty())
+		if not only.is_empty():
+			choices = only
 	if goods.is_empty() or choices.is_empty():
 		return {}
 	var rng := RandomNumberGenerator.new()
@@ -764,6 +772,7 @@ static func _cargo_delivered() -> void:
 	if not bool(smuggle.get("out", false)) or bool(smuggle.get("delivered", false)):
 		return
 	smuggle["delivered"] = true
+	bump(DROPS_SOLD + _drop_job_id())     # the job's first_area is spent (_roll_smuggle)
 	QuestNews.push("cargo_delivered", smuggle_goods_text())
 	job_standing(_drop_job_id())           # a run for the fence raises the locals' standing
 

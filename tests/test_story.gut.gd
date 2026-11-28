@@ -72,20 +72,11 @@ func test_the_whole_story_in_order() -> void:
 	assert_eq(Story.beat("t89").say, Story.chapter_cfg().remind, "and reminds you after")
 
 	var oda := Story.beat("cantina_owner")
-	assert_eq(Story.chapter(), "range", "talking to her is meeting her")
-	assert_true(str(oda.say).to_lower().contains("range"), "she sends you to the range")
+	assert_eq(Story.chapter(), "remote", "talking to her is meeting her: no target practice first")
+	assert_true(str(oda.say).contains("five"), "she tells you about the sparring droid: block five")
 	assert_eq(str(oda.job), "")
 	WorldState.on_range_cleared()
-	assert_eq(Story.chapter(), "range", "clearing the targets is not required: it is only practice")
-	WorldState.on_range_visited()
-	assert_eq(Story.chapter(), "remote", "going down to the range is")
-
-	var c_practice := WorldState.credits
-	oda = Story.beat("cantina_owner")
-	assert_eq(WorldState.credits, c_practice + 40, "she pays for the practice")
-	assert_true(str(oda.say).contains("five"), "and tells you about the sparring droid: block five")
-	Story.beat("cantina_owner")
-	assert_eq(WorldState.credits, c_practice + 40, "once")
+	assert_eq(Story.chapter(), "remote", "clearing the targets is not required")
 	WorldState.on_range_visited()
 	assert_eq(Story.chapter(), "smuggle_1", "back from the pit: on your honour")
 
@@ -190,7 +181,7 @@ func test_story_survives_a_save() -> void:
 
 func test_beats_only_for_their_teller() -> void:
 	assert_true(Story.beat("skrugs").is_empty())
-	Story.skip_to("range")
+	Story.skip_to("remote")
 	assert_true(Story.beat("t89").is_empty(), "T-89 is done once you have met her")
 
 
@@ -198,7 +189,7 @@ func test_skipping_ahead_unlocks_what_playing_would() -> void:
 	WorldState.new_game(WorldState.STORY)
 	var c0 := WorldState.credits
 	Story.skip_to("heist")
-	assert_eq(WorldState.credits, c0 + int(Story.chapter_cfg("remote").pays), "Oda's practice fee")
+	assert_eq(WorldState.credits, c0, "nothing paid before the heist")
 	assert_eq(Quests.state("tower_blade"), "", "Oda has not told the heist chapter yet")
 	Story.skip_to("bounty")
 	c0 += int(Story.chapter_cfg("heist").skipped.credits)     # issue #413: the heist's pay
@@ -206,7 +197,7 @@ func test_skipping_ahead_unlocks_what_playing_would() -> void:
 	assert_eq(Quests.state("tower_blade"), "open", "issue #413: Oda told of the blade in the heist chapter, skipped past")
 	Story.skip_to("fleet")
 	assert_eq(int(Story.chapter_cfg("bounty").skipped.credits), int(Story.bounty_cfg().first_pay), "the first bounty's pay")
-	assert_eq(WorldState.credits, c0 + int(Story.chapter_cfg("remote").pays) + int(Story.bounty_cfg().first_pay))
+	assert_eq(WorldState.credits, c0 + int(Story.bounty_cfg().first_pay))
 	assert_true(GearUpgrades.open_offers().any(func(o): return str(o.id) == "quantonium_armour"), "the fence sells the armour")
 	assert_eq(WorldState.count("merchant_droids"), 1)
 	assert_eq(str(WorldState.jobs_taken.get("j_droid_merchant", "")), "done", "the droid merchant's card is not left open")
@@ -244,7 +235,18 @@ func test_a_skip_does_not_pay_twice_for_what_was_played() -> void:
 	Story.beat("cantina_owner")
 	var c0 := WorldState.credits
 	Story.skip_to("smuggle_1")
-	assert_eq(WorldState.credits, c0, "Oda paid for the practice when she told it")
+	assert_eq(WorldState.credits, c0, "nothing paid twice for the sparring droid")
+
+
+func test_a_save_at_the_cut_range_chapter_goes_on_to_the_sparring_droid() -> void:
+	WorldState.new_game(WorldState.STORY)
+	Story.skip_to("remote")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(WorldState.to_save()))
+	d.story.chapter = "range"
+	WorldState.from_save(d)
+	assert_eq(Story.chapter(), "remote")
+	WorldState.on_range_visited()
+	assert_eq(Story.chapter(), "smuggle_1")
 
 
 # ---- data ----------------------------------------------------------------------
