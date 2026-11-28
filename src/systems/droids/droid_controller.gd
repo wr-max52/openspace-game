@@ -763,6 +763,8 @@ func offworld_merchant() -> String:
 		if str(id) != home and not bool((pc.get("club_dome", {}) as Dictionary).get("droid_merchant", false)):
 			continue
 		var to := PlanetGen.system_port(str(id), cc)
+		if here != "" and PlanetGen.system_of(str(id), cc) != PlanetGen.system_of(here, cc):
+			to = Vector3.INF        # issue #874: another star system is never "nearest"
 		var d := from.distance_to(to) if from.is_finite() and to.is_finite() else (0.0 if str(id) == home else INF)
 		if d < best_d:
 			best = str(id)

@@ -43,7 +43,29 @@ where `at` puts it. Fly into it to land there.
 | `encounter` | Optional. The space fight when you climb out of this planet's atmosphere (`"orbital_skirmish"`), or `""` for a quiet sky. Default: the landing pad's. |
 | `features` | The port only: `training_range`, `speeders`, `landforms`, `pickups`. |
 | `town` / `world` | The port only: use a hand-built town and world instead of generated ones. |
+| `system` | Optional (issue #874). The star system it is in (`types.json` `space.systems`). Default: the system of the sun or planet it is `near`, so a moon needs none. Another system never hangs in this one's sky. |
+| `sphere_radius` | Optional (issue #874), a `terrain` type only: the generated dune world is a whole ball of this many metres, like the home world's own world file. |
 | `town_layout` | With `town`: the saved layout the town is built to (`content/core/towns/<id>.json`, issue #237), e.g. `port_square` (size 50). The town keeps its id (`port_town`) whatever layout it has; `town_size` should match the layout's `size`. F11 > World > Town builds the home town to another layout for the rest of the run. |
+
+## Star systems and the warp drive (issue #874)
+
+Planets belong to star systems (`types.json` `space.systems`): each has its own
+sun (a name planets can be `near`, placed at `sun_at` in its own frame), its main
+planet (`main`: where a warp drops you, and whose ball frames open space's sky),
+a `label` and a star colour for the picker. Systems never share a scene: open
+space is the current system's (`PlanetGen.current_system`: the planet you are on,
+or in open space `WorldState.system`, saved), and only its planets hang there.
+
+The warp drive is T-89's 10,000 cr upgrade (`t89.json` `"warp"`, an `unlock`
+upgrade: `ShipUpgrades.unlocked`). In open space only, seated and flying, hold
+`K` (`flight_warp`) for `space.warp.hold_s` and pick a system; the warp runs on
+its own for at least `min_s` while the next system's main planet is built (the
+flames lengthen, the sky's stars rush out from dead ahead and the field of view
+kicks: nothing new is drawn), then you are in that system's open space, outside
+its main planet's bubble by `arrive_m` on its sunward side, nose on it
+(`WarpDrive.arrival`). A save made out there loads at that main planet. A third
+system is planet files with `"system"` (or a `near` on its sun) and a line in
+`space.systems`.
 
 ## Planet types
 

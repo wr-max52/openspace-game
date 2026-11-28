@@ -163,6 +163,9 @@ var kit: ShipKit                 ## built once at load (on the town's materials)
 var fight_log: Array = []        ## { outcome, payout, at } per sortie, for traces and tests
 var space_exit_margin := 250.0   ## metres below the edge that break off a running fight
 var travel: SpaceTravel          ## issue #45: the other planets in this sky, and flying to them
+var warp: WarpDrive              ## issue #874: the warp drive (does nothing unless T-89 fitted one)
+var fov_kick := 0.0              ## issue #874: degrees added to the flight camera's field of view (the warp)
+var flame_stretch := 1.0         ## issue #874: the boosters' flames, lengthened (the warp)
 var _engine: AudioStreamPlayer   ## issue #16: the engine drone while the ship flies
 var seeker_warning := SeekerWarning.new()   ## an enemy lock or seeker on her: alarm, text and dash lamp
 var _alarm: AudioStreamPlayer    ## the seeker warning's alarm, made when it first sounds
@@ -236,6 +239,7 @@ func _ready() -> void:
 	if demo.use_look and demo.look != null:
 		sky = AltitudeSky.new()
 		sky.setup(demo.look, ground.atmosphere())
+		sky.all_round = "planet" in demo and str(demo.planet.get("ground", "")) == "none"    # issue #874: open space
 		demo.add_child(sky)
 	var pads: Array = GameFlow.pads_for_scene(SCENE_PATH)
 	pad = demo.resolve_pad(pads[0]) if not pads.is_empty() else {}
@@ -277,6 +281,9 @@ func _ready() -> void:
 		travel.staged = "staging" in demo and bool(demo.staging)    # issue #121: a handoff's first frame
 		travel.setup(self, demo.planet.get("neighbours", []), demo.use_look)
 		demo.add_child(travel)
+		warp = WarpDrive.new()
+		warp.pilot = self
+		add_child(warp)
 	if str(demo._arrival.get("mode", "")) == "" and WorldState.opening_due():
 		opening_landing.call_deferred()      # issue #202: the story (and a new free roam game) opens with the landing
 	elif str(demo._arrival.get("mode", "")) == "reentry":
@@ -1218,6 +1225,8 @@ func arrive_handoff(a: Dictionary) -> void:
 		demo.terrain.prefetch(at)       # issue #574: only when there is ground near to step out on
 	if sky != null:
 		sky.update_for(atmo.altitude(), at)
+	if a.has("warp") and warp != null:
+		warp.arrived(str(a.warp))         # issue #874: out of the warp, settling
 
 
 ## Put the player in the cockpit without the walk up to the ship.
@@ -1530,7 +1539,7 @@ func _seated(dt: float) -> void:
 		_set_flight_terrain_quality(demo.detail.motion_active or demo.detail.fast_ground)
 	if demo._rig != null and not wrecked_aboard:    # the Defeated shot has the camera
 		chase.up = atmo.up()
-		demo._rig.set_override(chase.update(dt, atmo.transform()), 72.0)
+		demo._rig.set_override(chase.update(dt, atmo.transform()), 72.0 + fov_kick)
 	_update_hud(agl_now)
 
 
@@ -1992,6 +2001,8 @@ func _sync_visual() -> void:
 		var up := piloting and atmo.state == AtmoFlight.State.FLYING
 		ShipKit.throttle_flames(visual, _throttle if up else 0.0, (_boost or atmo.cruise_k() > 0.5) and up,
 			get_physics_process_delta_time() if piloting else 0.0)
+		if flame_stretch > 1.0 and up:
+			ShipKit.stretch_flames(visual, flame_stretch)     # issue #874: the warp
 
 
 func _update_hud(agl_now: float) -> void:

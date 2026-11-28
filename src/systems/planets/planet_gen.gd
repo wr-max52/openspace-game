@@ -81,15 +81,17 @@ static func ids(content = null) -> Array:
 
 ## A planet, built (cached: the same planet is the same dictionary all run).
 static func build(planet_id: String, content = null) -> Dictionary:
-	if _cache.has(planet_id):
-		return _cache[planet_id]
+	# Issue #874: open space is a different place in each system (its planets).
+	var key := planet_id + "@" + current_system() if is_open_space(planet_id) else planet_id
+	if _cache.has(key):
+		return _cache[key]
 	var cc = content if content != null else _content()
 	var cfg: Dictionary = cc.planets.get(planet_id, {})
 	if cfg.is_empty():
 		push_warning("PlanetGen: unknown planet " + planet_id)
 		return {}
 	var p := make(cfg, cc)
-	_cache[planet_id] = p
+	_cache[key] = p
 	return p
 
 
@@ -173,7 +175,7 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 	if cfg.has("world"):
 		world = CoreContent.resolve_layout(cc.get_world(str(cfg.world)), layout)    # issue #295: landmarks per layout
 	else:
-		world = _world_for(id, town_id, tcfg)
+		world = _world_for(id, town_id, tcfg, cfg)
 	if cfg.has("landmarks"):
 		# A planet config's own landmarks join its world's (a space station over the
 		# moon: content/core/stations/). Moving one to another planet is moving the block.
@@ -323,8 +325,9 @@ static func system_centre(id: String, cc = null, depth := 0):
 	var near := str(cfg.get("near", ""))
 	if not cfg.has("at"):
 		return null
-	if near == sun_id():
-		var sun := system_sun(cc)
+	var sun_sys := system_of_sun(near)
+	if sun_sys != "":
+		var sun := system_sun(cc, sun_sys)
 		return sun + GameFlow.vec(cfg.at) if sun.is_finite() else null
 	if depth >= 8 or not cfgs.has(near):
 		return null
@@ -335,21 +338,120 @@ static func system_centre(id: String, cc = null, depth := 0):
 
 
 ## Issue #576: the sun's id, a name planets can be "near" (not a place).
-static func sun_id() -> String:
-	return str(space_cfg().get("sun", "sun"))
+## Issue #874: each system has its own sun (types.json space.systems); with no
+## system named, the current one's.
+static func sun_id(system := "") -> String:
+	var sys := system if system != "" else current_system()
+	return str(systems().get(sys, {}).get("sun", space_cfg().get("sun", "sun") if sys == HOME_SYSTEM else sys + "_sun"))
+
+
+## Issue #874: the system whose sun is called `sun`, or "" when no sun has that name.
+static func system_of_sun(sun: String) -> String:
+	for sys in system_ids():
+		if sun_id(sys) == sun:
+			return sys
+	return ""
 
 
 ## Issue #576: the sun's centre in the system frame (the home planet's centre less
 ## its "at"), INF when the home planet is not near the sun.
-static func system_sun(cc = null) -> Vector3:
+## Issue #874: another system's frame is its own (systems never share a scene):
+## its sun is at that system's "sun_at" (the origin unless it says).
+static func system_sun(cc = null, system := "") -> Vector3:
+	var sys := system if system != "" else current_system()
 	if cc == null:
-		if not _cache.has("_sun"):
-			_cache["_sun"] = system_sun(_content())
-		return _cache["_sun"]
+		var key := "_sun/" + sys
+		if not _cache.has(key):
+			_cache[key] = system_sun(_content(), sys)
+		return _cache[key]
+	if sys != HOME_SYSTEM:
+		return GameFlow.vec(systems().get(sys, {}).get("sun_at", [0.0, 0.0, 0.0]))
 	var home: Dictionary = cc.planets.get(home_id(), {})
-	if str(home.get("near", "")) != sun_id() or not home.has("at"):
+	if str(home.get("near", "")) != sun_id(HOME_SYSTEM) or not home.has("at"):
 		return Vector3.INF
 	return Vector3(0, -ball_radius(home, cc), 0) - GameFlow.vec(home.at)
+
+
+# ------------------------------------------------------------------ star systems (issue #874)
+
+const HOME_SYSTEM := "home"
+
+
+## Issue #874: the star systems (types.json space.systems): id -> { label, sun,
+## main, sun_at?, star? }. One "home" system when the data names none.
+static func systems() -> Dictionary:
+	if _cache.has("_systems"):
+		return _cache["_systems"]
+	var out := {}
+	var s = space_cfg().get("systems", {})
+	if s is Dictionary:
+		for k in s:
+			if s[k] is Dictionary:          # not its "note"
+				out[str(k)] = s[k]
+	if out.is_empty():
+		out = { HOME_SYSTEM: { "sun": str(space_cfg().get("sun", "sun")), "main": home_id() } }
+	_cache["_systems"] = out
+	return out
+
+
+static func system_ids() -> Array:
+	return systems().keys()
+
+
+## Issue #874: the system planet `id` is in: its file's "system", else the system
+## of the sun it is near, else the system of the planet it is near, else home.
+## Open space is in the current system.
+static func system_of(id: String, cc = null, depth := 0) -> String:
+	if is_open_space(id):
+		return current_system()
+	if cc == null:
+		var key := "_sys/" + id
+		if not _cache.has(key):
+			_cache[key] = system_of(id, _content())
+		return _cache[key]
+	var cfg: Dictionary = cc.planets.get(id, {})
+	if cfg.has("system"):
+		return str(cfg.system)
+	var near := str(cfg.get("near", ""))
+	var by_sun := system_of_sun(near) if near != "" else ""
+	if by_sun != "":
+		return by_sun
+	if near != "" and cc.planets.has(near) and depth < 8:
+		return system_of(near, cc, depth + 1)
+	return HOME_SYSTEM
+
+
+## Issue #874: the system you are in: the current planet's, or in open space the
+## one the warp drive last took you to (WorldState.system).
+static func current_system() -> String:
+	var here := GameFlow.current_planet_id()
+	if here != "" and not is_open_space(here):
+		var cfg_sys := _planet_system_quick(here)
+		if cfg_sys != "":
+			return cfg_sys
+	var ws := str(WorldState.system)
+	return ws if systems().has(ws) else HOME_SYSTEM
+
+
+## The system of a planet without building content when it is cached.
+static func _planet_system_quick(id: String) -> String:
+	var key := "_sys/" + id
+	if _cache.has(key):
+		return _cache[key]
+	return system_of(id)
+
+
+## Issue #874: the system's main planet (where a warp points you, and whose ball
+## frames the sky out there): its "main", the home planet for home.
+static func main_planet(system := "") -> String:
+	var sys := system if system != "" else current_system()
+	var m := str(systems().get(sys, {}).get("main", ""))
+	return m if m != "" else (home_id() if sys == HOME_SYSTEM else "")
+
+
+## Issue #874: the system's name for the picker and the chart.
+static func system_label(system: String) -> String:
+	return str(systems().get(system, {}).get("label", system))
 
 
 ## Where a place's own origin (a planet's port, on top of its ball) is in the
@@ -358,7 +460,7 @@ static func system_sun(cc = null) -> Vector3:
 ## origin. INF when the place is not in the system.
 static func system_port(id: String, cc = null) -> Vector3:
 	if is_open_space(id):
-		var sun := system_sun(cc)
+		var sun := system_sun(cc)        # issue #874: the current system's sun
 		return sun if sun.is_finite() else Vector3.ZERO
 	if cc == null:
 		# Asked on every switch (SpaceTravel): a full content read is ~13 ms, and
@@ -399,9 +501,23 @@ static func with_sight(detail: Dictionary, tcfg: Dictionary, cfg: Dictionary) ->
 
 
 ## A world dict for a generated planet: the same shape as content/core/worlds.
-static func _world_for(id: String, town_id: String, tcfg: Dictionary) -> Dictionary:
+static func _world_for(id: String, town_id: String, tcfg: Dictionary, cfg: Dictionary = {}) -> Dictionary:
 	var platform := str(tcfg.get("ground", "terrain")) in ["platform", "sphere"]
 	var surface: Dictionary = tcfg.get("surface", {})
+	if str(tcfg.get("ground", "terrain")) == "terrain" and float(cfg.get("sphere_radius", 0.0)) > 0.0:
+		# Issue #874: a generated dune world that is a whole ball, as the home world's
+		# own world file makes it (terrain.sphere_radius, src/systems/planets/planet_sphere.gd).
+		var r := float(cfg.sphere_radius)
+		return {
+			"id": id,
+			"label": str(tcfg.get("label", id)),
+			"town": town_id,
+			"naming": { "town": str(tcfg.get("town_naming", "town")), "planet": "planet" },
+			"terrain": { "sphere_radius": r, "extent": 6000.0, "skirt_height": 4.0, "planet_radius": r, "curve_from": 6000.0 },
+			"landmarks": [],
+			"atmosphere": tcfg.get("atmosphere", {}),
+			"detail": types().get("detail", {}),
+		}
 	if str(tcfg.get("ground", "")) == "ball":
 		# Issue #99: a real ball like the home planet (WorldTerrain asks the sphere).
 		var w := {
@@ -457,9 +573,12 @@ static func neighbours(id: String, cc = null, own_cfg: Dictionary = {}) -> Array
 	var here := system_port(id, cc) if all.has(id) or is_open_space(id) else _cfg_port(mine, cc)
 	if here == Vector3.INF:
 		return out
+	var sys := system_of(id, cc) if all.has(id) or is_open_space(id) else str(mine.get("system", HOME_SYSTEM))
 	for other in all:
 		if other == id:
 			continue
+		if system_of(str(other), cc) != sys:
+			continue        # issue #874: another star system is never in this sky
 		var c = system_centre(str(other), cc)
 		if c == null:
 			continue
@@ -476,6 +595,8 @@ static func neighbours(id: String, cc = null, own_cfg: Dictionary = {}) -> Array
 ## surface radius), else how big it looks from a neighbour's sky (body.radius).
 static func ball_radius(o: Dictionary, cc = null) -> float:
 	var t: Dictionary = types().get("types", {}).get(str(o.get("type", "sand")), {})
+	if float(o.get("sphere_radius", 0.0)) > 0.0:
+		return float(o.sphere_radius)       # issue #874: a generated ball world
 	if o.has("world") and cc != null:
 		var r := float(cc.get_world(str(o.world)).get("terrain", {}).get("sphere_radius", 0.0))
 		if r > 0.0:
@@ -499,7 +620,7 @@ static func _neighbour(o: Dictionary, at: Vector3, cc) -> Dictionary:
 	# Issue #77: a planet that is a real ball (its world's terrain.sphere_radius)
 	# looks its true size from a neighbour's sky. Issue #99: so does a ball type.
 	var r := ball_radius(o, cc)
-	var ball := str(t.get("ground", "")) == "ball"
+	var ball := str(t.get("ground", "")) == "ball" or float(o.get("sphere_radius", 0.0)) > 0.0
 	if o.has("world") and cc != null:
 		ball = ball or float(cc.get_world(str(o.world)).get("terrain", {}).get("sphere_radius", 0.0)) > 0.0
 	return {

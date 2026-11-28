@@ -34,7 +34,9 @@
   "upgrades": {
     "shields": { "label": "Boosted shields", "short": "Shields+", "price": 1200, "mult": { "shield.max": 1.5, "shield.regen": 1.5 } },
     "hull": { "label": "Reinforced hull", "short": "Hull+", "price": 1200, "mult": { "hull": 1.5 } },
-    "boost": { "label": "Booster speed", "short": "Boost+", "price": 1500, "mult": { "atmosphere.boost_speed": 1.25, "flight.boost_speed": 1.25 } }
+    "boost": { "label": "Booster speed", "short": "Boost+", "price": 1500, "mult": { "atmosphere.boost_speed": 1.25, "flight.boost_speed": 1.25 } },
+    "warp": { "label": "Warp drive", "short": "Warp", "price": 10000, "unlock": "warp",
+      "note": "Issue #874: an unlock, not a mult: a flag on the ship (ShipUpgrades.unlocked). With it fitted, hold the warp key in open space to pick another star system (src/systems/flight/warp_drive.gd)." }
   },
   "default_price": 1500,
   "resale_rate": 0.6,

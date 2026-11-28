@@ -308,23 +308,24 @@ func _update_labels(flying: bool) -> void:
 ## ball's up there; LookEnvironment.space_frame), so the sky is the same on both
 ## sides of any switch, open space included.
 func _share_parent_sky(look) -> void:
-	var home_id := PlanetGen.home_id()
-	if here_id == "" or here_id == home_id:
+	# Issue #874: the sky is framed by the main planet of the system you are in.
+	var home_id := PlanetGen.main_planet()
+	if here_id == "" or here_id == home_id or home_id == "":
 		return
 	var home_port := PlanetGen.system_port(home_id) - PlanetGen.system_port(here_id)
 	if not home_port.is_finite():
 		return
-	if _home_ball == null:
-		# The home planet's ball, once a run: building its terrain to read it was
+	if not _home_balls.has(home_id):
+		# The main planet's ball, once a run: building its terrain to read it was
 		# ~11 ms on every switch into open space or another planet.
 		var pt := PlanetTerrain.for_planet(PlanetGen.build(home_id))
 		if pt == null:
 			return
-		_home_ball = pt.sphere
+		_home_balls[home_id] = pt.sphere
 		pt.free()
-	var home_ball := _home_ball
+	var home_ball: PlanetSphere = _home_balls[home_id]
 	look.space_frame = func(p: Vector3) -> Basis: return home_ball.tilt_at(p - home_port)
-static var _home_ball: PlanetSphere
+static var _home_balls: Dictionary = {}
 
 
 ## Where the eye starts in this scene: the ship carried in by a handoff, else the port.

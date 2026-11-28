@@ -220,6 +220,8 @@ static func planet() -> Dictionary:
 static func travel(tree: SceneTree, to: String, ship_id: String = "", name: String = "", extra: Dictionary = {}) -> void:
 	var from := current_planet_id()
 	planet_id = to
+	if not PlanetGen.is_open_space(to):
+		WorldState.system = PlanetGen.system_of(to)     # issue #874: landing anywhere puts you in its system
 	flown_ship = ship_id
 	in_flight = false
 	arrival = { "mode": "handoff" if extra.has("handoff") else "travel", "from": from, "to": to, "ship": ship_id, "name": name,

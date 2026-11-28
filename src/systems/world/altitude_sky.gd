@@ -20,6 +20,8 @@ var level := 0.0
 var space: Dictionary = {}
 var _stars: MultiMeshInstance3D
 var _star_mat: StandardMaterial3D
+var _star_size := 40.0
+var all_round := false             ## issue #874: stars all round (open space has no ground to hide half)
 var _applied := -1.0
 var _applied_preset := ""
 
@@ -80,6 +82,34 @@ func update_for(altitude: float, viewer: Vector3) -> void:
 		env.env.volumetric_fog_density = float(vol.get("density", 0.003)) * (1.0 - level)
 
 
+## Issue #874: the warp drive's star rush. `amount` 0 leaves the stars as they
+## are; above it they spread out from `forward` (dead ahead) as if flown past:
+## the star shell squashed along forward and widened across it (the same stars,
+## no new mesh or material).
+## The warp's star rush (issue #874): the star field pulled out from `forward`
+## by `amount` (0 = as it was), each star `swell` times its size, at least
+## `glow` bright. The same stars and material, only moved: no new effect.
+func warp_stretch(amount: float, forward: Vector3, swell := 1.0, glow := -1.0) -> void:
+	if _stars == null:
+		return
+	var quad := _stars.multimesh.mesh as QuadMesh
+	if amount <= 0.001 or forward.length_squared() < 0.0001:
+		_stars.basis = Basis()
+		if quad != null:
+			quad.size = Vector2(_star_size, _star_size)
+		return
+	var z := forward.normalized()
+	var x := z.cross(Vector3.UP if absf(z.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT).normalized()
+	var y := x.cross(z)
+	var r := Basis(x, y, z)
+	var wide := 1.0 + amount
+	_stars.basis = r * Basis.from_scale(Vector3(wide, wide, 1.0 / wide)) * r.transposed()
+	_stars.visible = true
+	if quad != null:
+		quad.size = Vector2.ONE * _star_size * maxf(swell, 1.0)
+	_star_mat.albedo_color.a = maxf(_star_mat.albedo_color.a, minf(1.0, amount if glow < 0.0 else glow))
+
+
 func _mix(k: Dictionary, key: String, space_key: String) -> Color:
 	var a := Color.html(str(k.get(key, "#808080")))
 	var b := Color.html(str(space.get(space_key, "#000000")))
@@ -92,6 +122,7 @@ func _build_stars() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	var quad := QuadMesh.new()
 	var sz := float(st.get("size", 40.0))
+	_star_size = sz
 	quad.size = Vector2(sz, sz)
 	_star_mat = StandardMaterial3D.new()
 	_star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -109,7 +140,7 @@ func _build_stars() -> void:
 	var dist := float(st.get("distance", 60000.0))
 	for i in n:
 		# On the ball "up" turns with you: stars all round (the planet hides its share).
-		var low := -1.0 if PlanetSphere.current != null else 0.02
+		var low := -1.0 if PlanetSphere.current != null or all_round else 0.02
 		var v := Vector3(rng.randf_range(-1, 1), rng.randf_range(low, 1), rng.randf_range(-1, 1)).normalized()
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * rng.randf_range(0.3, 1.0)), v * dist))
 	_stars = MultiMeshInstance3D.new()
