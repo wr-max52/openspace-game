@@ -520,7 +520,7 @@ static func terrain_marks(planet: Dictionary, sphere: PlanetSphere, boulders: Ar
 		return out
 	var id := str(planet.get("id", ""))
 	if "landforms" in planet.get("features", []):
-		var data := DesertLandforms.load_data()
+		var data := DesertLandforms.load_for(planet)
 		if DesertLandforms.mesa_planet == id and not DesertLandforms.mesa_spots.is_empty():
 			for m in DesertLandforms.mesa_spots:
 				out.append({ "kind": "mountain", "map": m.map, "size": float(m.radius) })

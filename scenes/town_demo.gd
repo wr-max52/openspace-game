@@ -2165,6 +2165,7 @@ func _build_landforms(st: StagedBuild = null) -> void:
 	if with_landforms:
 		landforms = DesertLandforms.new()
 		landforms.clear_circles = _landmark_clearings()
+		landforms.planet = planet
 		add_child(landforms)
 		await landforms.build(terrain, _flat_mats(), desert_site().floor, st)
 		if terrain is PlanetTerrain:
@@ -2202,6 +2203,8 @@ func _landmark_clearings() -> Array:
 	var cc: CoreContent = CoreContent.shared()
 	var out: Array = []
 	var w: Dictionary = cc.world_for_town(str(town.data.get("id", "")), str(town.data.get("layout", "")))
+	if w.is_empty():
+		w = planet.get("world", {})        # issue #875: a generated planet's world (its landmarks joined in)
 	for lm in w.get("landmarks", []):
 		if lm.has("clear"):
 			out.append([Vector2(float(lm.at[0]), float(lm.at[2])), float(lm.clear)])
