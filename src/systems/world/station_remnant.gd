@@ -39,6 +39,13 @@ var _queue: Array = []
 var _folk                           ## Townsfolk running the locals' guards
 var _swap_t := -1.0                 ## seconds until the locals' guards move in (after a take)
 var _holo_tried := false
+## Issue #838: a front's outpost or barracks deck (the belt's skimmers and the station
+## city's deck) plays by that front's rules: see _tick_front_rules.
+var held_by := ""                   ## who the people standing here are ("" before they wake)
+var cleared_at := -1.0              ## WorldState.clock its last trooper died (an outpost: the swap waits)
+var restock := false                ## locked and cleared: the troopers come back once you are away
+var supplied := 0                   ## supply runs handed over here (tests, traces)
+var _rules_tick := 0
 
 
 func setup(space_station, town_demo, station_hull: StationHull) -> void:
@@ -118,6 +125,7 @@ static func posts(h: StationHull) -> Array:
 		"armoury": [[3.0, -1.5]],
 		"command": [[10.0, 0.0, "commander"], [3.0, 1.8]],
 		"mess": [[6.0, -3.0], [8.0, 3.0]],
+		"skimmer": [[9.5, 2.0], [9.5, -2.0]],
 	}
 	for r in rooms(h):
 		var frame: Transform3D = r.frame
@@ -139,6 +147,20 @@ static func posts(h: StationHull) -> Array:
 			var a := k * PI + j * PI / 6.0
 			pts.append(Vector3(c.x + cos(a) * rw, y, c.y + sin(a) * rw))
 		out.append({ "id": "patrol_%d" % k, "at": pts[0], "face": Vector3.FORWARD, "soldier": "trooper", "patrol": pts })
+	# Issue #838: up on the roof (the "remnant" block's "roof": { r, count }), a guard
+	# walking a loop round it (the soldier "roof": its "roof_trooper" while the Remnant
+	# hold the deck, its "roof_guard" for the locals). Only a top floor has a roof.
+	var roof: Dictionary = h.cfg.get("remnant", {}).get("roof", {})
+	if not roof.is_empty() and int(d[1]) == (t.floors as Array).size() - 1:
+		var ry := y + h.floor_h + h.plate
+		var rr2 := float(roof.get("r", float(f.r) * 0.7))
+		for k in int(roof.get("count", 1)):
+			var a0 := TAU * k / maxf(1.0, float(roof.get("count", 1)))
+			var loop: Array = []
+			for j in 9:
+				var a := a0 + j * TAU / 8.0
+				loop.append(Vector3(c.x + cos(a) * rr2, ry, c.y + sin(a) * rr2))
+			out.append({ "id": "roof_%d" % k, "at": loop[0], "face": Vector3(cos(a0), 0, sin(a0)), "soldier": "roof", "patrol": loop })
 	return out
 
 
@@ -160,6 +182,7 @@ func _process(dt: float) -> void:
 			_locals_move_in()
 	_sleep(at)
 	_tick_holo(at)
+	_tick_front_rules(at)
 
 
 ## Your ship is close: whoever holds the deck takes their posts, a body a frame.
@@ -167,16 +190,19 @@ func _wake() -> void:
 	woke = true
 	if demo == null or not demo.has_method("make_soldier"):
 		return
-	if Territory.owner(place) == Territory.LOCALS:
+	held_by = Territory.owner(place)
+	if held_by == Territory.LOCALS:
 		_repaint(Territory.LOCALS)
 		_locals_move_in()
 		return
+	_repaint(Territory.REMNANT)
 	for p in posts(hull):
 		_queue.append(_add_trooper.bind(p))
 
 
 func _add_trooper(p: Dictionary) -> void:
-	var profile := str(cfg.get("commander" if str(p.soldier) == "commander" else "trooper", "outpost_trooper"))
+	var key: String = str({ "commander": "commander", "roof": "roof_trooper" }.get(str(p.soldier), "trooper"))
+	var profile := str(cfg.get(key, cfg.get("trooper", "outpost_trooper")))
 	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0), _yaw(p.face),
 		"%s/%s" % [place, str(p.id)], "npc:%s/%s" % [place, str(p.id)], self)
 	if g == null:
@@ -227,6 +253,17 @@ func _on_trooper_died() -> void:
 	for g in troopers:
 		if is_instance_valid(g) and not g.dead:
 			return
+	# Issue #838: the belt's barracks answer to the belt cruiser; its outposts swap
+	# on the outposts' rules (out of sight, a while later, you well away).
+	if Territory.station_locked(place):
+		restock = true
+		_toast(Territory.fline(Territory.front_of(place), "locked") % station.label(), 6.0)
+		return
+	if _front_outpost():
+		taken_here = true
+		cleared_at = WorldState.clock
+		_toast(Territory.line("cleared") % station.label(), 6.0)
+		return
 	taken_here = true
 	Territory.take_station(place, station.label())
 	_toast(Territory.line("station_taken") % station.label(), 6.0)
@@ -237,18 +274,22 @@ func _on_trooper_died() -> void:
 ## The locals' guards at the posts (fewer than the Remnant had: guard_share), run by
 ## a Townsfolk of the deck's own.
 func _locals_move_in() -> void:
+	held_by = Territory.LOCALS
 	if not guards.is_empty() or demo == null or not demo.has_method("make_soldier"):
 		return
+	if station != null and station.has_method("rebuild_skimmer"):
+		station.rebuild_skimmer()        # issue #838: the skimmer's tanks, built again for the locals
 	var all := posts(hull)
 	var every := maxi(1, roundi(1.0 / maxf(0.05, float(cfg.get("guard_share", 0.5)))))
 	for i in all.size():
-		if i % every != 0:
+		if i % every != 0 and str(all[i].soldier) != "roof":       # the roof is always watched
 			continue
 		_queue.append(_add_guard.bind(all[i]))
 
 
 func _add_guard(p: Dictionary) -> void:
-	var g: NpcBody = demo.make_soldier(str(cfg.get("guard", "local_guard")), station.to_world(p.at) + Vector3(0, 0.05, 0),
+	var profile := str(cfg.get("roof_guard", cfg.get("guard", "local_guard"))) if str(p.soldier) == "roof" else str(cfg.get("guard", "local_guard"))
+	var g: NpcBody = demo.make_soldier(profile, station.to_world(p.at) + Vector3(0, 0.05, 0),
 		_yaw(p.face), "%s/guard_%s" % [place, str(p.id)], "npc:%s/guard_%s" % [place, str(p.id)], self)
 	if g == null:
 		return
@@ -256,11 +297,106 @@ func _add_guard(p: Dictionary) -> void:
 	g.nav = null
 	g.free_walk = true
 	guards.append(g)
+	g.died.connect(_on_guard_died)
 	if not bool(demo.get("npc_brains")):
 		return
 	if _folk == null:
 		_folk = demo.make_townsfolk("StationGuards_" + str(station.id), [], TownAlarm.place_name("station_guards", str(station.vessel_name)))
 	_folk.add_member(g)
+
+
+# ------------------------------------------------------------------ a front's deck (issue #838)
+
+## One of a front's outposts (the belt's skimmers), not its barracks or a lone station.
+func _front_outpost() -> bool:
+	return Territory.outposts(Territory.front_of(place)).has(place)
+
+
+## A front's barracks deck (the station city's, the belt's barracks).
+func _front_barracks() -> bool:
+	return Territory.barracks_of(Territory.front_of(place)) == place and Territory.front_of(place) != Territory.HOME
+
+
+## The locals' guards here are all dead: an outpost goes back to the Remnant (now, or
+## when its clock is told: Territory.guards_lost), a front's barracks at once.
+func _on_guard_died() -> void:
+	if not _queue.is_empty() or Territory.owner(place) != Territory.LOCALS:
+		return
+	for g in guards:
+		if is_instance_valid(g) and not g.dead:
+			return
+	if _front_outpost():
+		Territory.guards_lost(place)
+	elif _front_barracks():
+		Territory.lose_station(place)
+
+
+## Each half second: a cleared outpost changes hands (move_in_s after its last
+## trooper, you swap_away_m off and it off your screen); a locked deck's troopers
+## come back once you are away; whoever holds it now takes the posts out of sight
+## when that is not who stands there (the clock ran out, the guards died, it was
+## taken); and supplies you carry for the locals here are handed over when you are
+## aboard (Territory.can_deliver).
+func _tick_front_rules(at: Vector3) -> void:
+	_rules_tick += 1
+	if _rules_tick % 30 != 0 or at == Vector3.INF or station == null:
+		return
+	var away: float = station.distance(at)
+	var unseen := away >= Territory.n("swap_away_m", 1000.0) and not _on_screen()
+	if cleared_at >= 0.0 and WorldState.clock - cleared_at >= Territory.n("move_in_s", 45.0) and unseen:
+		cleared_at = -1.0
+		Territory.take(place)
+	if restock and away > float(cfg.get("sleep_m", 120.0)) * 2.0 and not _on_screen():
+		restock = false
+		reset_people()
+	if woke and held_by != "" and held_by != Territory.owner(place) and cleared_at < 0.0 and (unseen or not _on_screen() and away > float(cfg.get("sleep_m", 120.0)) * 2.0):
+		reset_people()
+	var p = demo.get("_player") if demo != null else null
+	if p != null and is_instance_valid(p) and Territory.can_deliver(place) and station.aboard(p.global_position):
+		var pay := Territory.deliver(place)
+		if pay > 0:
+			supplied += 1
+			_toast(Territory.line("supplied") % [station.label(), pay], 5.0)
+
+
+## The deck is in view of the camera.
+func _on_screen() -> bool:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	return cam != null and cam.is_position_in_frustum(station.frame.origin)
+
+
+## Everyone off the posts, the deck repainted for whoever holds it now: the next
+## time you come near (wake_within) they take the posts.
+func reset_people() -> void:
+	for g in troopers:
+		if is_instance_valid(g):
+			if garrison != null and is_instance_valid(garrison):
+				garrison.remove_member(g)
+			_forget(g)
+	for g in guards:
+		if is_instance_valid(g):
+			if _folk != null and is_instance_valid(_folk):
+				_folk.remove_member(g)
+			_forget(g)
+	troopers = []
+	guards = []
+	_queue = []
+	_swap_t = -1.0
+	woke = false
+	held_by = ""
+	_repaint(Territory.owner(place))
+	if Territory.owner(place) == Territory.LOCALS and station != null and station.has_method("rebuild_skimmer"):
+		station.rebuild_skimmer()
+
+
+## Off the town scene's lists (make_soldier put it on one) and gone.
+func _forget(g: NpcBody) -> void:
+	if demo != null:
+		for list_name in ["npcs", "locals", "stage_performers"]:
+			var list = demo.get(list_name)
+			if list is Array:
+				(list as Array).erase(g)
+	g.queue_free()
 
 
 func _repaint(owner: String) -> void:

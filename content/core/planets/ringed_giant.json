@@ -28,6 +28,34 @@
       "note": "The station (moved here from the moon, PR #501) over the top of the giant, 200 m above the ball's radius (the clouds are 120 m under that): the market floor and the bay's deck are 200 m up. Inside the giant's own scene (its handoff reaches 2600 m above the clouds)."
     },
     {
+      "id": "skimmer_east",
+      "kind": "station",
+      "station": "skimmer_outpost",
+      "at": [3176, 0, 0],
+      "altitude": 200,
+      "level": "ball",
+      "yaw_deg": 0,
+      "note": "Issue #838: the three Remnant skimmer outposts (content/core/stations/skimmer_outpost.json), just over the horizon from the station city: 52 degrees round the ball from it (3176 m along the ball's radius on the map; the cloud tops, 120 m under the radius, hide anything at 200 m past 48 degrees from the station's deck, and the outpost's mast top from its top floor past 51.2), 120 degrees apart round it (86 degrees, about 5 km, between any two), all at its 200 m. 'level' 'ball': stood level with the ball's own up where it hangs, not the port's (StationHull.frame_for); its bay's mouth faces the station city."
+    },
+    {
+      "id": "skimmer_northwest",
+      "kind": "station",
+      "station": "skimmer_outpost",
+      "at": [-1588, 0, -2751],
+      "altitude": 200,
+      "level": "ball",
+      "yaw_deg": 0
+    },
+    {
+      "id": "skimmer_southwest",
+      "kind": "station",
+      "station": "skimmer_outpost",
+      "at": [-1588, 0, 2751],
+      "altitude": 200,
+      "level": "ball",
+      "yaw_deg": 0
+    },
+    {
       "id": "belt_cruiser",
       "kind": "cruiser",
       "cruiser": "belt_cruiser",

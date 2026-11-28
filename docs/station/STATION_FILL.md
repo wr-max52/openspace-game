@@ -82,6 +82,26 @@ The general version, for anything drawn or ticked anywhere in the game, is
 11. **Look layer only.** With `use_look = false` there is no fill, and the
    station plays as before.
 
+## Skimmer outposts (issue #838)
+
+The same kit at its smallest: `content/core/stations/skimmer_outpost.json`, one
+tower of one floor (the Remnant's deck) and a 56 m bay, used by three "station"
+landmarks over the ringed giant ("level": "ball" stands each level with the ball
+where it hangs). Keys any station can use:
+
+| Key | Where | What it adds |
+|---|---|---|
+| `roof_ladder` | a top floor | a ladder up to its first ceiling hatch (the station's `floor_hatch` block), to a handhold over the roof (the look: the jetpack climbs) |
+| `gantry_hatch` | the lowest floor | a shielded hatch in its plate with a ladder down to the tower's skimmer gantry |
+| `antennas` | a tower | dishes and whip antennas on its roof, posts solid (cover) |
+| `skimmer` | a tower | a gantry hung under its lowest floor, trusses, the intake pipe, and `units`: QuantoniumRefinery tanks on it (SpaceStation builds them) |
+| `remnant.roof` | the Remnant block | a guard walking a loop round the roof (`roof_trooper`, `roof_guard`) |
+| `pin` | the config | the F11 map pins it as that kind (`remnant_outpost`), with who holds its deck |
+
+Room use `skimmer` on the Remnant deck: the engine deck's pumps, a hazard box round
+the floor hatch (the floor covered round it), two troopers inside the tanks' blast.
+Who holds each deck is Territory's front `belt` (`content/core/story/territory.json`).
+
 ## The crowd (`StationCrowd`, `src/systems/world/station_crowd.gd`)
 
 About 80 people (the config's `"crowd"`), each with a home floor. They walk the

@@ -463,9 +463,25 @@ static func bounty_cfg() -> Dictionary:
 
 ## What the outpost is called in a line ("the dry wash outpost"): its location's label.
 static func outpost_label(id: String) -> String:
+	if Territory.is_station(id):
+		return _station_label(id)
 	var f := FileAccess.open("res://content/core/locations/%s.json" % id, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
 	return str(d.get("label", id)) if d is Dictionary else id
+
+
+## Issue #838: a station place's name ("station_<landmark id>"): the name this save
+## gave the station that landmark puts up (GlobeMap.station_label), found on its
+## front's planet; the id when there is none.
+static func _station_label(id: String) -> String:
+	var lm_id := id.substr(Territory.STATION.length())
+	var planet := str(Territory.front(Territory.front_of(id)).get("planet", ""))
+	if planet == "":
+		return id
+	for lm in StationHull.landmarks(PlanetGen.build(planet).get("world", {})):
+		if str(lm.get("id", "")) == lm_id:
+			return GlobeMap.station_label({ "id": lm_id, "station": str(lm.get("station", "")) })
+	return id
 
 
 ## The bounty target's soldier profile (content/core/soldiers/bounty_target.json).

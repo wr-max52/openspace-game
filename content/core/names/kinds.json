@@ -229,6 +229,25 @@
    "min_len": 4,
    "max_len": 26
   },
+  "skimmer_post": {
+   "note": "Issue #838: a Remnant skimmer outpost hanging over a gas giant's clouds (content/core/stations/skimmer_outpost.json).",
+   "patterns": [
+    [
+     "{station_prefix} Skimmer",
+     6
+    ],
+    [
+     "{~hard:cap} Skimmer",
+     3
+    ],
+    [
+     "Skimmer {#2-19}",
+     1
+    ]
+   ],
+   "min_len": 4,
+   "max_len": 26
+  },
   "town_float": {
    "note": "A town on a platform over a sea, lava or cloud (issue #45: water, lava and gas planets).",
    "patterns": [
