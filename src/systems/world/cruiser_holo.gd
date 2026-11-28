@@ -27,6 +27,15 @@ extends Node3D
 ## model of it), the cruiser and the moon, with the moon's outposts and barracks
 ## pinned on it. The station's barracks (its Remnant deck), the cruiser, and the
 ## moon's outposts and barracks each say who holds them, by colour and by name.
+##
+## Issue #838: a station that is an outpost of a front (the belt's three skimmer
+## outposts over the giant, Territory "station_<landmark id>") is pinned on the
+## ball where it really is, coloured by who holds it, like the moon's outposts, not
+## drawn as a station of its own; the station that is that front's barracks says
+## under its name how many of them each side holds. The table holo (setup) on such
+## a planet pins them too, and its town pin is that station's deck. Each outpost is
+## named, with the F11 map's own line under it (GlobeMap.owner_status: "Held by the
+## Remnant, 72:10 left"), its clock running down live.
 
 const SHADER := preload("res://src/systems/look/shaders/holo.gdshader")
 
@@ -47,6 +56,14 @@ var _refresh := 0.0
 var cruiser_flag := ""
 ## Labels whose text says who holds something: { label, text: Callable }.
 var _texts: Array = []
+## Issue #838: labels with a hold clock in them, written again every refresh_s.
+var _clocks: Array = []
+## Issue #838: outpost labels shown only while their pin is on the camera's side of
+## the ball, so the far ones do not pile onto the near ones: { label, dir }.
+var _facing: Array = []
+## Labels kept apart on screen (declutter): { label, k }, the lowest k first; a
+## label that would cover one placed before it slides down the screen until clear.
+var _clutter: Array = []
 
 
 ## `cruiser_frame` is the cruiser's frame in the world (the parent's), `anchor` the
@@ -78,7 +95,23 @@ func setup(cfg: Dictionary, sp: PlanetSphere, cruiser_frame: Transform3D, anchor
 	var town_name := str(names.get("town", ""))
 	if here_town and town_name != "":
 		town_name = here_line % town_name
-	_place(Territory.BARRACKS, _pin(sphere.map_dir(0.0, 0.0), owner_color(Territory.BARRACKS), 0.28, town_name, true))
+	# Issue #838: on a planet whose station is a front's barracks (the ringed
+	# giant's), the town pin is that deck, and the front's station outposts are
+	# pinned where they really are.
+	var town_id := Territory.BARRACKS
+	for lm in StationHull.landmarks(world):
+		var sid := Territory.STATION + str(lm.get("id", ""))
+		var f := Territory.front_of(sid)
+		if f == Territory.HOME:
+			continue
+		if Territory.barracks_of(f) == sid:
+			town_id = sid
+		elif (Territory.outposts(f) as Array).has(sid):
+			var sat := WorldGround._v3(lm.get("at", [0, 0, 0]))
+			_outpost_pin(sid, sphere.map_dir(sat.x, sat.z), GlobeMap.station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }))
+	var town_pin := _pin(sphere.map_dir(0.0, 0.0), owner_color(town_id), 0.28, town_name, true)
+	_place(town_id, town_pin)
+	_keep_apart(town_pin.label, 0)
 	for lm in world.get("landmarks", []):
 		var id := str(lm.get("id", ""))
 		if Story.OUTPOSTS.has(id):
@@ -121,6 +154,7 @@ func _orbiting_cruiser(cruiser_frame: Transform3D, text: String) -> Label3D:
 	_turn.add_child(orbit)
 	var ship_label := _label(ship.position + here.normalized() * 0.2, text, ccol)
 	_turn.add_child(ship_label)
+	_keep_apart(ship_label, 1)
 	_place(CRUISER, { "mats": [ship.material_override, orbit.material_override], "label": ship_label })
 	return ship_label
 
@@ -141,6 +175,7 @@ func _moon(m: Dictionary, text: String) -> MeshInstance3D:
 	var label := _label(moon.position + Vector3(0, r + 0.08, 0), text, mcol)
 	_turn.add_child(label)
 	moon.set_meta("label", label)
+	_keep_apart(label, 2)
 	return moon
 
 
@@ -201,7 +236,10 @@ func setup_system(cfg: Dictionary, sp: PlanetSphere, body: Dictionary, cruiser_f
 	if not ring.is_empty():
 		_planet_ring(ring)
 	for st in stations:
-		_system_station(st)
+		if station_front(str(st.id)) != "":
+			_system_outpost(st)
+		else:
+			_system_station(st)
 	if not bool(spec.get("no_cruiser", false)):
 		var ship_name := str(spec.get("lines", {}).get("here", "%s")) % str(names.get("cruiser", ""))
 		var label := _orbiting_cruiser(cruiser_frame, "")
@@ -297,9 +335,139 @@ func _system_station(st: Dictionary) -> void:
 	var label := _label(bead.position + Vector3(0, 0.06, 0), "", owner_color(id))
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_turn.add_child(label)
+	_keep_apart(label, 0)
 	var station_name := str(spec.get("lines", {}).get("station", "%s")) % str(st.get("name", ""))
 	_place(id, { "mats": [bead.material_override], "label": label })
-	_texts.append({ "label": label, "text": func() -> String: return _barracks_line(station_name, id) })
+	var f := barracks_front(id)
+	if f != "":
+		_texts.append({ "label": label, "text": func() -> String: return _moon_line(station_name, f) })
+	else:
+		_texts.append({ "label": label, "text": func() -> String: return _barracks_line(station_name, id) })
+
+
+## Issue #838: the front whose outpost station `id` ("station_<landmark id>") is,
+## or "" (the station city, or a station of no front).
+static func station_front(id: String) -> String:
+	var f := Territory.front_of(id)
+	return f if f != Territory.HOME and (Territory.outposts(f) as Array).has(id) else ""
+
+
+## Issue #838: the front whose barracks station `id` is, if that front has
+## outposts to count, or "".
+static func barracks_front(id: String) -> String:
+	var f := Territory.front_of(id)
+	return f if f != Territory.HOME and Territory.barracks_of(f) == id and not (Territory.outposts(f) as Array).is_empty() else ""
+
+
+## Issue #838: an outpost station on the system's map: a pin on the ball under
+## where it really is, coloured by who holds it (no name: the station's label
+## counts them), like the moon's outposts.
+func _system_outpost(st: Dictionary) -> void:
+	var frame: Transform3D = st.frame
+	var id := str(st.id)
+	var lm_id := id.trim_prefix(Territory.STATION)
+	var outpost_name := str(st.get("name", ""))
+	if outpost_name == "":
+		var hull: StationHull = st.get("hull")
+		outpost_name = GlobeMap.station_label({ "id": lm_id, "station": hull.id if hull != null else "" })
+	_outpost_pin(id, frame.origin - sphere.center, outpost_name)
+
+
+## Issue #838: an outpost station's pin on the ball at `dir`, coloured by who holds
+## it, named, and under the name the F11 map's line for it (outpost_line), kept
+## running live.
+func _outpost_pin(id: String, dir: Vector3, outpost_name: String) -> void:
+	var pin := _pin(dir, owner_color(id), float(spec.get("outpost_stalk", 0.12)), " ", false)
+	var label := pin.label as Label3D
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.font_size = int(spec.get("outpost_font", 32))
+	_facing.append({ "label": label, "dir": dir.normalized() })
+	_keep_apart(label, 3)
+	_place(id, pin)
+	var entry := { "label": label, "text": func() -> String: return outpost_line(outpost_name, id) }
+	_texts.append(entry)
+	_clocks.append(entry)
+
+
+## Issue #838: keep `label` clear of the labels with a lower `k` (declutter).
+func _keep_apart(label: Label3D, k: int) -> void:
+	if label == null:
+		return
+	_clutter.append({ "label": label, "k": k })
+	_clutter.sort_custom(func(a, b): return int(a.k) < int(b.k))
+
+
+## Issue #838: the labels kept apart on screen. Each frame every one goes back to
+## its own place over what it names; then, in order (the station's or the town's
+## first, the cruiser's, the moons', the outposts'), one that would cover a label
+## already placed slides down the screen until it is clear (at most
+## holo.declutter_tries steps). A few labels, a projection each: cheap.
+func declutter() -> void:
+	if _clutter.is_empty() or not is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var vp_h := get_viewport().get_visible_rect().size.y
+	var tan_half := tan(deg_to_rad(cam.fov) * 0.5)
+	var gap := float(spec.get("declutter_gap_px", 4.0))
+	var placed: Array = []
+	for c in _clutter:
+		var l := c.label as Label3D
+		if not l.has_meta("declutter_base"):
+			l.set_meta("declutter_base", l.position)
+		l.position = l.get_meta("declutter_base")
+		if not l.is_visible_in_tree() or l.text.strip_edges() == "":
+			continue
+		var wp := l.global_position
+		if cam.is_position_behind(wp):
+			continue
+		var ppm := vp_h / (2.0 * maxf(cam.global_position.distance_to(wp), 0.01) * tan_half)
+		var font: Font = l.font if l.font != null else ThemeDB.fallback_font
+		var sz := font.get_multiline_string_size(l.text, HORIZONTAL_ALIGNMENT_CENTER, -1, l.font_size) \
+			* l.pixel_size * l.global_transform.basis.get_scale().x * ppm
+		var at := cam.unproject_position(wp)
+		var top := at.y - sz.y
+		if l.vertical_alignment == VERTICAL_ALIGNMENT_CENTER:
+			top = at.y - sz.y * 0.5
+		elif l.vertical_alignment == VERTICAL_ALIGNMENT_TOP:
+			top = at.y
+		var rect := Rect2(at.x - sz.x * 0.5, top, sz.x, sz.y).grow(gap * 0.5)
+		var shift := 0.0
+		for _try in int(spec.get("declutter_tries", 6)):
+			var hit := false
+			for r: Rect2 in placed:
+				if rect.intersects(r):
+					var dy := r.end.y - rect.position.y + 1.0
+					rect.position.y += dy
+					shift += dy
+					hit = true
+			if not hit:
+				break
+		if shift > 0.0:
+			l.global_position = wp - cam.global_transform.basis.y * (shift / ppm)
+		placed.append(rect)
+
+
+## Issue #838: show an outpost's label only while its pin faces the camera.
+func face_labels() -> void:
+	if _facing.is_empty() or not is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	for f in _facing:
+		var l := f.label as Label3D
+		var n := (_turn.global_transform.basis * (f.dir as Vector3)).normalized()
+		l.visible = n.dot((cam.global_position - l.global_position).normalized()) > float(spec.get("outpost_face", -0.3))
+
+
+## Issue #838: an outpost's name and, under it, what the F11 map says of it
+## (GlobeMap.owner_status: who holds it and how long it has left), or just who
+## holds it where the map says nothing (the Remnant's, on no clock).
+func outpost_line(what: String, id: String) -> String:
+	var status := str(GlobeMap.owner_status(id).get("status", ""))
+	return "%s\n%s" % [what, status if status != "" else owner_name(id)]
 
 
 ## A station as a few drums of light: each tower from its lowest floor to its top
@@ -396,7 +564,8 @@ static func _ball_dir(x: float, z: float, r: float) -> Vector3:
 ## Who holds place `id` as a word (holo.lines.owners: remnant, locals, empty).
 func owner_name(id: String) -> String:
 	var who := _owner(id)
-	return str(spec.get("lines", {}).get("owners", {}).get(who if who != "" else "empty", who))
+	var key := who if who != "" else "empty"
+	return str(spec.get("lines", {}).get("owners", {}).get(key, key.capitalize()))
 
 
 func _owned(what: String, id: String) -> String:
@@ -455,6 +624,10 @@ func _process(dt: float) -> void:
 	if _refresh <= 0.0:
 		_refresh = float(spec.get("refresh_s", 0.5))
 		refresh_owners()
+		for c in _clocks:
+			(c.label as Label3D).text = (c.text as Callable).call()
+	face_labels()
+	declutter()
 	for id in places:
 		var p: Dictionary = places[id]
 		if float(p.flash) > 0.0:

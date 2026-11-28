@@ -106,13 +106,16 @@ func test_at_the_station_the_pointer_is_its_bay_then_its_general() -> void:
 	assert_true(Objective.other_cruiser().is_empty(), "at home the story points at the home cruiser")
 
 
-func _system_holo() -> CruiserHolo:
+func _system_holo(every_station := false) -> CruiserHolo:
 	var sp := PlanetSphere.new(3500.0)
 	var xf := CruiserHull.frame_for(sp, _belt_landmark())
-	var slm: Dictionary = StationHull.landmarks(_giant())[0]
-	var hull := StationHull.for_id(str(slm.station))
-	var stations := [{ "id": Territory.STATION + str(slm.id), "hull": hull, "frame": hull.frame_for(sp, slm, _giant()),
-		"name": "Test Station" }]
+	var stations: Array = []
+	for slm in StationHull.landmarks(_giant()):
+		var hull := StationHull.for_id(str(slm.station))
+		stations.append({ "id": Territory.STATION + str(slm.id), "hull": hull, "frame": hull.frame_for(sp, slm, _giant()),
+			"name": "Test Station" })
+		if not every_station:
+			break
 	var moons: Array = []
 	for n in PlanetGen.neighbours("ringed_giant"):
 		var m: Dictionary = n.duplicate()
@@ -162,6 +165,52 @@ func test_its_holo_says_who_holds_each() -> void:
 	assert_string_contains(station.text, "Barracks: Locals")
 	assert_string_contains(moon.text, "4 Remnant, 1 Locals")
 	assert_eq(h.owner_color("remnant_outpost_lava_glow"), Color(str(h.spec.owner_colors.locals)))
+
+
+## Issue #838: the three skimmer outposts on the bridge's holo, pinned on the
+## giant where they really are (not drawn as stations), coloured by who holds
+## each, and counted under the station city's name.
+func test_its_holo_pins_the_skimmer_outposts_on_the_giant() -> void:
+	var h := _system_holo(true)
+	var turn := h.get_node("Turn")
+	assert_eq(Territory.outposts("belt").size(), 3)
+	for id in Territory.outposts("belt"):
+		assert_true(h.places.has(id), "%s pinned" % id)
+		assert_null(turn.get_node_or_null("Station_" + str(id)), "%s is a pin, not a station model" % id)
+		assert_eq(h.owner_color(id), Color(str(h.spec.owner_colors.remnant)))
+	assert_not_null(turn.get_node_or_null("Station_station_orbital_station"), "the station city still drawn")
+	var station: Label3D = h.places["station_orbital_station"].label
+	assert_string_contains(station.text, "Outposts: 3 Remnant, 0 Locals")
+	assert_string_contains(station.text, "Barracks: Remnant")
+	var east: Label3D = h.places["station_skimmer_east"].label
+	assert_not_null(east, "each outpost named")
+	assert_string_contains(east.text, "Remnant")
+	Territory.take("station_skimmer_east")
+	h.refresh_owners()
+	assert_string_contains(station.text, "Outposts: 2 Remnant, 1 Locals")
+	assert_eq(h.owner_color("station_skimmer_east"), Color(str(h.spec.owner_colors.locals)))
+	assert_eq(east.text.get_slice("\n", 1), str(GlobeMap.owner_status("station_skimmer_east").status),
+		"the F11 map's own line: held by the locals, and the time left")
+	assert_string_contains(east.text, "Held by the locals")
+	var before := east.text
+	Territory.tick(90.0)
+	h._process(float(h.spec.get("refresh_s", 0.5)) + 0.01)
+	assert_ne(east.text, before, "its clock runs down live")
+
+
+## Issue #838: the Remnant decks' holo tables over the giant (CruiserHolo.setup)
+## pin the skimmer outposts too, and their town pin is the station city's deck.
+func test_the_decks_table_holo_pins_the_skimmer_outposts() -> void:
+	var sp := PlanetSphere.new(3500.0)
+	var spec: Dictionary = (CruiserHull.data().get("holo", {}) as Dictionary).duplicate(true)
+	spec["no_cruiser"] = true
+	var h := CruiserHolo.new()
+	h.setup(spec, sp, Transform3D(Basis.IDENTITY, sp.center + Vector3(0, sp.radius + 7000.0, 0)), Vector3.ZERO, _giant(), [], {})
+	add_child_autofree(h)
+	for id in Territory.outposts("belt"):
+		assert_true(h.places.has(id), "%s pinned" % id)
+	assert_true(h.places.has("station_orbital_station"), "the town pin is the station's deck")
+	assert_false(h.places.has(Territory.BARRACKS), "not the home port's barracks")
 
 
 func test_its_escort_meets_you_flying_for_it_not_away() -> void:
