@@ -219,6 +219,37 @@ func test_every_tunnel_has_a_roof_hatch_and_a_roof_walk() -> void:
 		assert_gt(g.height_above(xf * through), h.tunnel_h, "%s: the hatch is open down to the deck" % tn.id)
 
 
+func test_every_floor_has_hatches_in_its_ceiling() -> void:
+	var h := _hull()
+	var lm := { "id": "st", "kind": "station", "station": ID, "at": [0, 0, 0], "altitude": 3000 }
+	var g := _ground(1500.0, [lm])
+	var xf := StationHull.frame(g, "st")
+	var want := 0
+	for t in h.towers:
+		for f in t.floors:
+			want += h.floor_hatch_angles(f).size()
+	assert_gt(want, 0, "the floors have hatches")
+	assert_eq(h.floor_hatches.size(), want, "every one is cut and drawn")
+	for hc in h.floor_hatches:
+		var t := h.tower(str(hc.tower))
+		var f: Dictionary = t.floors[int(hc.floor)]
+		var c: Vector2 = t.c
+		var mid: Vector3 = (hc.xf as Transform3D).origin
+		var d := Vector2(mid.x - c.x, mid.z - c.y).length()
+		var nm := "%s/%s" % [str(t.id), str(f.id)]
+		assert_between(d, h.gap_r, h.gap_r + h.walk, "%s: over the walkway" % nm)
+		var ceil_y := float(f.y) + h.floor_h
+		# From just over the roof, straight down through the hatch to the floor.
+		var over := Vector3(mid.x, ceil_y + h.plate + 1.0, mid.z)
+		assert_gt(g.height_above(xf * over), h.floor_h, "%s: the hatch is open down to the floor" % nm)
+		assert_true(h.on_roof(over), "%s: over it is the floor's roof" % nm)
+		# Beside it, the roof stands.
+		var dir := Vector3(cos(float(hc.a)), 0, sin(float(hc.a))).cross(Vector3.UP)
+		var beside := over + dir * (float((hc.size as Vector3).z) * 0.5 + 2.0)
+		assert_almost_eq(g.height_above(xf * beside), 1.0, 0.35, "%s: the roof beside it stands" % nm)
+		assert_true(h.aboard(Vector3(mid.x, ceil_y - 1.0, mid.z)), "%s: under it is aboard" % nm)
+
+
 # ------------------------------------------------------------------ in the giant's scene
 
 func _host() -> Node:
