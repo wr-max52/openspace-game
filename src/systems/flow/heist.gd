@@ -3,7 +3,8 @@ extends RefCounted
 ## Heists (issue #306): rob an outpost's control room. Pure and static, like
 ## Territory; its state lives in WorldState.heist (saved with the world):
 ##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved }
-##   ({} or state "" = no heist on; run counts every heist taken)
+##   ({} or state "" = no heist on; run counts every heist taken; once over it
+##   keeps `ended` (why) and `outpost` (where it was: story_retry))
 ##
 ## Issue #550: the book carries all of a run, so every scene and every LAN game
 ## reads the same truth: `by` is the player who took it (their peer id in a LAN
@@ -83,7 +84,15 @@ static func wave_cfg() -> Dictionary:
 	return hack_cfg().get("wave", {})
 
 
-## The soldier profile the wave is made of, for the side holding the outpost
+## Who sends the wave: the side being robbed (the Remnant on the locals' heist,
+## the locals on the general's), whoever holds the outpost by then. Clearing an
+## outpost's troopers mid-heist hands it to the locals (Territory.take); the vault
+## is still the robbed side's, so their people come for it, not your own side's.
+static func wave_side() -> String:
+	return Territory.LOCALS if side() == "remnant" else Territory.REMNANT
+
+
+## The soldier profile the wave is made of, for the side sending it
 ## (Territory.REMNANT or Territory.LOCALS).
 static func wave_soldier(holder: String) -> String:
 	var by: Dictionary = wave_cfg().get("soldier", {})
@@ -196,7 +205,16 @@ static func targets(j: Dictionary) -> Array:
 	var hunted := str(WorldState.bounty_target().get("outpost", ""))
 	if out.size() > 1 and out.has(hunted):
 		out.erase(hunted)
+	if story_retry(j) and not out.has(STORY_FIRST):
+		out.append(STORY_FIRST)
 	return out
+
+
+## The story's first heist was taken at STORY_FIRST and ended unpaid (downed,
+## called off, flasks lost): taken again, it goes back there, even if clearing
+## its troopers handed the outpost to the locals. Its vault is still sealed.
+static func story_retry(j: Dictionary) -> bool:
+	return story_first(j) and not on() and str(WorldState.heist.get("outpost", "")) == STORY_FIRST
 
 
 ## Can job `j` be on the board now (its "requires" aside, WorldState checks
@@ -308,7 +326,8 @@ static func end(why: String) -> void:
 	if not on():
 		return
 	var run := int(WorldState.heist.get("run", 0))
-	WorldState.heist = { "run": run, "state": "", "ended": why }
+	var where := str(WorldState.heist.get("outpost", ""))
+	WorldState.heist = { "run": run, "state": "", "ended": why, "outpost": where }   # where it was: story_retry
 	_offers.clear()
 
 

@@ -163,6 +163,48 @@ func test_story_heist_then_bounty_whatever_you_killed() -> void:
 	assert_eq(Territory.owner(id), Territory.REMNANT, "sneaked: still the Remnant's")
 
 
+## Clearing the target's troopers mid-heist hands it to the locals (Territory.take):
+## the wave still comes from the side robbed, never your own side's guards.
+func test_the_wave_is_the_side_robbed_whoever_holds_it() -> void:
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB))
+	var id := Heist.target()
+	assert_eq(Heist.wave_side(), Territory.REMNANT, "the locals' heist: the Remnant come for their vault")
+	Territory.take(id)
+	assert_eq(Territory.owner(id), Territory.LOCALS, "every trooper dead: the locals moved in")
+	assert_true(Heist.on(), "the heist goes on")
+	assert_true(Heist.armed(id), "its vault is still sealed")
+	assert_eq(Heist.wave_side(), Territory.REMNANT, "still the Remnant, not the locals' own guards")
+	Heist.give_up()
+	Territory.take("remnant_outpost_far")
+	WorldState.standing["imperial_remnant"] = 0
+	assert_true(WorldState.accept_job(Heist.REMNANT_JOB))
+	assert_eq(Heist.wave_side(), Territory.LOCALS, "the general's heist: the locals come")
+
+
+## The story's first heist, downed after the locals moved in: taken again, it goes
+## back to the broken ridge, not a random outpost kilometres away.
+func test_story_first_heist_retry_goes_back() -> void:
+	WorldState.new_game(WorldState.STORY)
+	Story.skip_to("droid_merchant")
+	for i in 3:
+		Story.on_droid_delivered()
+	assert_eq(Story.chapter(), "heist")
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB))
+	assert_eq(Heist.target(), Heist.STORY_FIRST, "the first heist: the broken ridge")
+	Territory.take(Heist.STORY_FIRST)            # cleared its troopers on the way in
+	assert_true(Heist.on_downed(), "downed: off")
+	var j := WorldState.job(Heist.LOCALS_JOB)
+	assert_true(str(j.get("target", "")).ends_with(Heist.STORY_FIRST), "offered again at the broken ridge")
+	assert_true(WorldState.accept_job(Heist.LOCALS_JOB), "taken again")
+	assert_eq(Heist.target(), Heist.STORY_FIRST, "the same outpost")
+	assert_true(Heist.armed(Heist.STORY_FIRST), "its vault is sealed: rob it")
+	assert_eq(Heist.wave_side(), Territory.REMNANT, "the Remnant come for it")
+	Heist.give_up()
+	WorldState.heist["outpost"] = "remnant_outpost_west"
+	assert_false(Heist.targets(WorldState.job(Heist.LOCALS_JOB)).has(Heist.STORY_FIRST),
+		"another outpost last time: the locals' broken ridge is not a target")
+
+
 func test_skipping_past_the_heist() -> void:
 	WorldState.new_game(WorldState.STORY)
 	Story.skip_to("heist")
