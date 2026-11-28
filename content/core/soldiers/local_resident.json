@@ -84,6 +84,10 @@
     "hunt_radius": 10.0,
     "hunt_pause_s": 2.0,
     "hunt_call_s": 8.0,
+    "stagger_note": "hunt_stagger_s: each guard adds a random share of it to hunt_after_s each fight, so a squad leaves its cover to hunt one by one, not all at once. A hunter who spots you (or is shot) pops out shooting and then chases: he fights in the open and, once you break sight for chase_lost_s, runs at where you were rather than back to cover; seeing you more than chase_close_m off he closes in as he shoots (GuardBrain).",
+    "hunt_stagger_s": 6.0,
+    "chase_lost_s": 0.8,
+    "chase_close_m": 12.0,
     "sweep_deg": 60.0,
     "sweep_every_s": 1.4
   },

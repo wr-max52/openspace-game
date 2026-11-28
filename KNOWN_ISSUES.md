@@ -292,7 +292,10 @@ Stubs and fakes: things a player might expect that aren't there.
   troopers in the barracks stand round the tables (no sitting, no sleeping in
   the bunks); the top floor's cantina has its Oda (smuggling runs
   from the Remnant's levels to the favela fence) but no contracts; stalls have
-  no keepers and sell nothing; four pads are empty; NPCs can't ride the elevator; the roof hatches need the jetpack; the
+  no keepers and sell nothing; four pads are empty; NPCs can't ride the elevator, so the
+  Remnant hunt you only on their own floor (from another floor they wait on the
+  walkway on your side) and can't follow you up a hatch; their cover is only
+  behind furniture (no doorframes or wall corners); the roof hatches need the jetpack; the
   glass middle means you can't drop over the railing; the ring has no rocks (#312); home
   can't be seen from it; without the look layer there's no furniture.
 - **The belt's wrecks (#317):** not on the F11 map or the objective pointer;

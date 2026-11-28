@@ -2,6 +2,53 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — A hunt delay rolled per guard, and a hunter who finds you chases
+
+- **Staggered, in the brain, for everyone.** `GuardBrain.engage()` rolls each
+  guard's hunt delay once per fight: `hunt_after_s` plus a random share of
+  `hunt_stagger_s`. It lives in the two base profiles (`gate_guard` for the
+  Remnant, `local_resident` for the locals: 6 s plus up to 6 s), so every
+  garrison gets it, and the station sets its own (8 s plus up to 14 s). The
+  alternative, a garrison handing out turns, would need every garrison
+  (town, outposts, cruiser, station) to know about it; one random roll per
+  brain gives the same trickle with nothing shared.
+- **The chase is a hunter's only.** A guard fighting from cover when you show
+  up still goes back to cover after his opening burst. A guard who was hunting
+  (or is shot while hunting) has already left cover to find you, so he fights
+  in the open, closes in past `chase_close_m`, and runs at the newest sighting
+  once you break sight for `chase_lost_s`, never back into cover. A guard who
+  holds his ground (sentries, the bridge) never chases.
+
+## 2026-11-28 — The station's soldiers route by its layout, not a navmesh
+
+- **Why they got stuck.** Aboard the station soldiers walk straight at a point
+  (`NpcBody.free_walk`, no navmesh). Their garrison handed them the town's
+  cover spots, and `CoverPicker` only compares x and z, so a trooper on the
+  top floor could be sent to a crate in the bay 50 m below, straight through
+  the walls. The fight's fallbacks (run at where you were, hunt round it) were
+  straight lines too. Either way he ended up pinned in a room's corner.
+- **A route from the station's own shape, not a navmesh.** Every floor is the
+  same plan: wedge-shaped rooms, each opening onto a walkway ring on its middle
+  line. `StationTactics.route_local` is pure geometry: to the door, round the
+  ring in short chords, in at the target's door. A navmesh baked per floor
+  would cost build time on every visit, and the floors already know their
+  rooms (`StationHull.floor_rooms`). Furniture is stepped round by its
+  colliders' nearest clear corner, rechecked every 0.25 s per body.
+- **Cover from the room's own furniture.** The fill's colliders in the
+  soldier's room become `CoverPicker` boxes in the room's frame, so the
+  existing picker (does the box really sit between you and the threat?) does
+  the rest. `CoverPicker.candidates` takes a lower `min_height` for the
+  station (0.75 m), so the 0.8 m desks and tables count, and the standoff is
+  0.5 m because the bunk rows leave only 1 m between their ends.
+- **The brain is unchanged.** The garrison asks the tactics for cover and
+  hands the body the route's next point, while the brain keeps its own goal
+  (so its arrival checks and cover logic work as on the ground). The station
+  sets its own `hunt_after_s` (10 s) over every profile aboard, without
+  touching the cruiser's troopers who share those profiles.
+- **The general and his honour guard still hold the bridge** (`hold_ground`);
+  the off-duty troopers no longer do, since routing has fixed the reason they
+  held (no wandering across the towers).
+
 ## 2026-11-28 — The station's top floor joins the Remnant deck's place (issue #314)
 
 - **One place, not two.** #314 asked for the bridge to be the station's barracks
