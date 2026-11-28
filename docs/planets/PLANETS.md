@@ -132,6 +132,35 @@ has its pin on the map (`GlobeMap.settlement_pins`). `scenes/mountain_towns_trac
 `tests/test_mountain_towns_trace.gut.gd` and `tests/test_mountain_towns.gut.gd`
 check it.
 
+### Its roads and races (issue #882)
+
+Seven lit roads join every town to the port (`roads` in `port_red.json`). A road
+is `{ id, from, to, via }`: `from` and `to` are `"port"` or a place id, and `via`
+is `"tunnel:<id>"` (a `course_mountains` range: the road runs its whole centre
+line, carried `lead_m` past both portals) or `[lat, lon]` corners. Between those
+the road runs straight along the ground.
+
+- **Where it meets a town:** the place's way in (the lift door, the foot of the
+  road up, a ledge's foot), with `approach_m` of straight road in front of it. At
+  the port it starts `port_out_m` past the town's walls, pointing at its far end.
+- **The three ranges in the way** (`red_tunnel_port`, `_west`, `_east`) carry the
+  roads through them, as the home world's speeder tunnels do.
+- **Nothing on it:** a road's clear circles keep the small rocks off it (never a
+  peak), the mountain clusters keep `peak_keep_m` off its legs, and the landforms
+  keep a town's reach `approach_m` wider.
+- **The look** is in `content/look/roads.json`: a packed-dirt strip a little over
+  the sand (it changes no ground), and a lamp every `lamp_m`, sides taking turns,
+  none inside a tunnel. The lamps are two MultiMeshes a road, posts and glowing
+  heads with one shared glow and no real light, each drawn out to its own range.
+
+Three race crews have their camps near the outer edges of the mountain country,
+each by its own course (`content/core/racing/courses/{scorch_loop,ember_run,
+dust_mile}.json`, gates placed by `ll`), and each course runs one of the three
+other tunnels. They are a ladder of their own: Scorch races anyone, then Ember,
+then Dust. A camp is a `location` landmark dressed like the home world's racers'
+outpost. `scenes/roads_races_trace.gd`, `tests/test_roads_races_trace.gut.gd` and
+`tests/test_roads.gut.gd` check it.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the

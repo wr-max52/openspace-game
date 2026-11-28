@@ -1,0 +1,22 @@
+{
+  "note": "Issue #882: how a planet's speeder roads look (src/systems/world/road_network.gd; the roads themselves are data in the planet file's `roads` block). The strip is packed dirt a hand over the sand, darker than the dunes, drawn near only (draw_m, in chunk_m pieces each culled on its own); it never changes the ground. A lamp is a thin post with a glowing head (glow only, no real light): the heads of a whole road are one MultiMesh drawn far (glow_draw_m), so a far road reads as a dotted line of lights, the posts another drawn near (post_draw_m).",
+  "strip": {
+    "width_m": 8.0,
+    "lift_m": 0.2,
+    "chunk_m": 200.0,
+    "draw_m": 650.0,
+    "colour": "#5e2c1b",
+    "alpha": 0.6
+  },
+  "lamp": {
+    "height_m": 3.6,
+    "out_m": 1.2,
+    "post_r": 0.09,
+    "head_r": 0.32,
+    "post": "#3b3631",
+    "glow": "#ffc46a",
+    "energy": 3.0,
+    "post_draw_m": 450.0,
+    "glow_draw_m": 4000.0
+  }
+}

@@ -916,6 +916,7 @@ func _on_first_run_ai(on: bool) -> void:
 	SavePrefs.write_saves()     # every save file's preferences carry the answer
 
 
+var roads: RoadNetwork                 ## issue #882: the planet's speeder roads (its `roads` block), or null
 var _mats: LookMaterials
 func _flat_mats() -> LookMaterials:
 	if _mats == null:
@@ -1116,6 +1117,11 @@ func _build_outposts(now: bool = true) -> void:
 		add_child(settlements)
 		if now:
 			settlements.build()
+	if pilot != null and pilot.ground != null and pilot.ground.sphere() != null and not RoadNetwork.cfg_of(planet).is_empty():
+		roads = RoadNetwork.new()             # issue #882: the speeder roads between them
+		roads.setup(self, pilot.ground.sphere(), planet)
+		add_child(roads)
+		roads.build()
 	var front := Territory.front_for_planet(pid)
 	var has_outposts := pid == PlanetGen.home_id() or (front != Territory.HOME and not Territory.outposts(front).is_empty())
 	if with_outposts and pilot != null and has_outposts:
@@ -1124,8 +1130,8 @@ func _build_outposts(now: bool = true) -> void:
 		add_child(outposts)
 		if now:
 			outposts.build()
-		if pid != PlanetGen.home_id():
-			return                    # the ranch villages are the port's desert's
+		if pid != PlanetGen.home_id() and not Ranches.on_world(world):
+			return                    # the ranch villages are the port's desert's (and a planet's racers' camps, #882)
 		ranches = Ranches.new()
 		ranches.setup(self, pilot.ground)
 		add_child(ranches)
@@ -2223,6 +2229,8 @@ func _landmark_clearings() -> Array:
 		if lm.has("clear"):
 			out.append([Vector2(float(lm.at[0]), float(lm.at[2])), float(lm.clear)])
 	out.append_array(RaceCourse.clear_circles(str(w.get("id", ""))))   # issue #610: no boulders on a racing line
+	if not RoadNetwork.cfg_of(planet).is_empty():
+		out.append_array(RoadNetwork.clear_circles(planet, PlanetTerrain.for_planet(planet).sphere))   # issue #882: nor on a road
 	return out
 
 

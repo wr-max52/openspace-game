@@ -302,7 +302,7 @@ static func outpost_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 	var sites: Array = []                # the port's outposts and ranches, the racers' outpost, and the moons' (remnant_outpost_moon_*, _lava_*)
 	for lm in planet.get("world", {}).get("landmarks", []):
 		var location_id := str(lm.get("location", ""))
-		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_") or location_id == "outpost"):
+		if not (location_id.begins_with("remnant_outpost_") or location_id.begins_with("ranch_") or location_id == "outpost" or location_id.begins_with("racers_camp_")):
 			continue
 		var loc = CoreContent.read_json("res://content/core/locations/%s.json" % location_id)
 		if not (loc is Dictionary) or not bool(loc.get("pad", true)):

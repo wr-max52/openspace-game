@@ -385,6 +385,17 @@ if [ ! -f test_results/mountain_towns_trace.txt ]; then
 fi
 echo "CI: mountain towns trace present ($(wc -l < test_results/mountain_towns_trace.txt) lines)"
 
+# Issue #882: the red world's roads and races: every town on a lit road to the
+# port, the lamps batched glow, a speeder drives every road and stays on it, and
+# the first red crew's race runs to the finish with its NPC racers.
+echo "CI: generating roads and races trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/roads_races_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/roads_races_trace.txt ]; then
+  echo "CI: ERROR -- roads and races trace was not generated" >&2
+  exit 1
+fi
+echo "CI: roads and races trace present ($(wc -l < test_results/roads_races_trace.txt) lines)"
+
 # Issue #876: the red system's ring station over the port (its own name and darker
 # metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
 # its cruiser's general killed (only that cruiser's flag).

@@ -1,0 +1,290 @@
+{
+  "id": "racers_camp_red_dust",
+  "note": "Issue #882: a red world racers' camp, the home world's racers' outpost (outpost.json) without its story crate, in the crew's own colours. Placed by a port_red landmark outside its course's start line.",
+  "kind": "outpost",
+  "label": "the Dust crew's camp",
+  "pad_half": 38.0,
+  "pad_blend": 24.0,
+  "look": {
+    "cap": "#b5652b",
+    "banner": "#e8c46a"
+  },
+  "buildings": [
+    {
+      "id": "wall_n",
+      "shape": "box",
+      "size": [
+        36.8,
+        2.8,
+        0.8
+      ],
+      "position": [
+        0,
+        0,
+        -18.0
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_s_w",
+      "shape": "box",
+      "size": [
+        20.4,
+        2.8,
+        0.8
+      ],
+      "position": [
+        -8.2,
+        0,
+        18.0
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_s_e",
+      "shape": "box",
+      "size": [
+        9.4,
+        2.8,
+        0.8
+      ],
+      "position": [
+        13.7,
+        0,
+        18.0
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_w_n",
+      "shape": "box",
+      "size": [
+        0.8,
+        2.8,
+        14.4
+      ],
+      "position": [
+        -18.0,
+        0,
+        -11.2
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_w_s",
+      "shape": "box",
+      "size": [
+        0.8,
+        2.8,
+        12.4
+      ],
+      "position": [
+        -18.0,
+        0,
+        12.2
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_e_n",
+      "shape": "box",
+      "size": [
+        0.8,
+        2.8,
+        12.6
+      ],
+      "position": [
+        18.0,
+        0,
+        -12.1
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "wall_e_s",
+      "shape": "box",
+      "size": [
+        0.8,
+        2.8,
+        12.6
+      ],
+      "position": [
+        18.0,
+        0,
+        12.1
+      ],
+      "visual": false,
+      "look": "wall"
+    },
+    {
+      "id": "gate_n",
+      "shape": "box",
+      "size": [
+        1.6,
+        5.0,
+        1.6
+      ],
+      "position": [
+        18.0,
+        0,
+        -5.0
+      ],
+      "visual": false,
+      "look": "gate"
+    },
+    {
+      "id": "gate_s",
+      "shape": "box",
+      "size": [
+        1.6,
+        5.0,
+        1.6
+      ],
+      "position": [
+        18.0,
+        0,
+        5.0
+      ],
+      "visual": false,
+      "look": "gate"
+    },
+    {
+      "id": "barracks",
+      "shape": "box",
+      "size": [
+        7,
+        4.0,
+        6
+      ],
+      "position": [
+        -9,
+        0,
+        -12
+      ],
+      "visual": false,
+      "look": "hut_block",
+      "face": "+z"
+    },
+    {
+      "id": "supply",
+      "shape": "box",
+      "size": [
+        9,
+        3.6,
+        5
+      ],
+      "position": [
+        -8,
+        0,
+        12.5
+      ],
+      "visual": false,
+      "look": "hut_long",
+      "face": "-z"
+    },
+    {
+      "id": "watchtower",
+      "shape": "box",
+      "size": [
+        3.5,
+        9.0,
+        3.5
+      ],
+      "position": [
+        13,
+        0,
+        -13
+      ],
+      "visual": false,
+      "look": "watchtower",
+      "face": "+x"
+    },
+    {
+      "id": "parts_a",
+      "shape": "box",
+      "size": [
+        2.2,
+        1.6,
+        1.4
+      ],
+      "position": [
+        -14.5,
+        0,
+        -1.5
+      ],
+      "visual": false,
+      "look": "crates",
+      "face": "+x"
+    },
+    {
+      "id": "parts_b",
+      "shape": "box",
+      "size": [
+        1.6,
+        1.2,
+        1.2
+      ],
+      "position": [
+        3.0,
+        0,
+        14.5
+      ],
+      "visual": false,
+      "look": "crates",
+      "face": "-z"
+    },
+    {
+      "id": "parts_c",
+      "shape": "box",
+      "size": [
+        2.0,
+        1.8,
+        1.4
+      ],
+      "position": [
+        0.5,
+        0,
+        -15.0
+      ],
+      "visual": false,
+      "look": "crates",
+      "face": "+z"
+    }
+  ],
+  "points": {
+    "fire": [
+      3.0,
+      0,
+      -3.0
+    ],
+    "locals": [
+      [
+        -0.1,
+        0,
+        -2.2
+      ],
+      [
+        2.2,
+        0,
+        -6.1
+      ],
+      [
+        6.1,
+        0,
+        -3.7
+      ],
+      [
+        14.0,
+        0,
+        7.5
+      ]
+    ]
+  },
+  "local": "local_racer"
+}
