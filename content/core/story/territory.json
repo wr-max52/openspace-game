@@ -68,6 +68,24 @@
         "town_freed": "The last of the Remnant at the moon's barracks is dead. The locals are taking the station back."
       }
     },
+    "belt": {
+      "note": "Issue #838: the ringed giant's front, the home world's rules on the belt. Its three Remnant skimmer outposts (station landmarks in content/core/planets/ringed_giant.json, content/core/stations/skimmer_outpost.json; places station_<landmark id>) and, as its barracks, the station city's Remnant deck (station_orbital_station). The belt cruiser (content/core/cruiser/belt_cruiser.json) locks the barracks: while the Remnant hold it, killing every trooper on the deck hands nothing over and they come back (StationRemnant, Territory.station_locked). A skimmer outpost can be cleared any time; the locals move in on the outposts' swap rules (move_in_s, swap_away_m, off screen) and hold it on the home world's clock (hold_s, supply_warn_s; a supply run from the station's cantina owner, j_supply, fills it again) until the barracks are theirs ('clock_until': 'barracks'): then every clock stops, the Remnant's skimmers run short and give up on the 'remnant' clocks, and the locals keep what they hold until their guards there are all dead. Hold all three and the Remnant are driven off the belt (flag belt_remnant_driven_off). Lose every local guard on the barracks deck and the Remnant have it back, and the clocks run again.",
+      "planet": "ringed_giant",
+      "outposts": ["station_skimmer_east", "station_skimmer_northwest", "station_skimmer_southwest"],
+      "barracks_id": "station_orbital_station",
+      "barracks_label": "Station barracks",
+      "cruiser": "belt_cruiser",
+      "clock_until": "barracks",
+      "lines": {
+        "locked": "The Remnant on %s answer to the belt cruiser. More will come until it falls.",
+        "taken": "The locals move into %s.",
+        "retaken": "The Remnant have taken %s back.",
+        "warn": "The locals at %s are running short.",
+        "driven_off": "The Remnant have pulled off the belt. The skimmers are the locals' now.",
+        "barracks": "The locals hold the station's Remnant deck now.",
+        "barracks_remnant": "The Remnant hold the station's Remnant deck again."
+      }
+    },
     "lava_moon": {
       "note": "The lava moon's front, on the moon's rules (see 'moon'): its five Remnant outposts on high ground among the lava (landmarks in content/core/planets/cinder_station.json, location files remnant_outpost_lava_*) and its barracks dome off the landing pit. Flags lava_moon_remnant_driven_off and lava_moon_town_retaken. It orbits the ringed giant, so it answers to the giant's cruiser, not the story's ('cruiser': content/core/cruiser/belt_cruiser.json; Territory.cruiser_fallen): while the Remnant hold it, its outposts are locked (clear one and the troopers come back, line 'locked') and the barracks troopers come back; once the locals hold it, the Remnant here are cut off (their outposts run short and give up on the 'remnant' clocks, a dead barracks trooper stays dead) and the barracks are the locals'; then it is the locals who restock (Territory.locals_locked): kill every guard of theirs at an outpost or the barracks and nothing changes hands; more come out of sight (line 'locals_locked'), and the Remnant's own troopers stop coming back. The fleet's defeat does not touch it. Should the Remnant get the cruiser back (the dark master's oath) it turns round again.",
       "planet": "cinder_station",

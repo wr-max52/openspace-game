@@ -174,8 +174,21 @@ func test_a_short_hold_shows_and_the_town_goes_green() -> void:
 ## are waypoints the objective pointer follows ("station:<place>").
 func test_ringed_giant_pins_its_ring_station() -> void:
 	var giant := PlanetGen.build("ringed_giant")
-	var stations: Array = GlobeMap.pins(giant.world, giant).filter(func(p): return str(p.kind) == "station")
+	var all_pins: Array = GlobeMap.pins(giant.world, giant)
+	var stations: Array = all_pins.filter(func(p): return str(p.kind) == "station")
 	assert_eq(stations.size(), 1, "one pin for the ring station")
+	# Issue #838: the skimmer outposts are stations too, but pinned as the Remnant's
+	# outposts, each saying who holds its deck.
+	var posts: Array = all_pins.filter(func(p): return str(p.id).begins_with("station_skimmer_"))
+	assert_eq(posts.size(), 3, "a pin for each skimmer outpost")
+	for p in posts:
+		assert_eq(str(p.kind), "remnant_outpost", "%s pinned as an outpost" % p.id)
+		assert_eq(str(p.owner), Territory.REMNANT, "%s the Remnant's" % p.id)
+		assert_ne(str(p.label), "", "%s has its name" % p.id)
+	WorldState.control["station_skimmer_east"] = { "owner": Territory.LOCALS }
+	var east: Array = GlobeMap.pins(giant.world, giant).filter(func(p): return str(p.id) == "station_skimmer_east")
+	assert_eq(str(east[0].owner) if not east.is_empty() else "", Territory.LOCALS, "taken, its pin says the locals")
+	WorldState.control.erase("station_skimmer_east")
 	if stations.is_empty():
 		return
 	assert_eq(str(stations[0].view), "station:ringed_giant", "clicking it opens the station's side view")

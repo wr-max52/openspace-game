@@ -135,10 +135,27 @@ static func _front_of(f: String) -> Dictionary:
 			"driven_off": f + "_remnant_driven_off", "retaken": f + "_town_retaken",
 			"dead": f + "_barracks_dead", "remnant_dead": f + "_remnant_dead", "clock": false,
 			"lines": m.get("lines", {}), "posts": m.get(BARRACKS, {}).get("posts", {}), "planet": str(m.get("planet", "")),
-			"label": str(m.get("barracks_label", "Barracks")), "cruiser": str(m.get("cruiser", "")) }
+			"label": str(m.get("barracks_label", "Barracks")), "cruiser": str(m.get("cruiser", "")),
+			"clock_until": str(m.get("clock_until", "")) }
 	return { "outposts": Story.OUTPOSTS, "barracks": BARRACKS, "driven_off": DRIVEN_OFF, "retaken": RETAKEN,
 		"dead": "barracks_dead", "remnant_dead": "remnant_dead", "clock": true, "lines": cfg().get("lines", {}),
-		"posts": cfg().get(BARRACKS, {}).get("posts", {}), "planet": "", "label": "Barracks", "cruiser": "" }
+		"posts": cfg().get(BARRACKS, {}).get("posts", {}), "planet": "", "label": "Barracks", "cruiser": "", "clock_until": "" }
+
+
+## Issue #838: front `f` runs on the home world's clock until its barracks are the
+## locals' ("clock_until": "barracks": the belt's skimmer outposts), not until a cruiser falls.
+static func clocked_by_barracks(f: String) -> bool:
+	return str(front(f).get("clock_until", "")) == "barracks"
+
+
+## Every outpost whose locals can run short (the port's, and any front clocked by
+## its barracks): where Oda's supply run can go.
+static func clocked_outposts() -> Array:
+	var out: Array = Story.OUTPOSTS.duplicate()
+	for f in fronts():
+		if clocked_by_barracks(f):
+			out += outposts(f)
+	return out
 
 
 ## The fronts past the port's (territory.json "fronts" keys: "moon", "lava_moon").
@@ -222,6 +239,8 @@ static func restocked_by(f: String = HOME) -> String:
 ## they hold: killing their guards there hands nothing over; more come.
 static func locals_locked(id: String) -> bool:
 	var f := front_of(id)
+	if clocked_by_barracks(f):
+		return false                          # issue #838: their guards dead, it changes hands
 	return restocked_by(f) == LOCALS and ((outposts(f) as Array).has(id) or id == barracks_of(f))
 
 
@@ -259,6 +278,28 @@ static func is_station(id: String) -> bool:
 	return id.begins_with(STATION)
 
 
+## Issue #838: a station deck that is a front's barracks (the belt's: the station
+## city's Remnant deck) answers to that front's cruiser: while the Remnant hold it,
+## killing every trooper there hands nothing over; more come.
+static func station_locked(id: String) -> bool:
+	for f in fronts():
+		if str(front(f).barracks) == id and cruiser_of(f) != "":
+			return not cruiser_fallen(f)
+	return false
+
+
+## Issue #838: the locals' guards on a station deck that is a front's barracks are all
+## dead: the Remnant have it back (and that front's clocks run again).
+static func lose_station(id: String) -> void:
+	if not is_station(id) or owner(id) != LOCALS:
+		return
+	WorldState.control.erase(id)
+	for f in fronts():
+		if str(front(f).barracks) == id:
+			WorldState.log_event(fline(f, "barracks_remnant"))
+	_sync_flags()
+
+
 ## The last trooper on a station's Remnant deck is dead: the locals have it.
 static func take_station(id: String, label: String) -> void:
 	if not is_station(id) or owner(id) == LOCALS:
@@ -285,7 +326,8 @@ static func hold_left(id: String) -> float:
 
 ## The locals there are running short (a supply run would help).
 static func short(id: String) -> bool:
-	return front_of(id) == HOME and owner(id) == LOCALS and not WorldState.has_flag(DRIVEN_OFF) and locals_clocked() \
+	var f := front_of(id)
+	return outposts(f).has(id) and owner(id) == LOCALS and not driven_off(f) and locals_clocked(f) \
 		and hold_left(id) <= n("supply_warn_s", 420.0)
 
 
@@ -294,6 +336,8 @@ static func short(id: String) -> bool:
 ## their clocks that run; the locals keep what they hold until their guards there
 ## are all dead.
 static func locals_clocked(f: String = HOME) -> bool:
+	if clocked_by_barracks(f):
+		return owner(barracks_of(f)) != LOCALS and not driven_off(f)
 	return bool(front(f).clock) and not Story.cruiser_taken()
 
 
@@ -305,6 +349,8 @@ static func rn(key: String, fallback: float) -> float:
 ## The cruiser has fallen and the Remnant still hold some of the desert: their
 ## outposts run down. A front with a cruiser of its own goes by that one.
 static func remnant_cut_off(f: String = HOME) -> bool:
+	if clocked_by_barracks(f):
+		return owner(barracks_of(f)) == LOCALS and not driven_off(f)    # issue #838: cut off once the barracks fall
 	return cruiser_fallen(f) and not driven_off(f)
 
 
@@ -326,7 +372,7 @@ static func remnant_short(id: String) -> bool:
 ## of its own (the lava moon's) has every outpost locked while the Remnant hold it.
 static func locked(id: String) -> bool:
 	var f := front_of(id)
-	if cruiser_of(f) != "" and outposts(f).has(id):
+	if cruiser_of(f) != "" and outposts(f).has(id) and not clocked_by_barracks(f):
 		return not cruiser_fallen(f)
 	return not Story.cruiser_taken() and after_cruiser(id)
 
@@ -451,6 +497,19 @@ static func _tick_front(f: String, dt: float) -> void:
 	if lost(f) == outposts(f).size() and not WorldState.has_flag(str(front(f).retaken)):
 		_drive_off(f)
 		return
+	if locals_clocked(f) and clocked_by_barracks(f):
+		# Issue #838: the home world's clock on the locals' hold (till the barracks fall).
+		var warn := n("supply_warn_s", 420.0)
+		for id in held(f):
+			var c = WorldState.control.get(id)
+			if not (c is Dictionary) or not (c as Dictionary).has("hold"):
+				continue
+			var was := float(c.hold)
+			c.hold = was - dt
+			if was > warn and float(c.hold) <= warn:
+				WorldState.log_event(fline(f, "warn") % Story.outpost_label(str(id)))
+			if float(c.hold) <= 0.0:
+				retake(str(id))
 	if remnant_cut_off(f):
 		_start_remnant_clocks(f)
 		for id in remnant_clocked(f):
@@ -514,7 +573,7 @@ static func _start_remnant_clocks(f: String = HOME) -> void:
 ## Flags the rumors and the board read.
 static func _sync_flags() -> void:
 	WorldState.set_flag("locals_hold_outpost", lost() > 0)
-	WorldState.set_flag("outpost_short", Story.OUTPOSTS.any(func(id): return short(str(id))))
+	WorldState.set_flag("outpost_short", clocked_outposts().any(func(id): return short(str(id))))
 	WorldState.set_flag("remnant_outpost_short", Story.OUTPOSTS.any(func(id): return remnant_short(str(id))))
 
 
@@ -636,7 +695,7 @@ static func supply_target() -> String:
 	for id in Story.OUTPOSTS:
 		if short(str(id)) and bool(WorldState.quests.get(quest_id(str(id)), {}).get("waypoint", false)):
 			return str(id)
-	for id in Story.OUTPOSTS:
+	for id in clocked_outposts():
 		if short(str(id)) and (best == "" or hold_left(str(id)) < hold_left(best)):
 			best = str(id)
 	return best

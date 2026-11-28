@@ -60,6 +60,7 @@ var remnant: StationRemnant            ## issue #314: the Remnant's deck and who
 var open_air := false                  ## the planet's air is breathable: you may go outside (setup)
 var belt: Array = []                   ## issue #317: the wrecks adrift under it (BeltWrecks.layout), station frame
 var belt_falls := 0                    ## times the belt had you (traces, tests)
+var refineries: Array = []             ## issue #838: QuantoniumRefinery on the skimmer gantry (StationHull.skimmer_units)
 
 var _root: Node3D
 var _inside: Node3D
@@ -117,6 +118,7 @@ func _ready() -> void:
 		remnant = StationRemnant.new()
 		remnant.setup(self, demo, hull)
 		add_child(remnant)
+	_build_skimmer()
 
 
 # ------------------------------------------------------------------ queries
@@ -160,9 +162,21 @@ func dock_path(p: Vector3) -> Array:
 	return hull.dock_path(inv * p).map(func(l): return frame * (l as Vector3))
 
 
-## The dock pad's heading (a yaw about world up: the station is level).
+## The dock pad's heading (a yaw about world up, for a station level with the port).
 func dock_yaw() -> float:
 	return (frame.basis * Basis(Vector3.UP, float(hull.dock_pad().get("yaw", 0.0)))).get_euler().y
+
+
+## Issue #838: the station's up (its frame's y). Not world up for one stood level
+## with the ball far round it (StationHull.ball_basis): ShipPilot then turns round
+## to dock_basis() and sinks along this.
+func dock_up() -> Vector3:
+	return frame.basis.y.normalized()
+
+
+## A ship set down on the dock pad, nose out to space: the whole turn, not only its yaw.
+func dock_basis() -> Basis:
+	return (frame.basis * Basis(Vector3.UP, float(hull.dock_pad().get("yaw", 0.0)))).orthonormalized()
 
 
 func dock_cfg() -> Dictionary:
@@ -193,10 +207,60 @@ func _physics_process(dt: float) -> void:
 	if _inside != null:
 		_inside.visible = distance(p.global_position) < float(cfg.get("lights_within", 3000.0))
 	_fall_guard(p)
+	_tick_skimmer(p)
 	var here := hull.aboard(at)
 	if demo.look != null and here != _shadow_capped:
 		_shadow_capped = here
 		demo.look.set_shadow_cap(float(cfg.get("aboard_shadow_distance", 0.0)) if here else 0.0)
+
+
+## Issue #838: the skimmer's quantonium tanks on its gantry (QuantoniumRefinery: the
+## outposts' numbers, hit body always, look when dressed), upright on the gantry in
+## the station's frame, each other's partners (one going up sets off the other).
+## They wear the station's hull and its Remnant deck's mark (repainted with it).
+func _build_skimmer() -> void:
+	var units := hull.skimmer_units()
+	if units.is_empty():
+		return
+	var mats: LookMaterials = demo._flat_mats() if demo != null and demo.use_look and demo.has_method("_flat_mats") else null
+	var wall: Material = null
+	var red: Material = null
+	if mats != null:
+		wall = mats.flat(Dressing.c("outpost", "steel", "#5d6168"), 0.35, 0.75)
+		red = mats.faction_flat("mark", remnant.group if remnant != null else "station:" + id, 0.6, 0.2)
+	for u in units:
+		var ref := QuantoniumRefinery.new()
+		ref.name = "Refinery_%s_%s" % [id, str(u.style)]
+		ref.label = label()
+		ref.host = demo
+		add_child(ref)
+		ref.global_transform = frame * (u.xf as Transform3D)
+		ref.build(str(u.style), mats, wall, red, 0.0, "%s/%s" % [id, str(u.style)])
+		refineries.append(ref)
+	for ref in refineries:
+		ref.partners = refineries.filter(func(x): return x != ref)
+	refineries[0].blown.connect(func(): _toast(Territory.line("refinery_blown") % label(), 5.0))
+
+
+## Blown tanks come back once the outposts' respawn time has passed and you are
+## well away (QuantoniumRefinery's back_away_m, and never while you are aboard or on
+## its gantry), as at the ground outposts; and with the deck when it changes hands.
+func _tick_skimmer(p: Node3D) -> void:
+	if refineries.is_empty() or Engine.get_physics_frames() % 30 != 0:
+		return
+	var away_m := maxf(float(QuantoniumRefinery.game_cfg().get("back_away_m", 120.0)), 600.0)
+	if distance(p.global_position) < away_m:
+		return
+	for ref in refineries:
+		if is_instance_valid(ref) and ref.due():
+			ref.rebuild()
+
+
+## The deck changed hands: the tanks are built again for the new holders.
+func rebuild_skimmer() -> void:
+	for ref in refineries:
+		if is_instance_valid(ref):
+			ref.rebuild()
 
 
 func _exit_tree() -> void:

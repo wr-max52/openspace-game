@@ -1827,12 +1827,24 @@ func _remnant_room(r: Dictionary) -> void:
 	# Every room: its floor (by use), a skirting and a steel rail round it, a
 	# stripe down the middle, red lamps along the walls, lamps hung down the middle.
 	var floors := { "control": ["plate", "#4a4e55"], "bunks": ["rubber", "#5a5e55"], "armoury": ["plate", "#4a4e55"],
-		"command": ["carpet", "#4a5470"], "mess": ["tile", "#c9c6bd"] }
+		"command": ["carpet", "#4a5470"], "mess": ["tile", "#c9c6bd"], "skimmer": ["plate", "#5a6068"] }
 	var fl: Array = floors.get(use, ["plate", "#4a4e55"])
-	_cover(r0, r1, half, _t(str(fl[0]), Dressing.c("station_fill", "room_floor_" + use, str(fl[1]))))
+	var floor_mat := _t(str(fl[0]), Dressing.c("station_fill", "room_floor_" + use, str(fl[1])))
+	var hole := _floor_hole(r)
+	if hole.is_empty():
+		_cover(r0, r1, half, floor_mat)
+		_p(kit.box(r1 - r0 - 1.0, 0.02, 0.5), _fm("mark"), Vector3((r0 + r1) * 0.5, 0.03, 0))
+	else:
+		# Issue #838: round the hatch in this room's floor, not over it.
+		var hx := float(hole.x)
+		var hw := float(hole.hw) + 0.05
+		_cover(r0, hx - hw, half, floor_mat)
+		_cover(hx + hw, r1, half, floor_mat)
+		var zo := _wall_z(hx, half) + 0.05
+		for s: float in [-1.0, 1.0]:
+			_p(kit.box(hw * 2.0, 0.02, zo - hw), floor_mat, Vector3(hx, 0.01, s * (zo + hw) * 0.5))
 	_skirt(r0, r1, half, _m("trim"))
 	_liner(r0, r1, half, 1.2, 0.1, 0.1, _m("trim"))
-	_p(kit.box(r1 - r0 - 1.0, 0.02, 0.5), _fm("mark"), Vector3((r0 + r1) * 0.5, 0.03, 0))
 	_liner(r0, r1, half, hull.floor_h - 0.64, 0.08, 0.08, _fm("lamp"), 0.1)
 	if use != "control":
 		for j in 3:
@@ -1850,6 +1862,29 @@ func _remnant_room(r: Dictionary) -> void:
 			_command(r0, r1, half)
 		"mess":
 			_mess(r0, r1, half)
+		"skimmer":
+			# Issue #838: the skimmer's control room: the engine deck's pumps out by the
+			# window, a hazard box round the hatch down to the gantry by the door.
+			_pumps(r0 + 13.5, half)
+			var hz := _t("hazard", Dressing.c("station_fill", "hazard", "#e0b030"))
+			for s: float in [-1.0, 1.0]:
+				_p(kit.box(4.2, 0.02, 0.35), hz, Vector3(r0 + 5.6, 0.03, s * 2.1))
+				_p(kit.box(0.35, 0.02, 4.55), hz, Vector3(r0 + 5.6 + s * 2.1, 0.03, 0))
+
+
+## Issue #838: the gantry hatch in room `r` (StationHull.gantry_hatch on its floor,
+## its angle the room's): { x (its middle, out from the tower's middle along the
+## room), hw }, or {} for none.
+func _floor_hole(r: Dictionary) -> Dictionary:
+	for t in hull.towers:
+		for i in (t.floors as Array).size():
+			var fh := hull.gantry_hatch(t, i)
+			if fh.is_empty() or absf(wrapf(float(fh.a) - float(r.room.a), -PI, PI)) > 0.01:
+				continue
+			if absf(float(t.floors[i].y) - (r.frame as Transform3D).origin.y) > 1.0:
+				continue
+			return { "x": float(fh.r), "hw": float(fh.hw) }
+	return {}
 
 
 ## The cruiser's control room (OutpostRoom's, as StationRemnant.control_room lays

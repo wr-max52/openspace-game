@@ -173,6 +173,8 @@ var _dock_spin := -1.0            ## over the pad: seconds into turning round (-
 var _dock_yaw0 := 0.0             ## her heading when the turn round began
 var _dock_drop := 0.0             ## how far the turn round lowers her (to just over the deck)
 var _dock_y0 := 0.0
+var _dock_b0 := Basis.IDENTITY     ## issue #838: her whole turn and place when the turn round began,
+var _dock_p0 := Vector3.ZERO       ## for a station not level with world up (dock_up)
 var _dock_to := ""                ## where Z is taking her ("<name> bay"), for the HUD
 var _dock_head := 0.0             ## the curve's heading last frame (its turn rate banks her)
 var steals := 0                   ## issue #76: outpost ships taken (traces, tests)
@@ -1086,6 +1088,8 @@ func _dock_step(dt: float) -> void:
 		_dock_spin = 0.0
 		_dock_yaw0 = f.basis.get_euler().y
 		_dock_y0 = f.position.y
+		_dock_b0 = f.basis
+		_dock_p0 = f.position
 		_dock_drop = maxf(atmo.agl() - float(dc.get("settle", 3.0)), 0.0)
 		f.speed = 0.0
 
@@ -1097,9 +1101,16 @@ func _dock_turn(dt: float, c, dc: Dictionary) -> void:
 	var secs := maxf(float(dc.get("spin_secs", 1.3)), 0.01)
 	_dock_spin += dt
 	var k := smoothstep(0.0, 1.0, minf(_dock_spin / secs, 1.0))
-	var yaw := _dock_yaw0 + wrapf(float(c.dock_yaw()) - _dock_yaw0, -PI, PI) * k
-	f.basis = Basis(Vector3.UP, yaw)
-	f.position.y = _dock_y0 - _dock_drop * k
+	var up: Vector3 = c.dock_up() if c.has_method("dock_up") else Vector3.UP
+	if up.dot(Vector3.UP) > 0.9999:
+		var yaw := _dock_yaw0 + wrapf(float(c.dock_yaw()) - _dock_yaw0, -PI, PI) * k
+		f.basis = Basis(Vector3.UP, yaw)
+		f.position.y = _dock_y0 - _dock_drop * k
+	else:
+		# Issue #838: a station stood level with the ball far round it: turn the
+		# whole way round to the pad's heading in its frame, and sink along its up.
+		f.basis = _dock_b0.orthonormalized().slerp(c.dock_basis(), k).orthonormalized()
+		f.position = _dock_p0 - up * _dock_drop * k
 	f.speed = 0.0
 	if k < 1.0:
 		return
