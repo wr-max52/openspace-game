@@ -491,6 +491,23 @@ static func _complete_jobs(trigger: String) -> void:
 			set_flag("job_done_" + id)
 			log_event("Finished the job: " + str(j.get("title", id)))
 			QuestNews.push("job_done", str(j.get("title", id)))
+			job_standing(id)
+
+
+## A job done moves the standing its board entry names: "standing": { "<faction>":
+## n, "line": what the gossip says }. Oda's own jobs and every run for a fence raise
+## the locals'. Each caller runs it once per job done (a drop once, a contract once).
+static func job_standing(id: String) -> void:
+	for b in board():
+		if str(b.get("id", "")) != id:
+			continue
+		var st: Dictionary = b.get("standing", {})
+		var why := str(st.get("line", ""))
+		for f in st:
+			if str(f) != "line" and int(st[f]) != 0:
+				change_standing(str(f), int(st[f]), why)
+				why = ""                   # the gossip once, however many factions move
+		return
 
 
 ## Issue #187: Oda's supply run, its text naming the outpost short of supplies
@@ -748,6 +765,7 @@ static func _cargo_delivered() -> void:
 		return
 	smuggle["delivered"] = true
 	QuestNews.push("cargo_delivered", smuggle_goods_text())
+	job_standing(_drop_job_id())           # a run for the fence raises the locals' standing
 
 
 static func _item(id: String) -> Dictionary:
@@ -921,6 +939,7 @@ static func collect_bounty() -> int:
 	bump("bounties_paid")
 	bounty = { "run": int(bounty.run), "outpost": str(bounty.outpost), "state": "" }
 	QuestNews.push("bounty_paid", "+%d cr" % pay)
+	job_standing("j_bounty")               # Oda's contract done: the locals hear of it
 	Story.event("bounty_paid")
 	return pay
 

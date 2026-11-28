@@ -2,6 +2,18 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## The locals thank you for Oda's jobs and the fence's drops (2026-11-28)
+
+- **A drop sold to the fence raises locals standing +3**, once per drop, at
+  the port and at every moon's and the station's fence. The general's
+  repossession run still only raises the Remnant.
+- **Oda's own jobs raise it when they are done:** the patrol in orbit +3, the
+  cargo droid for her friend +3, the range bet +2, and a bounty paid out at
+  the fence +2 (on top of the +3 for the kill). Her heist and supply run
+  already raised it and are unchanged.
+- How much each job gives is in its board entry (`"standing"` in
+  `bar_board.json`), with the line the gossip hears.
+
 ## New version is 1.7.6 (2026-11-28)
 
 - Share builds are now **OpenSpace V1.7.6**. Everything below, down to "New
