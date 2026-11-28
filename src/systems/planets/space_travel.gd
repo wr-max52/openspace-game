@@ -313,12 +313,17 @@ func _share_parent_sky(look) -> void:
 	var home_port := PlanetGen.system_port(home_id) - PlanetGen.system_port(here_id)
 	if not home_port.is_finite():
 		return
-	var pt := PlanetTerrain.for_planet(PlanetGen.build(home_id))
-	if pt == null:
-		return
-	var home_ball: PlanetSphere = pt.sphere
-	pt.free()
+	if _home_ball == null:
+		# The home planet's ball, once a run: building its terrain to read it was
+		# ~11 ms on every switch into open space or another planet.
+		var pt := PlanetTerrain.for_planet(PlanetGen.build(home_id))
+		if pt == null:
+			return
+		_home_ball = pt.sphere
+		pt.free()
+	var home_ball := _home_ball
 	look.space_frame = func(p: Vector3) -> Basis: return home_ball.tilt_at(p - home_port)
+static var _home_ball: PlanetSphere
 
 
 ## Where the eye starts in this scene: the ship carried in by a handoff, else the port.
