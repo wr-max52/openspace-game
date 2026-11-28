@@ -2,6 +2,28 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — The station's top floor joins the Remnant deck's place (issue #314)
+
+- **One place, not two.** #314 asked for the bridge to be the station's barracks
+  and the second tower's deck to be an outpost with a clock. Since then #838
+  made the deck the belt front's barracks (`station_orbital_station`), locked
+  while the belt cruiser stands and retaken when the locals' guards there die,
+  and gave the clocks and supply runs to the three skimmer outposts. Rather than
+  undo that, the bridge's general and honour guard and the barracks' off-duty
+  troopers are more posts of the same place (`StationRemnant.top_posts`, the
+  station config's `remnant.top`). The station falls only once all of them are
+  dead, and the locals' guards take the top floor's posts with the deck's.
+- **Their own garrison, holding their ground.** The station has no navmesh
+  (`free_walk`), and the deck and the top floor are in different towers. On
+  the deck's garrison, an alarm there would send the top floor's troopers
+  walking straight at you through the floors. So they get a garrison of their
+  own and every top-floor profile holds its ground.
+- **Profiles that exist.** The general is `cruiser_general` and his guard
+  `cruiser_honour_guard`, as on the cruiser's bridge; the only new profile is
+  `station_off_duty` (a `cruiser_trooper`, slower to notice you). The general's
+  story hooks (the cruiser taken, General Vask) live in `RemnantCruiser` and
+  `GeneralPost`, not in the profile, so this general is a soldier and nothing more.
+
 ## 2026-11-28 — Race tracks: lanes worked out from the rocks, picked at random (issue #853)
 
 - **NPC racers drive tracks, not straight at the gates.** On the Crooked Mile
