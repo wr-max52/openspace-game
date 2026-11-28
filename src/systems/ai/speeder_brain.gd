@@ -16,6 +16,8 @@ extends RefCounted
 ##   FOLLOW  -- drive an ordered list of points, as a loop (laps) or a line (done);
 ##              follow_track() drives a race track (issue #853, RaceCourse.race_tracks)
 ##   PURSUE  -- close on a moving target, hold a range, fire when it is ahead
+##              (issue #883: with `harass` on, a loop instead: ram the target,
+##              tail it and shoot, pass it, drop back behind, tail again)
 ##   FLEE    -- drive away from a target at `pace` (the caller eases it off)
 ##   PARK    -- drive to a spot, stop facing a set way (done)
 ## Every mode steers round `avoid` (beasts, other speeders) and round whatever
@@ -68,6 +70,22 @@ var _boost_on := false
 var _boost_t := 0.0
 var _wander := 0.0
 var _wander_t := 0.0
+var _dt := 0.0
+
+## Issue #883: PURSUE as the heist's getaway chaser drives it (harass_* in its
+## skill block). The phases go round HARASS: "ram" (straight at the target at full
+## tilt, no shooting, till within harass_ram_m: `rams` counts it), "tail" (hold
+## harass_tail_m behind for harass_tail_s and shoot, the nose swaying
+## harass_wobble_m either side so most bolts miss), "pass" (go by on one side till
+## harass_pass_m ahead: `passes`), "drop" (ease off till harass_drop_m behind).
+## A phase it can not finish in its harass_*_s (the target boosts away) moves on.
+const HARASS := ["ram", "tail", "pass", "drop", "tail"]
+var harass := false
+var phase := ""                  ## the harass phase now ("" before the first)
+var phase_t := 0.0               ## seconds in it
+var rams := 0
+var passes := 0
+var _phase_i := -1
 ## Issue #853: FOLLOW on a race track (follow_track): dense points cleared of rock,
 ## driven a look-ahead along them, braking for the turns ahead, no wander, and the
 ## rock swerve held back unless it is more than track_off_m past the track's room.
@@ -171,6 +189,7 @@ func update(dt: float) -> Dictionary:
 	command = { "throttle": 0.0, "steer": 0.0, "boost": false, "fire": false }
 	if model == null or not model.alive():
 		return command
+	_dt = dt
 	_tick_wander(dt)
 	match mode:
 		Mode.FOLLOW:
@@ -424,6 +443,9 @@ func _turn_speed(turn: float, bend_m: float) -> float:
 func _pursue() -> void:
 	if target_pos == Vector3.INF:
 		return
+	if harass:
+		_harass()
+		return
 	var to := _flat(target_pos - model.position)
 	var dist := to.length()
 	var lead := clampf(dist / maxf(absf(model.speed), 10.0), 0.0, s("lead_s", 1.0))
@@ -435,6 +457,56 @@ func _pursue() -> void:
 	_drive_to(goal, want, dist > s("boost_dist", 50.0))
 	var ahead := rad_to_deg(model.forward().angle_to(to)) if dist > 0.01 else 0.0
 	command.fire = dist <= weapon_range and ahead <= s("fire_cone_deg", 7.0)
+
+
+## Issue #883: one frame of the harass loop (HARASS).
+func _harass() -> void:
+	if _phase_i < 0:
+		_next_phase()
+	phase_t += _dt
+	var to := _flat(target_pos - model.position)
+	var dist := to.length()
+	var tv := _flat(target_vel)
+	var tspeed := tv.length()
+	var tfwd := tv / tspeed if tspeed > 2.0 else (to / dist if dist > 0.01 else model.forward())
+	var along := _flat(model.position - target_pos).dot(tfwd)     # + ahead of the target, - behind
+	match phase:
+		"ram":
+			_drive_to(target_pos + target_vel * 0.25, _top(), true)
+			if dist <= s("harass_ram_m", 4.5):
+				rams += 1
+				_next_phase()
+			elif phase_t > s("harass_ram_s", 14.0):
+				_next_phase()
+		"tail":
+			var hold := s("harass_tail_m", 14.0)
+			var want := clampf(tspeed + (dist - hold) * 0.8, 0.0, _top() * pace)
+			var sway := sin(phase_t * 1.9) * s("harass_wobble_m", 2.5)
+			_drive_to(target_pos + target_vel * 0.3 + tfwd.cross(model.up()).normalized() * sway, want, false)
+			var ahead := rad_to_deg(model.forward().angle_to(to)) if dist > 0.01 else 0.0
+			command.fire = dist <= weapon_range and ahead <= s("fire_cone_deg", 7.0)
+			if phase_t > s("harass_tail_s", 5.0):
+				_next_phase()
+		"pass":
+			var side := 1.0 if passes % 2 == 0 else -1.0
+			var right := tfwd.cross(model.up()).normalized()
+			_drive_to(target_pos + tfwd * s("harass_pass_ahead_m", 30.0) + right * side * s("harass_pass_side_m", 5.0), _top(), false)
+			if along >= s("harass_pass_m", 10.0):
+				passes += 1
+				_next_phase()
+			elif phase_t > s("harass_pass_s", 8.0):
+				_phase_i = HARASS.find("drop")     # could not get by: straight back to the tail
+				_next_phase()
+		"drop":
+			_drive_to(model.position + tfwd * 40.0, tspeed * s("harass_drop_pace", 0.4), false)
+			if along <= -s("harass_drop_m", 8.0) or phase_t > s("harass_drop_s", 6.0):
+				_next_phase()
+
+
+func _next_phase() -> void:
+	_phase_i = (_phase_i + 1) % HARASS.size()
+	phase = str(HARASS[_phase_i])
+	phase_t = 0.0
 
 
 func _flee() -> void:

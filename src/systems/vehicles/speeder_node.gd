@@ -738,6 +738,13 @@ func npc_in(seat: String) -> NpcBody:
 	return b if b != null and is_instance_valid(b) else null
 
 
+## Issue #883: NPCs aboard sit (BodyAnimator.sit_pose) rather than stand: an open
+## cockpit (show_driver: the racer) or a cab (sit_riders: the box truck), so a
+## rider is in their seat, not through its roof.
+func sits_riders() -> bool:
+	return bool(cfg.get("show_driver", false)) or bool(cfg.get("sit_riders", false))
+
+
 ## Who sits where: the speeder's local seat spots (feet), from its config.
 func seat_offset(seat: String) -> Vector3:
 	var a = cfg.get("seats", {}).get(seat, null)
@@ -791,8 +798,8 @@ func seat_npc(body: NpcBody, seat: String = "driver") -> bool:
 	if body.look_body != null and is_instance_valid(body.look_body) and body._look_rest != Vector3.INF:
 		body.look_body.position = body._look_rest
 	_body_collision(body, false)
-	if seat == "driver" and bool(cfg.get("show_driver", false)):
-		_sit_npc(body)
+	if sits_riders():
+		_sit_npc(body)              # issue #883: an open cockpit sits everyone aboard, the rider too
 	if not body.died.is_connected(_on_rider_died):
 		body.died.connect(_on_rider_died.bind(body))
 	_carry_riders()
@@ -801,8 +808,10 @@ func seat_npc(body: NpcBody, seat: String = "driver") -> bool:
 
 
 ## Put `body` (or, with null, everyone) back on their feet beside the speeder:
-## left, then right, then behind. Their own brain carries on as it was.
-func step_off(body: NpcBody = null) -> bool:
+## left, then right, then behind. Their own brain carries on as it was. Issue
+## #883: `side` > 0 tries the right first (the heist crew gets off across from
+## you, who step off to the left), < 0 the left; 0 as before.
+func step_off(body: NpcBody = null, side := 0.0) -> bool:
 	var left := false
 	var taken: Array = []
 	for seat in npc_seats.keys():
@@ -812,7 +821,7 @@ func step_off(body: NpcBody = null) -> bool:
 		npc_seats.erase(seat)
 		if b == null or not is_instance_valid(b):
 			continue
-		var spot := _npc_exit_spot(taken)
+		var spot := _npc_exit_spot(taken, side)
 		taken.append(spot)
 		_free_body(b, spot)
 		npc_left.emit(b, seat)
@@ -969,11 +978,14 @@ func _in_reach(b: Node3D) -> bool:
 	return (rel - u * along).length() <= float(cfg.get("board_reach", 3.2)) and absf(along) < 2.5
 
 
-func _npc_exit_spot(taken: Array) -> Vector3:
+func _npc_exit_spot(taken: Array, side := 0.0) -> Vector3:
 	var b := model.transform().basis
 	var g := model.ground
 	var u := model.up()
-	for off in [-b.x * 2.6, b.x * 2.6, b.z * 4.0, -b.x * 2.6 + b.z * 2.0, b.x * 2.6 + b.z * 2.0]:
+	var offs := [-b.x * 2.6, b.x * 2.6, b.z * 4.0, -b.x * 2.6 + b.z * 2.0, b.x * 2.6 + b.z * 2.0]
+	if side > 0.0:
+		offs = [b.x * 2.6, b.x * 2.6 + b.z * 2.0, b.z * 4.0, -b.x * 2.6, -b.x * 2.6 + b.z * 2.0]
+	for off in offs:
 		var q: Vector3 = model.position + off
 		var at: Vector3 = g.surface_below(q) + u * 0.05 if g != null else Vector3(q.x, 0.05, q.z)
 		if taken.any(func(t): return (t as Vector3).distance_to(at) < 1.0):

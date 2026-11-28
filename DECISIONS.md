@@ -2273,3 +2273,29 @@ jetpack, back up in your ship.
 - **Crates keep the desert's rule:** opened once, they stay open. A crate may
   carry its own `prizes`, so the deeper ones pay better.
 
+
+## Heist speeders: one chase loop, the harass in the brain, the grenade on arrival (2026-11-28)
+
+- **One chase loop.** The gate chase's pursue, pull up and give up moved into
+  `SpeederChase` (a small class its owner ticks), and the heist's getaway runs
+  the same one. What happens after (park at the gate, or vanish out of sight)
+  stays the owner's: `tick()` only says what changed ("pull_up",
+  "stepped_off", "back_on", "lost", "ended"). The next chase (a bounty runner
+  turning round, a native pack on speeders) is a third owner, not a third loop.
+- **Ram, tail, pass is a brain mode, not the owner's.** `SpeederBrain.harass`
+  turns PURSUE into a loop of phases with its numbers in a skill block
+  (`heist_chaser`), so it stays pure and headless-testable and any chaser can
+  switch it on. It boosts only on the ram, so a player who boosts gets away,
+  and it shoots with a wide cone and a swaying nose, so most bolts miss.
+- **The crew's grenade bursts on arrival.** A thrown grenade normally bounces
+  and waits out its fuse; the crew's is thrown on a time-of-flight arc at where
+  the speeder will be and its fuse is that flight time, so it goes off at the
+  speeder (a hit, which the grenade's own blast wrecks) or well off it (a miss),
+  never rolling about by the player. Its people damage is lowered in data so
+  the riders it throws clear live to fight on (#883).
+- **The speeder wave joins the breach's wave.** Its riders go through
+  `RemnantOutposts.join_wave`, so they are the outpost's, homed on the console,
+  in the robbed side's garrison, and cleared like the foot wave once you leave.
+  The getaway's riders get a garrison of their own (no respawn) and are
+  re-homed where they step off, so they fight you there instead of walking
+  back 500 m.

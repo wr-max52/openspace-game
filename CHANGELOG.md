@@ -2,6 +2,35 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Heists: a partner who rides along, a speeder wave and a getaway chase (2026-11-28)
+
+On every heist: the story's, the job board's and the free chapter's.
+
+- **Your crew partner rides with you.** Climb on a speeder near them and they
+  hop on behind you: "Nice ride, comrade." Get off and they get off on the
+  other side. Every speeder has room now: the Sand-boxer seats four, and the
+  racer and the box truck have a rider seat (the racer's sits 1 m behind the
+  driver, in the same pose).
+- **They call the waves out loud,** not the HUD: "Here they come!" when the
+  breach starts, "Speeder inbound!" for the third wave. If they are down, the
+  HUD says it instead.
+- **A third wave on a speeder.** With 30 seconds left on the breach, a speeder
+  of the side you are robbing comes in fast from 500 m out with four troopers
+  aboard, pulls up by the door and they all jump off shooting. You can take
+  the speeder once they are off it.
+- **Your partner grenades it.** "Grenade out!" every time it comes in. Sometimes
+  it hits and wrecks it (the four are thrown clear and fight on): "Got that one
+  taken care of." On a miss, nothing.
+- **A getaway chase.** Ride off with the vault breached and a speeder of the
+  robbed side comes after you from about half a kilometre away. It rams you,
+  sits on your tail and shoots, passes you, drops back and shoots again, but
+  its aim is poor. Boost and you lose it; dawdle and it shoots you up. Get off
+  or crash and they pull up and fight on foot, as at the gate, and leave their
+  speeder for you.
+- **The story's first heist stays close.** It is still the broken ridge; if the
+  locals hold it by then, it goes to the next nearest Remnant outpost, never
+  the dry wash, where the first bounty and the general's assassination are.
+
 ## The Remnant on the ring station's top floor (2026-11-28)
 
 - **A Remnant general stands on the bridge's command dais** by the great window,

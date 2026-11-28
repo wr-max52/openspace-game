@@ -1,5 +1,5 @@
 {
-  "note": "IP-neutral. Heists (issue #306): rob an outpost's control room. Read by src/systems/flow/heist.gd. Issue #309: the console in every outpost's control room (src/systems/world/outpost_room.gd). Issue #722: the console is the vault: with the plasma welder drawn, hold [E] at it (or click [RMB], which keeps burning with nothing held while you stay in reach) for hack.seconds to start the breach (Breach vault; no welder out, no breach), then stay within hack.stay_m metres of the console for hack.run_s seconds (leave and the hack drops: start it again) and it drops hack.stash (count of item) at your feet, picked up like a smuggling drop (contraband: the gate's search finds it). It only has something to release while a heist names that outpost (WorldState.heist); otherwise it is locked. reach: metres from the spot in front of the console. When the hack starts, hack.wave sends a wave of the outpost's side (soldier, by whoever holds it): count of them, dist metres out from the console spread over arc_deg on the door's side, running in to kill you (the outpost's alarm goes up). One wave per heist; they never come back when killed. While the heist is on its outpost keeps its holder (the wave is theirs); cleared during it ('cleared' is toasted), it changes hands after the heist once you are well away. Issue #310: the jobs are on the board (content/core/board/bar_board.json: j_heist, the locals' side; j_general_heist, the Remnant's, free roam only). 'cut': the crew's share of the pay, off the top. 'hack_standing': on the hack, the side you robbed thinks a little less of you (the locals' heist costs Remnant standing, the general's costs the locals'). 'paid_standing': what the side that paid thinks of it. 'crew': who goes with you, by side: a soldier profile (content/core/soldiers), an assassin droid's variant (borrowed: it follows and fights like one of yours but is not in your roster, and goes home after), and the crew member's card (content/core/npcs/heist_crew_card.json). They keep 'follow' metres behind you, catch up past 'catch_up' (out of sight past 'rejoin'), and only shoot whoever is fighting you, within 'range' (so sneaking works with them along). 'barks' are their lines over their head.",
+  "note": "IP-neutral. Heists (issue #306): rob an outpost's control room. Read by src/systems/flow/heist.gd. Issue #309: the console in every outpost's control room (src/systems/world/outpost_room.gd). Issue #722: the console is the vault: with the plasma welder drawn, hold [E] at it (or click [RMB], which keeps burning with nothing held while you stay in reach) for hack.seconds to start the breach (Breach vault; no welder out, no breach), then stay within hack.stay_m metres of the console for hack.run_s seconds (leave and the hack drops: start it again) and it drops hack.stash (count of item) at your feet, picked up like a smuggling drop (contraband: the gate's search finds it). It only has something to release while a heist names that outpost (WorldState.heist); otherwise it is locked. reach: metres from the spot in front of the console. When the hack starts, hack.wave sends a wave of the outpost's side (soldier, by whoever holds it): count of them, dist metres out from the console spread over arc_deg on the door's side, running in to kill you (the outpost's alarm goes up). One wave per heist; they never come back when killed. While the heist is on its outpost keeps its holder (the wave is theirs); cleared during it ('cleared' is toasted), it changes hands after the heist once you are well away. Issue #310: the jobs are on the board (content/core/board/bar_board.json: j_heist, the locals' side; j_general_heist, the Remnant's, free roam only). 'cut': the crew's share of the pay, off the top. 'hack_standing': on the hack, the side you robbed thinks a little less of you (the locals' heist costs Remnant standing, the general's costs the locals'). 'paid_standing': what the side that paid thinks of it. 'crew': who goes with you, by side: a soldier profile (content/core/soldiers), an assassin droid's variant (borrowed: it follows and fights like one of yours but is not in your roster, and goes home after), and the crew member's card (content/core/npcs/heist_crew_card.json). They keep 'follow' metres behind you, catch up past 'catch_up' (out of sight past 'rejoin'), and only shoot whoever is fighting you, within 'range' (so sneaking works with them along). 'barks' are their lines over their head. Issue #883: three waves now. The outpost's own guards, the breach's wave on foot (hack.wave, called out by the crew: the 'wave' bark, else the 'wave' line as a toast), then hack.speeder_wave: with at_left_s left on the breach, a speeder of the robbed side (paint by side) with count of the wave's soldier aboard turns up dist metres out on the door's side, comes in at full boost (driver skill 'skill', content/core/vehicles/speeder_drivers.json), pulls up park_m out from the console on the door's side (giving up the park after settle_s) and everyone gets off and fights; once a heist. crew.grenade: the crew member throws one at every speeder wave as it comes in, within at_m and not nearer than min_m with a clear line; hit_chance it is aimed where the speeder will be, else miss_m off it; it flies flight_s (more for further) and bursts on arrival, the grenade's own blast (content/core/weapons/grenade.json) with blast_damage for people (a hit wrecks the speeder; its riders are thrown clear and fight on). crew.ride_reach: climb on a speeder with a free rider seat with them this close and they hop on behind you ('ride'), none free and they say 'no_room'. 'getaway': once the vault is breached, ride a speeder start_m from the console and a speeder of the robbed side with 'riders' aboard turns up spawn_m away beyond the outpost and chases you (src/systems/world/heist_raid.gd, the gate chase's loop: src/systems/world/speeder_chase.gd), its driver on the ram, tail, pass loop (skill 'skill'); a ram costs ram_damage hull and leaves you ram_slow of your speed; past escape_m for give_up_s they give up and are gone; get off and they pull up pull_up_m from you and fight on foot, their speeder left for you; anything of theirs left gone_m behind is cleared away; once a heist. story_first: where the story's first heist goes, the first of these the Remnant hold (the broken ridge, then the next nearest); never story_never (the dry wash: the first bounty and the general's assassination) while there is anywhere else.",
   "hack": {
     "seconds": 5.0,
     "reach": 1.4,
@@ -11,7 +11,30 @@
       "arc_deg": 150.0,
       "soldier": { "remnant": "yard_trooper", "locals": "local_guard" }
     },
+    "speeder_wave": {
+      "at_left_s": 30.0,
+      "count": 4,
+      "dist": 500.0,
+      "park_m": 14.0,
+      "settle_s": 6.0,
+      "skill": "wave_rush",
+      "paint": { "remnant": "remnant", "locals": "tide" }
+    },
     "stash": { "item": "refined_quantonium", "count": 15 }
+  },
+  "story_first": ["remnant_outpost_mid", "remnant_outpost_saltpan", "remnant_outpost_southwest", "remnant_outpost_windbreak", "remnant_outpost_hullside", "remnant_outpost_south", "remnant_outpost_north", "remnant_outpost_west", "remnant_outpost_far"],
+  "story_never": "remnant_outpost_near",
+  "getaway": {
+    "start_m": 150.0,
+    "spawn_m": 450.0,
+    "riders": 2,
+    "skill": "heist_chaser",
+    "pull_up_m": 18.0,
+    "escape_m": 600.0,
+    "give_up_s": 4.0,
+    "ram_damage": 8.0,
+    "ram_slow": 0.7,
+    "gone_m": 300.0
   },
   "cut": 0.2,
   "hack_standing": -3,
@@ -28,12 +51,22 @@
     "leave_s": 8.0,
     "bark_s": 7.0,
     "card": "res://content/core/npcs/heist_crew_card.json",
+    "ride_reach": 14.0,
+    "grenade": { "at_m": 45.0, "min_m": 12.0, "hit_chance": 0.4, "miss_m": [11.0, 17.0], "flight_s": [0.9, 1.8], "blast_damage": 25 },
     "barks": {
       "start": ["Right behind you. Keep it quiet till it isn't.", "Let's go get those flasks.", "I'm with you. Don't make me regret it."],
       "fight": ["Contact!", "They've seen us. Light them up!", "Covering you!", "Keep moving, I've got this one."],
       "hacked": ["Vault's open. Grab the stash and let's go.", "Nice work. Now get those flasks home."],
       "paid": ["Pleasure doing business.", "That's my cut. See you around."],
-      "down": ["I'm hit... keep going..."]
+      "down": ["I'm hit... keep going..."],
+      "ride": ["Nice ride, comrade."],
+      "no_room": ["No room for me. I'll catch up."],
+      "wave": ["Here they come!", "More of them, on foot!"],
+      "speeder_wave": ["Speeder inbound!", "Speeder coming in hot!"],
+      "grenade": ["Grenade out!"],
+      "grenade_hit": ["Got that one taken care of."],
+      "chase": ["We've got company!", "Speeder on our tail. Hit the boost!"],
+      "chase_lost": ["We lost them."]
     }
   },
   "lines": {
@@ -43,7 +76,11 @@
     "draw_welder": "Draw your plasma welder [8] to breach the vault",
     "need_welder": "You need a plasma welder to breach the vault",
     "hacking": "Breaching the vault...  %d%%",
-    "started": "The breach is burning through. Stay within %d m of the vault for %d s. They're sending people.",
+    "started": "The breach is burning through. Stay within %d m of the vault for %d s.",
+    "wave": "They're sending people.",
+    "speeder_wave": "A speeder is coming in fast.",
+    "chase": "They're after you on a speeder! Boost to lose them.",
+    "chase_lost": "You lost them.",
     "running": "Breaching...  %d s left. Stay within %d m of the vault.",
     "broken": "You left the vault. The breach cooled; start it again.",
     "wiped": "The vault is empty. Nothing left in it.",

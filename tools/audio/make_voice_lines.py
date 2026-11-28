@@ -2,7 +2,7 @@
 
 Every fixed line a character can say with the AI off (card greetings and canned
 replies, story beats, T-89, the general, the dark master, the guards' and locals'
-barks, the speeder shops, the race crews) is rendered once per voice that can say it and saved
+barks, the speeder shops, the race crews, the heist crew) is rendered once per voice that can say it and saved
 as assets/audio/voice/<key>.mp3. NpcVoice plays a bundled clip before it tries
 the player's cache or the API, so these need no key at all.
 
@@ -186,6 +186,12 @@ def collect():
     shops = read("vehicles/speeder_upgrades.json")
     for shop in [shops["mechanic"]] + list(shops["shops"].values()):
         said.append((strings(shop.get("lines", {})), named(shop.get("voice", "mechanic"))))
+    # Issue #883: the heist crew's barks over their heads (the call-outs, the ride,
+    # the grenade), in each side's crew member's voice.
+    heist = read("story/heist.json")
+    for side in ("locals", "remnant"):
+        pool, tag = soldier_voice(heist["crew"][side]["soldier"])
+        said.append((strings(heist["crew"].get("barks", {})), pool, tag))
     for crew_id, lines in race_lines().items():
         profile = read("racing/crews/%s.json" % crew_id).get("profile", "local_racer")
         pool, tag = soldier_voice(profile)

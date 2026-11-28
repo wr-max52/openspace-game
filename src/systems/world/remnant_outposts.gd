@@ -1381,14 +1381,27 @@ func _send_wave(o: Dictionary) -> void:
 			"%s/heist_wave_%d" % [id, i], "npc:%s/heist_wave/%d#%d" % [id, run, i])
 		if g == null:
 			continue
-		adopt(g, id)
-		g.set_meta("heist_wave", run)
-		g.post_pos = home
 		mine.append(g)
 	if mine.is_empty():
 		return
-	wave.append_array(mine)
+	join_wave(o, mine)
 	waves += 1
+	HeistCrew.shout(demo, "wave")       # issue #883: the crew calls it out, not the HUD
+
+
+## Bodies `mine` come for outpost `o`'s vault (the breach's wave, issue #883's
+## speeder wave): the outpost's, homed on the console, in the robbed side's
+## garrison there with its alarm up, and gone once you are well away (_tick_wave).
+func join_wave(o: Dictionary, mine: Array) -> void:
+	var run := int(WorldState.heist.get("run", 0))
+	var id := str(o.id)
+	var holder := Heist.wave_side()
+	var home := console_point(o)
+	for g: NpcBody in mine:
+		adopt(g, id)
+		g.set_meta("heist_wave", run)
+		g.post_pos = home
+	wave.append_array(mine)
 	var gar = (garrisons if holder == Territory.REMNANT else folks).get(id, null)
 	if gar == null:
 		gar = demo.make_outpost_garrison(o, mine) if holder == Territory.REMNANT else demo.make_locals_outpost_garrison(o, mine)

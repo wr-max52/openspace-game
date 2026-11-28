@@ -29,6 +29,9 @@ extends Node3D
 ##               Riding it again raises no alarm; it becomes yours the next time
 ##               you climb on with room in the row.
 ##
+## Issue #883: the chase itself (pursue, pull up, give up) is SpeederChase, the
+## loop the heist's getaway (HeistRaid) runs too.
+##
 ## The headless test drives tick() and the public calls directly.
 
 enum State { IDLE, CHASE, PULL_UP, RETURN }
@@ -50,7 +53,7 @@ var chases := 0                       ## chases started (tests, traces)
 var escapes := 0
 var kept := 0
 var sold := 0
-var _far_t := 0.0
+var chase: SpeederChase              ## issue #883: the chase loop, shared with the heist's getaway
 var _respawn_left := -1.0
 var _joined := false                  ## the riders are in the holder's garrison
 
@@ -201,17 +204,8 @@ func tick(dt: float) -> void:
 				_keep_stolen()            # nobody left to chase you: it is yours
 			elif _rode_off(p, riding_speeder):
 				_keep_stolen()            # no chase could start and you rode off with it
-		State.CHASE:
-			_tick_chase(dt, p, riding_speeder)
-		State.PULL_UP:
-			if chaser == null or not is_instance_valid(chaser) or chaser.brain == null:
-				state = State.IDLE
-			elif riding_speeder:
-				state = State.CHASE        # back on: after you again
-				chaser.brain.pursue()
-			elif chaser.brain.done or chaser.model.position.distance_to(p.global_position) <= n("pull_up_m", 18.0) + 4.0:
-				chaser.step_off()
-				state = State.IDLE
+		State.CHASE, State.PULL_UP:
+			_tick_chase(dt, p)
 		State.RETURN:
 			if chaser == null or not is_instance_valid(chaser) or chaser.brain == null or chaser.brain.done:
 				if chaser != null and is_instance_valid(chaser):
@@ -244,39 +238,28 @@ func _start_chase() -> void:
 	if not chaser.npc_driven():
 		return
 	chaser.brain = SpeederBrain.new(chaser.model, str(cfg().get("skill", "chaser")), 613)
-	chaser.brain.pursue()
+	chase = SpeederChase.new(chaser, n("pull_up_m", 18.0), n("escape_m", 800.0), n("give_up_s", 6.0))
+	chase.start()
 	state = State.CHASE
 	chases += 1
-	_far_t = 0.0
 	_toast(line("chase"))
 
 
-func _tick_chase(dt: float, p, riding_speeder: bool) -> void:
-	if chaser == null or not is_instance_valid(chaser) or not chaser.npc_driven():
+## The chase loop (SpeederChase): get off and they pull up and get off; get away
+## and they give up.
+func _tick_chase(dt: float, p) -> void:
+	if chase == null:
 		state = State.IDLE
 		return
-	var target: Vector3 = p.global_position
-	var vel := Vector3.ZERO
-	if riding_speeder:
-		var v: SpeederNode = p.vehicle
-		target = v.model.position
-		vel = v.model.forward() * v.model.speed
-	chaser.brain.target_pos = target
-	chaser.brain.target_vel = vel
-	if not riding_speeder:
-		# You got off: pull up near you, then they get off and fight on foot.
-		var away: Vector3 = chaser.model.position - target
-		away.y = 0.0
-		var stop := target + (away.normalized() if away.length() > 0.1 else Vector3.RIGHT) * n("pull_up_m", 18.0)
-		chaser.brain.park(stop, chaser.model.yaw)
-		state = State.PULL_UP
-		return
-	if chaser.model.position.distance_to(target) > n("escape_m", 800.0):
-		_far_t += dt
-		if _far_t >= n("give_up_s", 6.0):
+	match chase.tick(dt, p):
+		"pull_up":
+			state = State.PULL_UP
+		"back_on":
+			state = State.CHASE
+		"stepped_off", "ended":
+			state = State.IDLE
+		"lost":
 			_give_up()
-	else:
-		_far_t = 0.0
 
 
 ## They lost you: home, park, back by the speeder. A stolen gate speeder is yours.

@@ -16,7 +16,24 @@ extends Node
 ## goes on without them. When it ends (paid, downed, called off, flasks lost) the
 ## crew member walks off and is gone, and the droid goes home.
 ##
+## Issue #883, on every heist (the story's, the board's, the free chapter's):
+##   - rides with you: climb on any speeder with a free rider seat while they are
+##     within crew.ride_reach and they hop on behind you ("ride" bark: "Nice
+##     ride, comrade."); no seat free and they say so ("no_room") and catch up on
+##     foot. Get off (you step off to the left) and they step off across from you.
+##     Thrown clear if it bursts, like any rider. The droid follows on foot.
+##   - calls the waves out loud (call_out, through shout()): the breach's wave,
+##     the speeder wave, the getaway chase and losing it. With them down (or none
+##     out) the HUD toasts it instead.
+##   - throws a grenade at every speeder wave as it comes in (crew.grenade): within
+##     at_m (not nearer than min_m) with a clear line, "Grenade out!". It is aimed
+##     where the speeder will be (hit_chance) or miss_m off it; a hit wrecks it
+##     (the riders are thrown clear and fight on foot) and they say "Got that one
+##     taken care of."; a miss, nothing.
+##
 ## The headless test drives tick() with its own player node.
+
+const CoreContent := preload("res://src/systems/dataload/core_content.gd")
 
 var demo                              ## town_demo.gd (or null in a test)
 var player: Node3D
@@ -35,6 +52,13 @@ var _foe: Node3D
 var _free_walk_left := 0.0
 var _fails_seen := 0
 var _was_hacked := false
+## Issue #883.
+var seat_in: SpeederNode              ## the speeder they ride in, while they do
+var _ride_tried: SpeederNode          ## the speeder you climbed on that they already tried to ride
+var _nade_for: SpeederNode            ## the speeder wave they already threw at
+var grenades := 0                     ## thrown, for tests and traces
+var grenade_hits := 0
+var force_grenade_hit := -1           ## tests: 1 always hits, 0 always misses, -1 rolls hit_chance
 
 
 func setup(p_demo, p_player: Node3D, p_gear: GearController) -> void:
@@ -58,6 +82,30 @@ func _bark(kind: String) -> void:
 	var lines: Array = Heist.crew_cfg().get("barks", {}).get(kind, [])
 	if body != null and is_instance_valid(body) and not body.dead and not lines.is_empty():
 		body.say(str(lines[randi() % lines.size()]), 3.0)
+		_bark_cd = maxf(_bark_cd, 2.5)        # a fight bark does not talk over it
+
+
+## Issue #883: the crew member is out and alive, and says `kind` (a bark pool).
+## False when there is nobody to say it.
+func call_out(kind: String) -> bool:
+	if body == null or not is_instance_valid(body) or body.dead or _leaving > 0.0:
+		return false
+	if (Heist.crew_cfg().get("barks", {}).get(kind, []) as Array).is_empty():
+		return false
+	_bark(kind)
+	return true
+
+
+## Issue #883: what the heist wants called out (`kind`: "wave", "speeder_wave",
+## "chase", "chase_lost"): the crew member shouts it, else the HUD toasts the
+## line of the same name.
+static func shout(p_demo, kind: String) -> void:
+	var crew = p_demo.get("heist_crew") if p_demo != null else null
+	if crew != null and is_instance_valid(crew) and crew.call_out(kind):
+		return
+	var gear = p_demo.get("gear") if p_demo != null else null
+	if gear != null and gear.hud != null and Heist.line(kind) != "":
+		gear.hud.toast(Heist.line(kind), 5.0)
 
 
 func _toast(text: String) -> void:
@@ -92,16 +140,127 @@ func tick(dt: float) -> void:
 		_run = run
 		_leaving = 0.0
 		_was_hacked = false
+		_nade_for = null
 	if bool(player.get("piloting")):
+		var v = player.get("vehicle")
+		if v is SpeederNode and (v as SpeederNode).riding:
+			_ride(v)                    # issue #883: they hop on behind you
 		return                          # they wait while you fly; they catch up on landing
+	_ride_tried = null
+	_off_speeder()
 	_sync_droid()
 	if body == null and not bool(WorldState.heist.get("crew_down", false)):
 		_spawn()
 	if body != null and is_instance_valid(body) and not body.dead:
 		_drive(dt)
+		_tick_grenade()
 		if Heist.hacked() and not _was_hacked:
 			_bark("hacked")
 	_was_hacked = Heist.hacked()
+
+
+# ------------------------------------------------------------------ the ride (issue #883)
+
+## You ride speeder `v`: they climb into a free rider seat once, if they are near.
+func _ride(v: SpeederNode) -> void:
+	if body == null or not is_instance_valid(body) or body.dead or _leaving > 0.0:
+		return
+	if seat_in == v and v.npc_seats.values().has(body):
+		return                          # aboard
+	if seat_in != null and seat_in != v:
+		_off_speeder()
+	if _ride_tried == v:
+		return
+	_ride_tried = v
+	if body.global_position.distance_to(v.model.position) > c("ride_reach", 14.0):
+		return                          # too far back: they catch up on foot when you stop
+	var seat := free_rider_seat(v)
+	if seat == "":
+		_bark("no_room")
+		return
+	if v.seat_npc(body, seat):
+		seat_in = v
+		_bark("ride")
+
+
+## A rider seat on `v` nobody has (not the driver's: that is yours), or "".
+static func free_rider_seat(v: SpeederNode) -> String:
+	for seat in v.seat_names():
+		if str(seat) != "driver" and v.seat_free(str(seat)):
+			return str(seat)
+	return ""
+
+
+## You got off: they step off across from you (you get off to the left). Thrown
+## clear (it burst) or shot off, they are already on their feet.
+func _off_speeder() -> void:
+	var v := seat_in
+	seat_in = null
+	if v == null or not is_instance_valid(v) or body == null or not is_instance_valid(body):
+		return
+	if not v.npc_seats.values().has(body):
+		return
+	var right := v.model.transform().basis.x
+	var mine: float = (player.global_position - v.model.position).dot(right)
+	v.step_off(body, -1.0 if mine > 0.0 else 1.0)
+	body.stop()
+
+
+# ------------------------------------------------------------------ the grenade (issue #883)
+
+## The speeder wave coming in: one grenade at it, from the crew member on foot.
+func _tick_grenade() -> void:
+	var raid = demo.get("heist_raid") if demo != null else null
+	if raid == null or seat_in != null or _leaving > 0.0:
+		return
+	var s: SpeederNode = raid.coming()
+	if s == null or s == _nade_for:
+		return
+	var gc: Dictionary = Heist.crew_cfg().get("grenade", {})
+	var d := body.global_position.distance_to(s.model.position)
+	if d > float(gc.get("at_m", 45.0)) or d < float(gc.get("min_m", 12.0)) or not _clear(s.hull if s.hull != null else s):
+		return
+	_nade_for = s
+	throw_at(s)
+
+
+## Throw a grenade at speeder `s`: where it will be when the grenade gets there
+## (a hit, by hit_chance) or miss_m off it, bursting on arrival (or on touching
+## anything). Returns the grenade (tests).
+func throw_at(s: SpeederNode) -> Grenade:
+	var gc: Dictionary = Heist.crew_cfg().get("grenade", {})
+	var cfg: Dictionary = CoreContent.read_json(Grenade.CFG_PATH).duplicate()
+	cfg["blast_damage"] = float(gc.get("blast_damage", cfg.get("blast_damage", 400)))
+	var hit := randf() < float(gc.get("hit_chance", 0.4)) if force_grenade_hit < 0 else force_grenade_hit == 1
+	var from := body.eye_position()
+	var d := from.distance_to(s.model.position)
+	var fl: Array = gc.get("flight_s", [0.9, 1.8])
+	var t := lerpf(float(fl[0]), float(fl[1]), clampf(d / maxf(float(gc.get("at_m", 45.0)), 1.0), 0.0, 1.0))
+	var up := PlanetSphere.current.up_at(from) if PlanetSphere.current != null else Vector3.UP
+	var aim: Vector3 = s.model.position + s.model.forward() * s.model.speed * t + up * 0.6
+	if not hit:
+		var mm: Array = gc.get("miss_m", [11.0, 17.0])
+		var dir := Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0))
+		dir -= up * dir.dot(up)
+		aim += (dir.normalized() if dir.length() > 0.01 else up.cross(Vector3.RIGHT).normalized()) * randf_range(float(mm[0]), float(mm[1]))
+	var g := float(cfg.get("gravity", 20.0))
+	var vel := (aim - from) / t + up * g * t * 0.5
+	var nade := Grenade.new()
+	nade.setup(cfg, from, vel, body)
+	nade.fuse_left = t
+	nade.player = player
+	var into: Node = demo if demo is Node else self
+	into.add_child(nade)
+	nade.burst.connect(_on_nade_burst.bind(s))
+	grenades += 1
+	_bark("grenade")
+	return nade
+
+
+func _on_nade_burst(_at: Vector3, hurt: Array, s) -> void:
+	if hurt.has(s) or not is_instance_valid(s) or not (s as SpeederNode).model.alive():
+		grenade_hits += 1
+		_bark("grenade_hit")
 
 
 # ------------------------------------------------------------------ the droid
@@ -351,6 +510,12 @@ func _dismiss(dt: float) -> void:
 		_leaving = 0.0
 
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
 	if spot != null and body != null and is_instance_valid(body):
 		spot.stand = body.global_position
+	# Seated, their own frame is off (SpeederNode.seat_npc): their line over
+	# their head still goes when its time is up.
+	if seat_in != null and body != null and is_instance_valid(body) and not body.is_processing() and body._speech_left > 0.0:
+		body._speech_left -= dt
+		if body._speech_left <= 0.0:
+			body.say("")

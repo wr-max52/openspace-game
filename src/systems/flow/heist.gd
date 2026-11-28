@@ -2,7 +2,8 @@ class_name Heist
 extends RefCounted
 ## Heists (issue #306): rob an outpost's control room. Pure and static, like
 ## Territory; its state lives in WorldState.heist (saved with the world):
-##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved, handover }
+##   { run, state: "out" | "", job, side, outpost, hacked, crew, crew_down, droid_down, by, waved,
+##     speeder_waved, chased, handover }
 ##   ({} or state "" = no heist on; run counts every heist taken; once over it
 ##   keeps `ended` (why) and `outpost` (where it was: story_retry))
 ##
@@ -35,6 +36,11 @@ extends RefCounted
 ## RemnantOutposts hands it over (hand_over) by Territory's usual rules.
 ##
 ## The crew (a crew member and a borrowed assassin droid) are HeistCrew's.
+## Issue #883: three waves now: the outpost's own guards, the breach's wave on
+## foot, then a speeder of the robbed side's with speeder_wave_cfg().count aboard
+## at_left_s before the breach is done ("speeder_waved"); and once the vault is
+## breached, the getaway chase on the ride home ("chased"). Both are HeistRaid's;
+## the crew calls them out.
 ## Numbers and lines: content/core/story/heist.json.
 
 const PATH := "res://content/core/story/heist.json"
@@ -243,11 +249,28 @@ static func offer_outpost(j: Dictionary) -> String:
 	var t := targets(j)
 	if t.is_empty():
 		return ""
-	if story_first(j) and t.has(STORY_FIRST):
-		return STORY_FIRST
+	if story_first(j):
+		var pick := story_pick(t)
+		if pick != "":
+			return pick
 	if not t.has(str(_offers.get(id, ""))):
 		_offers[id] = str(t[randi() % t.size()]) if t.size() > 1 else str(t[0])
 	return str(_offers[id])
+
+
+## Issue #883: where the story's first heist goes among targets `t`: the first of
+## heist.json's story_first (the broken ridge, then the next nearest) the Remnant
+## hold; never story_never (the dry wash: the first bounty, the general's
+## assassination) while there is anywhere else. "" when `t` is empty.
+static func story_pick(t: Array) -> String:
+	for id in cfg().get("story_first", [STORY_FIRST]):
+		if t.has(str(id)):
+			return str(id)
+	var never := str(cfg().get("story_never", Story.OUTPOSTS[0]))
+	for id in t:
+		if str(id) != never:
+			return str(id)
+	return str(t[0]) if not t.is_empty() else ""
 
 
 ## Issue #413: job `j` is the story's first heist (the heist chapter, none paid yet).
@@ -407,6 +430,34 @@ static func _me() -> int:
 static func mine() -> bool:
 	var by := int(WorldState.heist.get("by", 0))
 	return by == 0 or not NetSession.active() or by == _me()
+
+
+## Issue #883: the speeder wave (the third: the outpost's guards, the breach's
+## wave, then this) { at_left_s, count, dist, park_m, settle_s, skill, paint }.
+static func speeder_wave_cfg() -> Dictionary:
+	return hack_cfg().get("speeder_wave", {})
+
+
+## Issue #883: the getaway chase once the vault is breached { start_m, spawn_m, ... }.
+static func getaway_cfg() -> Dictionary:
+	return cfg().get("getaway", {})
+
+
+## Issue #883: once a heist each, saved in the heist record like `waved`: the
+## speeder wave ("speeder_waved") and the getaway chase ("chased"). True the first
+## time for this run (send it), false after.
+static func take_once(key: String) -> bool:
+	var run := int(WorldState.heist.get("run", 0))
+	if not on() or int(WorldState.heist.get(key, -1)) == run:
+		return false
+	WorldState.heist[key] = run
+	return true
+
+
+## Issue #883: the speeder's paint for side `holder` (Territory.REMNANT or LOCALS).
+static func wave_paint(holder: String) -> String:
+	var by: Dictionary = speeder_wave_cfg().get("paint", {})
+	return str(by.get(holder, "remnant" if holder == Territory.REMNANT else "tide"))
 
 
 ## The heist was waved at: run `run` has had its outpost's wave. True the first
