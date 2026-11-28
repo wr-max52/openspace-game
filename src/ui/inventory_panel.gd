@@ -58,6 +58,7 @@ var cycle_station: Callable       ## droid uid -> its next music station (DroidC
 var laser_buttons: Dictionary = {}  ## droid uid -> [its Lasers button, its Music button] (tests)
 var title: Label
 var credits_label: Label
+var seed_label: Label             ## issue #834: this game's name seed, to tell a friend
 var backpack_label: Label
 var list: VBoxContainer           ## the left column under the credits
 var jobs: VBoxContainer           ## the right column under its heading
@@ -89,6 +90,7 @@ func _ready() -> void:
 	jobs = VBoxContainer.new()
 	jobs.add_theme_constant_override("separation", 10)
 	jv.add_child(jobs)
+	seed_label = _text(jv, "", 13, Color(INK, DIM))
 
 
 ## One of the two columns: its own scroll, a column to fill inside.
@@ -141,6 +143,7 @@ func refresh() -> void:
 	for c in list.get_children():
 		c.queue_free()
 	credits_label.text = "%d cr" % WorldState.credits
+	seed_label.text = Objective.line("ledger_seed") % WorldState.names.game_seed
 	var inv: Inventory = inventory if inventory != null else WorldState.inventory
 	_heading(list, "%s   %d / %d" % [Objective.line("ledger_backpack"), inv.slots_used(), Inventory.backpack_slots()])
 	var n := 0

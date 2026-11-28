@@ -2,6 +2,27 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — Two name seeds: one for the world, one for each game (issue #834)
+
+- **Places and gear use the world seed, people and ships the game's.** The kinds
+  in `config.fixed_kinds` (towns, planets, moons, stars, equipment, makers) are
+  named from `world_seed` (1517) as before; every other kind from `game_seed`,
+  rolled by `NameBook.fresh()` at each new game and saved with it. Why: a new
+  game should have a new crew, but the map, the gear and the story should read
+  the same, and friends should be able to talk about the same towns.
+  Alternative: one random seed per game -- rejected, because towns and planets
+  are generated too, so the whole map would be renamed.
+- **A place never yields to a person.** A fixed name is only held back by another
+  fixed or authored name. If a person already holds the name a place wants, the
+  place takes it and the person is named again. So a place's name never depends
+  on the order things were named in. The kinds' templates barely overlap, so in
+  play this is a guard rail, not something seen.
+- **A new game no longer keeps its slot's names** (this replaces "the names go
+  with the save" below for new games). Loading a save still keeps every name it
+  gave out, and a save from before this has no `game_seed`, so it uses 1517 and
+  looks exactly as it did.
+- **Titles follow the game seed too,** so a guard's rank changes with the guard.
+
 ## 2026-11-27 — The physics engine is Jolt (Godot's own), for the far side of the ball
 
 - **Why:** on foot on the far side (Cragfall, Farleap, any sand 9 km or more from
@@ -491,8 +512,8 @@ planet is seen from one system frame and flown to through open space.)
   loaded *before* the town reloads, so every part of the build sees the right
   mode. The town being left saves first, then stops saving (`autosave` off), so
   its exit cannot write the next game into its file.
-- **The outfit and the names go with the save.** The outfit file is per slot. A
-  new game keeps the names of its own slot, not the game you were playing.
+- **The outfit and the names go with the save.** The outfit file is per slot.
+  (Since issue #834 a new game rolls new people and ship names; places keep theirs.)
 - **The old `save.json` is copied, not moved,** into the slot its mode says, once
   (the pick file marks it done). Builds from before the slots, in other
   worktrees, keep finding it.
