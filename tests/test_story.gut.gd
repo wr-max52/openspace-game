@@ -198,6 +198,7 @@ func test_skipping_ahead_unlocks_what_playing_would() -> void:
 	WorldState.new_game(WorldState.STORY)
 	var c0 := WorldState.credits
 	Story.skip_to("heist")
+	c0 += int(Story.chapter_cfg("droid_merchant").skipped.credits)    # what the droid merchant pays
 	assert_eq(WorldState.credits, c0 + int(Story.chapter_cfg("remote").pays), "Oda's practice fee")
 	assert_eq(Quests.state("tower_blade"), "", "Oda has not told the heist chapter yet")
 	Story.skip_to("bounty")

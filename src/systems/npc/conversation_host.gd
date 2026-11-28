@@ -102,6 +102,7 @@ func setup(town_demo, scripted = null) -> void:
 	panel.leave_requested.connect(end_talk)
 	panel.job_answered.connect(_on_job_answer)
 	panel.topic_picked.connect(_on_topic)
+	panel.advanced.connect(_on_advanced)
 	overlay = LLMDebugOverlay.new()
 	overlay.llm = llm
 	add_child(overlay)
@@ -415,26 +416,32 @@ func start_talk(s: TalkSpot = null) -> void:
 	var greeting := s.brain.begin_visit()
 	# Issue #64: the story speaks first when it has something to say.
 	var beat := Story.beat(s.id())
+	var wrap_up := ""                   # a wrap-up first, the new job after it (Next)
 	if not beat.is_empty():
 		greeting = str(beat.say)
 		s.brain.replace_greeting(greeting)
+		wrap_up = str(beat.get("wrap_up", ""))
 	Story.event("talked:" + s.id())     # optional quests: Oda offers "Talk to Skrugs", talking to him ends it
 	var opening: Dictionary = s.opener.call() if beat.is_empty() and s.opener.is_valid() else {}
 	if str(opening.get("say", "")) != "":
 		greeting = str(opening.say)
 		s.brain.replace_greeting(greeting)
-	panel.open(s.display_name(), greeting)
+	# With a card up the line is only their pitch: the card has the details.
+	var first_line := wrap_up if wrap_up != "" else str(beat.get("line", greeting))
+	panel.open(s.display_name(), first_line)
 	_refresh_menu(s)    # issue #29: the AI notice (only with AI on); issue #328: the topic menu
 	panel.set_mood(s.brain.rel.mood)
 	panel.set_money(WorldState.credits, s.brain.rel.tab)
-	if str(beat.get("job", "")) != "":
-		var j := WorldState.job(str(beat.job))
-		if not j.is_empty():
-			panel.show_job(j)
+	var job := WorldState.job(str(beat.job)) if str(beat.get("job", "")) != "" else {}
+	if wrap_up != "":
+		panel.queue_next(str(beat.then), job)
+	elif str(beat.get("job", "")) != "":
+		if not job.is_empty():
+			panel.show_job(job)
 	elif opening.has("sale"):
 		panel.show_sale(opening.sale, WorldState.credits)
 	var story_line := _story_mood(s)
-	_speak(s, story_line if story_line != "" else greeting)
+	_speak(s, story_line if story_line != "" else first_line)
 	s.speak_pulse()
 	# Issue #185: back after time away, she opens with what happened (the model's
 	# turn, in her own voice) unless the story or an opener spoke first.
@@ -587,6 +594,23 @@ func _on_drink(s: TalkSpot, d: Dictionary) -> void:
 		s.body.serve(d)
 	if s == active:
 		panel.set_money(int(d.credits), int(d.tab))
+
+
+## Next pressed after a wrap-up: they say the new job's line.
+func _on_advanced(text: String) -> void:
+	if active == null:
+		return
+	_voice().stop(active.body)
+	_speak(active, text)
+	active.speak_pulse()
+
+
+## Bots and tests press Next through here.
+func next_line() -> bool:
+	if not talking or not panel.has_next():
+		return false
+	panel.advance()
+	return true
 
 
 func _on_job(s: TalkSpot, j: Dictionary) -> void:
