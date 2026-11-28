@@ -5,5 +5,5 @@
   "value": 300,
   "look": "rifle_case",
   "icon": "res://assets/ui/weapon_icons/rifle_blaster.png",
-  "note": "Issue #210: the rifle as something you own. In a story save the rifle can only be drawn once you have it (WorldState.weapon_allowed); one lies on the barracks roof (pickups/port_town.json)."
+  "note": "Issue #210: the rifle as something you own. In a story save the rifle can only be drawn once you have it (WorldState.weapon_allowed); one is hidden in the middle console of the barracks office (pickups/port_town.json, barracks_rifle; '[E] Search the console'), and the gear traders sell it for 400 cr (vendors/gear_trader.json)."
 }

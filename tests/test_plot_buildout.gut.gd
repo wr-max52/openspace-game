@@ -324,12 +324,17 @@ func test_the_gear_trader_sells_the_legal_goods_and_the_fence_the_armour() -> vo
 	var gear := GearController.new()
 	gear.content = content
 	gear.labels = CoreContent.read_json("res://content/core/flow/gear.json").labels
-	var rows := func(id: String) -> Array:
-		return gear.trade_options(content.get_vendor(id)).map(func(r): return str(r.id))
-	var trader: Array = rows.call("gear_trader")
-	for id in ["pistol_damage", "rifle_rate", "jetpack_fuel", "sniper_rifle"]:
-		assert_true(trader.has("offer:" + id), "the gear trader sells " + id)
-	assert_true(trader.has("buy:jetpack"), "and jetpacks")
+	var rows := func(id: String, page: String = "") -> Array:
+		return gear.trade_options(content.get_vendor(id), page).map(func(r): return str(r.id))
+	var trader: Array = rows.call("gear_trader", "buy")
+	assert_true(trader.has("upgrade:pistol_blaster"), "the gear trader upgrades the pistol")
+	for id in ["jetpack", "rifle_blaster", "sniper_rifle"]:
+		assert_true(trader.has("buy:" + id), "the gear trader sells " + id)
+	WorldState.inventory.add("rifle_blaster")
+	WorldState.inventory.add("jetpack")
+	for id in ["pistol_damage", "rifle_rate", "jetpack_fuel"]:
+		var target := str(GearUpgrades.offer(id).target)
+		assert_true(rows.call("gear_trader", "upgrade:" + target).has("offer:" + id), "the gear trader sells " + id)
 	assert_false(trader.has("locked:quantonium_armour"), "not the fence's armour")
 	var fence: Array = rows.call("fence")
 	assert_true(fence.has("locked:quantonium_armour"), "the fence's armour")
