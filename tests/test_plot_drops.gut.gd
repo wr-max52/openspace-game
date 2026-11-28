@@ -18,6 +18,7 @@ func before_each() -> void:
 	GameFlow.reset()
 	WorldState.new_game(WorldState.STORY)
 	Story.skip_to("smuggle_1")
+	WorldState.set_flag("general_float_done")      # his second job: after the floating droid
 	content = CoreContent.new()
 	content.load_from()
 
@@ -65,7 +66,7 @@ func test_oda_and_the_fence_give_the_run_out_of_town_in_talk() -> void:
 
 func test_the_general_gives_the_stashes_in_town() -> void:
 	var j := _offered(GENERAL)
-	assert_false(j.is_empty(), "the general has work once the story reaches the first run")
+	assert_false(j.is_empty(), "the general's second job, once you brought him the floating droid")
 	assert_true(_brain("general_card").gives(j))
 	assert_false(str(j.text).contains("%"), "the text is filled in")
 	assert_string_contains(str(j.text).to_lower(), "repossess")
@@ -163,6 +164,7 @@ func test_a_drop_saved_before_the_split_still_goes_to_the_fence() -> void:
 func test_his_job_card_matches_what_he_says() -> void:
 	WorldState.standing.imperial_remnant = 0
 	var b := _brain("general_card")
+	WorldState.set_flag("general_contraband_done")   # the droid job is open too
 	b._ids = { "jobs": ["j_general_droids", GENERAL] }
 	var v := { "kept": [{ "type": "offer_job", "id": GENERAL }], "dropped": [] }
 	b._match_job_offer(v, "Five droids. I need them.")

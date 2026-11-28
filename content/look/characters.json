@@ -129,6 +129,7 @@
         }
       }
     },
+    "local_nuisance": {"note": "The general's nuisance (soldiers/town_nuisance.json, job j_general_nuisance): a port local in all green, super green, so you pick him out down a scope from the barracks roof or a gate tower. The local's body and kit (base: local), every piece the light cloth, and a hard green 'tint' over all of it (it multiplies every piece's colour, like the red Remnant officer's remnant_marked). No new render.", "base": "local", "tint": "#46ff3c", "robe": "#2fd13a", "hood": "#22a82c", "gloves": "#1c7a22", "wrap": "#46ff3c", "boots": "#1c6a20", "model": {"parts": {"head": ["local:lighter"], "torso": ["local:lighter"], "legs": ["local:lighter"]}}},
     "station_local": {
       "note": "Issue #315: the space station's people (src/systems/world/station_crowd.gd). The port's local body (base: local) in the kit pieces the issue names: the cantina owner's head, and the player's or the cantina owner's upper and lower body, in their colours. Each body picks one of each part.",
       "base": "local",

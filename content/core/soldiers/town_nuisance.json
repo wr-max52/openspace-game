@@ -1,0 +1,16 @@
+{
+  "id": "town_nuisance",
+  "base": "local_resident",
+  "label": "Nuisance",
+  "archetype": "local_nuisance",
+  "note": "The general's fourth job (j_general_nuisance, general.json 'nuisance'): a port local in all green who stands in the main street outside the barracks yard and shouts at the troopers. A local like any other (Townsfolk: shoot him where they see it and the locals fight back), only he stands his spot instead of strolling (no patrol route: he looks about now and then). Spawned by GeneralPost while the job is on; killing him finishes it. His name floats over him from further off, so you can tell him from the street through a scope.",
+  "naming": {
+    "kind": "person_dune",
+    "nameplate_range": 40.0
+  },
+  "patrol": {
+    "pause_s": 9.0,
+    "look_around_deg": 70.0,
+    "look_every_s": 4.0
+  }
+}

@@ -142,6 +142,8 @@ func where(target: String) -> Vector3:
 				return g.body.global_position          # issue #203: wherever he stands now
 			if id == "bounty":
 				return _bounty_pos()                   # issue #711: the officer, once you are close
+			if id == "nuisance" and g != null and is_instance_valid(g) and g.nuisance != null and is_instance_valid(g.nuisance):
+				return g.nuisance.global_position      # the general's nuisance, in the street
 			return _marker(id)
 		"wreck":
 			# Issue #205: the crashed cruiser on the horizon.

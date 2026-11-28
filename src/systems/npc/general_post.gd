@@ -43,6 +43,7 @@ extends Node3D
 
 const CFG_PATH := "res://content/core/npcs/general.json"
 const CARD_PATH := "res://content/core/npcs/general_card.json"
+const RUN_JOB := "j_general_repossess"   ## issue #251: his contraband run (a smuggling job)
 
 var demo                              ## town_demo.gd (or null in a test)
 var player: CharacterBody3D
@@ -81,6 +82,7 @@ func _ready() -> void:
 	var f := FileAccess.open(CFG_PATH, FileAccess.READ)
 	var d = JSON.parse_string(f.get_as_text()) if f != null else null
 	cfg = d if d is Dictionary else {}
+	catch_up()
 	menu = DroidMenu.new()
 	add_child(menu)
 	_place()
@@ -315,6 +317,7 @@ static func _v(a) -> Vector3:
 func _physics_process(dt: float) -> void:
 	_walk_out(dt)
 	_place()
+	_keep_nuisance()
 	if host != null:
 		_watch_talk()
 	if player == null or not _can_talk():
@@ -346,7 +349,7 @@ func open_menu(keep_cursor := false) -> void:
 	if not job_active():
 		opts.append({ "id": "work", "text": _l("work") })
 	for d in droids_to_hand_over():
-		opts.append({ "id": "hand:%d" % int(d.uid), "text": _l("hand_over") % [DroidRoster.label(str(d.kind)), droid_pay()] })
+		opts.append({ "id": "hand:%d" % int(d.uid), "text": _l("hand_over") % [DroidRoster.label(str(d.kind)), droid_pay(_droid_job_for(str(d.kind)))] })
 	if Heist.collectable("general"):
 		opts.append({ "id": "heist", "text": Heist.line("general_collect") % int(Heist.pay("general", Heist.carrying()).net) })
 	elif Heist.on() and Heist.mine() and Heist.pays_to() == "general":
@@ -636,70 +639,229 @@ func _gait(n: Node3D, speed: float) -> void:
 		(n as MerchantNPC).move_speed = speed
 
 
-# ------------------------------------------------------------------ droids (issue #204)
+# ------------------------------------------------------------------ his jobs (issues #204, #251)
 
+## The assassin droid job (issue #204), the one tests and old saves know.
 static func job_id() -> String:
 	return "j_general_droids"
 
 
+func _droid_jobs() -> Dictionary:
+	return cfg.get("droid_jobs", {})
+
+
+func _nuisance_cfg() -> Dictionary:
+	return cfg.get("nuisance", {})
+
+
+## His jobs in the order he gives them (general.json work_order).
+func work_order() -> Array:
+	return cfg.get("work_order", [job_id()])
+
+
+## The flag the first time job `id` is done sets: it opens the next one.
+func done_flag(id: String) -> String:
+	if _droid_jobs().has(id):
+		return str(_droid_jobs()[id].get("flag", ""))
+	if id == str(_nuisance_cfg().get("job", "")):
+		return str(_nuisance_cfg().get("flag", ""))
+	if id == RUN_JOB:
+		return str(cfg.get("contraband_flag", ""))
+	return ""
+
+
+## How often job `id` has been done (the repeats: the one done least comes next).
+func _times(id: String) -> int:
+	if _droid_jobs().has(id):
+		return WorldState.count(str(_droid_jobs()[id].get("counter", id)))
+	if id == RUN_JOB:
+		return WorldState.count("repossessions")
+	return WorldState.count(id)
+
+
+## A save from before the job order: whatever he already had from you counts as
+## the jobs before it done, so nobody is sent back for a floating droid.
+func catch_up() -> void:
+	var order := work_order()
+	var reached := -1
+	if WorldState.count("general_droids") > 0:
+		reached = order.find(job_id()) + 1
+	elif str(WorldState.jobs_taken.get(job_id(), "")) == "active":
+		reached = order.find(job_id())
+	elif WorldState.count("repossessions") > 0:
+		reached = order.find(RUN_JOB) + 1
+	for i in range(0, reached):
+		var f := done_flag(str(order[i]))
+		if f != "":
+			WorldState.set_flag(f)
+
+
+## The job [E] Ask for work hands you: the next one in his order not yet done
+## once, else the open one done least. "" = nothing on offer.
+func next_job() -> String:
+	var open: Array = WorldState.open_jobs("stranger").map(func(j): return str(j.id))
+	var best := ""
+	var best_n := 1 << 30
+	for id in work_order():
+		if not open.has(str(id)):
+			continue
+		var f := done_flag(str(id))
+		if f != "" and not WorldState.has_flag(f):
+			return str(id)
+		var n := _times(str(id))
+		if n < best_n:
+			best = str(id)
+			best_n = n
+	return best
+
+
+## True while one of his jobs is on: a droid job or the nuisance taken, or his
+## contraband run out (its drop lying there, or its goods in your pockets).
 func job_active() -> bool:
-	return str(WorldState.jobs_taken.get(job_id(), "")) == "active"
+	for id in work_order():
+		if str(WorldState.jobs_taken.get(str(id), "")) == "active":
+			return true
+	return WorldState.smuggle_to() == "general" and (not WorldState.smuggle_drop().is_empty() or WorldState.repossession_pay() > 0)
 
 
 ## Ask him for work. Not while you are hostile. Returns true when you took it.
 func take_job() -> bool:
-	var open := WorldState.open_jobs("stranger").any(func(j): return str(j.id) == job_id())
-	if not open:
-		_say(_line("no_work"))
+	var id := next_job()
+	if id == "":
+		var hostile := int(WorldState.standing.get("imperial_remnant", 0)) <= -40
+		_say(_line("no_work") if hostile else _line("no_work_now"))
 		return false
-	WorldState.accept_job(job_id())
-	_say(_line("job_taken") % droid_pay())
+	var text := str(WorldState.job(id).get("text", ""))
+	if not WorldState.accept_job(id):
+		_say(_line("no_work_now"))
+		return false
+	if _droid_jobs().has(id):
+		_say(str(_droid_jobs()[id].get("taken", "%d")) % droid_pay(id))
+	elif id == str(_nuisance_cfg().get("job", "")):
+		_say(_line("job_nuisance"))
+	else:
+		_say(text)
 	return true
 
 
-## What one droid pays: pay_mult times the droid merchant's resale.
-func droid_pay() -> int:
-	return int(cfg.get("pay_mult", 3)) * DroidRoster.resale(str(cfg.get("droid_kind", "assassin")))
+## What one droid pays on job `id`: its pay_mult times the droid merchant's resale.
+func droid_pay(id: String = "") -> int:
+	var jc: Dictionary = _droid_jobs().get(id if id != "" else job_id(), {})
+	return int(jc.get("pay_mult", 3)) * DroidRoster.resale(str(jc.get("kind", "assassin")))
 
 
+## The droid job taken that wants a droid of `kind`, or "".
+func _droid_job_for(kind: String) -> String:
+	for id in _droid_jobs():
+		if str(_droid_jobs()[id].get("kind", "")) == kind and str(WorldState.jobs_taken.get(str(id), "")) == "active":
+			return str(id)
+	return ""
+
+
+## Your droids he would take now: the kinds of the droid jobs you have on.
 func droids_to_hand_over() -> Array:
-	if not job_active():
-		return []
-	var kind := str(cfg.get("droid_kind", "assassin"))
-	return WorldState.droids.owned.filter(func(d): return str(d.kind) == kind)
+	return WorldState.droids.owned.filter(func(d): return _droid_job_for(str(d.kind)) != "")
 
 
-## Hand one of your droids over: he pays, your Remnant standing goes up, and the
-## job is open again for the next one. Returns the pay, or -1.
+## Hand one of your droids over: he pays, your Remnant standing goes up a lot, the
+## first one opens his next job, and the job is open again (the floating droid's
+## only once). Returns the pay, or -1.
 func hand_over(uid: int) -> int:
 	var d := WorldState.droids.find(uid)
 	if d.is_empty() or not droids_to_hand_over().has(d):
 		return -1
 	if not WorldState.droids.cargo_fits(uid, WorldState.inventory):
 		return -1                                # its hold would spill: unload it first
+	var id := _droid_job_for(str(d.kind))
+	var jc: Dictionary = _droid_jobs()[id]
 	WorldState.droids.unload(uid, WorldState.inventory)
 	WorldState.droids.remove(uid)
 	if demo != null and demo.get("droids") != null:
 		demo.droids._free_companion(uid)
-	var pay := droid_pay()
+	var pay := droid_pay(id)
 	WorldState.credits += pay
-	WorldState.change_standing("imperial_remnant", int(cfg.get("droid_standing", 5)), "Someone sold the Remnant general an assassin droid.", "barracks")
-	WorldState.jobs_taken.erase(job_id())       # open again
-	WorldState.bump("general_droids")
+	WorldState.change_standing("imperial_remnant", int(jc.get("standing", 15)),
+		"Someone sold the Remnant general a %s." % DroidRoster.label(str(d.kind)).to_lower(), "barracks")
+	WorldState.jobs_taken.erase(id)             # open again (the floating droid's flag keeps it shut)
+	if str(jc.get("flag", "")) != "":
+		WorldState.set_flag(str(jc.flag))
+	WorldState.bump(str(jc.get("counter", id)))
 	QuestNews.push("droid_delivered", "+%d cr" % pay)
-	Story.event("general_droid_sold")
-	_say(_line("paid") % pay)
+	Story.event(str(jc.get("event", "")))
+	_say(str(jc.get("paid", "%d")) % pay)
 	maybe_tip()
 	return pay
 
 
 ## Issue #251: hand him the contraband of his run (WorldState.hand_over_contraband).
-## Returns the pay, or 0 when there is nothing of his to hand over.
+## The first one opens his next job. Returns the pay, or 0 when there is nothing
+## of his to hand over.
 func hand_over_contraband() -> int:
-	var pay := WorldState.hand_over_contraband(int(cfg.get("contraband_standing", 3)))
+	var pay := WorldState.hand_over_contraband(int(cfg.get("contraband_standing", 15)))
 	if pay > 0:
+		if str(cfg.get("contraband_flag", "")) != "":
+			WorldState.set_flag(str(cfg.contraband_flag))
 		_say(_line("repossessed") % pay)
 		maybe_tip()
+	return pay
+
+
+# ------------------------------------------------------------------ the nuisance
+
+var nuisance: NpcBody                 ## the local in green, while his job is on
+
+
+func nuisance_job_on() -> bool:
+	var id := str(_nuisance_cfg().get("job", ""))
+	return id != "" and str(WorldState.jobs_taken.get(id, "")) == "active"
+
+
+## While the job is on he stands in the street (back again after a reload); once
+## it is over nobody is there.
+func _keep_nuisance() -> void:
+	if nuisance != null and not is_instance_valid(nuisance):
+		nuisance = null
+	if nuisance != null or not nuisance_job_on() or demo == null or not demo.has_method("make_soldier"):
+		return
+	if bool(demo.get("lan_shared")):
+		return                            # LAN: the host's town has him
+	var town = demo.town if "town" in demo else null
+	var nc := _nuisance_cfg()
+	if town == null or town.get_marker(str(nc.get("marker", ""))).is_empty():
+		return
+	var at := _spot(nc)
+	var yaw := 0.0
+	var face := str(nc.get("face", ""))
+	if not town.get_marker(face).is_empty():
+		var to: Vector3 = town.marker_pos(face) - at
+		yaw = atan2(to.x, to.z)
+	nuisance = demo.make_soldier(str(nc.get("soldier", "town_nuisance")), at, yaw, "nuisance", "npc:nuisance")
+	if nuisance == null:
+		return
+	nuisance.set_meta("nuisance", true)
+	nuisance.died.connect(on_nuisance_killed)
+	var folk = demo.get("townsfolk")
+	if folk != null:
+		folk.add_member(nuisance)
+
+
+## The nuisance is dead: the job is done, for good. He pays from afar, and
+## Remnant standing goes up a lot. Returns the pay, or 0 when it was not on.
+func on_nuisance_killed() -> int:
+	if not nuisance_job_on():
+		return 0
+	var nc := _nuisance_cfg()
+	var id := str(nc.job)
+	WorldState.jobs_taken[id] = "done"
+	if str(nc.get("flag", "")) != "":
+		WorldState.set_flag(str(nc.flag))
+	var pay := int(nc.get("pay", 0))
+	WorldState.credits += pay
+	WorldState.change_standing("imperial_remnant", int(nc.get("standing", 15)), "Someone removed a nuisance for the Remnant general.", "barracks")
+	WorldState.log_event("Finished the job: " + str(WorldState.job(id).get("title", id)))
+	QuestNews.push("job_done", str(WorldState.job(id).get("title", id)))
+	_say(_line("nuisance_done") % pay)
+	maybe_tip()
 	return pay
 
 
