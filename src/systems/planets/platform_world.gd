@@ -22,6 +22,11 @@ extends Node3D
 ## in_sea, anywhere round the ball, a speeder ride out included) drowns with the
 ## same fade, line and wake-up. Riding a speeder or flying, you are never in it.
 ##
+## Issue #880: in an asteroid field (field_ball: the field type, FieldSphere) the
+## deck stands on the field's biggest rock (FieldRocks' home rock) with no glass,
+## no keel and nothing below; going over the edge is no fall to your death but a
+## drift in low gravity, and FieldWorld pulls a drifter back to their ship.
+##
 ## Colliders are built in the greybox too (the traces walk and fall with real
 ## physics); dress() adds the looks.
 
@@ -46,6 +51,7 @@ var shield: MeshInstance3D
 var _falling := false
 var sea_ball := false                  ## issue #879: the town is on a round sea (OceanSphere)
 var drowned := 0                       ## of falls, the times it was the sea (traces, tests)
+var field_ball := false                ## issue #880: the town is on a rock in a field (FieldSphere)
 var _fade: ColorRect
 var _fade_t := 0.0
 
@@ -59,6 +65,7 @@ func setup(town_scene, p: Dictionary) -> void:
 	enclosure_height = float(tcfg.get("enclosure_height", ENCLOSURE_HEIGHT))
 	fall_text = str(tcfg.get("fall_text", ""))
 	sea_ball = str(p.get("ground", "")) == "ball" and str(surface.get("kind", "")) == "water"
+	field_ball = str(p.get("ground", "")) == "ball" and str(surface.get("kind", "")) == "field"
 	_measure(demo.town)
 
 
@@ -147,8 +154,8 @@ func add_to_ground(ground: WorldGround) -> void:
 
 func _physics_process(dt: float) -> void:
 	var p: Node3D = demo._player if demo != null else null
-	if p == null or not is_instance_valid(p) or bool(p.get("piloting")):
-		return
+	if p == null or not is_instance_valid(p) or bool(p.get("piloting")) or field_ball:
+		return                           # issue #880: in a field, FieldWorld has the drifters
 	var y := p.global_position.y
 	if _falling:
 		_fade_t += dt
@@ -249,7 +256,15 @@ func _dress_keel(mats: LookMaterials) -> void:
 	slab.position = Vector3(c.x, -0.5 - 2.75, c.y)
 	slab.material_override = mats.hull(-50.0, 6.0)
 	add_child(slab)
-	# A tapered keel under it: the platform reads as a built thing from the air.
+	# A tapered keel under it: the platform reads as a built thing from the air
+	# (in a field the dock rock is under it instead: FieldRocks).
+	if not field_ball:
+		_dress_keel_cone(mats)
+	_dress_edge_lights(mats)
+
+
+func _dress_keel_cone(mats: LookMaterials) -> void:
+	var c := deck.get_center()
 	var keel := MeshInstance3D.new()
 	keel.name = "Keel"
 	var cyl := CylinderMesh.new()
@@ -263,7 +278,11 @@ func _dress_keel(mats: LookMaterials) -> void:
 	keel.position = Vector3(c.x, -6.0 - cyl.height * 0.5, c.y)
 	keel.material_override = mats.hull(-50.0, 8.0)
 	add_child(keel)
-	# Lights round the deck edge.
+
+
+## Lights round the deck edge.
+func _dress_edge_lights(mats: LookMaterials) -> void:
+	var c := deck.get_center()
 	var glow := mats.glow(Color("#7fe0ff"))
 	glow.emission_energy_multiplier = 1.4
 	for i in 4:

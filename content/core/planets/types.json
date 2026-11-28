@@ -30,7 +30,8 @@
         { "from": "grit_station", "to": "port_desert", "seconds": [20.0, 30.0] },
         { "from": "cinder_station", "to": "ringed_giant", "seconds": [20.0, 30.0] },
         { "from": "port_desert", "to": "ringed_giant", "seconds": [50.0, 70.0] },
-        { "from": "port_red", "to": "port_tide", "seconds": [30.0, 50.0] }
+        { "from": "port_red", "to": "port_tide", "seconds": [30.0, 50.0] },
+        { "from": "port_red", "to": "scatter_field", "seconds": [12.0, 25.0] }
       ]
     },
     "hysteresis": 300.0,
@@ -225,6 +226,27 @@
                "fog": { "color": "#3a1a12" } },
       "body": { "radius": 1500.0, "color": "#2a1410", "dark": "#ff5a14" },
       "fall_text": "You walked into the lava."
+    },
+    "field": {
+      "town_naming": "town_station",
+      "label": "asteroid field",
+      "ground": "ball",
+      "deck": true,
+      "default_style": "metallic",
+      "enclosure_height": 0.0,
+      "surface": { "kind": "field", "radius": 1500.0, "depth": 1300.0, "flat_radius": 2600.0, "up_blend": 400.0,
+                   "note": "Issue #880: a field of rocks with no ground (src/systems/planets/field_sphere.gd: the gas ball's shape with nothing drawn and nothing deadly). radius is the deck's level; the ball's own surface is depth metres below it, out of play. The town sits on a deck on the field's biggest rock with no glass (enclosure_height 0). Everything else is the planet's 'field' landmark (src/systems/world/field_rocks.gd): its rocks, which you stand on and ships set down on, its wrecks and the rocks under its outposts, and its own gravity, jetpack and drift numbers (src/systems/world/field_world.gd). Up is straight up everywhere out to flat_radius, so a drifter clear of every rock falls slowly the deck's way down until pulled back to their ship." },
+      "sky": { "ambient": { "energy": 0.85 },
+               "sky": { "zenith": "#1e1a1c", "horizon": "#4a3c3a", "ground": "#241e1e", "cloud_cover": 0.0, "planet_visibility": 1.0, "energy": 0.8 },
+               "fog": { "color": "#3a302e", "density": 2e-05, "sky_affect": 0.05 },
+               "volumetric": { "enabled": false } },
+      "atmosphere": { "upper_start": 0.0, "cloud_deck": 200.0, "sky_black_at": 900.0, "space_altitude": 700.0 },
+      "space": { "handoff": 1500.0,
+                 "note": "As the asteroid's: within handoff metres of the deck's level its own scene flies you, with no fade. From outside it is a cloud of rocks (SpaceTravel: body.rocks of them), not a ball." },
+      "body": { "radius": 1500.0, "color": "#6e5a50", "dark": "#2a2220", "rocks": 90 },
+      "arrival": { "altitude": 400.0, "distance": 900.0 },
+      "fall_text": "",
+      "harmful_surface": {}
     },
     "open_space": {
       "label": "open space",

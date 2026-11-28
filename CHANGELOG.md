@@ -2,6 +2,22 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## An asteroid field in the red system (2026-11-28)
+
+- **The asteroid field**, the red system's third place: a few hundred rocks
+  round a small dock town, about 18 seconds from the red world. No ground, just
+  rocks and the dark.
+- **Low gravity.** Your feet stick to the rock under you. Run and jump off the
+  side of one rock and you float across onto the next. The jetpack tops up in
+  the air out here.
+- **Drift too far and your ship reels you back.**
+- **Land your ship on a big rock.** Bump one slowly and you stop; hit one fast
+  and you crash.
+- **Three wrecked cruisers** to walk into among the rocks.
+- **Four Remnant outposts** on the biggest rocks, a new front to take.
+- **Four new jobs** on the dock's bar board: a salvage run in a wreck, a lost
+  crate, a stranded pilot running out of air, and clearing an outpost.
+
 ## A water world in the red system (2026-11-28)
 
 - **The tide world**, the red system's second planet: a sea all the way round,

@@ -20,6 +20,7 @@ var dash_allowed := true
 var crouch_speed := 2.0
 var ground_accel := 30.0
 var gravity := 20.0
+var jump_height := 0.6                 ## metres a jump rises (issue #880: an asteroid field's low gravity jumps higher)
 
 # Pose heights.
 var stand_height := 1.8
@@ -181,7 +182,7 @@ func step(delta: float, yaw: float, ground_y: float = 0.0) -> void:
 
 	# Vertical.
 	if on_ground and command.jump:
-		velocity.y = sqrt(2.0 * gravity * 0.6)
+		velocity.y = sqrt(2.0 * gravity * jump_height)
 		on_ground = false
 		pose = Pose.JUMP
 	elif not on_ground:

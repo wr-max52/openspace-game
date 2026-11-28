@@ -542,6 +542,9 @@ func _add_landmark(lm: Dictionary, content) -> void:
 	if str(lm.get("kind", "")) == StationHull.LANDMARK_KIND:
 		StationHull.add_to_ground(self, lm)         # a space station (content/core/stations/), in orbit
 		return
+	if str(lm.get("kind", "")) == FieldRocks.KIND:
+		FieldRocks.add_to_ground(self, lm)          # issue #880: an asteroid field's rocks and wrecks
+		return
 	var at := _v3(lm.get("at", [0, 0, 0]))
 	if sphere() != null:
 		_add_landmark_on_ball(lm, content, at)

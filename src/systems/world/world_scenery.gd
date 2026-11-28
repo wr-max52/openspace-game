@@ -104,6 +104,14 @@ func _add_collider(root: StaticBody3D, b: Dictionary) -> bool:
 	var cs := CollisionShape3D.new()
 	var mn: Vector3 = b.min
 	var mx: Vector3 = b.max
+	if b.has("convex"):
+		# Issue #880: a field rock, its own hull (FieldRocks) in its own frame.
+		var hull := ConvexPolygonShape3D.new()
+		hull.points = b.convex
+		cs.shape = hull
+		cs.transform = WorldGround.box_xf(b)
+		root.add_child(cs)
+		return true
 	if bool(b.get("wreck_shard", false)):
 		var shape := ConvexPolygonShape3D.new()
 		shape.points = StarcruiserWreck.shard_vertices(mx - mn)

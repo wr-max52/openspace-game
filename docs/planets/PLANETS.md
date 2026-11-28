@@ -224,6 +224,50 @@ land. Copy it for any water world you can ride.
 crosses a kilometre of sea to the nearest outpost and back, and a person in the
 water drowns and wakes at the bay.
 
+## The asteroid field: rocks with no ground (issue #880)
+
+`scatter_field.json` is the red system's third place, a field of rocks round a
+dock town, with no ground and open space's dark sky. Copy it for any field, belt
+or debris cloud you walk and fly through.
+
+- **The type is `field`:** `ground: "ball"`, `deck: true`, `surface.kind:
+  "field"`. `PlanetTerrain.for_planet` gives it a `FieldSphere`
+  (`src/systems/planets/field_sphere.gd`): the gas ball's shape with nothing
+  drawn and nothing deadly, its surface far below and out of play
+  (`PlanetTerrain.no_mesh`). Up is straight up out to `flat_radius`.
+- **The rocks** are the planet's `field` landmark (`src/systems/world/field_rocks.gd`):
+  the dock rock under the deck, the rocks under each outpost, chains of path
+  rocks out to each outpost, wreck pad and the stranded pilot's rock (`path_radius`,
+  `gap`), a `scatter` of more in a box, and `small` rocks you only see, tumbling.
+  All of them are copies of a few shared meshes, so a few hundred cost little.
+  Every big rock has a convex collider (ships bump, land on and crash into them)
+  and is a gravity body of the ball (`PlanetSphere.add_gravity_body`).
+- **On foot** (`src/systems/world/field_world.gd`): low gravity (`gravity`, 4),
+  the jetpack refuels in the air (`jet_recharge`), and a jump rises `jump_m`
+  (3 m, the same push as at home). Your feet stick to the rock under you and you
+  fall toward the nearest rock in `reach`; in the air, the rock you left counts
+  `leap_m` further off (`PlanetSphere.body_bias`), so a run and a jump from the
+  side facing the next rock carries you onto it. Clear of every rock for
+  `drift_s`, or `drift_m` below the deck, and your ship reels you back.
+- **The wrecks:** three walkable wrecked cruisers among the rocks (`wrecks`),
+  posed like the belt's (`BeltWrecks`, `StarcruiserWreck.VARIANT_KEYS`).
+- **The outposts:** four skimmer outposts (`station` landmarks) on the biggest
+  rocks, about a kilometre out, the Territory front `field` in
+  `content/core/story/territory.json`.
+- **The jobs** on the dock's bar board (`content/core/board/bar_board.json`,
+  `planet: "scatter_field"`): Salvage run (power cells in a wreck to your
+  ship), Lost crate, Stranded pilot (on a clock of air, then fly them home) and
+  Clear the rock (take one of the outposts). `WorldState.open_jobs` shows them
+  only here.
+- **From space** it is a cloud of rocks, not a ball (`SpaceTravel._field_body`,
+  `body.rocks`).
+- **The trip:** 12 to 25 seconds from the red world in the courier.
+
+`scenes/field_trace.gd` and `tests/test_field_trace.gut.gd` check it: a run and
+a jump off one rock lands on the next, your ship reels you back, a ship lands on,
+bumps and crashes into rocks, all four outposts are taken and the salvage run
+pays.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the

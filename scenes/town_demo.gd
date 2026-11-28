@@ -120,6 +120,7 @@ var sea_loaner: SpeederNode = null   ## issue #879: the tide town's loaner speed
 var planet: Dictionary = {}           ## issue #45: the planet this scene is (PlanetGen.build), from GameFlow
 var world: Dictionary = {}            ## its world (terrain, atmosphere, detail): authored or generated
 var style: TownStyle                  ## its town style (metallic, snowy, pastel, words...)
+var field_world: FieldWorld          ## issue #880: the asteroid field's rocks, float, drift and jobs (the field type)
 var platform: PlatformWorld           ## the deck, glass, shield and what lies below (platform planets; AsteroidWorld on an asteroid)
 @export var with_speeders := true     ## issue #42: Skrugs's post (needs with_ship: it shares the ship's ground)
 @export var with_droids := true       ## issue #51: companion droids, the droid merchant, desert wrecks, the Remnant's patrol droids (needs use_look + with_gear)
@@ -388,6 +389,8 @@ func build_plan(staged_build: bool) -> Array:
 		add.call("gear", LATER, func(): _build_gear(); return true)      # after the bar: the save (and the inventory in it) is loaded
 	if with_ship:
 		add.call("ship", SHELL, func(): _build_ship(); return true)
+	if str(planet.get("type_cfg", {}).get("surface", {}).get("kind", "")) == FieldRocks.KIND:
+		add.call("field", SHELL, func(): _build_field(); return true)     # issue #880: on the ship's ground
 	if staged_build and ball_terrain:
 		# Ground round the town for the people about to stand on it.
 		add.call("terrain_town_ground", LATER, func(_left): return _terrain_town_ground(), true)
@@ -612,6 +615,18 @@ func _dress_gas_ring() -> void:
 	var m := rmi.material_override as ShaderMaterial
 	m.set_shader_parameter("visibility", 0.8)
 	look.track_material(m)
+
+
+## Issue #880: the asteroid field's rocks, float, drift and jobs (on the ship's
+## ground, which holds the rocks' colliders and pulls: FieldRocks).
+func _build_field() -> void:
+	if field_world != null or pilot == null or pilot.ground == null:
+		return
+	field_world = FieldWorld.new()
+	field_world.setup(self)
+	add_child(field_world)
+	if use_look and decor != null and decor.mats != null:
+		field_world.dress(decor.mats)
 
 
 func _build_platform(ground_kind: String) -> void:
@@ -2152,6 +2167,8 @@ func _build_desert(staged_build := false) -> void:
 ## sand, which lies exactly at their top, is what you see: paving runs straight
 ## into sand. The sun drives the sand's glitter, and the horizon gets landforms.
 func _dress_desert() -> void:
+	if terrain is PlanetTerrain and (terrain as PlanetTerrain).no_mesh:
+		return          # issue #880: an asteroid field has no ground to dress
 	look.track_material(terrain.material)
 	if terrain is PlanetTerrain and not (terrain as PlanetTerrain).rock_look.is_empty():
 		return          # issue #99: the asteroid's rock: no sand, dust or desert landforms
@@ -2197,6 +2214,8 @@ func _hide_desert_floors() -> void:
 
 ## The mesas, hoodoos and boulders round the town (issue #574: its own build step).
 func _build_landforms(st: StagedBuild = null) -> void:
+	if terrain is PlanetTerrain and (terrain as PlanetTerrain).no_mesh:
+		return          # issue #880: an asteroid field: its rocks are FieldWorld's
 	if terrain is PlanetTerrain and not ((terrain as PlanetTerrain).rock_look.is_empty() and (terrain as PlanetTerrain).gas_look.is_empty() \
 			and (terrain as PlanetTerrain).sea_look.is_empty()):
 		return

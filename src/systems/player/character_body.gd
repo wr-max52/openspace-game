@@ -102,6 +102,10 @@ var jetpack = null
 ## refuels in the air at this rate. Below 0: as everywhere else.
 var space_gravity := -1.0
 var space_recharge := -1.0
+## Issue #880: and a jump rises this many metres (an asteroid field's legs: the same
+## push carries you far higher). Below 0: the usual jump.
+var space_jump := -1.0
+var _ground_jump := -1.0
 var _ground_gravity := -1.0
 
 ## Capsule dimensions. The body origin is at the feet (the camera's fpv_offset of
@@ -202,6 +206,9 @@ func _physics_process(delta: float) -> void:
 	if _ground_gravity < 0.0:
 		_ground_gravity = controller.gravity
 	controller.gravity = space_gravity if space_gravity >= 0.0 else _ground_gravity
+	if _ground_jump < 0.0:
+		_ground_jump = controller.jump_height
+	controller.jump_height = space_jump if space_jump >= 0.0 else _ground_jump
 	_step_jetpack(delta, grounded)
 	# A ground height far below the world disables the controller's flat-floor
 	# clamp, so landing is decided by collision instead of a hardcoded y = 0.
