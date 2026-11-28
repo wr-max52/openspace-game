@@ -167,6 +167,11 @@ var env_cfg: Dictionary = {}
 var view_altitude := 0.0             ## metres above the ground (AltitudeDetail): the sun's shadows reach that much further
 var fog_height_offset := 0.0         ## issue #536: the preset's fog.height; on a ball, metres from the ground under the camera
 var fog_height_density := 0.0        ## the preset's height density (fog.ball_height_density on a ball)
+## Open space (issue #573) has no ground, so no height fog. Godot measures it on
+## world y: below the band it is total at any distance, so below the old fixed
+## band (fog.height, -10 m) every lit mesh, the cockpit included, drew as flat fog
+## colour while the fog-free planets stayed sharp (dusk: purple, orange sunward).
+var open_space := false
 var _shadow_level := 1.0             ## the sun's shadow opacity now, fading to _shadow_target
 var _shadow_target := 1.0
 var _tracked: Array[ShaderMaterial] = []
@@ -586,6 +591,8 @@ func _apply_values(p: Dictionary) -> void:
 		# Issue #536: on a ball, follow_ground_fog moves the band to the ground under
 		# the camera every frame (it was off on balls: issue #77).
 		fog_height_density = float(fog.get("ball_height_density", fog_height_density))
+	if open_space:
+		fog_height_density = 0.0
 	env.fog_height_density = fog_height_density
 
 	env.volumetric_fog_enabled = bool(vol["enabled"])

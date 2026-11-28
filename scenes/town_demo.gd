@@ -622,6 +622,7 @@ func _build_platform(ground_kind: String) -> void:
 
 func _build_look() -> void:
 	look = LookEnvironment.new()
+	look.open_space = open_space()       # no ground: no height fog
 	_lay_sky(look, planet.get("sky", {}))
 	if not bool(planet.get("sky_painting", true)):
 		look.painted_planet = 0.0      # the real ringed giant is drawn instead (or we are on it)
