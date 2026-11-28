@@ -2,6 +2,23 @@
 
 Plain English, newest on top. One entry per milestone.
 
+## Climbing ladders (2026-11-28)
+
+- **Walk into a ladder holding W and you climb it.** You step onto the
+  bottom rung, then go up hand over hand and foot over foot. Let go of W and
+  you hang where you are. At the top you pull yourself over the edge, put a
+  knee on the floor and stand up on it.
+- **At the top of a ladder, [E] climbs down.** You turn round, swing back over
+  the edge and hang a few rungs down, facing the ladder.
+- **S slides you down.** Hands and boots on the rails, legs out round them,
+  faster and faster. Let go of S and you grip and stop. At the bottom you
+  land. **Space lets go** and you fall (the jetpack works from there).
+- Your weapon goes back in its holster while you climb and comes back out when
+  you get off.
+- Climbable: the skimmer outposts' ladder up to the roof hatch and the ladder
+  down to the skimmer gantry, the favela's stacked shacks and containers, and
+  the engine rooms' ladders up to their catwalks. If there is no room to stand
+  at the top, you stop with your hands on the top rungs.
 ## The general's jobs, in order (2026-11-28)
 
 - **General Vask gives his work one job at a time.** Each one opens once the

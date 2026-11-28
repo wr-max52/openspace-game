@@ -1,0 +1,25 @@
+{
+  "note": "Climbing ladders. The ladders themselves are noted by whatever draws them (src/systems/world/ladders.gd: StationHull's roof and gantry ladders on the skimmer outposts, StationFill's stacked shacks and containers in the favela and the engine rooms' catwalk ladders). 'climb' is read by src/systems/player/ladder_climb.gd: walk into a ladder's foot holding W and you step on over mount_s seconds (feet first_step m up); W climbs at climb_speed m/s (climb_accel m/s^2 to get there and to stop); your feet come within top_out_below m of the floor at the top and you climb out over top_out_s seconds (top_rise of it pulling up over the lip, the rest stepping out onto the floor) where there is room to stand, else you hang there. [E] on the floor by a ladder's top swings you onto it over top_in_s seconds (top_turn of it back over the lip, turning round). S slides down, up to slide_speed m/s at slide_accel m/s^2; let go and you grip, slowing at slide_brake m/s^2. Space lets go: let_go_push m/s back off the ladder and let_go_up m/s up. rung: the rungs' spacing (m), for the climbing cycle and its sounds. 'words': PlayerClimber's prompts on the gear HUD.",
+  "climb": {
+    "mount_s": 0.35,
+    "first_step": 0.3,
+    "climb_speed": 1.8,
+    "climb_accel": 10.0,
+    "top_out_below": 0.9,
+    "top_out_s": 0.85,
+    "top_rise": 0.55,
+    "top_in_s": 0.9,
+    "top_turn": 0.45,
+    "slide_speed": 6.0,
+    "slide_accel": 9.0,
+    "slide_brake": 14.0,
+    "let_go_push": 2.5,
+    "let_go_up": 1.5,
+    "rung": 0.35
+  },
+  "words": {
+    "at_foot": "[W] Climb the ladder",
+    "at_top": "[E] Climb down the ladder",
+    "on_ladder": "[W] Climb   [S] Slide down   [Space] Let go"
+  }
+}

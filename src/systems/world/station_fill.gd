@@ -31,6 +31,7 @@ extends RefCounted
 const TownBuildings := preload("res://src/systems/world/town_buildings.gd")
 const TownMarket := preload("res://src/systems/world/town_market.gd")
 const StationRemnant := preload("res://src/systems/world/station_remnant.gd")
+const Ladders := preload("res://src/systems/world/ladders.gd")
 const UP := Vector3.UP
 const RAIL := StationHull.RAIL_H
 ## Issue #542: the palettes are content/look/dressing.json "station_fill" (a
@@ -54,6 +55,10 @@ var nets := {}                      ## "<tower>/<floor>" -> { alleys: [angle], s
 ## keeper stands behind a counter (a curio seller's, or a vendor's: kind is its
 ## marker). StationCrowd stands a person on each.
 var posts := {}
+## The ladders you climb (Ladders.spec, in the station's frame): a stacked shack's
+## or container's up its front, an engine room's up to its catwalk. SpaceStation
+## notes them in the Ladders registry as each floor is built.
+var ladders: Array = []
 var _palette: Array = paints        ## the floor being built: its paints (the favela's own "paints")
 var _neons: Array = neons           ## and its neon colours
 var _fv: Dictionary = {}            ## the favela's fill block while it is built ({} on any other floor)
@@ -587,6 +592,12 @@ static func radial(t: Dictionary, y: float, a: float) -> Transform3D:
 	return Transform3D(Basis(x, UP, x.cross(UP)), Vector3(c.x, y, c.y))
 
 
+## A climbable ladder in the current frame (kit._xf): its foot `foot`, faced along
+## `facing`, up to a floor `h` over its foot.
+func _ladder(foot: Vector3, facing: Vector3, h: float) -> void:
+	ladders.append(Ladders.spec(kit._xf * foot, kit._xf.basis * facing, h))
+
+
 ## A part in the current frame (kit._xf); `solid` gives it a collider.
 func _p(mesh: Mesh, mat: Material, pos: Vector3, solid := false, basis := Basis.IDENTITY) -> void:
 	if solid:
@@ -1088,6 +1099,7 @@ func _shack(xf: Transform3D, d: float, w: float, h: float, stacked: bool, seed: 
 	while ry < y2:
 		_p(kit.box(0.05, 0.04, 0.48), _m("rail"), Vector3(d * 0.5 + 0.25, ry, lz))
 		ry += 0.4
+	_ladder(Vector3(d * 0.5 + 0.25, 0, lz), Vector3.LEFT, h)   # from the alley up onto the lower roof
 	_count("stacked")
 
 
@@ -1305,6 +1317,7 @@ func _container(xf: Transform3D, d: float, w: float, stacked: bool, seed: int) -
 	while ry < h:
 		_p(kit.box(0.05, 0.04, 0.48), _m("rail"), Vector3(d * 0.5 + 0.25, ry, lz))
 		ry += 0.4
+	_ladder(Vector3(d * 0.5 + 0.25, 0, lz), Vector3.LEFT, h)
 	_count("container_stack")
 
 
@@ -2252,6 +2265,7 @@ func _engine_shell(r0: float, r1: float, half: float, k: int, use: String, hole 
 	while ry < cat_y:
 		_p(kit.box(0.5, 0.04, 0.04), _m("rail"), Vector3(lx, ry, lz))
 		ry += 0.35
+	_ladder(Vector3(lx, 0, lz), Vector3(0, 0, ls), cat_y)   # facing the wall, out onto the catwalk
 	if use == "engine":
 		return                                  # the reactor stands up through the middle
 	# The cable tray down the middle, lamps hung from it.

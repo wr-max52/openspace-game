@@ -160,15 +160,29 @@ func step(dt: float, inp: Dictionary) -> Dictionary:
 		phase = fmod(phase + TAU * speed / stride * dt, TAU)
 
 	slide_w = move_toward(slide_w, 1.0 if bool(inp.get("slide", false)) and grounded else 0.0, dt / slide_blend_s)
+	# On a ladder (LadderClimb.anim): how much the climb owns the body.
+	var climb_w := clampf(float(inp.get("climb", 0.0)), 0.0, 1.0)
+	if climb_w > 0.5:
+		states_seen["CLIMB"] = true
 	# Steady walking (on the ground, upright, no slide, dance or set): the legs and
 	# hips are posed exactly, since the smoothing lagged and shrank every step. Any
 	# other pose blends in through the smoothing as before.
 	var plain := state == State.LOCOMOTION and not crouch and slide_w <= 0.0 \
-		and not dancing and performing == ""
+		and not dancing and performing == "" and climb_w <= 0.0
 	steady = move_toward(steady, 1.0, dt / STEADY_S) if plain else 0.0
 	_dt = dt
 	var target := _target(inp, speed, crouch, vy)
 	var k := 1.0 - exp(-smoothing * dt)
+	if climb_w > 0.0:
+		var cp := climb_pose(float(inp.get("climb_u", 0.0)), float(inp.get("climb_slide", 0.0)),
+			float(inp.get("climb_over", 0.0)))
+		for jn in cp.joints:
+			target.joints[jn] = (target.joints.get(jn, Vector3.ZERO) as Vector3).lerp(cp.joints[jn], climb_w)
+		target.pelvis_y = lerpf(target.pelvis_y, cp.pelvis_y, climb_w)
+		target.pelvis_x = lerpf(target.pelvis_x, cp.pelvis_x, climb_w)
+		# The rung-over-rung cycle is quick (two and a half a second): the joints
+		# follow it nearly as posed, or the smoothing would shrink every reach.
+		k = lerpf(k, 1.0 - exp(-CLIMB_SMOOTH * dt), climb_w)
 	var kl := lerpf(k, 1.0, steady)
 	for j in target.joints:
 		var v: Vector3 = target.joints[j]
@@ -179,7 +193,7 @@ func step(dt: float, inp: Dictionary) -> Dictionary:
 	out["joints"] = _cur if share_out else _cur.duplicate()
 	out["pelvis_y"] = pelvis_y
 	out["pelvis_x"] = pelvis_x
-	out["state"] = "DANCE" if dancing else ("PERFORM" if performing != "" else state_name())
+	out["state"] = "DANCE" if dancing else ("PERFORM" if performing != "" else ("CLIMB" if climb_w > 0.5 else state_name()))
 	out["dance_yaw"] = float(target.get("yaw", 0.0))
 	out["hands"] = target.get("hands", {})
 	out["reach"] = target.get("reach", {})
@@ -679,6 +693,99 @@ func _target(inp: Dictionary, speed: float, crouch: bool, vy: float) -> Dictiona
 	j.chest.y += float(inp.get("twist", 0.0))
 	if slide_w > 0.0 and upper != UPPER_FREE:
 		j.chest.x -= 14.0 * slide_w  # weapon up: still lean back, the aim pass keeps the hands
+	return { "joints": j, "pelvis_y": py, "pelvis_x": px }
+
+
+# ------------------------------------------------------------------ ladders
+
+## Climbing (LadderClimb): the body hangs Ladders.STAND back from the rungs, its
+## feet `u` metres up from the ladder's foot. One cycle is two rungs: each foot
+## stands on a rung while the body rises past it, then lifts off and steps up two;
+## the opposite hand reaches up as that foot does (left hand with right foot), and
+## pulls down past the shoulder while it holds. The feet are placed by the same leg
+## IK as the walk (leg_ik), so their boots sit on the rungs; the arms are angles.
+const CLIMB_RUNG := 0.35            ## rung spacing (m): a cycle is two
+const CLIMB_REACH := 0.4            ## ankle ahead of the hips: the ball of the boot on the rung
+const CLIMB_PELVIS := 0.86          ## hips over the lower foot's rung (knees bent)
+const CLIMB_SMOOTH := 40.0          ## joint smoothing per second while on a ladder
+const CLIMB_FOOT_LO := 0.05         ## a foot's rung, over the body's feet: as it leaves it
+const CLIMB_FOOT_HI := 0.4          ## and as it lands on the next but one
+
+## { joints, pelvis_y, pelvis_x } for feet `u` m up the ladder, `slide` (0..1: hands
+## and boots on the rails, legs out round them) and `over` (0..1: climbing out over
+## the top, a knee on the lip and both hands pushing on the floor).
+static func climb_pose(u: float, slide: float = 0.0, over: float = 0.0) -> Dictionary:
+	var j := {}
+	for jn in JOINTS:
+		j[jn] = Vector3.ZERO
+	var p := fposmod(u / (2.0 * CLIMB_RUNG), 1.0)
+	var py := CLIMB_PELVIS
+	var hip_y := py + HIP_Y
+	for leg in ["l", "r"]:
+		var q := fposmod(p + (0.0 if leg == "l" else 0.5), 1.0)
+		var rel: float
+		var back := 0.0
+		if q < 0.5:
+			rel = CLIMB_FOOT_HI - q * 2.0 * CLIMB_RUNG             # stood on: the body rises past it
+		else:
+			var e := _smooth01((q - 0.5) / 0.5)
+			rel = lerpf(CLIMB_FOOT_LO, CLIMB_FOOT_HI, e)
+			back = 0.12 * sin(PI * e)                                # off the rung and up
+		var ik := leg_ik(CLIMB_REACH - back, rel + ANKLE_ABOVE_SOLE - hip_y)
+		j[leg + "_hip"] = Vector3(ik.x, 0, 3.0 if leg == "l" else -3.0)
+		j[leg + "_knee"] = Vector3(ik.y, 0, 0)
+		j[leg + "_ankle"] = Vector3(-ik.x - ik.y, 0, 0)            # boots flat on the rungs
+	for arm in ["l", "r"]:
+		var q := fposmod(p + (0.5 if arm == "l" else 0.0), 1.0)   # the left hand goes with the right foot
+		var reach: float
+		var out := 0.0
+		if q < 0.5:
+			reach = 1.0 - q * 2.0                                    # holding: pulled down toward the shoulder
+		else:
+			var e := _smooth01((q - 0.5) / 0.5)
+			reach = e
+			out = 8.0 * sin(PI * e)                                  # a little out round the rung on the way up
+		var sgn := 1.0 if arm == "l" else -1.0
+		j[arm + "_shoulder"] = Vector3(lerpf(-108.0, -160.0, reach), 0, sgn * (11.0 + out))
+		j[arm + "_elbow"] = Vector3(lerpf(-78.0, -12.0, reach), 0, 0)
+	var sw := sin(TAU * p)
+	j.pelvis = Vector3(0, 4.0 * sw, 0)
+	j.spine = Vector3(3.0, 0, 0)
+	j.chest = Vector3(2.0, -3.0 * sw, 0)
+	j.head = Vector3(-14.0, 0, 0)                                    # eyes up the ladder
+	var px := 0.015 * sw
+	if slide > 0.0:
+		var s := {}
+		var ik := leg_ik(0.3, 0.12 + ANKLE_ABOVE_SOLE - hip_y)
+		s.l_hip = Vector3(ik.x, 0, 16.0)
+		s.r_hip = Vector3(ik.x, 0, -16.0)                            # legs out round the rails
+		s.l_knee = Vector3(ik.y, 0, 0)
+		s.r_knee = Vector3(ik.y, 0, 0)
+		s.l_ankle = Vector3(-ik.x - ik.y - 20.0, 0, 0)
+		s.r_ankle = Vector3(-ik.x - ik.y - 20.0, 0, 0)
+		s.l_shoulder = Vector3(-128.0, 0, 15.0)                       # hands loose on the rails
+		s.r_shoulder = Vector3(-128.0, 0, -15.0)
+		s.l_elbow = Vector3(-36.0, 0, 0)
+		s.r_elbow = Vector3(-36.0, 0, 0)
+		s.pelvis = Vector3.ZERO
+		s.spine = Vector3(-4.0, 0, 0)
+		s.chest = Vector3(-6.0, 0, 0)
+		s.head = Vector3(18.0, 0, 0)                                 # looking down where you are going
+		for jn in s:
+			j[jn] = (j[jn] as Vector3).lerp(s[jn], slide)
+		px = lerpf(px, 0.0, slide)
+	if over > 0.0:
+		var o := {
+			"pelvis": Vector3.ZERO, "spine": Vector3(14.0, 0, 0), "chest": Vector3(32.0, 0, 0), "head": Vector3(-20.0, 0, 0),
+			"l_hip": Vector3(-100.0, 0, 6.0), "l_knee": Vector3(115.0, 0, 0), "l_ankle": Vector3(-15.0, 0, 0),
+			"r_hip": Vector3(-12.0, 0, -4.0), "r_knee": Vector3(40.0, 0, 0), "r_ankle": Vector3(-25.0, 0, 0),
+			"l_shoulder": Vector3(-40.0, 0, 12.0), "l_elbow": Vector3(-30.0, 0, 0),
+			"r_shoulder": Vector3(-40.0, 0, -12.0), "r_elbow": Vector3(-30.0, 0, 0),
+		}
+		for jn in o:
+			j[jn] = (j[jn] as Vector3).lerp(o[jn], over)
+		py = lerpf(py, 0.8, over)
+		px = lerpf(px, 0.0, over)
 	return { "joints": j, "pelvis_y": py, "pelvis_x": px }
 
 

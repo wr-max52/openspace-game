@@ -12,6 +12,8 @@ extends CharacterBody3D
 const CharacterController := preload("res://src/systems/player/character_controller.gd")
 const GaitInput := preload("res://src/systems/player/gait_input.gd")
 const FallDamage := preload("res://src/systems/combat/fall_damage.gd")
+const LadderClimb := preload("res://src/systems/player/ladder_climb.gd")
+const Ladders := preload("res://src/systems/world/ladders.gd")
 
 signal pose_changed(pose: int)
 signal hurt(amount: float)          ## something hit the player (bolts, blades)
@@ -151,6 +153,9 @@ func _physics_process(delta: float) -> void:
 		_unbury_next_tick = false
 		unbury()
 	_tick_health(delta)
+	if climbing:
+		_climb_tick(delta)
+		return
 	var yaw: float = -rotation.y
 	if locked or move_blocked or (not use_external_command and DroidMenu.any_open()):   # a menu's W/S move its cursor
 		controller.set_command(Vector2.ZERO, false, false, false)
@@ -319,6 +324,99 @@ func knock(v: Vector3, fade: float) -> void:
 	controller.push_holds = true
 
 
+# ------------------------------------------------------------------ ladders
+
+## On a ladder (LadderClimb): physics steps aside and the climb places the body.
+var climbing: bool:
+	get: return climb != null and climb.active()
+## The player climbs (PlayerKit turns it on); guards share this body and never do.
+@export var can_climb := false:
+	set(v):
+		can_climb = v
+		if v and climb == null:
+			climb = LadderClimb.new()
+var climb = null                     ## LadderClimb, or null (can_climb off)
+
+
+## Get on ladder `w` (Ladders.world_of): from its foot, or swung round onto it from
+## the floor at its top, facing `facing` (world) as you start.
+func climb_on(w: Dictionary, from_top: bool, facing := Vector3.ZERO) -> bool:
+	if climb == null or climbing or is_downed or piloting:
+		return false
+	if from_top:
+		climb.start_top(w, global_position, facing if facing != Vector3.ZERO else -(w.fwd as Vector3))
+	else:
+		climb.start_bottom(w, global_position)
+	controller.sliding = false
+	gait.reset()
+	return true
+
+
+## One tick on the ladder: W / S (the raw keys: a tap does not walk on), Space
+## lets go. The body goes where the climb says; nothing collides on the way (a
+## ladder's spec is its clear path), and the top only takes you out where a
+## standing body fits.
+func _climb_tick(delta: float) -> void:
+	var up_in := 0.0
+	var jump := false
+	if is_downed:
+		climb.stop()
+		return
+	if not (locked or move_blocked):
+		if use_external_command:
+			up_in = (controller.command.dir as Vector2).y
+			jump = bool(controller.command.jump)
+		else:
+			up_in = -Input.get_axis(move_actions[0], move_actions[1])
+			jump = Input.is_action_just_pressed(jump_action)
+	_set_crouch_shape(false)
+	var clear := true
+	if climb.near_top():
+		clear = _room_to_climb_out(climb.ladder)
+	var r: Dictionary = climb.step(delta, up_in, jump, clear)
+	global_position = r.pos
+	velocity = Vector3.ZERO
+	controller.velocity = Vector3.ZERO
+	controller.push = Vector3.ZERO
+	controller.body_pos = global_position
+	controller.on_ground = false
+	controller.pose = CharacterController.Pose.STAND
+	if jetpack != null:
+		jetpack.step(delta, false, true)       # hanging on is as good as standing: it tops up
+	_was_on_floor = false                     # off the ladder, the next floor you touch is a landing
+	if r.let_go:
+		launch(r.vel, Vector3.ZERO, 5.0)
+	record_origin(global_position, Engine.get_physics_frames())
+
+
+## Room to stand once climbed out at the top of ladder `w`: where it says, or a
+## little nearer the rungs (a narrow porch). The one that fits becomes its exit.
+func _room_to_climb_out(w: Dictionary) -> bool:
+	var want := float(w.exit)
+	for e: float in [want, want - 0.2]:
+		w.exit = e
+		if room_at(Ladders.exit_at(w)):
+			return true
+	w.exit = want
+	return false
+
+
+## A standing body fits at `at` (its feet there, a little lifted).
+func room_at(at: Vector3) -> bool:
+	if not is_inside_tree():
+		return true
+	var cap := CapsuleShape3D.new()
+	cap.radius = capsule_radius * 0.95
+	cap.height = capsule_height
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = cap
+	q.transform = Transform3D(tilt, at + tilt.y * (capsule_height * 0.5 + 0.08))
+	q.exclude = [get_rid()]
+	q.collision_mask = collision_mask
+	q.collide_with_areas = false
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
 ## Read "up" from the planet (if any) and stand the capsule along it.
 func _update_tilt(force: bool = false) -> void:
 	var t := Basis.IDENTITY
@@ -337,6 +435,8 @@ func _update_tilt(force: bool = false) -> void:
 ## not moved the body yet, so relying on its next tick leaves the capsule, avatar,
 ## and controller temporarily using the old planet's up direction.
 func align_to_ground(clear_motion: bool = true) -> void:
+	if climbing:
+		climb.stop()                         # a teleport (a respawn, a load) takes you off a ladder
 	if clear_motion:
 		velocity = Vector3.ZERO
 	_unbury_next_tick = true
