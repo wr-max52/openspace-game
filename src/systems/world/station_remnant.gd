@@ -301,10 +301,12 @@ func _add_top_trooper(p: Dictionary) -> void:
 		top_garrison.add_member(g)
 
 
-## A facing in the station's frame as the soldiers' yaw (they face -Z).
+## A facing in the station's frame as the soldiers' yaw. NpcBody.setup puts it in
+## rotation.y and its body looks along its +Z (RemnantCruiser's crew, atan2(x, z)):
+## atan2(-x, -z) turned every one of them round to face the wall behind their post.
 func _yaw(face: Vector3) -> float:
 	var f: Vector3 = station.frame.basis * face
-	return atan2(-f.x, -f.z)
+	return atan2(f.x, f.z)
 
 
 ## Asleep (their process off) past sleep_m, as on the cruiser: awake while dying or
