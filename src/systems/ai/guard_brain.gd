@@ -46,6 +46,7 @@ var cover := Vector3.INF          ## the cover spot the director gave us (INF = 
 var reloading := false
 var alarm_pos := Vector3.INF      ## M15: where the town alarm last placed the player (shared)
 var facing := 0.0                 ## the body's current yaw (radians)
+var tilt := Basis.IDENTITY        ## the ground's frame (the body's tilt): facing turns about its up
 var post_facing := 0.0            ## the yaw it was posted with
 var walk_up := 0.0                ## ATTEND: walk to this far from the player (0 = stand at the post)
 
@@ -509,13 +510,16 @@ func _sweep(dt: float, toward: Vector3) -> void:
 	if _sweep_left <= 0.0:
 		_sweep_left = c("sweep_every_s", 1.4) * _rng.randf_range(0.7, 1.3)
 		_sweep_yaw = deg_to_rad(_rng.randf_range(-1.0, 1.0) * c("sweep_deg", 60.0))
+	# Issue #838: round the ground's up, so on a tilted deck the sweep stays level
+	# with it, not 12 m into the floor or the sky.
 	var base := _sweep_base
-	if toward != Vector3.INF and Vector2(toward.x - pos.x, toward.z - pos.z).length() > 0.5:
-		base = atan2(toward.x - pos.x, toward.z - pos.z)
+	var tw := tilt.inverse() * (toward - pos) if toward != Vector3.INF else Vector3.ZERO
+	if toward != Vector3.INF and Vector2(tw.x, tw.z).length() > 0.5:
+		base = atan2(tw.x, tw.z)
 	var y := base + _sweep_yaw
-	var p := pos + Vector3(sin(y), 0.0, cos(y)) * 12.0
+	var p := pos + tilt * (Vector3(sin(y), 0.0, cos(y)) * 12.0)
 	face = p
-	aim = p + Vector3(0, target_chest, 0)
+	aim = p + tilt.y * target_chest
 
 
 ## A sentry fights where it stands: duck (if it can), stand, wind up, burst, repeat.
@@ -604,7 +608,7 @@ func _hide() -> void:
 func _aim_at(at: Vector3) -> Vector3:
 	if at == Vector3.INF:
 		return Vector3.INF
-	var chest := at + Vector3(0, target_chest, 0)
+	var chest := at + tilt.y * target_chest
 	var d := Vector2(chest.x - pos.x, chest.z - pos.z).length()
 	var err := deg_to_rad(c("aim_error_deg", 2.2))
 	if Vector2(target_vel.x, target_vel.z).length() > 1.0:

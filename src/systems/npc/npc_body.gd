@@ -527,15 +527,15 @@ func eye_position() -> Vector3:
 	var h: float = perception.eye_height
 	if bool(command.crouch):
 		h = float(profile.get("perception", {}).get("eye_height_crouched", 0.95))
-	return global_position + Vector3(0, h, 0)
+	return global_position + tilt.y * h      # along the ground's up: a tilted deck's (issue #838)
 
 
 ## Where a bolt leaves the rifle: forward of the chest, toward the aim.
 func muzzle_position() -> Vector3:
-	var chest := eye_position() - Vector3(0, 0.25, 0)
-	var to := (aim_point - chest) if aim_point != Vector3.INF else forward()
+	var chest := eye_position() - tilt.y * 0.25
+	var to := tilt.inverse() * ((aim_point - chest) if aim_point != Vector3.INF else forward())
 	to.y = clampf(to.y, -2.0, 2.0)
-	return chest + to.normalized() * 0.75 + Vector3(0, 0.0, 0)
+	return chest + (tilt * to).normalized() * 0.75
 
 
 ## Pull the trigger this frame at `point` (the brain calls it while firing). The
@@ -578,6 +578,7 @@ func reloading() -> bool:
 func brief(b: GuardBrain, at: Vector3, vel: Vector3) -> void:
 	b.pos = global_position
 	b.facing = rotation.y
+	b.tilt = tilt
 	b.hp_frac = float(health.hp) / maxf(1.0, float(max_health))
 	hostile = b.state == GuardBrain.State.COMBAT
 	b.arrived = arrived()
@@ -979,7 +980,7 @@ func _target_speed() -> float:
 func _ray_clear(tpos: Vector3) -> bool:
 	if tpos == Vector3.INF or not is_inside_tree():
 		return false
-	var to := tpos + Vector3(0, target_chest_height(), 0)
+	var to := tpos + tilt.y * target_chest_height()
 	var q := PhysicsRayQueryParameters3D.create(eye_position(), to)
 	q.exclude = [get_rid()]
 	q.collide_with_areas = false
@@ -1290,12 +1291,12 @@ func _animate(dt: float, move: Vector3) -> void:
 	if not _staged():
 		var look_at := Vector3.INF
 		if perception.visible:
-			look_at = target.global_position + Vector3(0, 1.5, 0)
+			look_at = target.global_position + tilt.y * 1.5
 		elif perception.heard and perception.heard_pos != Vector3.INF:
 			look_at = perception.heard_pos
 		var yaw := 0.0
 		if look_at != Vector3.INF:
-			var l := global_basis.inverse() * (look_at - eye_position())
+			var l := (tilt * Basis(Vector3.UP, rotation.y)).inverse() * (look_at - eye_position())
 			yaw = clampf(rad_to_deg(atan2(l.x, l.z)), -70.0, 70.0)
 		(joints.neck as Node3D).rotation_degrees.y = yaw * 0.4
 		(joints.head as Node3D).rotation_degrees.y = yaw * 0.6
@@ -1687,11 +1688,14 @@ func _tick_sip(dt: float) -> void:
 		act("sip", ClubMoves.SIP_S)
 
 
-## Radians up (+) or down toward the aim point, for the chest bend.
+## Radians up (+) or down toward the aim point, for the chest bend. Measured from
+## the ground's up (tilt), not the world's: on a deck stood level with the ball (the
+## skimmer outposts, 52 degrees round) a level aim read as up to 52 degrees up or
+## down, and the guards leant back with the rifle at the sky.
 func _aim_pitch() -> float:
 	if aim_point == Vector3.INF:
 		return -0.25
-	var to := aim_point - eye_position()
+	var to := tilt.inverse() * (aim_point - eye_position())
 	return atan2(to.y, Vector2(to.x, to.z).length())
 ## Issue #65: a billboarded bar over enemies. Enemy = fighting right now (hostile,
 ## from the brain) or hurt (it only loses hp to the player; same-faction fire is
