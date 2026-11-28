@@ -86,10 +86,21 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 	# view). Where the planet's town is the station's bay (the ringed giant's
 	# "station_town"), the station stands in for the port.
 	var station_town := str(planet.get("town", {}).get("station_town", ""))
+	var posts: Array = []
 	for lm in StationHull.landmarks(world):
 		if not lm.has("at"):
 			continue
 		var at: Array = lm.at
+		# Issue #838: a station that is an outpost (its config's "pin": a map kind, the
+		# skimmer outposts' "remnant_outpost") is pinned as one, saying who holds its
+		# deck (Territory's "station_<landmark id>"), not as a station with a side view.
+		var pk := str(StationHull.for_id(str(lm.get("station", ""))).cfg.get("pin", "")) if StationHull.for_id(str(lm.get("station", ""))) != null else ""
+		if pk != "" and not kind_cfg(pk).is_empty():
+			var op := _pin("station_" + str(lm.get("id", "")), pk,
+				_cap(station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) })), Vector2(float(at[0]), float(at[2])))
+			_stamp_owner(op, "station_" + str(lm.get("id", "")))
+			posts.append(op)
+			continue
 		var sp := _pin("station_" + str(lm.get("id", "")), "station", station_label({ "id": str(lm.get("id", "")), "station": str(lm.get("station", "")) }),
 			Vector2(float(at[0]), float(at[2])))
 		sp["view"] = "station:" + str(planet.get("id", world.get("planet", "")))
@@ -98,6 +109,7 @@ static func pins(world: Dictionary, planet: Dictionary, town: Array = []) -> Arr
 		var port := _pin("port", "port", _kind_label("port"), Vector2.ZERO)
 		_stamp_owner(port, Territory.barracks_of(front))
 		out.push_front(port)
+	out.append_array(posts)
 	out.append_array(station_pins(planet, front))
 	var skip: Array = cfg().get("skip", [])
 	for lm in world.get("landmarks", []):

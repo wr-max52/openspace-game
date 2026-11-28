@@ -4,6 +4,8 @@
   "note": "IP-neutral. Issue #838: a Remnant skimmer outpost over the ringed giant, the station city's version of a ranch outpost. The station kit at its smallest (src/systems/world/station_hull.gd draws every box from these numbers, as for orbital_station.json): one tower of one round floor 80 m across (the second tower's markets_2 radius), the Remnant deck's rooms and people on it (StationFill use 'remnant', StationRemnant), and a small covered bay 56 m across (the moon's landing pit) at the end of a short tunnel, with two pads. Its roof is walkable like every top floor's (the rail round its edge, the shield over the gap to jetpack up through, the mast and beacon). Three landmarks in content/core/planets/ringed_giant.json use this one file, each its own outpost (its own name, its own Territory place station_<landmark id>).",
   "naming": { "vessel": "skimmer_post" },
   "name_fmt": "%s",
+  "pin": "remnant_outpost",
+  "pin_note": "On the F11 map it is pinned as a Remnant outpost (content/core/flow/map.json kinds), saying who holds its deck, not as a station with a side view (GlobeMap.pins).",
   "segments": 48,
   "floor_height": 14.0,
   "plate": 1.0,
