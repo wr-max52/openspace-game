@@ -376,6 +376,7 @@ func _inventory_tab() -> Control:
 		inventory.call_ship = pilot.call_ship
 		inventory.call_state = pilot.call_state
 		inventory.on_called = close
+		inventory.on_renamed = pilot.refresh_vessel_name   # issue #835: the HUD shows the new name
 	# Your speeders: Call brings one to you (SpeederPost.call_speeder). Looked up
 	# when pressed: the post is built after this page, and only on the home planet.
 	inventory.call_speeder = func(slot: int) -> String:

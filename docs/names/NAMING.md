@@ -63,9 +63,17 @@ A thing's data says how it is named, in a `naming` block. Code never picks a kin
 | Your ship | `ships/interceptor.json` `naming.vessel` | `vessel:player/<ship>` | the board prompt, the flight HUD, the same name in space |
 | The jetpack | `items/jetpack.json` `naming` (equipment, class) | `item:<id>` | pick up / buy / sell prompts: `Jetpack (Embry XR-76 Skylark)` |
 | The town and planet | `worlds/port_desert.json` `naming` | `town:<id>`, `planet:<world>` | a place card on arrival, the space banner, "Leaving <planet>...", the cantina owner's briefing |
+| Your speeders | `vehicles/*.json` `naming.vessel` | `vessel:speeder/<slot>` | the Ledger (issue #835) |
 | The cantina owner | authored ("Oda Vell") | `npc:cantina_owner` | reserved in `config.json`, so it is never generated for anyone else |
 
 Each sortie brings new pilots, keyed by a sortie counter in WorldState.
+
+**Renaming (issue #835).** Your ships and speeders have a name field and a dice
+button in the Ledger. `NameBook.rename(key, name)` checks a typed name with the
+same filter as generated ones (the kind's lengths, rude words, franchise names)
+and that nothing else has it, then writes it under the same key, so every place
+that shows the name shows the new one. `NameBook.reroll(key)` is the dice: a new
+generated name of the same kind, seeded by a saved roll count.
 
 ## Adding to it
 

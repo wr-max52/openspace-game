@@ -553,10 +553,16 @@ func _use_berth(i: int) -> void:
 	_gun_reach = guns.convergence
 	seeker_lock = MissileLock.new()
 	seeker_lock.configure(guns.group_config("secondary"))
-	vessel_name = NameHooks.vessel(ship_cfg, "vessel:player/" + ship_id)
-	hud.vessel_name = vessel_name
+	refresh_vessel_name()
 	var look: Dictionary = kit.looks.get(str(ship_cfg.get("look", "")), {})
 	chase.fit_to(float(look.get("length", 9.0)))
+
+
+## The ship's own name, read again from the name book (issue #835: the player may
+## have just renamed her in the Ledger), onto the HUD and the dash.
+func refresh_vessel_name() -> void:
+	vessel_name = NameHooks.vessel(ship_cfg, NameHooks.player_ship_key(ship_id))
+	hud.vessel_name = vessel_name
 
 
 ## The ship's own shape, in its own frame, travelling with it: you can walk up to

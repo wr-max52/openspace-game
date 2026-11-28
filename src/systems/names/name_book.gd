@@ -31,6 +31,7 @@ var fixed_kinds: Dictionary = {}  ## kind -> true: named from world_seed (config
 var by_key: Dictionary = {}       ## key -> name
 var owner: Dictionary = {}        ## normalized name -> key
 var kinds_of: Dictionary = {}     ## key -> kind (what it was named as)
+var rolls: Dictionary = {}        ## key -> times the player rolled the dice on it (issue #835)
 var labels: Dictionary = {}       ## key -> how it is shown, with a title ("Corporal Varo Kesh"); see NameHooks
 var engine: NameEngine
 var clashes := 0                  ## names thrown back because they were taken (tests read it)
@@ -125,6 +126,43 @@ func reserve(name: String, key: String) -> bool:
 	return true
 
 
+## Issue #835: the player names this thing `name` (their ship, a speeder). "" when
+## it took; otherwise why not, as a label key in content/core/story/main.json:
+## "name_bad" (too short or long, a rude or franchise word) or "name_taken"
+## (something else in the game has it). A refused name changes nothing.
+func rename(key: String, name: String) -> String:
+	var n := name.strip_edges()
+	var kind := str(kinds_of.get(key, ""))
+	if not engine.acceptable(n, engine.kinds.get(kind, {})):
+		return "name_bad"
+	var holder = owner.get(NameEngine.normalize(n))
+	if holder != null and str(holder) != key:
+		return "name_taken"
+	_write(n, key, kind)
+	labels.erase(key)
+	return ""
+
+
+## Issue #835: the dice. A new generated name of the same kind, free and never the
+## one it had; the count is saved, so the next roll after a load is new too.
+## Returns the name the thing has after (the old one if nothing free came up).
+func reroll(key: String, ctx: Dictionary = {}) -> String:
+	var kind := str(kinds_of.get(key, ""))
+	if kind == "" or kind == "authored":
+		return str(by_key.get(key, ""))
+	rolls[key] = int(rolls.get(key, 0)) + 1
+	var max_attempts := int(engine.config.get("max_attempts", 64))
+	for attempt in max_attempts:
+		var seed := NameEngine.fnv("%d|%s|%s#%d|%d" % [seed_for(kind), kind, key, int(rolls[key]), attempt])
+		var n := engine.generate(kind, seed, ctx)
+		if n == "" or is_taken(n):
+			continue
+		_write(n, key, kind)
+		labels.erase(key)
+		return n
+	return str(by_key.get(key, ""))
+
+
 func has(key: String) -> bool:
 	return by_key.has(key)
 
@@ -176,7 +214,7 @@ func _write(name: String, key: String, kind: String) -> void:
 
 func to_save() -> Dictionary:
 	return { "world_seed": world_seed, "game_seed": game_seed, "names": by_key.duplicate(), "kinds": kinds_of.duplicate(),
-		"labels": labels.duplicate() }
+		"labels": labels.duplicate(), "rolls": rolls.duplicate() }
 
 
 func from_save(d: Dictionary) -> void:
@@ -187,6 +225,7 @@ func from_save(d: Dictionary) -> void:
 	for key in names:
 		_write(str(names[key]), str(key), str(kinds.get(key, "")))
 	labels = d.get("labels", {}).duplicate()
+	rolls = d.get("rolls", {}).duplicate()
 
 
 static func _read(path: String) -> Variant:

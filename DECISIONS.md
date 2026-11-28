@@ -2,6 +2,24 @@
 
 Every significant technical choice, the alternative, and why. Newest on top.
 
+## 2026-11-28 — The player can rename their ships and speeders (issue #835)
+
+- **A rename is a write into the name book, under the same key.** The ship's name
+  lives at `vessel:player/<ship id>` (`NameHooks.player_ship_key`), which the HUD,
+  the dogfight and the Ledger already read, so nothing else needed to change. Speeders
+  are keyed by parking slot (`vessel:speeder/<slot>`); slots are only ever added.
+  Alternative: a name field on the fleet entry or the speeder fit -- rejected,
+  because then the name would not be in the book, and nothing would stop a ship
+  being called what a guard or a town is called.
+- **Typed names pass the generated names' filter** (`NameEngine.acceptable` with
+  the kind's lengths, then free in the book). Why: the IP rule covers what players
+  can put on the HUD in a screenshot as much as what we write.
+- **The dice are deterministic too.** A roll seeds from the key and a roll count,
+  and the count is saved, so the next roll after a load is still a new name.
+- **One known edge:** a typed name that a place has not been named with yet can
+  later be taken by that place (a place never yields, #834), and the ship gets a
+  generated name back. The name kinds barely overlap, so it is left as is.
+
 ## 2026-11-28 — Boarding another ship lets the falling one go as a wreck
 
 - **Why:** the player wants to jump out of one stolen ship and take the next.
