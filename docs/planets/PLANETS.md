@@ -67,6 +67,27 @@ its main planet's bubble by `arrive_m` on its sunward side, nose on it
 system is planet files with `"system"` (or a `near` on its sun) and a line in
 `space.systems`.
 
+## The red desert world (issue #875)
+
+`port_red.json` is the red system's main world, and the planet to copy for a
+world built from the home world's parts with its own changes laid over them:
+
+- `town_kit`: keys laid over `town_kit.json` for this planet's town only (more
+  towers with `tower_share`, taller ones in `towers`).
+- `locals`: `{ "local_resident": "red_local_resident", ... }` swaps the town's
+  people for other soldier profiles (`red_local_*`: the `red_local` look).
+- `landforms`: keys laid over `content/look/desert_landforms.json`
+  (`DesertLandforms.load_for`). `planet_mountains: []` clears the home world's
+  mountains; `mountain_clusters` packs `count` peaks within `spread_deg` of each
+  `[lat, lon]` middle, `gap_m` of open ground between two feet (a speeder's
+  valley); `course_mountains` entries with `path_ll` are tunnel ranges along a
+  `[lat, lon]` line, three variant-3 peaks 140 m apart so their roofs meet.
+  Cluster peaks keep off the tunnel lines.
+- Outposts are a `territory.json` front (`"red"`) with `remnant_outpost_red_*`
+  location files and a landmark each in `world.landmarks` (a level pad).
+
+`scenes/red_world_trace.gd` and `tests/test_red_world.gut.gd` check it.
+
 ## Planet types
 
 The types are defined in `content/core/planets/types.json`, and each one sets the
@@ -173,6 +194,9 @@ A planet's native packs and wild animals come from the planet generator too. A
 type's `natives` block gives every generated planet of that type a people of its
 own, plus its animals; a planet's own `natives` block (the home planet's dune
 people) replaces it, and `false` means none. See `docs/natives/NATIVES.md`.
+Issue #875: a planet's `natives` holding `"generate": {...}` keeps the type's
+generated people and lays those keys over the type's block; `"arc_deg": [a, b]`
+keeps the packs on that side of the town (map angle `atan2(z, x)`).
 
 ## What every generated planet has (issue #75)
 

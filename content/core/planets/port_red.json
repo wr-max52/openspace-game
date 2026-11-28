@@ -1,13 +1,528 @@
 {
   "id": "port_red",
-  "note": "Issue #874: the red system's main world, the planet a warp points you at. For now a small generated town on a red desert ball (sphere_radius makes the generated terrain a whole ball, as the home world's own world file does); issue #875 grows it into the mountain world with the tall port city. In the red system (near its sun), so it hangs in no sky of the home system and the home planets hang in none of its own. See docs/planets/PLANETS.md.",
+  "note": "Issues #874 and #875: the red system's main world, the planet a warp points you at. A generated ball 80% the home world's size (sphere_radius) on the red_desert type, in the red system (near its sun), so it hangs in no sky of the home system. About half of it (the side the map calls south, longitude -90 to 90) is mountain country: close-packed pockets of the home world's climbable mountains in the planet's red rock, with valleys between them wide enough for a speeder road and six tunnel ranges; the other half is open red dunes, where the native packs camp and the party barge is moored. The port city sits at the north pole, on the edge of the mountain half: a big generated town built tall (town_kit) in the planet's own dark red stone (style), its people in the red locals' look (locals). Five Remnant outposts are a Territory front ('red'); climbing out of the air starts the orbital skirmish. Issue #877 adds the mountain towns, #882 the roads and races, #878 the worm. See docs/planets/PLANETS.md.",
   "name": "",
   "type": "red_desert",
   "system": "red_reach",
-  "town_size": 24,
+  "town_size": 70,
   "seed": 874,
   "sphere_radius": 4000.0,
   "near": "red_reach_sun",
-  "at": [0, 0, 30000],
-  "encounter": ""
+  "at": [
+    0,
+    0,
+    30000
+  ],
+  "style": "red_rock",
+  "features": [
+    "speeders",
+    "landforms",
+    "pickups"
+  ],
+  "encounter": "orbital_skirmish",
+  "replaces_sky_painting": true,
+  "town_kit": {
+    "note": "Issue #875: the port city built tall: the shared kit (content/core/planets/town_kit.json) with taller towers, more of them (tower_share) and from a smaller size. Only this planet's town.",
+    "tower_share": 0.75,
+    "towers": [
+      {
+        "look": "tower_block",
+        "w": [
+          6,
+          8
+        ],
+        "d": [
+          6,
+          8
+        ],
+        "h": [
+          16.0,
+          24.0
+        ],
+        "weight": 3
+      },
+      {
+        "look": "tower_round",
+        "w": [
+          7,
+          8
+        ],
+        "round": true,
+        "h": [
+          20.0,
+          30.0
+        ],
+        "weight": 2
+      },
+      {
+        "look": "tower_wide",
+        "w": [
+          8,
+          9
+        ],
+        "d": [
+          7,
+          7
+        ],
+        "h": [
+          14.0,
+          18.0
+        ],
+        "weight": 2
+      }
+    ]
+  },
+  "locals": {
+    "note": "Issue #875: the town's people in the red locals' look (content/look/characters.json 'red_local').",
+    "local_resident": "red_local_resident",
+    "local_merchant": "red_local_merchant",
+    "local_patron": "red_local_patron"
+  },
+  "landforms": {
+    "note": "Issue #875: this planet's rocks, laid over content/look/desert_landforms.json (DesertLandforms.load_for): no home mountains, race towers or course tunnels; mountain_clusters are the mountain pockets ([lat, lon] middles, how far they reach, how many peaks and the open ground between two peaks' feet, a speeder's valley), course_mountains the six tunnel ranges (path_ll: their centre lines by [lat, lon], three tunnel peaks each, 140 m apart so their roofs meet, the cluster peaks kept off their lines), all in the planet type's red rock. Spires and short hoodoos are the home world's spots, scaled to this ball by latitude and longitude. Boulders keep off the home race courses (none here).",
+    "planet_mountains": [],
+    "mountain_clusters": [
+      {
+        "id": "north_pocket",
+        "lat": 62,
+        "lon": 5,
+        "spread_deg": 10,
+        "count": 8,
+        "gap_m": 55,
+        "versions": [
+          0,
+          1,
+          2
+        ],
+        "seed": 1
+      },
+      {
+        "id": "west_pocket",
+        "lat": 36,
+        "lon": -52,
+        "spread_deg": 12,
+        "count": 10,
+        "gap_m": 55,
+        "versions": [
+          2,
+          0,
+          1
+        ],
+        "seed": 2
+      },
+      {
+        "id": "east_pocket",
+        "lat": 32,
+        "lon": 52,
+        "spread_deg": 12,
+        "count": 10,
+        "gap_m": 55,
+        "versions": [
+          1,
+          2,
+          0
+        ],
+        "seed": 3
+      },
+      {
+        "id": "mid_pocket",
+        "lat": 2,
+        "lon": -5,
+        "spread_deg": 13,
+        "count": 10,
+        "gap_m": 60,
+        "versions": [
+          0,
+          2,
+          1
+        ],
+        "seed": 4
+      },
+      {
+        "id": "south_east_pocket",
+        "lat": -24,
+        "lon": 55,
+        "spread_deg": 10,
+        "count": 7,
+        "gap_m": 55,
+        "versions": [
+          2,
+          1,
+          0
+        ],
+        "seed": 5
+      },
+      {
+        "id": "south_west_pocket",
+        "lat": -20,
+        "lon": -60,
+        "spread_deg": 10,
+        "count": 7,
+        "gap_m": 55,
+        "versions": [
+          1,
+          0,
+          2
+        ],
+        "seed": 6
+      }
+    ],
+    "course_mountains": [
+      {
+        "id": "red_tunnel_port",
+        "path_ll": [
+          [
+            72,
+            10
+          ],
+          [
+            63,
+            15
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 181.3,
+            "variant": 3,
+            "seed": 41,
+            "portal": "start"
+          },
+          {
+            "along": 321.3,
+            "variant": 3,
+            "seed": 47
+          },
+          {
+            "along": 461.3,
+            "variant": 3,
+            "seed": 47,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_west",
+        "path_ll": [
+          [
+            50,
+            -28
+          ],
+          [
+            43,
+            -38
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 219.6,
+            "variant": 3,
+            "seed": 53,
+            "portal": "start"
+          },
+          {
+            "along": 359.6,
+            "variant": 3,
+            "seed": 59
+          },
+          {
+            "along": 499.6,
+            "variant": 3,
+            "seed": 59,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_east",
+        "path_ll": [
+          [
+            47,
+            28
+          ],
+          [
+            41,
+            40
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 255.1,
+            "variant": 3,
+            "seed": 67,
+            "portal": "start"
+          },
+          {
+            "along": 395.1,
+            "variant": 3,
+            "seed": 73
+          },
+          {
+            "along": 535.1,
+            "variant": 3,
+            "seed": 73,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_mid_west",
+        "path_ll": [
+          [
+            20,
+            -22
+          ],
+          [
+            13,
+            -10
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 448.8,
+            "variant": 3,
+            "seed": 71,
+            "portal": "start"
+          },
+          {
+            "along": 588.8,
+            "variant": 3,
+            "seed": 77
+          },
+          {
+            "along": 728.8,
+            "variant": 3,
+            "seed": 77,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_mid_east",
+        "path_ll": [
+          [
+            18,
+            30
+          ],
+          [
+            9,
+            21
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 383.1,
+            "variant": 3,
+            "seed": 83,
+            "portal": "start"
+          },
+          {
+            "along": 523.1,
+            "variant": 3,
+            "seed": 89
+          },
+          {
+            "along": 663.1,
+            "variant": 3,
+            "seed": 89,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      },
+      {
+        "id": "red_tunnel_south",
+        "path_ll": [
+          [
+            -10,
+            -18
+          ],
+          [
+            -17,
+            -30
+          ]
+        ],
+        "peaks": [
+          {
+            "along": 653.4,
+            "variant": 3,
+            "seed": 97,
+            "portal": "start"
+          },
+          {
+            "along": 793.4,
+            "variant": 3,
+            "seed": 103
+          },
+          {
+            "along": 933.4,
+            "variant": 3,
+            "seed": 103,
+            "portal": "end"
+          }
+        ],
+        "lights": {
+          "spacing_m": 9.0,
+          "inset_m": 1.0,
+          "size": [
+            0.3,
+            0.22,
+            1.6
+          ],
+          "colour": "#ffb04a",
+          "energy": 3.0
+        }
+      }
+    ],
+    "hoodoos": [],
+    "boulders": {
+      "count": 300,
+      "min_dist": 150.0,
+      "spread": 1500.0,
+      "planet_wide": true,
+      "near_rocks": 0.6,
+      "near_reach": 2.5,
+      "courses": []
+    }
+  },
+  "natives": {
+    "note": "Issue #875: generated from the red_desert type (its own people, named by the name engine), but kept to the open desert half: arc_deg is the side of the port their loops keep to (map angle).",
+    "generate": {
+      "arc_deg": [
+        25,
+        155
+      ],
+      "route_radius": [
+        700.0,
+        1700.0
+      ]
+    }
+  },
+  "landmarks": [
+    {
+      "id": "remnant_outpost_red_spur",
+      "kind": "location",
+      "location": "remnant_outpost_red_spur",
+      "at": [
+        -2158,
+        0,
+        -578
+      ],
+      "yaw_deg": 345,
+      "clear": 60,
+      "note": "Issue #875: the red world's five Remnant outposts (Territory's 'red' front), two in the mountain half, two on the open dunes and one on the far side, 2.2 to 7 km out along the ground, each on a level pad, its door (+x) toward the port. 'clear' keeps the mountains and spires off them."
+    },
+    {
+      "id": "remnant_outpost_red_gorge",
+      "kind": "location",
+      "location": "remnant_outpost_red_gorge",
+      "at": [
+        4931,
+        0,
+        -2622
+      ],
+      "yaw_deg": 208,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_dunes",
+      "kind": "location",
+      "location": "remnant_outpost_red_dunes",
+      "at": [
+        1466,
+        0,
+        2539
+      ],
+      "yaw_deg": 120,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_flats",
+      "kind": "location",
+      "location": "remnant_outpost_red_flats",
+      "at": [
+        -3411,
+        0,
+        4064
+      ],
+      "yaw_deg": 50,
+      "clear": 60
+    },
+    {
+      "id": "remnant_outpost_red_far",
+      "kind": "location",
+      "location": "remnant_outpost_red_far",
+      "at": [
+        6955,
+        0,
+        608
+      ],
+      "yaw_deg": 175,
+      "clear": 60
+    }
+  ],
+  "barge": {
+    "note": "Issue #875: the red world's party barge (content/core/barges/party_barge.json has the numbers every barge shares), moored out on the open dunes 4.3 km from the port, well past its draw_m.",
+    "name": "the Cinder Lounge",
+    "boss": {
+      "name": "Maroosh Vell"
+    },
+    "home": [
+      1120,
+      4181
+    ]
+  }
 }

@@ -170,7 +170,8 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 			opts["club_dome"] = cfg.club_dome      # issue #261: the whole dome is the club
 		if cfg.has("domes"):
 			opts["domes"] = cfg.domes              # a sealed station's other domes, off its landing pit
-		town = TownGen.generate(town_id, size, int(cfg.get("seed", NameEngine.fnv(id) % 100000)), opts)
+		town = TownGen.generate(town_id, size, int(cfg.get("seed", NameEngine.fnv(id) % 100000)), opts, _town_kit(cfg))
+		_swap_locals(town, cfg.get("locals", {}))
 	var world: Dictionary = {}
 	if cfg.has("world"):
 		world = CoreContent.resolve_layout(cc.get_world(str(cfg.world)), layout)    # issue #295: landmarks per layout
@@ -218,6 +219,32 @@ static func make(cfg: Dictionary, cc = null) -> Dictionary:
 		"barge": cfg.get("barge", {}),
 		"harmful_surface": cfg.get("harmful_surface", tcfg.get("harmful_surface", {})),
 	}
+
+
+## Issue #875: the town kit a planet's town is built from: the shared kit
+## (content/core/planets/town_kit.json) with the planet file's own `town_kit`
+## laid over it key by key (taller towers, more of them). Empty: the shared kit.
+static func _town_kit(cfg: Dictionary) -> Dictionary:
+	var own: Dictionary = cfg.get("town_kit", {})
+	if own.is_empty():
+		return {}
+	var kit: Dictionary = TownGen.new().kit.duplicate(true)
+	for k in own:
+		if k != "note":
+			kit[k] = own[k]
+	return kit
+
+
+## Issue #875: a planet's own people in its town: `locals` maps a soldier
+## profile the town generator places to the one this planet uses instead (its
+## locals' look: "local_resident": "red_local_resident").
+static func _swap_locals(town: Dictionary, locals: Dictionary) -> void:
+	if locals.is_empty():
+		return
+	for m in town.get("markers", []):
+		var s := str(m.get("soldier", ""))
+		if locals.has(s):
+			m["soldier"] = str(locals[s])
 
 
 ## Issue #573: open space, a place with no planet (ground "none"). Its town is

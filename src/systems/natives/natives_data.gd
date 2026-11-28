@@ -53,9 +53,15 @@ static func resolve(planet_id: String, cfg: Dictionary, tcfg: Dictionary, seed: 
 	var own = cfg.get("natives", null)
 	if own is bool and not own:
 		return {}
-	if own is Dictionary and not (own as Dictionary).is_empty():
+	if own is Dictionary and not (own as Dictionary).is_empty() and not (own as Dictionary).has("generate"):
 		return _authored(planet_id, own)
 	var gen: Dictionary = tcfg.get("natives", {})
+	if own is Dictionary and (own as Dictionary).has("generate"):
+		# Issue #875: still generated from the type, with the planet's own changes
+		# laid over it ("generate": {"arc_deg": [a, b]}: only on that side of the town).
+		gen = gen.duplicate(true)
+		for k in own.generate:
+			gen[k] = own.generate[k]
 	if gen.is_empty() or str(tcfg.get("ground", "terrain")) != "terrain":
 		return {}
 	return _generated(planet_id, gen, seed, town_rect)
@@ -114,13 +120,20 @@ static func _generated(planet_id: String, gen: Dictionary, seed: int, town_rect:
 		var hostile := float(gen.get("hostile_share", 0.5))
 		var kids := float(gen.get("children_share", 0.15))
 		var adults_only := float(gen.get("adults_only_share", 0.25))
+		# "arc_deg" [from, to]: the packs keep to that side of the town (map angle,
+		# atan2(z, x)); else all round it.
+		var arc: Array = gen.get("arc_deg", [])
+		var a_from := deg_to_rad(float(arc[0])) if arc.size() == 2 else 0.0
+		var a_span := deg_to_rad(float(arc[1]) - float(arc[0])) if arc.size() == 2 else TAU
+		var jitter := minf(0.4, a_span / float(maxi(n, 1)) * 0.25)
 		for i in n:
 			var s := rng.randi_range(int(size[0]), int(size[1]))
 			var r := rng.randf_range(float(far[0]), float(far[1]))
-			var a0 := TAU * float(i) / float(n) + rng.randf_range(-0.4, 0.4)
+			var a0 := a_from + a_span * float(i) / float(n) + rng.randf_range(-jitter, jitter)
 			var route: Array = []
+			var step := 0.45 if arc.size() != 2 else minf(0.45, a_span / float(maxi(n, 1)) / 4.0)
 			for k in 4:
-				var a := a0 + k * 0.45
+				var a := a0 + k * step
 				var rr := r * rng.randf_range(0.85, 1.15)
 				var m := Vector2(cos(a) * rr, sin(a) * rr)
 				if town_rect.has_area() and town_rect.grow(120.0).has_point(m):

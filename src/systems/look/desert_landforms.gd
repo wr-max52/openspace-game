@@ -18,6 +18,9 @@ const DATA_PATH := "res://content/look/desert_landforms.json"
 const MESA_BURY := 2.0             ## sink the broad feet into the sand, not on top of it
 
 var data: Dictionary = {}
+## Issue #875: the planet this is built for (PlanetGen's dictionary): its own
+## `landforms` block lays over the shared file (load_for). Empty: the shared file.
+var planet: Dictionary = {}
 var solid_count := 0          ## bodies added (read by tests)
 var boulder_count := 0
 var boulder_spots := PackedVector3Array()   ## where they went (the renderer may not say)
@@ -55,6 +58,105 @@ static func load_data(path: String = DATA_PATH) -> Dictionary:
 	return d if d is Dictionary else {}
 
 
+static var _for_cache := {}            ## planet id -> its landforms (load_for)
+
+
+## Issue #875: `planet`'s landforms: the shared file with the planet file's own
+## `landforms` block laid over it, key by key (a key there replaces the file's:
+## "hoodoos": [] takes the home race towers away), and its `mountain_clusters`
+## made into `planet_mountains` (mountain_clusters). Without a block, the file.
+static func load_for(planet: Dictionary) -> Dictionary:
+	var cfg: Dictionary = planet.get("cfg", planet)
+	var lf = cfg.get("landforms", null)
+	if not lf is Dictionary:
+		return load_data()
+	var id := str(planet.get("id", cfg.get("id", "")))
+	if _for_cache.has(id):
+		return _for_cache[id]
+	var d := load_data()
+	for k in lf:
+		if k != "note":
+			d[k] = lf[k]
+	if lf.has("mountain_clusters"):
+		var avoid: Array = []           # the tunnel ranges' lines: no cluster peak on them
+		for e in d.get("course_mountains", []):
+			var ll: Array = e.get("path_ll", [])
+			var keep := float(e.get("avoid_m", 0.0))
+			for pk in e.get("peaks", []):
+				var vs: Array = d.get("mountain_variants", [])
+				if not vs.is_empty():
+					keep = maxf(keep, _foot(vs[int(pk.get("variant", 0)) % vs.size()], d))
+			for i in ll.size() - 1:
+				var a := _dir_of(float(ll[i][0]), float(ll[i][1]))
+				var b := _dir_of(float(ll[i + 1][0]), float(ll[i + 1][1]))
+				for t in 9:
+					avoid.append([a.slerp(b, float(t) / 8.0), keep])
+		d["planet_mountains"] = (d.get("planet_mountains", []) as Array) \
+			+ mountain_clusters(lf.mountain_clusters, d, float(cfg.get("sphere_radius", 4000.0)), avoid)
+	_for_cache[id] = d
+	return d
+
+
+## Issue #875: mountain country. Each cluster { lat, lon (its middle, degrees),
+## count, spread_deg (how far round the ball its peaks reach), gap_m (open ground
+## left between two peaks' feet: a valley a speeder road fits), versions (the
+## mountain versions it uses, by turn), seed } becomes `count` [latitude,
+## longitude, version] peaks packed round its middle, none closer to another
+## (of any cluster) than both their radii plus gap_m. On a ball of `radius`.
+static func mountain_clusters(clusters: Array, d: Dictionary, radius := 4000.0, avoid: Array = []) -> Array:
+	var variants: Array = d.get("mountain_variants", [])
+	var out: Array = []
+	if variants.is_empty():
+		return out
+	var placed: Array = avoid.duplicate()          # [unit dir, radius m]
+	for c in clusters:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(c.get("seed", 1))
+		var r := radius
+		var mid := _dir_of(float(c.get("lat", 0.0)), float(c.get("lon", 0.0)))
+		var spread := deg_to_rad(float(c.get("spread_deg", 12.0)))
+		var gap := float(c.get("gap_m", 60.0))
+		var versions: Array = c.get("versions", [0, 1, 2])
+		var want := int(c.get("count", 8))
+		var tries := 0
+		var made := 0
+		while made < want and tries < want * 60:
+			tries += 1
+			var k := int(versions[made % versions.size()]) % variants.size()
+			var mr := _foot(variants[k], d)
+			# A random direction within `spread` of the middle (uniform on the cap).
+			var ang := rng.randf() * TAU
+			var off := acos(lerpf(1.0, cos(spread), rng.randf()))
+			var side := mid.cross(Vector3.UP if absf(mid.y) < 0.95 else Vector3.RIGHT).normalized()
+			var dir := mid.rotated(side.rotated(mid, ang), off).normalized()
+			var ok := true
+			for q in placed:
+				if (q[0] as Vector3).angle_to(dir) * r < mr + float(q[1]) + gap:
+					ok = false
+					break
+			if not ok:
+				continue
+			placed.append([dir, mr])
+			out.append([snappedf(rad_to_deg(asin(clampf(dir.y, -1.0, 1.0))), 0.01),
+				snappedf(rad_to_deg(atan2(dir.z, dir.x)), 0.01), k])
+			made += 1
+	return out
+
+
+## How far a mountain version's rock reaches from its middle (its plan's radius,
+## lobes and all, not the version's base radius).
+static func _foot(v: Dictionary, d: Dictionary) -> float:
+	return float(RockMountain.plan(v, d.get("mountain", {})).get("radius", float(v.get("radius", 100.0))))
+
+
+## A direction from latitude and longitude, as mountain_clusters reads them back
+## (y up; the frame only has to round-trip, PlanetSphere.map_from_lat_lon places them).
+static func _dir_of(lat: float, lon: float) -> Vector3:
+	var la := deg_to_rad(lat)
+	var lo := deg_to_rad(lon)
+	return Vector3(cos(la) * cos(lo), sin(la), cos(la) * sin(lo))
+
+
 ## Issue #64: more places to keep clear, [Vector2 centre, radius] each (the
 ## Remnant's desert outposts: the world's landmarks with a "clear" radius).
 var clear_circles: Array = []
@@ -66,7 +168,7 @@ var _circle_dirs: Array = []         ## per clear circle: its direction when it 
 ## Issue #714: `st` (a StagedBuild) spreads it over frames, a rock a slice.
 func build(terrain: DesertTerrain, mats: LookMaterials, keep_out: Rect2, st: StagedBuild = null) -> void:
 	name = "Landforms"
-	data = load_data()
+	data = load_for(planet) if not planet.is_empty() else load_data()
 	if data.is_empty():
 		return
 	var rng := RandomNumberGenerator.new()
@@ -495,6 +597,12 @@ static func _course_range(e: Dictionary, variants: Array, cfg: Dictionary, sp: P
 	var pts: Array = e.get("path", [])
 	if e.has("gates"):
 		pts = RaceCourse.tunnel_path(str(e.get("course", "")), e.gates, e.get("run_m", [0.0, 0.0]))
+	elif e.has("path_ll"):
+		# Issue #875: a centre line by [latitude, longitude], like planet_mountains.
+		pts = []
+		for q in e.path_ll:
+			var m := sp.map_from_lat_lon(float(q[0]), float(q[1]))
+			pts.append([m.x, m.y])
 	var p0 := Vector2(float(pts[0][0]), float(pts[0][1])) if not pts.is_empty() else Vector2.ZERO
 	if sp.map_stretch(p0) > RaceCourse.FAR_STRETCH:
 		step *= sp.map_stretch(p0)
@@ -570,9 +678,10 @@ static func along_path(path: PackedVector2Array, s: float) -> Vector2:
 ## race gates'; far round the ball the map stretches across (the blend with it).
 static func mountain_flat_sites(planet: Dictionary, sp: PlanetSphere) -> Array:
 	var sites: Array = []
-	if sp == null or str(planet.get("id", "")) != PlanetGen.home_id():
+	var own := (planet.get("cfg", planet) as Dictionary).get("landforms", null) is Dictionary
+	if sp == null or (str(planet.get("id", "")) != PlanetGen.home_id() and not own):
 		return sites
-	var data := load_data()
+	var data := load_for(planet)
 	var pad: Dictionary = data.get("mountain", {}).get("pad", {})
 	var margin := float(pad.get("margin_m", 30.0))
 	var blend := float(pad.get("blend_m", 50.0))
@@ -1033,7 +1142,7 @@ static func prepare(planet: Dictionary) -> bool:
 	if _prep_task >= 0 or _made_for.has(id) or not builds_on(planet):
 		return false
 	_made_for[id] = true
-	var d := load_data()
+	var d := load_for(planet)
 	if d.is_empty():
 		return false
 	var sp := PlanetSphere.new(float(planet.get("world", {}).get("terrain", {}).get("sphere_radius", 0.0)))

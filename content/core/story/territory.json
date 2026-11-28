@@ -113,7 +113,8 @@
         "town_retaken": "The last of the locals' guards at the lava moon's barracks is dead. The Remnant are taking the station back.",
         "town_freed": "The last of the Remnant at the lava moon's barracks is dead. The locals are taking the station back."
       }
-    }
+    },
+    "red": {"note": "Issue #875: the red world's front (port_red), on the moon's rules (see 'moon'): its five Remnant outposts across the mountain country and the open dunes (landmarks in content/core/planets/port_red.json, location files remnant_outpost_red_*) and the port city's barracks. Flags red_remnant_driven_off and red_town_retaken. It answers to the story's cruiser until #876 gives the red system its own.", "planet": "port_red", "outposts": ["remnant_outpost_red_spur", "remnant_outpost_red_gorge", "remnant_outpost_red_dunes", "remnant_outpost_red_flats", "remnant_outpost_red_far"], "barracks_id": "red_barracks", "barracks_label": "Red port barracks", "barracks": {"posts": {"trooper_gate_n": "local_gate_guard", "trooper_gate_s": "local_gate_guard", "trooper_door": "local_gate_guard", "trooper_tower": "local_sentry", "trooper_street_1": "local_guard", "trooper_street_2": "local_guard", "trooper_street_3": "local_guard", "trooper_street_4": "local_guard", "trooper_street_5": "local_guard", "trooper_street_6": "local_guard"}}, "lines": {"driven_off": "The Remnant have pulled off the red world. Its port is the locals' now.", "barracks": "The locals hold the red port's barracks now.", "barracks_remnant": "The Remnant hold the red port's barracks again.", "town_retaken": "The last of the locals' guards at the red port is dead. The Remnant are taking it back.", "town_freed": "The last of the Remnant at the red port's barracks is dead. The locals are taking it back."}}
   },
   "standing": {
     "outpost_taken": 6, "station_taken": 10,

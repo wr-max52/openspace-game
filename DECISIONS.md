@@ -2297,3 +2297,21 @@ Issue #874 (epic #873): a second star system, reached by T-89's warp drive.
 - **The warp key is K, not J.** J was already the radio (`flight_radio`).
 - **A save in open space loads at the system's main planet,** as open space is
   never where you load (issue #573); in the home system nothing changes.
+
+## A new world is the home world's parts with its own data laid over (2026-11-28)
+
+Issue #875 (epic #873): the red desert world.
+
+- **Lay over, never fork.** The town kit, the landforms and the natives each take
+  a planet's own block laid over the shared one (`town_kit`, `landforms`,
+  `natives.generate`), so a fix to the shared kit reaches every world and a new
+  world is one JSON file.
+- **Mountains are placed by pockets, not by hand.** Fifty-odd peaks by hand is a
+  file nobody can read; `mountain_clusters` packs them from a seed with a valley
+  (`gap_m`) between every two feet, measured from each version's real plan
+  radius. The data test fails if two feet ever touch.
+- **A tunnel range is three peaks 140 m apart.** Two peaks further apart leave
+  open sky in the middle of the tunnel; three at 140 m roof 300 to 470 m of road.
+- **The town's people are a soldier swap.** `locals` rewrites the generated
+  markers' soldier ids, so a new look is a profile and an archetype, not code.
+

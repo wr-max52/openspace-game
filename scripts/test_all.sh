@@ -363,6 +363,17 @@ if [ ! -f test_results/warp_trace.txt ]; then
 fi
 echo "CI: warp trace present ($(wc -l < test_results/warp_trace.txt) lines)"
 
+# Issue #875: the red desert world: it loads in the red system, its tall town
+# validates with red locals in it, five outposts and its own people stand, and
+# the thickest mountain pocket costs no more frame than the street.
+echo "CI: generating red world trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/red_world_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/red_world_trace.txt ]; then
+  echo "CI: ERROR -- red world trace was not generated" >&2
+  exit 1
+fi
+echo "CI: red world trace present ($(wc -l < test_results/red_world_trace.txt) lines)"
+
 # Issue #96: the desert packs' first milestone: food for quartz with the friendly
 # pack, a sand pig hunt, the hostile pack's horn and attack, five minutes survived
 # into a trade, and a kill that locks a pack hostile. (About 5 game minutes.)

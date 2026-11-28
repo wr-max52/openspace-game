@@ -4,7 +4,8 @@
     "desert": { "words": "", "note": "The port's own look." },
     "metallic": { "words": "steel brushed metal", "accent": "cyan", "note": "Brushed steel walls and hulls, cyan trim." },
     "snowy": { "words": "snow frosted plaster", "accent": "ice", "snow": true, "note": "White walls under snow, ice-blue trim, snow drifts instead of sand." },
-    "pastel": { "words": "pastel plaster", "palette": ["pink", "mint", "lavender", "peach", "sky", "butter"], "note": "Every building a different soft colour." }
+    "pastel": { "words": "pastel plaster", "palette": ["pink", "mint", "lavender", "peach", "sky", "butter"], "note": "Every building a different soft colour." },
+    "red_rock": { "words": "deep weathered redrock stone", "accent": "amber", "note": "Issue #875: the red world's towns (port_red), all of them built of the planet's own dark red rock (its type's rock_a), weathered, with amber trim." }
   },
   "colors": {
     "red": "#b8322a", "crimson": "#9e1b32", "scarlet": "#d0312d", "maroon": "#6b1e1e", "orange": "#d9772b",
@@ -15,7 +16,7 @@
     "turquoise": "#3cb8b0", "mint": "#a8e6c8", "green": "#3f8a4a", "olive": "#6b7a3a", "sage": "#9aac8a",
     "purple": "#6a3a98", "violet": "#7a4ab8", "lavender": "#c8b4e6", "plum": "#6a2a5a", "pink": "#f0a8c0",
     "rose": "#d86a8a", "peach": "#f6c4a0", "coral": "#ee7a5e", "salmon": "#f09a80", "brown": "#6a4a32",
-    "rust": "#8a4a2a", "copper": "#b06a3a", "bronze": "#8c6a3c", "brass": "#b89a4a", "tan": "#c9a77c",
+    "rust": "#8a4a2a", "redrock": "#8a3a24", "copper": "#b06a3a", "bronze": "#8c6a3c", "brass": "#b89a4a", "tan": "#c9a77c",
     "sand": "#c9a77c", "khaki": "#a89a6a", "chrome": "#d8dce2"
   },
   "shades": {
