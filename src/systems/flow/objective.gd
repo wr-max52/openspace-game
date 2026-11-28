@@ -92,7 +92,7 @@ static func of(key: String) -> Dictionary:
 			o = _smuggle()
 		"supply":
 			var to := Territory.supply_out()
-			if to != "" and home():
+			if to != "" and Territory.front_of(to) == Territory.here():     # issue #886: a skimmer's, on the giant
 				o = { "text": Territory.line("objective") % Story.outpost_label(to), "target": "outpost:" + to }
 		"story":
 			o = chapter_objective() if home() else {}

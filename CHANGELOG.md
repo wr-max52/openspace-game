@@ -18,6 +18,30 @@ Plain English, newest on top. One entry per milestone.
 - **Four new jobs** on the dock's bar board: a salvage run in a wreck, a lost
   crate, a stranded pilot running out of air, and clearing an outpost.
 
+## Guards come out to hunt one by one, and chase you when they find you (2026-11-28)
+
+- **Everywhere, not just the station:** on an alarm with nobody in sight,
+  each guard waits his own time before he leaves cover to hunt, so a squad
+  trickles out over a few seconds instead of all at once. Aboard the ring
+  station they leave their rooms over about 8 to 22 seconds.
+- **A hunter who finds you pops out shooting and comes after you.** He stays
+  in the open, closes in as he fires if you're far off, and when you duck out
+  of sight he runs straight to where you were instead of going back to cover.
+  He only settles into hunting again once he has lost you for a while.
+
+## The station's Remnant fight from cover and come hunting (2026-11-28)
+
+- **On the alarm, the Remnant aboard the ring station duck behind their room's
+  furniture**: the bunks and card tables in the barracks, the crew desks on
+  the bridge, the gear on their deck. They fight from there in bursts.
+- **After about 10 seconds without seeing you they leave the room and hunt**:
+  out of the door and round the walkway to where you were. If you're on
+  another floor they wait on the walkway on your side.
+- **No more troopers stuck in corners.** They used to run straight at you
+  through the walls (or at cover spots down in the bay) and pin themselves in
+  a room's corner. Now every move goes out of the door and round the
+  walkway, and steps round tables and bunks in the way.
+
 ## A water world in the red system (2026-11-28)
 
 - **The tide world**, the red system's second planet: a sea all the way round,

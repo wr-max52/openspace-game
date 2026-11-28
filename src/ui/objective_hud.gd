@@ -237,6 +237,12 @@ func where(target: String) -> Vector3:
 			if rc != null:
 				return rc.gate_pos(int(target.get_slice(":", 2)))
 		"outpost":
+			if Territory.is_station(id):
+				# Issue #886: an outpost that is a station (a skimmer over the giant): its bay.
+				for s in demo.get("stations") if demo.get("stations") != null else []:
+					if is_instance_valid(s) and Territory.STATION + str(s.id) == id:
+						return s.objective_point("bay")
+				return Vector3.INF
 			if demo.outposts != null:
 				for o in demo.outposts.outposts:
 					if str(o.id) == id:
