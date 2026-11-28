@@ -1370,7 +1370,7 @@ func _send_wave(o: Dictionary) -> void:
 		return
 	var run := int(WorldState.heist.get("run", 0))
 	var id := str(o.id)
-	var holder := Territory.owner(id)
+	var holder := Heist.wave_side()      # the side robbed, not whoever holds it now
 	var soldier := Heist.wave_soldier(holder)
 	var home := console_point(o)
 	var mine: Array = []
