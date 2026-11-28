@@ -323,7 +323,13 @@ func _inside(b: Dictionary, p: Vector3) -> bool:
 
 func test_every_wreck_route_runs_on_a_floor() -> void:
 	var wc: Dictionary = DroidRoster.config().wreck
+	var used := {}
+	for u in wc.units:
+		used[str(u.route)] = true
+	used[str(wc.hauler.route)] = true
 	for name in wc.routes:
+		if not used.has(str(name)):
+			continue                   # issue #317: the belt wrecks' spine routes (test_belt_wrecks)
 		var r: Dictionary = wc.routes[name]
 		var pts: Array = r.points.map(func(p): return StarcruiserWreck.site_point(g, Vector3(p[0], p[1], p[2]), str(r.frame)))
 		pts.append(pts[0])
