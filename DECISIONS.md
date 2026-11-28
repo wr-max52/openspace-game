@@ -2411,3 +2411,25 @@ Issue #877 (epic #873): the red world's mountain towns.
   folk of their own (profiles that copy the port's locals), and they carry the
   place's id so the port's townsfolk never take them over.
 
+
+## Roads are data laid on the ground, not ground (2026-11-28)
+
+Issue #882 (epic #873): the red world's roads and races.
+
+- **A strip, not a cut.** A road is a thin packed-dirt ribbon a little over the
+  sand, in chunks drawn by distance, so the ground, its colliders and the ships'
+  height reads are unchanged. Keeping the road clear is the landforms' job: the
+  road's clear circles keep the small rocks off, and the mountain clusters keep
+  off its legs.
+- **The tunnels are the roads' passes.** A road that meets a range runs its
+  tunnel end to end rather than climbing, so every road is drivable at speed and
+  the tunnels are on the way somewhere.
+- **Lamps are glow.** Two MultiMeshes a road (posts, and heads with one cached
+  unshaded glow) and no real light, per the render rules; 365 lamps are 14 draws.
+- **The red crews are their own ladder.** They reuse the race crew, course and
+  camp code; only the data is new. Their courses are placed by latitude and
+  longitude so they sit right on the ball, and each runs one tunnel.
+- **The drive test rides like a rider.** The trace drives every road in track
+  mode at a rider's pace with the road's half width as its room, so it checks
+  the roads and not a racer's corner cutting.
+

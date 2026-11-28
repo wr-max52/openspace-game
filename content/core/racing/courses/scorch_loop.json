@@ -1,0 +1,55 @@
+{
+  "id": "scorch_loop",
+  "label": "Scorch Loop",
+  "note": "Issue #882: the red world's first race, a loop on the north-west edge of the middle mountain pocket. From the start on the outer straight, round the corner (c1) and in at the tunnel's mouth (c2), straight through the red tunnel (its range is course_mountains red_tunnel_mid_west in content/core/planets/port_red.json: c2 and c3 sit 90 m out from its portals on its centre line, so the leg between them is the tunnel), out (c3) and round (c4) onto the straight again. Gates by [latitude, longitude] (`ll`, RaceCourse.load_course). The scorch crew's camp is 170 m outside the start line.",
+  "world": "port_red",
+  "near": "racers_camp_red_scorch",
+  "laps": 2,
+  "gate_width": 26.0,
+  "antenna_height": 7.0,
+  "draw_m": 1500.0,
+  "clear_m": 14.0,
+  "grid": {
+    "slots": 4,
+    "back_m": 10.0,
+    "row_m": 9.0,
+    "side_m": 4.5
+  },
+  "gates": [
+    {
+      "id": "start",
+      "ll": [
+        21.7522,
+        -12.4786
+      ]
+    },
+    {
+      "id": "c1",
+      "ll": [
+        26.2872,
+        -20.7764
+      ]
+    },
+    {
+      "id": "c2",
+      "ll": [
+        20.6306,
+        -23.199
+      ]
+    },
+    {
+      "id": "c3",
+      "ll": [
+        12.2971,
+        -8.8925
+      ]
+    },
+    {
+      "id": "c4",
+      "ll": [
+        16.8301,
+        -4.7094
+      ]
+    }
+  ]
+}

@@ -79,8 +79,11 @@ static func load_for(planet: Dictionary) -> Dictionary:
 			d[k] = lf[k]
 	var avoid: Array = []               # the tunnel ranges' lines and the towns' peaks: no cluster peak on them
 	var towns := settlement_buttes(cfg, d)
+	var road_room := float(cfg.get("roads", {}).get("approach_m", 0.0))     # issue #882: room for the road in
 	for b in towns:
-		avoid.append([_dir_of(float(b.lat), float(b.lon)), float(b.reach)])
+		avoid.append([_dir_of(float(b.lat), float(b.lon)), float(b.reach) + road_room])
+	avoid.append_array(RoadNetwork.cluster_avoid(cfg, d))                     # issue #882: no peak on a road
+	avoid.append_array(course_avoid(id, float(cfg.get("sphere_radius", 4000.0))))   # nor on a racing line
 	if lf.has("mountain_clusters"):
 		for e in d.get("course_mountains", []):
 			var ll: Array = e.get("path_ll", [])
@@ -107,6 +110,20 @@ static func load_for(planet: Dictionary) -> Dictionary:
 		d["planet_mountains"] = pm
 	_for_cache[id] = d
 	return d
+
+
+## Issue #882: where a generated ball's clusters keep their peaks off its race
+## courses (their world is the planet's id): every racing line point, the
+## gate's half width and the course's clear_m round it, plus room for a peak's
+## skirt ([[unit dir (_dir_of), keep m]], as load_for's `avoid`).
+static func course_avoid(world_id: String, radius: float) -> Array:
+	var out: Array = []
+	for c in RaceCourse.courses_for(world_id):
+		var keep := float(c.get("gate_width", 26.0)) * 0.5 + float(c.get("clear_m", 14.0)) + 10.0
+		for p in c.get("line", []):
+			var dir := RaceCourse._ball_dir(Vector2(float(p[0]), float(p[1])), radius)
+			out.append([_dir_of(rad_to_deg(asin(clampf(dir.y, -1.0, 1.0))), rad_to_deg(atan2(dir.x, -dir.z))), keep])
+	return out
 
 
 const SETTLEMENT_LOOK := "res://content/look/settlements.json"
@@ -536,7 +553,7 @@ func _build_planet_mountains(terrain: PlanetTerrain, mats: LookMaterials, clear:
 		var p: Dictionary = m.plan
 		var radius := float(p.radius)
 		# A range on a race course stands over its line on purpose (its tunnel).
-		if _hits(clear, map.x, map.y, radius) or (not m.has("course") and _in_circles(map.x, map.y, radius)):
+		if _hits(clear, map.x, map.y, radius) or (not m.has("course") and _in_circles(map.x, map.y, radius, true)):
 			continue
 		var made := _mountain(p, int(m.variant))
 		var pl := RockMountain.placement(sp, map, p)
@@ -833,12 +850,14 @@ func _prep_circles(sp: PlanetSphere) -> void:
 		_circle_dirs.append(sp.map_dir(m.x, m.y) if sp != null and sp.map_stretch(m) > RaceCourse.FAR_STRETCH else null)
 
 
-func _in_circles(x: float, z: float, radius: float) -> bool:
+func _in_circles(x: float, z: float, radius: float, big := false) -> bool:
 	var p := Vector2(x, z)
 	var d := Vector3.ZERO
 	var have := false
 	for i in clear_circles.size():
 		var c: Array = clear_circles[i]
+		if big and c.size() > 2 and bool(c[2]):
+			continue                      # issue #882: a road's circle keeps only the small rocks off
 		var reach := float(c[1]) + radius
 		var md := (c[0] as Vector2).distance_to(p)
 		if md < reach:

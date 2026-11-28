@@ -662,6 +662,26 @@
       }
     ]
   },
+  "roads": {
+    "note": "Issue #882: the red world's speeder roads (src/systems/world/road_network.gd). Each road runs from `from` to `to` (\"port\" or a place id from `settlements`) through its `via`: [latitude, longitude] corners and \"tunnel:<id>\" (a course_mountains range: the road takes its whole centre line, lead_m on straight past both portals, in whichever direction it meets it first). Straight along the ground between corners. The road changes no ground: a packed-dirt strip a hand over the sand and a lamp every lamp_m, sides taking turns (looks in content/look/roads.json). The mountain clusters keep peak_keep_m off every road and each place's peak keeps approach_m more room; boulders keep clear_m off. A road meets the port port_out_m past the town's walls, a lift town at its tube's door, a road town at the foot of its road up, a ledge at its foot.",
+    "width_m": 8.0,
+    "lamp_m": 40.0,
+    "tunnel_keep_m": 25.0,
+    "lead_m": 120.0,
+    "approach_m": 60.0,
+    "port_out_m": 60.0,
+    "clear_m": 12.0,
+    "peak_keep_m": 30.0,
+    "roads": [
+      { "id": "tarn_road", "label": "the Tarn road", "from": "port", "to": "ledge_north", "via": [] },
+      { "id": "pilgrim_road", "label": "the Pilgrim road", "from": "port", "to": "pilgrims_rest", "via": ["tunnel:red_tunnel_port"] },
+      { "id": "soot_road", "label": "the Soot road", "from": "pilgrims_rest", "to": "sootwell", "via": [] },
+      { "id": "scree_road", "label": "the Scree road", "from": "sootwell", "to": "ledge_west", "via": ["tunnel:red_tunnel_west"] },
+      { "id": "wren_road", "label": "the Wren road", "from": "ledge_west", "to": "ledge_south_west", "via": [] },
+      { "id": "highfold_road", "label": "the Highfold road", "from": "port", "to": "highfold", "via": [] },
+      { "id": "kiln_road", "label": "the Kiln road", "from": "highfold", "to": "ledge_south_east", "via": ["tunnel:red_tunnel_east"] }
+    ]
+  },
   "natives": {
     "note": "Issue #875: generated from the red_desert type (its own people, named by the name engine), but kept to the open desert half: arc_deg is the side of the port their loops keep to (map angle).",
     "generate": {
@@ -676,6 +696,30 @@
     }
   },
   "landmarks": [
+    {
+      "id": "racers_camp_red_scorch",
+      "kind": "location",
+      "location": "racers_camp_red_scorch",
+      "at": [-885.6, 0, -4536.1],
+      "yaw_deg": 141.1,
+      "clear": 60, "note": "Issue #882: the red world's three racers' camps (content/core/locations/racers_camp_red_*.json, an old outpost each, like the home world's racers' outpost), 170 m outside the start line of each crew's course, their gates (+x) toward it. Each crew hangs out at its own (content/core/racing/crews/)."
+    },
+    {
+      "id": "racers_camp_red_ember",
+      "kind": "location",
+      "location": "racers_camp_red_ember",
+      "at": [3013.9, 0, -4904.1],
+      "yaw_deg": -175.8,
+      "clear": 60
+    },
+    {
+      "id": "racers_camp_red_dust",
+      "kind": "location",
+      "location": "racers_camp_red_dust",
+      "at": [-2546.9, 0, -7305.8],
+      "yaw_deg": -122.2,
+      "clear": 60
+    },
     {
       "id": "remnant_outpost_red_spur",
       "kind": "location",
