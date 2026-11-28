@@ -36,7 +36,7 @@ static func home() -> bool:
 
 
 ## Most urgent first, for when the player has not picked one in the Ledger.
-const AUTO := ["bounty", "heist", "smuggle", "supply", "story", "cruiser"]     ## issue #310: a heist on before the drops
+const AUTO := ["bounty", "heist", "field", "smuggle", "supply", "story", "cruiser"]     ## issue #310: a heist on before the drops
 
 
 ## { text, target, key } for the pointer, or {} when there is nothing to point at.
@@ -98,6 +98,10 @@ static func of(key: String) -> Dictionary:
 			o = chapter_objective() if home() else {}
 		"cruiser":
 			o = other_cruiser()
+		"field":
+			# Issue #880: the asteroid field's job on (FieldWorld), where it says.
+			if not FieldWorld.goal.is_empty() and FieldWorld.goal.get("at", Vector3.INF) != Vector3.INF:
+				o = { "text": str(FieldWorld.goal.text), "target": "field" }
 		_:
 			if key.begins_with("job:"):
 				o = _job(key.substr(4))

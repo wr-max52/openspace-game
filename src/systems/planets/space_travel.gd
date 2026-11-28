@@ -387,6 +387,8 @@ func _back_to_paint(b: Dictionary) -> bool:
 func _body(n: Dictionary, real_ok := true) -> Node3D:
 	if float(n.get("bands", 0.0)) > 0.0:
 		return _gas_body(n)          # the ringed giant: its banded ball and its ring
+	if _field(n):
+		return _field_body(n)        # issue #880: an asteroid field is its rocks, no ball
 	if real_ok and bool(n.get("ball", false)) and _real_ball(n):
 		var real := _ball_body(n)
 		if real != null:
@@ -810,7 +812,56 @@ func _pool_leaving() -> void:
 ## but the detail. Issue #573: only a ball type (the moons); the home planet is a
 ## sand ball seen from far off, never flown into from close to its edge.
 static func _real_ball(n: Dictionary) -> bool:
-	return _rocky(n) and PlanetGen.handoff_altitude(str(n.type)) > 0.0
+	return _rocky(n) and not _field(n) and PlanetGen.handoff_altitude(str(n.type)) > 0.0
+
+
+## Issue #880: an asteroid field (the field type: a ball type with nothing to draw).
+static func _field(n: Dictionary) -> bool:
+	var t: Dictionary = PlanetGen.types().get("types", {}).get(str(n.type), {})
+	return str(t.get("ground", "")) == "ball" and str(t.get("surface", {}).get("kind", "")) == FieldRocks.KIND
+
+
+## Issue #880: an asteroid field from off: a loose cloud of its rocks (the field
+## type's body.rocks of them, the field's own rock shapes) round its dock, flat
+## like the field itself, in the body's colour, so you fly toward rocks and, past
+## its bubble, the field's own rocks take their place.
+func _field_body(n: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Planet_" + str(n.id)
+	root.position = n.get("offset", n.at)
+	var body: Dictionary = PlanetGen.types().get("types", {}).get(str(n.type), {}).get("body", {})
+	var count := int(body.get("rocks", 90))
+	var spread := float(body.get("radius", 1500.0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = NameEngine.fnv(str(n.id))
+	var m := StandardMaterial3D.new()
+	m.albedo_color = n.color
+	m.albedo_texture = LookEnvironment.make_noise_texture(256, 3, 0.02)
+	m.roughness = 0.95
+	for v in FieldRocks.VARIANTS:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = FieldRocks.unit_mesh(v)
+		var xs: Array = []
+		for i in count:
+			if i % FieldRocks.VARIANTS != v:
+				continue
+			var a := rng.randf() * TAU
+			var d := sqrt(rng.randf()) * spread
+			var c := Vector3(cos(a) * d, rng.randf_range(-0.15, 0.1) * spread, sin(a) * d)
+			var r := rng.randf_range(10.0, 40.0) * (2.2 if i < 4 else 1.0)
+			var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.4, 0.4))
+			xs.append(Transform3D(b * Basis.from_scale(Vector3.ONE * r), c))
+		mm.instance_count = xs.size()
+		for i in xs.size():
+			mm.set_instance_transform(i, xs[i])
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.extra_cull_margin = spread
+		root.add_child(mi)
+	return root
 
 
 ## A small rocky ball (the asteroid, the lava moon: any "ball" type), not a planet.

@@ -115,7 +115,7 @@ func test_the_same_seed_is_the_same_town() -> void:
 
 func test_every_planet_type_builds() -> void:
 	var types: Dictionary = PlanetGen.types().types
-	assert_eq(types.size(), 11)
+	assert_eq(types.size(), 12)
 	for type in types:
 		var p := PlanetGen.make({ "id": "test_" + type, "type": type, "town_size": 12, "seed": 2 }, cc)
 		assert_eq(p.type, type)

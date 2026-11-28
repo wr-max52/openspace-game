@@ -354,6 +354,25 @@ static func on_range_record(seconds: float) -> void:
 	_complete_jobs("range_record")
 
 
+## Issue #880: a field job (bar board kind "field") done: `trigger` is its
+## completes_on (FieldWorld). Paid as any board job, then back on the board, to take
+## again.
+static func on_field_job(trigger: String) -> void:
+	_complete_jobs(trigger)
+	for id in jobs_taken.keys():
+		var j := job(str(id))
+		if str(j.get("kind", "")) == "field" and str(jobs_taken[id]) == "done" and str(j.get("completes_on", "")) == trigger:
+			jobs_taken.erase(id)
+
+
+## Issue #880: a field job lost (the stranded pilot's air ran out): off your list,
+## back on the board.
+static func drop_field_job(id: String) -> void:
+	if str(job(id).get("kind", "")) == "field":
+		jobs_taken.erase(id)
+		log_event("Lost the job: " + str(job(id).get("title", id)))
+
+
 ## Issue #611: you won a speeder race against `crew` for `pot` credits. They are
 ## paid into your credits at the finish (Dorrin used to hold them; an old save's
 ## "race_winnings" is still collected at his counter).
@@ -438,6 +457,8 @@ static func open_jobs(tier: String) -> Array:
 			continue
 		if kind == "heist" and not Heist.can_offer(j):
 			continue                       # issue #310: one at a time, somewhere to hit
+		if kind == "field" and GameFlow.current_planet_id() != str(j.get("planet", "")):
+			continue                       # issue #880: the field's own jobs, on its own board
 		var req: Dictionary = j.get("requires", {})
 		if away and kind in ["smuggle", "bounty"]:
 			req = req.duplicate()

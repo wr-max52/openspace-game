@@ -168,6 +168,8 @@ func where(target: String) -> Vector3:
 			var r = demo.training_range
 			if r != null and r.remote != null and is_instance_valid(r.remote):
 				return r.remote.global_position
+		"field":
+			return FieldWorld.goal.get("at", Vector3.INF)    # issue #880: the field job's next place
 		"pad":
 			if not demo.pads.is_empty() and is_instance_valid(demo.pads[0]):
 				return demo.pads[0].global_position

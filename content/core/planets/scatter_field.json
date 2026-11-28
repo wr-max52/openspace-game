@@ -1,0 +1,82 @@
+{
+  "id": "scatter_field",
+  "note": "Issue #880: the red system's asteroid field, a place on the field type (content/core/planets/types.json 'field'): no ground, open space's dark sky, a few hundred rocks round a small dock town on the biggest of them. Low gravity everywhere (the field landmark's gravity, as the cruiser's outside: content/core/cruiser/remnant_cruiser.json), your feet stick to the rock under you and you fall toward the nearest big one in reach; drift clear of them all and you are pulled back to your ship. Three wrecked cruisers to walk into among the rocks, four Remnant outposts (skimmer outposts, content/core/stations/skimmer_outpost.json) on the biggest rocks as a Territory front ('field'), and jobs on the station's bar board (content/core/board/bar_board.json: the field jobs).",
+  "name": "",
+  "type": "field",
+  "system": "red_reach",
+  "town_size": 30,
+  "seed": 880,
+  "near": "red_reach_sun",
+  "at": [26000, 5000, 6000],
+  "style": "metallic",
+  "features": [],
+  "encounter": "",
+  "replaces_sky_painting": true,
+  "harmful_surface": {},
+  "landmarks": [
+    {
+      "id": "field",
+      "kind": "field",
+      "seed": 880,
+      "note": "The field itself (src/systems/world/field_rocks.gd; run by src/systems/world/field_world.gd). gravity: m/s/s on foot anywhere out here; jet_recharge: seconds of jetpack fuel a second back in the air (after its usual pause). jump_m: how high a jump rises out here (the same push as anywhere: 0.6 m at home's 20 m/s/s is 3 m at 4), so a run and a jump carries you over to the next rock. reach: how far past a rock's face its pull holds (plus 0.4 of its radius), so you fall toward the nearest rock in reach. leap_m: in the air off a rock, that rock counts this many metres further off, so the next rock in reach takes you once you are off its face (PlanetSphere.body_bias). drift_s and drift_m: clear of every rock's reach for drift_s seconds, or drift_m metres below the deck, and you are pulled back to your ship. home: the dock rock under the deck (scale: of the deck's half width; face_y: its flat top, under the deck's keel slab). outpost_rocks: under each outpost (its 'station' landmark), in the station's own frame: its tower and its bay. path_radius and gap: the hops out to each outpost, wreck pad and the pilot's rock (rock radius, metres between faces). scatter: more rocks in that box (min x y z, max x y z) and radius range. small: the rocks you only see (no collision), tumbling. wrecks: posed like the belt's (BeltWrecks): at is the middle of the pad you come in on, yaw_deg the stern's heading from +z, pitch_deg its bow's dive (always down: the wreck's decks are built for a dive), roll_deg its list, variant as the belt wrecks' (StarcruiserWreck.VARIANT_KEYS; deck_drop for a shallow dive). sites: the stranded pilot's far rock and where the lost crate drifts. cells: where a salvage run's power cells lie in a wreck, in its interior's design frame (the droids' interior route). look: the rocks' colours and the jobs' things. wreck_names: what the jobs call each wreck. pilot_air_s: the stranded pilot's air from taking the job; dock_m: how near the dock your ship parks to bring them home. lines: what the field says (FieldWorld).",
+      "gravity": 4.0,
+      "jet_recharge": 0.9,
+      "jump_m": 3.0,
+      "reach": 32.0,
+      "drift_s": 7.0,
+      "drift_m": 260.0,
+      "leap_m": 8.0,
+      "home": { "scale": 0.95, "face_y": -6.5 },
+      "outpost_rocks": [
+        { "at": [0, -1.5, 0], "radius": 56 },
+        { "at": [-90, -1.5, 0], "radius": 40 }
+      ],
+      "path_radius": [12, 26],
+      "gap": [10, 24],
+      "scatter": { "count": 48, "radius": [10, 36], "box": [-1500, -260, -1500, 1500, 180, 1500] },
+      "small": { "count": 340, "radius": [0.6, 3.8], "box": [-1500, -260, -1500, 1500, 220, 1500] },
+      "wrecks": [
+        { "id": "field_wreck_dawn", "at": [275, -30, 589], "yaw_deg": 25, "pitch_deg": -18, "roll_deg": 6,
+          "variant": { "deck_drop": 3, "smooth_spine": true, "skip": ["port_drop", "radiator_2"], "ramp_width": { "climb_ramp": 10.0 }, "rail_gaps": { "upper_catwalk_stern_rail": [1] }, "shard_turn": 6 } },
+        { "id": "field_wreck_coil", "at": [-589, 15, 275], "yaw_deg": -65, "pitch_deg": -8, "roll_deg": -4,
+          "variant": { "deck_drop": 6, "smooth_spine": true, "open_pad": true, "skip": ["port_drop", "port_balcony", "radiator_1"], "ramp_width": { "climb_ramp": 10.0 }, "rail_gaps": { "mid_catwalk_bow_rail": [2, 6] }, "shard_turn": -9 } },
+        { "id": "field_wreck_gull", "at": [-275, -60, -589], "yaw_deg": -155, "pitch_deg": -30, "roll_deg": 0,
+          "variant": { "smooth_spine": true, "skip": ["radiator_0", "hull_band_-150"], "rail_gaps": { "starboard_deck_rail": [2] }, "shard_turn": 4 } }
+      ],
+      "sites": {
+        "pilot": { "at": [1224, 60, -571], "radius": 20 },
+        "crate": { "at": [420, 34, -330] }
+      },
+      "cells": [[-34, 136, 182], [34, 136, 182]],
+      "look": { "rock": "#6e5a50", "rock_dark": "#2a2220", "dust": "#a27c64", "cell": "#7fe0ff", "crate": "#8a6a3a", "pilot": "#d8682a" },
+      "wreck_names": { "field_wreck_dawn": "the Dawn wreck", "field_wreck_coil": "the Coil wreck", "field_wreck_gull": "the Gull wreck" },
+      "pilot_air_s": 300.0,
+      "dock_m": 120.0,
+      "lines": {
+        "pulled_back": "You drifted out past the rocks. Your ship reeled you back in.",
+        "cell_taken": "Power cell: %d of %d.",
+        "cells_aboard": "Cells stowed: %d of %d.",
+        "salvage_go": "Salvage: the power cells in %s",
+        "salvage_done": "The power cells are stowed in your hold.",
+        "to_ship": "Carry it to your ship",
+        "crate_go": "Find the lost crate drifting past the rocks",
+        "crate_grabbed": "You have the crate. Get it to your ship.",
+        "crate_done": "The crate is stowed in your hold.",
+        "pilot_go": "Reach the stranded pilot (%d s of air)",
+        "pilot_found": "The pilot clips onto your tether: %d seconds of air.",
+        "pilot_back": "Get the pilot to your ship (%d s of air)",
+        "pilot_aboard": "The pilot is aboard. Fly them home to the dock.",
+        "pilot_home": "Fly the pilot home to the dock",
+        "pilot_done": "The pilot is home on the dock.",
+        "pilot_lost": "The stranded pilot's air ran out.",
+        "clear_go": "Take one of the Remnant's outposts in the field",
+        "clear_done": "One of the field's rocks is the locals' now."
+      }
+    },
+    { "id": "field_spur", "kind": "station", "station": "skimmer_outpost", "at": [846.5, 0, 308.1], "altitude": 269.6, "yaw_deg": 0,
+      "note": "The four Remnant outposts, skimmer outposts on the field's biggest rocks (their rocks: the field's outpost_rocks), about a kilometre out round the dock, level (the field's up is straight up). Places station_<id>: the field's Territory front (content/core/story/territory.json 'field')." },
+    { "id": "field_anvil", "kind": "station", "station": "skimmer_outpost", "at": [-314.9, 0, 865.3], "altitude": 322.8, "yaw_deg": 0 },
+    { "id": "field_hook", "kind": "station", "station": "skimmer_outpost", "at": [-846.9, 0, -308.2], "altitude": 233.6, "yaw_deg": 0 },
+    { "id": "field_lamp", "kind": "station", "station": "skimmer_outpost", "at": [310.4, 0, -852.8], "altitude": 293.3, "yaw_deg": 0 }
+  ]
+}

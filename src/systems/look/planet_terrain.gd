@@ -136,6 +136,9 @@ const GAS_SHADER := preload("res://src/systems/look/shaders/gas_giant.gdshader")
 ## colours, gloss, the pontoons' pad colour), drawn with sea.gdshader. {} = no sea.
 var sea_look := {}
 const SEA_SHADER := preload("res://src/systems/look/shaders/sea.gdshader")
+## Issue #880: an asteroid field's ball (FieldSphere): nothing of the ball is drawn
+## (what you see out there are the field's rocks, FieldRocks), only its collider.
+var no_mesh := false
 
 
 ## Issue #272: lava in the rock's low ground (lava_rock.gdshader), when the ball's
@@ -229,6 +232,11 @@ static func for_planet(planet: Dictionary) -> PlanetTerrain:
 		# The ringed giant: smooth cloud tops all the way round, the town on a deck above.
 		pt.use_sphere(GasSphere.new(r, surf))
 		pt.gas_look = gas_look_for(planet)
+	elif str(planet.get("ground", "")) == "ball" and str(surf.get("kind", "")) == "field":
+		# Issue #880: an asteroid field: an empty ball under the deck, the rocks its bodies.
+		pt.use_sphere(FieldSphere.new(r, surf))
+		pt.use_surface(surf)
+		pt.no_mesh = true
 	elif str(planet.get("ground", "")) == "ball" and str(surf.get("kind", "")) == "water":
 		# Issue #879: the tide world: a round sea, the town low on it on a deck.
 		pt.use_sphere(OceanSphere.new(r, surf))
@@ -525,6 +533,7 @@ func _map_covers(m: Vector2, margin: float) -> bool:
 
 
 func build(with_mesh: bool = true) -> void:
+	with_mesh = with_mesh and not no_mesh
 	_with_mesh = with_mesh
 	material = _ground_material(sphere.center)
 	collider_body = StaticBody3D.new()
@@ -587,6 +596,7 @@ var _live_tasks := {}                  ## near/mid worker task ids not yet waite
 
 
 func build_staged(with_mesh: bool = true) -> void:
+	with_mesh = with_mesh and not no_mesh
 	_with_mesh = with_mesh
 	material = _ground_material(sphere.center)
 	collider_body = StaticBody3D.new()

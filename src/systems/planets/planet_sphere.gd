@@ -74,6 +74,18 @@ const UNDER_INSET := 1.5
 ## inside `box` (in `frame`), up is the frame's y, not the ball's. Each is
 ## { frame, inv, box, center, reach }; the bounding sphere is a quick reject.
 var gravity_zones: Array = []
+## Issue #880: bodies you float round (a field's rocks): near one, up is away from
+## its core (a box in its own frame), so your feet stick to whichever rock is under
+## you and you fall toward the nearest one in reach. Each is { frame, inv, half,
+## skin, reach, center, bound }: half the core box, skin how far the rock's face
+## stands past the core, reach how far past the face its pull holds, bound the
+## quick reject (its centre and squared reach). Checked after the gravity zones.
+var gravity_bodies: Array = []
+## Issue #880: a drifter's leap. { index, add, at, within }: within `within` metres
+## of `at`, body `index` (the rock they left) counts `add` metres further off, so
+## once they are off its face the next rock in reach takes them (FieldWorld sets it
+## while they are in the air). Empty: none.
+var body_bias := {}
 
 var _dune := FastNoiseLite.new()
 var _warp := FastNoiseLite.new()
@@ -174,6 +186,10 @@ func up_at(p: Vector3) -> Vector3:
 	for z in gravity_zones:
 		if p.distance_squared_to(z.center) < z.reach and (z.box as AABB).has_point((z.inv as Transform3D) * p):
 			return (z.frame as Transform3D).basis.y
+	if not gravity_bodies.is_empty():
+		var bu := body_up(p)
+		if bu != Vector3.ZERO:
+			return bu
 	var radial := (p - center).normalized()
 	var d := dir_map(radial).length()
 	var t := smoothstep(flat_radius, flat_radius + up_blend, d)
@@ -193,6 +209,63 @@ func add_gravity_zone(frame: Transform3D, box: AABB) -> void:
 	var c := frame * box.get_center()
 	var r := box.size.length() * 0.5
 	gravity_zones.append({ "frame": frame, "inv": frame.affine_inverse(), "box": box, "center": c, "reach": r * r })
+
+
+## Issue #880: is p inside one of the gravity zones (a station, a cruiser, a wreck,
+## a field's deck)?
+func in_zone(p: Vector3) -> bool:
+	for z in gravity_zones:
+		if p.distance_squared_to(z.center) < z.reach and (z.box as AABB).has_point((z.inv as Transform3D) * p):
+			return true
+	return false
+
+
+## Issue #880: a body you float round (see gravity_bodies). `half`: its core box's
+## half size in `frame`; `skin`: from the core to its face; `reach`: how far past
+## the face its pull holds. Added again with the same frame, it is not doubled.
+func add_gravity_body(frame: Transform3D, half: Vector3, skin: float, reach: float) -> void:
+	for b in gravity_bodies:
+		if (b.frame as Transform3D).is_equal_approx(frame):
+			return
+	var r := half.length() + skin + reach
+	gravity_bodies.append({ "frame": frame, "inv": frame.affine_inverse(), "half": half, "skin": skin,
+		"reach": reach, "center": frame.origin, "bound": r * r })
+
+
+## Issue #880: up from the nearest body whose pull reaches p, or ZERO when none does.
+func body_up(p: Vector3) -> Vector3:
+	var b := nearest_body(p)
+	if b.is_empty():
+		return Vector3.ZERO
+	return b.up
+
+
+## Issue #880: the nearest body whose pull reaches p: { index, up, gap (metres off
+## its face, about) }, or {} when none does.
+func nearest_body(p: Vector3) -> Dictionary:
+	var best := INF
+	var out := {}
+	for i in gravity_bodies.size():
+		var b: Dictionary = gravity_bodies[i]
+		if p.distance_squared_to(b.center) > b.bound:
+			continue
+		var q: Vector3 = (b.inv as Transform3D) * p
+		var h: Vector3 = b.half
+		var d := q - q.clamp(-h, h)
+		var gap := d.length() - float(b.skin)
+		if gap > float(b.reach):
+			continue
+		var rank := gap
+		if not body_bias.is_empty() and i == int(body_bias.index) \
+				and p.distance_squared_to(body_bias.at) <= float(body_bias.within) * float(body_bias.within):
+			rank += float(body_bias.add)
+		if rank >= best:
+			continue
+		best = rank
+		var f: Transform3D = b.frame
+		var up := f.basis.y if d.length() < 0.001 else (f.basis * d).normalized()
+		out = { "index": i, "up": up, "gap": gap }
+	return out
 
 
 ## The rotation that takes world up to `up_at(p)` (identity on the plateau).

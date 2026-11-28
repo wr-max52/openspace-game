@@ -419,6 +419,17 @@ if [ ! -f test_results/sea_trace.txt ]; then
 fi
 echo "CI: sea trace present ($(wc -l < test_results/sea_trace.txt) lines)"
 
+# Issue #880: the asteroid field: a run and a jump off one rock lands on the next,
+# your ship reels you back, a ship bumps and crashes into rocks, the four outposts
+# are taken and the salvage run pays.
+echo "CI: generating field trace..."
+within_budget "$GODOT_BIN" --headless --fixed-fps 60 --path . -s res://scenes/field_trace.gd >/dev/null 2>&1 || true
+if [ ! -f test_results/field_trace.txt ]; then
+  echo "CI: ERROR -- field trace was not generated" >&2
+  exit 1
+fi
+echo "CI: field trace present ($(wc -l < test_results/field_trace.txt) lines)"
+
 # Issue #876: the red system's ring station over the port (its own name and darker
 # metal, Z docks you in its bay), its Remnant deck taken (the map's owners move) and
 # its cruiser's general killed (only that cruiser's flag).

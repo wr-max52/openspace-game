@@ -2478,3 +2478,29 @@ Issue #879 (epic #873): the tide world, a round sea you ride.
   station's ring packer, which only fills a ring.
 - **Outposts copy the red world's.** The five pontoon outposts are the red flats
   outpost with new ids, not the gas giant's skimmer decks, which float 200 m up.
+
+## The field is many small gravity bodies on an empty ball (2026-11-28)
+
+Issue #880 (epic #873): the red system's asteroid field.
+
+- **A ball with nothing on it.** The field type is a gas ball's shape with no
+  mesh and nothing deadly (`FieldSphere`), so arrival, handoff, the deck town,
+  the sky and the space scene all work as on any ball, and the rocks are the
+  only thing you meet.
+- **Rocks are gravity bodies, not spheres of their own.** Each big rock joins
+  the ball's `gravity_bodies`; the player's up is the nearest body in reach,
+  else the ball's. That keeps one gravity model for the deck, the rocks, the
+  wrecks and the outposts, and the cruiser's outside already proved it.
+- **The leap bias.** Nearest-body gravity alone pulls a jumper back onto the
+  rock they left, because its face is always the closest. In the air, the rock
+  you left counts `leap_m` further off until you land, so the next rock takes
+  you once you are a few metres across the gap. It lives on `PlanetSphere`
+  (`body_bias`), set by `FieldWorld`.
+- **A higher jump, not a stronger one.** The controller's jump was fixed at
+  0.6 m whatever the gravity, so at 4 m/s/s it was a hop. `jump_height` is now a
+  number the field sets (`jump_m`, 3 m): the same push a jump has at home.
+- **Shared meshes.** A few rock meshes, each copied with its own scale and turn,
+  and the small ones in MultiMeshes, so a few hundred rocks cost little.
+- **Outposts are skimmer outposts on rocks.** The gas giant's floating outposts
+  already stand on nothing; here each gets a rock under its tower and its bay.
+
